@@ -93,7 +93,11 @@ service cloud.firestore {
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
                         && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId'])
                         && request.resource.data.valor == catalogoPreco(request.resource.data)
+                        && request.resource.data.juros == get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25))
                         && request.resource.data.entrada >= request.resource.data.valor * entradaMin() / 100)
+                    // vendedor: venda reprovada automaticamente por IMEI irregular (Anatel)
+                    || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'REPROVADA'
+                        && request.resource.data.reprovadoPorImei == true && semMexer(['analise', 'cliente', 'valor', 'entrada', 'parcelas']))
                     // vendedor: contrato assinado (sem mudar valores)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'AGUARDANDO_ENTRADA'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros']))

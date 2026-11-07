@@ -245,6 +245,11 @@ details summary{cursor:pointer}
 .bio-oval{position:absolute;inset:12% 18% 18%;border:3px dashed rgba(255,255,255,.85);border-radius:50%;box-shadow:0 0 0 999px rgba(10,23,51,.35)}
 @media(max-width:700px){.bio{grid-template-columns:1fr}}
 .sugerido{border-color:var(--pri)!important;background:var(--pri-s)!important}
+.imei-box h2 svg{width:20px;height:20px;color:var(--pri)}
+.imei-pass{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px;background:var(--soft)}
+.imei-pass>span{font-size:13px;color:var(--mut)}
+.imei-foto{width:100%;max-height:160px;object-fit:contain;background:#000;border-radius:8px;margin-top:8px}
+.inst-status.bad{background:var(--bad-s);color:var(--bad)}
 .sw{display:inline-flex;cursor:pointer}.sw input{display:none}.sw span{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.15s}.sw span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}.sw input:checked+span{background:var(--ok)}.sw input:checked+span::after{left:21px}
 .top .sp,.row .sp{flex:1}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -386,7 +391,7 @@ const ADMIN_COMPONENT = APP_PKG + '/.AdminReceiver';
 const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'Financeiro', SUPORTE:'Suporte'};
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
-  empresa:'NexumCell', cnpj:'', jurosMensal:7.9, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
+  empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
   toleranciaDias:3, maxDiasOffline:15, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
   apkUrl:'', apkChecksumHex:'', chavePix:'', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
@@ -412,6 +417,9 @@ function cpfOk(c){ c=onlyDig(c); if(c.length!==11||/^(\d)\1+$/.test(c)) return f
 const fmtCpf = c => { c=onlyDig(c); return c.length===11 ? c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : c; };
 function imeiOk(s){ s=onlyDig(s); if(s.length!==15) return false; let sum=0; for(let i=0;i<15;i++){ let d=+s[i]; if(i%2===1){ d*=2; if(d>9) d-=9; } sum+=d; } return sum%10===0; }
 function token(n=28){ const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'; const r=crypto.getRandomValues(new Uint8Array(n)); return Array.from(r,x=>a[x%a.length]).join(''); }
+/* Juros do NexumCell: acréscimo único (%) sobre o valor financiado, dividido nas parcelas */
+const jurosDo = x => (x&&x.juros!=null&&x.juros!=='')?Number(x.juros):(Number(S.cfg.jurosFinanciamentoPct)||0);
+const parcelaFlat = (fin,jPct,n) => n>0 ? r2(fin*(1+jPct/100)/n) : 0;
 function pmt(pv,i,n){ if(n<=0) return 0; if(!i) return pv/n; return pv*i/(1-Math.pow(1+i,-n)); }
 const badge = (t,c) => `<span class="badge b-${c}">${esc(t)}</span>`;
 const vBadge = s => badge(...(VENDA_ST[s]||[s,'gray']));
@@ -499,14 +507,14 @@ function seedDemo(){
    .forEach(([marca,modelo,capacidade,preco])=>d.catalogo[slugCat(marca,modelo,capacidade)]={marca,modelo,capacidade,preco,ativo:true});
   const cfg=d.config.sistema; let num=0;
   const mk=(o)=>{
-    num++; const id='v'+num, juros=cfg.jurosMensal/100, fin=o.valor-o.entrada, vp=r2(pmt(fin,juros,o.n));
+    num++; const id='v'+num, fin=o.valor-o.entrada, vp=parcelaFlat(fin,cfg.jurosFinanciamentoPct,o.n);
     const parcelas=Array.from({length:o.n},(_,i)=>({n:i+1,venc:addMonths(o.primeiro,i),valor:vp,pago:i<o.pagas,...(i<o.pagas?{pagoEm:addMonths(o.primeiro,i),valorPago:vp,forma:'PIX',por:'Fernanda Financeiro'}:{})}));
     const cli={cpf:o.cpf,nome:o.nome,tel:o.tel,telefones:[onlyDig(o.tel),'4598'+o.cpf.slice(0,7)],nasc:'1995-04-12',email:'',cep:'85851-000',endereco:'Rua Exemplo, 100',bairro:'Centro',cidade:'Foz do Iguaçu',uf:'PR',renda:2400,profissao:'Autônomo(a)',refNome:'Referência',refTel:'(45) 99999-1234'};
     d.clientes[o.cpf]={...cli,criadoEm:now};
     const v={numero:num,status:o.status,criadoEm:now-86400000*40,lojaId:o.loja,lojaNome:d.lojas[o.loja].nome,vendedorUid:o.loja==='l1'?'u_vend':'u_vend2',vendedorNome:o.loja==='l1'?'Vitória Vendedora':'Valter Vendedor',
       cliente:cli,clienteCpf:o.cpf,clienteNome:o.nome,aparelho:o.semAparelho?null:{marca:o.marca,modelo:o.modelo,capacidade:'128 GB',imei:o.imei,imei2:'',cor:'Preto',armazenamento:'128 GB'},
       verificacao:{docTipo:'RG',iaLeitura:true,simulado:true,documentoOriginal:true,editados:[],face:{aprovado:true,mesma_pessoa:'sim',confianca:90}},confirmacaoDados:{status:o.status==='ANALISE'?'PENDENTE':'CONFIRMADO',prazo:now+86400000*2},
-      valor:o.valor,entrada:o.entrada,financiado:fin,nParcelas:o.n,juros:cfg.jurosMensal,valorParcela:vp,total:r2(vp*o.n),primeiroVenc:o.primeiro,parcelas};
+      valor:o.valor,entrada:o.entrada,financiado:fin,nParcelas:o.n,juros:cfg.jurosFinanciamentoPct,valorParcela:vp,total:r2(vp*o.n),primeiroVenc:o.primeiro,parcelas};
     if(o.status!=='ANALISE') v.analise={resultado:o.status==='REPROVADA'?'REPROVADA':'APROVADA',porNome:'Fernanda Financeiro',em:now-86400000*39,score:720,limite:2500,obs:'',checklist:{cpf:true,renda:true,selfie:true,referencia:true}};
     if(o.semAparelho) Object.assign(v,{valor:0,entrada:0,nParcelas:0,parcelas:[]});
     d.docs[id]={frente:FOTO_DEMO('DOC'),verso:'',selfie:FOTO_DEMO('ROSTO'),docTipo:'RG'};
@@ -680,6 +688,9 @@ Responda SOMENTE com JSON neste formato:
 {"legivel":true,"motivo":"","tipo":"RG|CNH|CIN|OUTRO","documento_original":true,"nome":"","cpf":"somente números","rg":"","orgao_emissor":"","data_nascimento":"AAAA-MM-DD","nome_mae":"","nome_pai":"","naturalidade":"","validade":"AAAA-MM-DD ou vazio"}
 Regras: se nome, CPF ou data de nascimento não puderem ser lidos com certeza, use "legivel":false e explique em "motivo".
 "documento_original" é false se parecer foto de tela, xerox ou impressão. Nunca invente dados.`;
+const PROMPT_IMEI=`A imagem deve ser a tela de um celular mostrando o resultado do código *#06# (lista de IMEI) ou a etiqueta de IMEI da caixa do aparelho.
+Responda SOMENTE com JSON: {"legivel":true,"tela_imei":true,"imeis":["somente os números de 15 dígitos que aparecem"],"marca_modelo":"se aparecer","observacao":""}
+Nunca invente números: se não conseguir ler com certeza, use "legivel":false.`;
 const PROMPT_FACE=`A primeira imagem é uma selfie tirada agora pela câmera; a segunda é a foto do documento de identidade da pessoa.
 Responda SOMENTE com JSON: {"rosto_detectado":true,"quantidade_rostos":1,"foto_de_tela_ou_papel":false,"olhos_abertos":true,"mesma_pessoa":"sim|nao|incerto","confianca":0,"observacao":""}
 "foto_de_tela_ou_papel" é true se a selfie parecer uma foto de outra foto, de uma tela ou de papel. "confianca" de 0 a 100.`;
@@ -688,7 +699,7 @@ function lerArquivo(f){ return new Promise((ok,err)=>{ const r=new FileReader();
 function carregarImg(u){ return new Promise((ok,err)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>err(new Error('Arquivo não é uma imagem válida.')); i.src=u; }); }
 function redimensionar(img,max,q=0.8){ const s=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); return c.toDataURL('image/jpeg',q); }
 /* Recusa foto ilegível antes de gastar IA: resolução, luz e nitidez (variância do Laplaciano) */
-function qualidadeFoto(img){
+function qualidadeFoto(img,opt={}){
   if(Math.min(img.width,img.height)<480) return {ok:false,motivo:'Resolução muito baixa. Aproxime o documento e tire a foto de novo.'};
   const W=400, H=Math.max(1,Math.round(img.height*W/img.width)), c=document.createElement('canvas'); c.width=W; c.height=H;
   const x=c.getContext('2d'); x.drawImage(img,0,0,W,H); const d=x.getImageData(0,0,W,H).data, g=new Float32Array(W*H); let soma=0;
@@ -697,7 +708,7 @@ function qualidadeFoto(img){
   for(let y=1;y<H-1;y++) for(let k=1;k<W-1;k++){ const i=y*W+k, l=4*g[i]-g[i-1]-g[i+1]-g[i-W]-g[i+W]; n++; m+=l; m2+=l*l; }
   const nit=m2/n-(m/n)**2;
   if(media<45) return {ok:false,motivo:'Foto muito escura. Procure um lugar com mais luz.'};
-  if(media>235) return {ok:false,motivo:'Foto clara demais ou com reflexo. Evite flash e luz direta sobre o documento.'};
+  if(media>235&&!opt.tela) return {ok:false,motivo:'Foto clara demais ou com reflexo. Evite flash e luz direta sobre o documento.'};
   if(nit<40) return {ok:false,motivo:'Foto tremida ou desfocada. Apoie o celular, espere focar e tire de novo.'};
   return {ok:true,nitidez:Math.round(nit)};
 }
@@ -961,44 +972,116 @@ async function passoAparelho(){
     <div class="grid g4">
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
+      <label>Juros sobre o financiado<input value="${jurosDo(item)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
       <label><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}"></label>
-      <label>IMEI 2<input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
+      <label><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
       <label>Entrada (mín. ${pct}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pct/100)}" value="${w.sel.entrada||r2(item.preco*pct/100)}"></label>
       <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||12)?'selected':''}>${n}x</option>`).join('')}</select></label>
       <label>1º vencimento<input id="nVenc" type="date" value="${w.sel.venc||addMonths(hoje(),1)}"></label>
       <label>Cor<input id="nCor" value="${esc(w.sel.cor||'')}"></label>
     </div>
     <div class="sim mt" id="nSim"></div>
+    ${blocoImei()}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="salvarAparelho">Gerar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
   if(item) simular();
 }
+const ANATEL_URL='https://www.consultaserialaparelho.com.br/public-web/homeSiga';
+function imeiMsg(v){ v=onlyDig(v); if(!v) return ''; if(v.length<15) return badge(`${v.length}/15 dígitos`,'amber'); return imeiOk(v)?badge('número válido','green'):badge('IMEI falso ou digitado errado','red'); }
+function blocoImei(){
+  const w=S.w, f=w.imeiFoto, ia=w.imeiIA, an=w.anatel||'';
+  return `<div class="card mt imei-box"><h2>${svg('<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>')}Verificação do IMEI (antifraude)</h2>
+    <div class="grid g3">
+      <div class="imei-pass"><b>1. Número do IMEI</b><span>O sistema confere os 15 dígitos e o dígito verificador. IMEI inventado é recusado.</span><div id="imeiCheck" class="mt">${imeiMsg(w.sel.imei)||'<span class="muted small">Digite o IMEI acima</span>'}</div></div>
+      <div class="imei-pass"><b>2. Foto da tela *#06#</b><span>No aparelho que vai ser entregue, disque <b>*#06#</b> e tire a foto da tela. ${iaChave()?'A IA confere se o IMEI digitado é o mesmo da tela.':'A foto fica guardada para o analista.'}</span>
+        ${f?`<img src="${f.ver}" class="imei-foto">`:''}
+        <div class="row mt"><label class="btn sm ${f?'':'gold'}">${svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}${f?'Tirar outra':'Tirar foto'}<input type="file" accept="image/*" capture="environment" data-imeifoto hidden></label></div>
+        <div id="imeiFotoSt" class="mt small">${ia?(ia.confere?`<b style="color:var(--ok)">✓ ${esc(ia.msg)}</b>`:`<b style="color:var(--bad)">✕ ${esc(ia.msg)}</b>`):''}</div></div>
+      <div class="imei-pass"><b>3. Consulta oficial (Anatel)</b><span>Consulte o IMEI no Celular Legal (roubo, furto e aparelho irregular) e marque o resultado.</span>
+        <div class="row mt"><a class="btn sm" target="_blank" rel="noopener" href="${ANATEL_URL}">Abrir consulta oficial</a><button class="btn sm" data-act="copiarTexto" data-t="${esc(w.sel.imei||'')}">Copiar IMEI</button></div>
+        <select id="nAnatel" class="mt"><option value="">Resultado da consulta…</option>
+          <option value="REGULAR" ${an==='REGULAR'?'selected':''}>Regular — sem restrição</option>
+          <option value="IMPEDIDO" ${an==='IMPEDIDO'?'selected':''}>Impedido por perda, roubo ou furto</option>
+          <option value="RESTRICAO" ${an==='RESTRICAO'?'selected':''}>Possui restrição de uso</option>
+          <option value="INVALIDO" ${an==='INVALIDO'?'selected':''}>IMEI informado é inválido</option></select></div>
+    </div>
+    <p class="hint">Depois da instalação, o app da trava lê o IMEI de verdade do aparelho. Se não for o mesmo do contrato, o aparelho é <b>bloqueado na hora</b>.</p></div>`;
+}
+async function receberImeiFoto(input){
+  const f=input.files[0]; if(!f) return; const w=S.w; guardarCampos();
+  try{
+    const img=await carregarImg(await lerArquivo(f)), q=qualidadeFoto(img,{tela:true});
+    if(!q.ok){ toast('Foto recusada: '+q.motivo,'err'); return; }
+    w.imeiFoto={ia:redimensionar(img,1600,0.85),ver:redimensionar(img,900,0.72)}; w.imeiIA=null; await passoAparelho();
+    await conferirImeiFoto();
+  }catch(e){ toast(e.message,'err'); }
+}
+async function conferirImeiFoto(){
+  const w=S.w; if(!w.imeiFoto) return null; guardarCampos();
+  const st=$('#imeiFotoSt'); if(st) st.innerHTML='<span class="spin sm"></span> Conferindo a foto…';
+  const digitados=[w.sel.imei,w.sel.imei2].filter(x=>x&&x.length===15);
+  let res;
+  try{
+    if(iaChave()){
+      const r=await iaVisao(PROMPT_IMEI,[w.imeiFoto.ia]);
+      const lidos=(r.imeis||[]).map(onlyDig).filter(x=>x.length===15);
+      if(!r.legivel||!lidos.length) res={confere:false,msg:'Não foi possível ler o IMEI na foto. Tire outra, de frente para a tela *#06#.'};
+      else if(!digitados.length) res={confere:false,msg:'Digite o IMEI do aparelho.',lidos};
+      else if(!digitados.every(x=>lidos.includes(x))) res={confere:false,msg:`IMEI digitado NÃO confere com a tela do aparelho (na foto: ${lidos.join(' / ')}).`,lidos};
+      else res={confere:true,msg:'IMEI confere com a tela do aparelho.',lidos};
+    } else if(!fb){ await new Promise(o=>setTimeout(o,700)); res={confere:imeiOk(w.sel.imei||''),msg:imeiOk(w.sel.imei||'')?'IMEI confere com a tela (simulado).':'Digite um IMEI válido.',simulado:true}; }
+    else res={confere:true,manual:true,msg:'Foto guardada — o analista confere.'};
+  }catch(e){ res={confere:true,manual:true,msg:'IA indisponível agora — foto guardada para o analista.'}; }
+  w.imeiIA=res; if($('#imeiFotoSt')) $('#imeiFotoSt').innerHTML=res.confere?`<b style="color:var(--ok)">✓ ${esc(res.msg)}</b>`:`<b style="color:var(--bad)">✕ ${esc(res.msg)}</b>`;
+  return res;
+}
+function guardarCampos(){ const w=S.w; if(!w?.sel||!$('#nImei')) return; Object.assign(w.sel,{imei:onlyDig($('#nImei').value),imei2:onlyDig($('#nImei2').value),entrada:+$('#nEntrada').value||w.sel.entrada,n:+$('#nParc').value,venc:$('#nVenc').value,cor:$('#nCor').value.trim()}); w.anatel=$('#nAnatel')?.value||w.anatel; }
+async function reprovarPorImei(v,motivo){
+  await DB.set('vendas',v.id,{status:'REPROVADA',reprovadoPorImei:true,motivoReprovacao:motivo,reprovadoEm:Date.now(),aparelhoRecusado:{imei:S.w.sel.imei,imei2:S.w.sel.imei2,marca:S.w.sel.marca}});
+  await log('Venda reprovada: IMEI irregular',v.id,motivo);
+  await DB.add('chamados',{criadoEm:Date.now(),status:'ABERTO',assunto:`Tentativa com IMEI irregular — nº ${v.numero}`,setor:'SUPORTE',cliente:v.clienteNome,imei:S.w.sel.imei,descricao:motivo+' · vendedor '+S.me.nome,lojaId:v.lojaId,abertoPor:S.me.uid,abertoPorNome:S.me.nome,respostas:[]});
+  $('#wz').innerHTML=`<div class="card resultado bad"><div class="res-ic">${svg('<path d="M18 6 6 18M6 6l12 12"/>')}</div>
+    <h2 style="justify-content:center;font-size:24px">Venda reprovada: aparelho com IMEI irregular</h2>
+    <p class="muted">${esc(motivo)}<br>O aparelho <b>não pode ser vendido</b>. O dono e o suporte foram avisados.</p>
+    <button class="btn lg" data-act="novaProposta">Voltar ao início</button></div>`;
+}
 function simular(){
   const it=S.w?.sel&&S.w.sel.itemId; if(!it||!$('#nSim')) return;
+  guardarCampos(); if($('#imeiCheck')) $('#imeiCheck').innerHTML=imeiMsg($('#nImei').value)||'<span class="muted small">Digite o IMEI acima</span>';
+  if($('#nImei2Ok')) $('#nImei2Ok').innerHTML=imeiMsg($('#nImei2').value);
   const preco=S.w.sel.preco, pct=Number(S.cfg.entradaPct)||30, min=r2(preco*pct/100);
-  let e=+$('#nEntrada').value||0; const n=+$('#nParc').value, j=(Number(S.cfg.jurosMensal)||0)/100;
-  const fin=Math.max(0,preco-e), p=r2(pmt(fin,j,n));
+  let e=+$('#nEntrada').value||0; const n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null);
+  const fin=Math.max(0,preco-e), p=parcelaFlat(fin,jp,n);
   $('#nSim').innerHTML=`<div class="row">
     <div><small>Entrada</small><b>${brl(e)}</b></div><div><small>Financiado</small><b>${brl(fin)}</b></div>
     <div><small>${n} parcelas de</small><b>${brl(p)}</b></div><div><small>Total a prazo</small><b>${brl(p*n+e)}</b></div></div>
     ${e<min?`<p class="small" style="color:#FFB4B4;margin:8px 0 0">A entrada mínima é ${pct}% (${brl(min)}).</p>`:''}
-    <p class="small" style="color:#A9B6D3;margin:8px 0 0">Juros de ${S.cfg.jurosMensal}% a.m. · pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
-  const im=$('#nImei').value; $('#nImeiOk').innerHTML=im.length===15?(imeiOk(im)?badge('válido','green'):badge('inválido','red')):'';
+    <p class="small" style="color:#A9B6D3;margin:8px 0 0">Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
+  $('#nImeiOk').innerHTML=imeiMsg($('#nImei').value);
 }
-async function selItem(id){ const x=await DB.get('catalogo',id); S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,entrada:null}; passoAparelho(); }
+async function selItem(id){ const x=await DB.get('catalogo',id); S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosDo(x),entrada:null}; passoAparelho(); }
 async function salvarAparelho(btn){
   const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=Number(S.cfg.entradaPct)||30;
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
-  Object.assign(w.sel,{imei,imei2,entrada,n,venc,cor:$('#nCor').value.trim()});
-  if(!imeiOk(imei)) return toast('IMEI 1 inválido (confira no *#06#)','err');
+  guardarCampos();
+  if(!imeiOk(imei)) return toast('IMEI 1 inválido: o número não existe ou foi digitado errado (confira no *#06#)','err');
   if(imei2&&!imeiOk(imei2)) return toast('IMEI 2 inválido','err');
+  if(imei2&&imei2===imei) return toast('IMEI 1 e IMEI 2 não podem ser iguais','err');
+  if(!w.imeiFoto) return toast('Tire a foto da tela *#06# do aparelho','err');
+  const an=$('#nAnatel').value; if(!an) return toast('Faça a consulta oficial (Anatel) e marque o resultado','err');
   if(entrada<r2(x.preco*pct/100)) return toast(`A entrada mínima é ${pct}% (${brl(x.preco*pct/100)})`,'err');
   if(entrada>=x.preco) return toast('Entrada maior que o valor do aparelho','err');
   if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
   btn.disabled=true;
+  const v0=await DB.get('vendas',w.vendaId);
+  if(an!=='REGULAR'){ const t={IMPEDIDO:'IMEI impedido por perda, roubo ou furto (Anatel).',RESTRICAO:'IMEI com restrição de uso (Anatel).',INVALIDO:'IMEI inválido na base da Anatel.'}[an]; return reprovarPorImei(v0,t); }
+  const conf=(w.imeiIA&&(w.imeiIA.lidos||w.imeiIA.simulado||w.imeiIA.manual))?w.imeiIA:await conferirImeiFoto();
+  if(conf&&!conf.confere){ btn.disabled=false; return toast(conf.msg,'err'); }
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
-  const juros=Number(S.cfg.jurosMensal)||0, fin=r2(x.preco-entrada), vp=r2(pmt(fin,juros/100,n));
-  await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor},
+  const juros=jurosDo(x), fin=r2(x.preco-entrada), vp=parcelaFlat(fin,juros,n);
+  await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
+  const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
+  await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
     valor:x.preco,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
   await log('Aparelho escolhido',w.vendaId,`${x.marca} ${x.modelo} ${x.capacidade} · IMEI ${imei}`);
@@ -1099,6 +1182,7 @@ async function passoTrava(){
   if(!(S.cfg.videos||{})[marca]) animarGuia(marca);
   unwatch&&unwatch();
   unwatch=DB.watch('aparelhos',tk,a=>{ const el=$('#instStatus'); if(!el||!a) return;
+    if(a.checkin?.imei && ![a.imei,a.imei2].includes(a.checkin.imei) && ![a.imei,a.imei2].includes(a.checkin.imei2)){ el.className='inst-status bad'; el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} IMEI do aparelho (${esc(a.checkin.imei)}) NÃO confere com o contrato. O aparelho foi bloqueado. Não entregue ao cliente.`; return; }
     if(a.checkin?.em){ el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada! O aparelho se conectou ${relT(a.checkin.em)}. Pode entregar ao cliente.`; } });
 }
 
@@ -1178,9 +1262,10 @@ async function verVenda(id){
         <dt>Telefones</dt><dd>${(c.telefones||[c.tel]).map(fmtFone).map(esc).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd>
         <dt>Profissão / renda</dt><dd>${esc(c.profissao||'—')} · ${brl(c.renda)}</dd><dt>Referência</dt><dd>${esc([c.refNome,c.refTel].filter(Boolean).join(' — ')||'—')}</dd></dl></div>
       <div><h3>Aparelho e plano</h3><dl class="kv"><dt>Aparelho</dt><dd>${esc(apNome(v))}</dd>
-        ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''}</dd>`:''}
+        ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''} ${v.aparelho.verificacaoImei?badge('Anatel: '+(v.aparelho.verificacaoImei.anatel==='REGULAR'?'regular':v.aparelho.verificacaoImei.anatel)+' · foto *#06#: '+({CONFERE:'confere',MANUAL:'conferir',SIMULADO:'simulado'}[v.aparelho.verificacaoImei.ia]||'-'),v.aparelho.verificacaoImei.anatel==='REGULAR'?'green':'red'):''}</dd>`:''}
+        ${v.reprovadoPorImei?`<dt>Reprovada</dt><dd style="color:var(--bad)">${esc(v.motivoReprovacao)} · IMEI ${esc(v.aparelhoRecusado?.imei||'')}</dd>`:''}
         ${v.entradaPaga?`<dt>Entrada paga</dt><dd>${brl(v.entradaPaga.valor)} · ${esc(v.entradaPaga.forma)} · ${fmtDT(v.entradaPaga.em)}</dd>`:''}
-        <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)} (${v.juros}% a.m.)</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
+        <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)} (juros ${v.juros}% sobre o financiado)</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
         ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
@@ -1253,7 +1338,7 @@ function contratoHTML(v){
   return `<h4 style="text-align:center">CONTRATO DE COMPRA E VENDA A PRAZO COM RESERVA DE DOMÍNIO Nº ${v.numero}</h4>
   <p><b>VENDEDORA:</b> ${emp}, loja ${esc(v.lojaNome)}.<br><b>COMPRADOR(A):</b> ${esc(c.nome)}, CPF ${fmtCpf(c.cpf)}, nascido(a) em ${fmtD(c.nasc)}, residente em ${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}, telefone ${esc(c.tel)}.</p>
   <h4>1. Objeto</h4><p>Aparelho celular ${esc(v.aparelho.marca)} ${esc(v.aparelho.modelo)} ${esc(v.aparelho.armazenamento||'')}, IMEI ${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''}, novo, entregue nesta data em perfeito funcionamento.</p>
-  <h4>2. Preço e pagamento</h4><p>Preço à vista: ${brl(v.valor)}. Entrada: ${brl(v.entrada)}. Saldo de ${brl(v.financiado)} pago em ${v.nParcelas} parcelas mensais de ${brl(v.valorParcela)}, com juros de ${v.juros}% ao mês, vencendo a primeira em ${fmtD(v.primeiroVenc)} e as demais no mesmo dia dos meses seguintes. Valor total a prazo: ${brl(v.total+v.entrada)}. Custo efetivo informado ao comprador antes da assinatura.</p>
+  <h4>2. Preço e pagamento</h4><p>Preço à vista: ${brl(v.valor)}. Entrada: ${brl(v.entrada)}. Saldo de ${brl(v.financiado)} pago em ${v.nParcelas} parcelas mensais de ${brl(v.valorParcela)}, com acréscimo de juros de ${v.juros}% sobre o valor financiado (já incluído nas parcelas), vencendo a primeira em ${fmtD(v.primeiroVenc)} e as demais no mesmo dia dos meses seguintes. Valor total a prazo: ${brl(v.total+v.entrada)}. Custo efetivo informado ao comprador antes da assinatura.</p>
   <h4>3. Atraso</h4><p>O atraso implica multa de ${cfg.multaPct}% e juros de mora de ${cfg.moraDiaPct}% ao dia sobre a parcela vencida.</p>
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
   <h4>5. Aplicativo de gestão e bloqueio do aparelho</h4><p>O COMPRADOR declara ter sido informado, de forma clara e prévia, e concorda que o aparelho terá instalado o aplicativo de gestão NexumCell, que: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) <b>restringe o uso do aparelho quando houver parcela vencida há mais de ${cfg.toleranciaDias} dia(s)</b>, ou quando o aparelho ficar mais de ${cfg.maxDiasOffline} dias sem conexão com a internet; (c) mantém, mesmo durante a restrição, a possibilidade de <b>chamadas de emergência</b> e de contato com a loja; (d) é liberado automaticamente assim que o pagamento é registrado; (e) é <b>removido definitivamente</b> após a quitação. O COMPRADOR se compromete a não remover, desativar ou burlar o aplicativo nem regravar o sistema do aparelho até a quitação.</p>
@@ -1601,27 +1686,30 @@ PAGES.catalogo = async () => {
   const lista=linhas.filter(x=>!q||x.modelo.toLowerCase().includes(q));
   const liberados=m=>cat.filter(x=>x.marca===m&&x.ativo!==false&&x.preco>0).length;
   $('#topActions').innerHTML='<button class="btn" data-act="editarItem" data-id="">Adicionar outro modelo</button>';
-  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender e coloque o valor à vista. Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender, coloque o valor à vista e os juros sobre o valor financiado (em branco = padrão de ${jurosDo(null)}%, definido em Lojas e configurações). Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
   <div class="chips">${[...MARCAS,...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))].map(m=>`<button class="chip ${m===marca?'on':''}" data-act="filtro" data-k="catMarca" data-v="${esc(m)}">${esc(m)}${liberados(m)?` · ${liberados(m)}`:''}</button>`).join('')}</div>
   <div class="row mb"><input id="catQ" placeholder="Buscar modelo de ${esc(marca)}" style="max-width:320px" value="${esc(S.filtro.catQ||'')}">
     <span class="sp"></span><label style="flex-direction:row;align-items:center;gap:8px;font-weight:600">Margem sobre o mercado<input id="catMargem" type="number" step="1" value="${S.filtro.catMargem||0}" style="width:80px;min-height:34px;padding:6px 8px"> %</label>
     <button class="btn sm gold" data-act="catSugerir">Sugerir valores de mercado</button><button class="btn sm" data-act="catTodos" data-v="1">Liberar todos com valor</button><button class="btn sm" data-act="catTodos" data-v="0">Bloquear todos de ${esc(marca)}</button></div>
-  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th>Mercado (ref.)</th><th style="width:170px">Valor à vista (R$)</th><th class="right">Entrada ${pct}%</th></tr>
+  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th>Mercado (ref.)</th><th style="width:150px">Valor à vista (R$)</th><th style="width:110px">Juros (%)</th><th class="right">Entrada ${pct}% · financiado c/ juros</th></tr>
   ${lista.map(x=>{ const on=x.ativo!==false&&x.preco>0&&porId[x.id]; return `<tr>
     <td><label class="sw"><input type="checkbox" data-cat="${x.id}" ${on?'checked':''}><span></span></label></td>
     <td><b>${esc(x.modelo)}</b></td><td>${esc(x.capacidade)}</td>
     <td class="small">${x.ref?`<span class="muted">~${brl(x.ref)}</span> <button class="btn link sm" data-act="catUsar" data-id="${x.id}" data-v="${x.ref}" style="padding:2px 6px;min-height:0">usar</button>`:'<span class="muted">—</span>'}
       <a class="small" target="_blank" rel="noopener" href="https://www.buscape.com.br/search?q=${encodeURIComponent((x.marca==='Redmi'?'Xiaomi ':x.marca+' ')+x.modelo+' '+x.capacidade)}">conferir</a></td>
     <td><input type="number" min="0" step="0.01" data-preco="${x.id}" data-marca="${esc(x.marca)}" data-modelo="${esc(x.modelo)}" data-cap="${esc(x.capacidade)}" value="${x.preco||''}" placeholder="0,00" style="min-height:34px;padding:6px 10px"></td>
-    <td class="right muted">${x.preco?brl(x.preco*pct/100):'—'}</td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum modelo encontrado</td></tr>'}
+    <td><input type="number" min="0" step="0.1" data-juros="${x.id}" value="${x.juros!=null?x.juros:''}" placeholder="${jurosDo(null)}" style="min-height:34px;padding:6px 10px"></td>
+    <td class="right small" data-ex="${x.id}">${exCat(x.preco,x.juros)}</td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nenhum modelo encontrado</td></tr>'}
   </table></div>
   <p class="hint">Valores de mercado são uma referência aproximada do preço à vista no varejo brasileiro (nov/2026) e mudam toda semana. Use “conferir” para ver o preço de hoje antes de liberar.</p>`;
   $('#catQ').addEventListener('input',e=>{ S.filtro.catQ=e.target.value; clearTimeout(S._cq); S._cq=setTimeout(()=>PAGES.catalogo().then(()=>{ const el=$('#catQ'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),250); });
 };
+function exCat(preco,juros){ preco=+preco||0; if(!preco) return '<span class="muted">—</span>'; const pct=Number(S.cfg.entradaPct)||30, j=(juros!=null&&juros!=='')?+juros:jurosDo(null), fin=preco*(1-pct/100); return `${brl(preco*pct/100)} · <b>${brl(fin*(1+j/100))}</b><br><span class="muted">ex.: 12x ${brl(fin*(1+j/100)/12)}</span>`; }
 async function catSalvar(id,ativo){
   const inp=document.querySelector(`[data-preco="${id}"]`), preco=r2(+inp.value||0);
   if(ativo&&!(preco>0)){ toast('Coloque o valor antes de liberar','err'); const ck=document.querySelector(`[data-cat="${id}"]`); if(ck) ck.checked=false; inp.focus(); return; }
-  await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,ativo,atualizadoEm:Date.now(),por:S.me.nome});
+  const jv=document.querySelector(`[data-juros="${id}"]`)?.value, juros=jv===''||jv==null?jurosDo(null):r2(+jv);
+  await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,juros,ativo,atualizadoEm:Date.now(),por:S.me.nome});
   await log(ativo?'Aparelho liberado':'Aparelho bloqueado',id,`${inp.dataset.modelo} ${inp.dataset.cap} = ${brl(preco)}`);
   toast(ativo?`${inp.dataset.modelo} ${inp.dataset.cap} liberado por ${brl(preco)}`:`${inp.dataset.modelo} ${inp.dataset.cap} não aparece mais para o vendedor`,'ok');
 }
@@ -1638,7 +1726,7 @@ async function catTodos(liberar){
   const els=[...document.querySelectorAll('[data-preco]')].filter(i=>liberar?(+i.value>0):true);
   if(!els.length){ toast(liberar?'Nenhum modelo com valor preenchido':'Nada para bloquear','err'); return; }
   if(!confirm(liberar?`Liberar ${els.length} modelo(s) com valor preenchido?`:`Bloquear todos os modelos desta marca?`)) return;
-  await DB.batch(els.map(i=>({c:'catalogo',id:i.dataset.preco,data:{marca:i.dataset.marca,modelo:i.dataset.modelo,capacidade:i.dataset.cap,preco:r2(+i.value||0),ativo:!!liberar&&+i.value>0,atualizadoEm:Date.now(),por:S.me.nome}})));
+  await DB.batch(els.map(i=>{ const jv=document.querySelector(`[data-juros="${i.dataset.preco}"]`)?.value; return {c:'catalogo',id:i.dataset.preco,data:{marca:i.dataset.marca,modelo:i.dataset.modelo,capacidade:i.dataset.cap,preco:r2(+i.value||0),juros:jv===''||jv==null?jurosDo(null):r2(+jv),ativo:!!liberar&&+i.value>0,atualizadoEm:Date.now(),por:S.me.nome}}; }));
   await log(liberar?'Liberação em lote':'Bloqueio em lote',S.filtro.catMarca||'Samsung',''); render();
 }
 
@@ -1651,7 +1739,7 @@ PAGES.config = async () => {
     <div class="tablewrap mt"><table><tr><th>Loja</th><th>Cidade</th><th>Telefone (aparece na tela de bloqueio)</th><th></th></tr>
     ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresa e crédito</h2><div class="grid g4">
-    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('jurosMensal','Juros ao mês (%)','number','step="0.01"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
+    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
     ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
@@ -1743,7 +1831,8 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 document.addEventListener('click',e=>{ const im=e.target.closest('.docs-grid img'); if(im){ const w=window.open(''); if(w){ w.document.write(`<body style="margin:0;background:#000"><img src="${im.src}" style="width:100%">`); } } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#modal').hidden) closeModal(); });
 document.addEventListener('input',e=>{ if(['nEntrada','nParc','nImei'].includes(e.target.id)) simular(); });
-document.addEventListener('change',e=>{ if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
+document.addEventListener('input',e=>{ const id=e.target.dataset.preco||e.target.dataset.juros; if(id&&document.querySelector(`[data-ex="${id}"]`)){ document.querySelector(`[data-ex="${id}"]`).innerHTML=exCat(document.querySelector(`[data-preco="${id}"]`).value,document.querySelector(`[data-juros="${id}"]`).value); } });
+document.addEventListener('change',e=>{ if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 
 /* ======================= LOGIN ======================= */
