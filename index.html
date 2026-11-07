@@ -250,6 +250,10 @@ details summary{cursor:pointer}
 .imei-pass>span{font-size:13px;color:var(--mut)}
 .imei-foto{width:100%;max-height:160px;object-fit:contain;background:#000;border-radius:8px;margin-top:8px}
 .inst-status.bad{background:var(--bad-s);color:var(--bad)}
+.aviso-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--warn-s);border:1px solid #F1DDB8;color:var(--warn);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;cursor:pointer}
+.aviso-trava svg{width:22px;height:22px;flex:none}.aviso-trava span{font-size:13px;opacity:.85}
+.aviso-trava.bad{background:var(--bad-s);border-color:#F2C9C9;color:var(--bad);animation:pulsa 2s ease-in-out infinite}
+@keyframes pulsa{50%{box-shadow:0 0 0 4px rgba(194,59,59,.15)}}
 .sw{display:inline-flex;cursor:pointer}.sw input{display:none}.sw span{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.15s}.sw span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}.sw input:checked+span{background:var(--ok)}.sw input:checked+span::after{left:21px}
 .top .sp,.row .sp{flex:1}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -353,7 +357,7 @@ details summary{cursor:pointer}
       <button class="menu-btn" data-act="menu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <h1 id="title"></h1><span class="sp"></span><div class="row" id="topActions"></div>
     </header>
-    <div class="content"><div class="wrap" id="view"></div></div>
+    <div class="content"><div class="wrap"><div id="avisoTrava"></div><div id="view"></div></div></div>
   </div>
 </div>
 
@@ -396,7 +400,7 @@ const CFG_PADRAO = {
   apkUrl:'', apkChecksumHex:'', chavePix:'', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
-const VENDA_ST = {ANALISE:['Em análise','amber'],APROVADA:['Aprovada','blue'],AGUARDANDO_ENTRADA:['Aguardando entrada','amber'],REPROVADA:['Reprovada','red'],ATIVA:['Ativa','green'],QUITADA:['Quitada','gray'],CANCELADA:['Cancelada','gray']};
+const VENDA_ST = {ANALISE:['Em análise','amber'],APROVADA:['Aprovada','blue'],AGUARDANDO_ENTRADA:['Aguardando entrada','amber'],INSTALANDO:['Aguardando trava','amber'],REPROVADA:['Reprovada','red'],ATIVA:['Ativa','green'],QUITADA:['Quitada','gray'],CANCELADA:['Cancelada','gray']};
 const CH_ST = {ABERTO:['Aberto','amber'],ANDAMENTO:['Em andamento','blue'],RESOLVIDO:['Resolvido','green']};
 
 /* ======================= UTILITÁRIOS ======================= */
@@ -518,7 +522,8 @@ function seedDemo(){
     if(o.status!=='ANALISE') v.analise={resultado:o.status==='REPROVADA'?'REPROVADA':'APROVADA',porNome:'Fernanda Financeiro',em:now-86400000*39,score:720,limite:2500,obs:'',checklist:{cpf:true,renda:true,selfie:true,referencia:true}};
     if(o.semAparelho) Object.assign(v,{valor:0,entrada:0,nParcelas:0,parcelas:[]});
     d.docs[id]={frente:FOTO_DEMO('DOC'),verso:'',selfie:FOTO_DEMO('ROSTO'),docTipo:'RG'};
-    if(['ATIVA','QUITADA'].includes(o.status)){
+    if(['ATIVA','QUITADA','INSTALANDO'].includes(o.status)){
+      if(o.status==='INSTALANDO') v.instalacao={tentativas:1,inicio:now-60000*25};
       const tk='demo'+token(20); v.aparelhoToken=tk; v.assinadoEm=now-86400000*38; v.aceiteBloqueio=true; v.entradaPaga={valor:o.entrada,forma:'PIX',em:now-86400000*38,por:'Demo'};
       d.aparelhos[tk]={imei:o.imei,imei2:'',marca:o.marca,modelo:o.modelo,vendaId:id,vendaNumero:num,clienteNome:primeiroNome(o.nome),lojaId:o.loja,lojaNome:d.lojas[o.loja].nome,lojaTelefone:d.lojas[o.loja].telefone,
         chavePix:cfg.chavePix,telefoneSuporte:cfg.telefoneSuporte,status:o.status==='QUITADA'?'QUITADO':'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:cfg.toleranciaDias,maxDiasOffline:cfg.maxDiasOffline,
@@ -534,7 +539,7 @@ function seedDemo(){
   mk({nome:'Ana Clara Rocha',cpf:'39053344705',tel:'(45) 99833-3333',loja:'l2',marca:'Xiaomi',modelo:'Redmi 13C',imei:'352099001761481',valor:899,entrada:200,n:3,primeiro:addMonths(h,-4),pagas:3,status:'QUITADA',checkin:300});
   mk({nome:'Carlos Eduardo Melo',cpf:'86288366757',tel:'(45) 99844-4444',loja:'l2',marca:'Samsung',modelo:'Galaxy A25',imei:'353918053012340',valor:1899,entrada:400,n:12,primeiro:addMonths(h,1),pagas:0,status:'ANALISE',semAparelho:true});
   mk({nome:'Beatriz Nunes Alves',cpf:'71428793860',tel:'(45) 99855-5555',loja:'l1',marca:'Motorola',modelo:'Moto E14',imei:'359881234567892',valor:749,entrada:150,n:6,primeiro:addMonths(h,1),pagas:0,status:'APROVADA',semAparelho:true});
-  mk({nome:'Pedro Henrique Dias',cpf:'04512376809',tel:'(45) 99866-6666',loja:'l2',marca:'Samsung',modelo:'Galaxy A06',imei:'351234567890124',valor:899,entrada:180,n:9,primeiro:addMonths(h,1),pagas:0,status:'ATIVA'});
+  mk({nome:'Pedro Henrique Dias',cpf:'04512376809',tel:'(45) 99866-6666',loja:'l2',marca:'Samsung',modelo:'Galaxy A06',imei:'351234567890124',valor:899,entrada:180,n:9,primeiro:addMonths(h,1),pagas:0,status:'INSTALANDO'});
   d.config.contador={venda:num};
   d.chamados.c1={criadoEm:now-3600000*5,status:'ABERTO',assunto:'Aparelho travado — cliente diz que pagou',imei:'490154203237518',cliente:'João Pereira Santos',lojaId:'l1',
     descricao:'Cliente veio na loja dizendo que pagou a parcela por PIX ontem.',abertoPor:'u_vend',abertoPorNome:'Vitória Vendedora',respostas:[]};
@@ -626,6 +631,7 @@ async function render(){
   $('#title').textContent=t.label;
   renderNav();
   $('#view').innerHTML='<div class="empty">Carregando…</div>';
+  avisoTravas();
   try{ await PAGES[S.tab](); }
   catch(e){ console.error(e); $('#view').innerHTML=`<div class="err-box">Erro ao carregar: ${esc(e.message||e)}</div>`; }
 }
@@ -644,7 +650,7 @@ PAGES.painel = async () => {
     else { carteira+=p.valor; if(stParc(p)==='atraso'){ atraso+=p.valor; contratosAtraso.add(v.id); } }
   }));
   const travados=aps.filter(a=>a.checkin?.em && !a.quitado && a.status!=='CANCELADO' && avaliar(a).travar).length;
-  const semInst=aps.filter(a=>!a.checkin?.em && a.status==='ATIVO').length;
+  const semInst=vendas.filter(v=>v.status==='INSTALANDO').length;
   const pend=vendas.filter(v=>v.status==='ANALISE').length;
   const inad=carteira?(atraso/carteira*100):0;
   const porLoja={}; ativas.forEach(v=>{ const k=v.lojaId; porLoja[k]=porLoja[k]||{vendas:0,fin:0,atraso:0}; if(doMes.includes(v)){porLoja[k].vendas++; porLoja[k].fin+=v.financiado;} (v.parcelas||[]).forEach(p=>{ if(stParc(p)==='atraso') porLoja[k].atraso+=p.valor; }); });
@@ -1127,7 +1133,7 @@ async function confirmarEntrada(btn){
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,
       mensagem:cfg.mensagemTrava||'',parcelas:v.parcelas.map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago})),quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
-    await DB.batch([{c:'aparelhos',id:tk,data:ap},{c:'vendas',id:v.id,data:{status:'ATIVA',aparelhoToken:tk,
+    await DB.batch([{c:'aparelhos',id:tk,data:ap},{c:'vendas',id:v.id,data:{status:'INSTALANDO',aparelhoToken:tk,instalacao:{tentativas:1,inicio:agora},
       entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
     irPasso(8);
@@ -1166,42 +1172,101 @@ function animarGuia(marca){
     $('#phDots').innerHTML=GUIA_TRAVA.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join(''); i=(i+1)%GUIA_TRAVA.length; };
   f(); guiaT=setInterval(f,3200);
 }
+/* Situação da instalação a partir do check-in do aparelho */
+function estadoInstalacao(a){
+  const ck=a?.checkin;
+  if(!ck?.em) return {k:'ESPERA'};
+  const lista=[a.imei,a.imei2].filter(Boolean);
+  if(ck.imeiConfere===false || (ck.imei && !lista.includes(ck.imei) && !lista.includes(ck.imei2))) return {k:'IMEI',msg:`O IMEI do aparelho (${ck.imei||'?'}) não é o do contrato. O aparelho foi bloqueado. Não entregue ao cliente e confira se pegou o aparelho certo.`};
+  if(ck.deviceOwner===false) return {k:'SEM_ADMIN',msg:'O app abriu, mas SEM permissão de administrador (não foi instalado pelo QR na primeira tela). A trava não funciona assim: restaure de fábrica e leia o QR de novo.'};
+  return {k:'OK'};
+}
+const MIN_ALERTA=10;
 async function passoTrava(){
   const v=await DB.get('vendas',S.w.vendaId), tk=v.aparelhoToken;
   if(!tk){ $('#wz').innerHTML='<div class="card empty"><b>Trava ainda não gerada</b>Confirme a entrada primeiro.</div>'; return; }
   const json=payloadProvisionamento(tk), marca=v.aparelho.marca;
   let qrHtml=''; try{ if(typeof qrcode==='function'){ const q=qrcode(0,'L'); q.addData(json,'Byte'); q.make(); qrHtml=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
-  $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Instalar a trava no ${esc(apNome(v))}</h2>
+  const tent=v.instalacao?.tentativas||1;
+  $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Instalar a trava no ${esc(apNome(v))} ${tent>1?badge('tentativa '+tent,'amber'):''}</h2>
+    <div class="warn mb"><b>A venda só é concluída quando a trava subir no aparelho.</b> Não entregue o celular antes da confirmação abaixo ficar verde.</div>
     <div class="grid g2" style="align-items:start">
       <div>${videoMarca(marca)}</div>
       <div><div class="qr" style="margin:0 auto">${qrHtml||'<span class="small muted">QR indisponível sem internet.</span>'}</div>
         <p class="small muted" style="text-align:center">Contrato nº ${v.numero} · IMEI <span class="mono">${esc(v.aparelho.imei)}</span></p>
-        <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho se conectar…</div></div>
+        <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho confirmar a trava… <span id="instTempo"></span></div>
+        <div id="instAjuda"></div></div>
     </div>
-    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button><button class="btn gold lg" data-act="novaProposta">Concluir e iniciar nova venda</button></div></div>`;
+    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
+      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled title="Liberado quando a trava subir">Concluir venda</button></div></div>`;
   if(!(S.cfg.videos||{})[marca]) animarGuia(marca);
+  const t0=v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now();
+  const ajuda=(titulo,cor)=>`<div class="${cor==='bad'?'err-box':'warn'} mt"><b>${titulo}</b>
+      <ol class="steps" style="margin-top:6px"><li>Confira o Wi-Fi da loja (o aparelho precisa de internet para baixar o app).</li><li>Faça a <b>restauração de fábrica</b> de novo.</li><li>Na primeira tela, toque 6 vezes e leia este mesmo QR.</li><li>Não pule etapas nem coloque a conta Google antes do app terminar de instalar.</li></ol>
+      <div class="row mt"><button class="btn sm gold" data-act="refazerInstalacao" data-id="${v.id}">Refazer instalação</button><button class="btn sm" data-act="avisarSuporteTrava" data-id="${v.id}">Chamar o suporte</button></div></div>`;
+  let ok=false;
+  const tick=setInterval(async()=>{ const el=$('#instTempo'); if(!el){ clearInterval(tick); return; } if(ok) return;
+    const min=Math.floor((Date.now()-t0)/60000); el.textContent=`(${min} min)`;
+    if(min>=MIN_ALERTA && !$('#instAjuda').innerHTML){ $('#instAjuda').innerHTML=ajuda(`A trava ainda não subiu depois de ${min} minutos.`,'warn');
+      const vv=await DB.get('vendas',v.id); if(!vv.instalacao?.alertaEm){ await DB.set('vendas',v.id,{instalacao:{...(vv.instalacao||{}),alertaEm:Date.now()}}); await alertaTrava(vv,'A trava não subiu depois de '+min+' minutos.'); } } },5000);
   unwatch&&unwatch();
-  unwatch=DB.watch('aparelhos',tk,a=>{ const el=$('#instStatus'); if(!el||!a) return;
-    if(a.checkin?.imei && ![a.imei,a.imei2].includes(a.checkin.imei) && ![a.imei,a.imei2].includes(a.checkin.imei2)){ el.className='inst-status bad'; el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} IMEI do aparelho (${esc(a.checkin.imei)}) NÃO confere com o contrato. O aparelho foi bloqueado. Não entregue ao cliente.`; return; }
-    if(a.checkin?.em){ el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada! O aparelho se conectou ${relT(a.checkin.em)}. Pode entregar ao cliente.`; } });
+  unwatch=DB.watch('aparelhos',tk,async a=>{ const el=$('#instStatus'); if(!el||!a) return;
+    const e=estadoInstalacao(a);
+    if(e.k==='ESPERA') return;
+    if(e.k!=='OK'){ el.className='inst-status bad'; el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} ${esc(e.msg)}`; $('#instAjuda').innerHTML=ajuda('A instalação falhou — refaça o processo.','bad');
+      const vv=await DB.get('vendas',v.id); if(vv.instalacao?.falha!==e.k){ await DB.set('vendas',v.id,{instalacao:{...(vv.instalacao||{}),falha:e.k,falhaEm:Date.now()}}); await alertaTrava(vv,e.msg); } return; }
+    ok=true; clearInterval(tick);
+    const vv=await DB.get('vendas',v.id);
+    if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
+    el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
+    $('#instAjuda').innerHTML=''; const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir e iniciar nova venda'; } });
+}
+async function refazerInstalacao(id){
+  const v=await DB.get('vendas',id); const n=(v.instalacao?.tentativas||1)+1;
+  await DB.set('vendas',id,{instalacao:{...(v.instalacao||{}),tentativas:n,ultimaTentativa:Date.now(),falha:null,alertaEm:null}});
+  await log('Instalação da trava refeita',id,'tentativa '+n); toast('Faça a restauração de fábrica e leia o QR de novo.','ok'); passoTrava();
+}
+async function alertaTrava(v,motivo){
+  try{ await DB.add('chamados',{criadoEm:Date.now(),status:'ABERTO',assunto:`Trava não instalada — nº ${v.numero}`,setor:'SUPORTE',cliente:v.clienteNome,imei:v.aparelho?.imei||'',
+    descricao:`${motivo} Vendedor: ${v.vendedorNome} · ${v.lojaNome}. A venda NÃO foi concluída.`,lojaId:v.lojaId,abertoPor:S.me.uid,abertoPorNome:S.me.nome+' (automático)',respostas:[]});
+    await log('Alerta: trava não instalada',v.id,motivo); }catch(e){ console.warn(e); }
+}
+
+/* Alerta em todos os portais: vendas paradas esperando a trava */
+async function avisoTravas(){
+  const box=$('#avisoTrava'); if(!box||!S.me) return;
+  try{
+    let vs=(await loadVendas()).filter(v=>v.status==='INSTALANDO');
+    if(!vs.length){ box.innerHTML=''; return; }
+    const lista=await Promise.all(vs.map(async v=>{ const a=v.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken).catch(()=>null):null; const e=estadoInstalacao(a);
+      const min=Math.floor((Date.now()-(v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now()))/60000); return {v,e,min}; }));
+    const prob=lista.filter(x=>x.e.k!=='ESPERA'&&x.e.k!=='OK'||x.min>=MIN_ALERTA);
+    box.innerHTML=`<div class="aviso-trava ${prob.length?'bad':''}" data-act="verAvisoTrava">${svg(IC.aparelhos)}<b>${prob.length?`${prob.length} instalação(ões) de trava com problema`:`${lista.length} venda(s) aguardando a trava subir`}</b><span>Venda só conclui quando o aparelho confirmar. Clique para ver.</span></div>`;
+    S._avisoTrava=lista;
+  }catch(e){ box.innerHTML=''; }
+}
+function verAvisoTrava(){
+  const l=S._avisoTrava||[];
+  openModal(`<h2>Instalações de trava pendentes</h2>${l.map(({v,e,min})=>`<div class="pend"><div class="t2"><b>Nº ${v.numero} · ${esc(v.clienteNome)}</b><span>${esc(apNome(v))} · ${esc(v.lojaNome)} · ${esc(v.vendedorNome)} · há ${min} min · ${v.instalacao?.tentativas||1} tentativa(s)</span>
+    <span style="color:${e.k==='ESPERA'&&min<MIN_ALERTA?'var(--warn)':'var(--bad)'}">${e.k==='ESPERA'?(min<MIN_ALERTA?'Aguardando o aparelho confirmar':'A trava não subiu até agora'):esc(e.msg)}</span></div>
+    ${P.tabs.includes('nova')&&(v.vendedorUid===S.me.uid||can('DONO','GERENTE'))?`<button class="btn sm gold" data-act="continuar" data-id="${v.id}">Abrir instalação</button>`:`<button class="btn sm" data-act="verVenda" data-id="${v.id}">Ver venda</button>`}</div>`).join('')||'<div class="empty">Nada pendente</div>'}`, true);
 }
 
 /* ---------- INÍCIO (vendedor) ---------- */
 PAGES.inicio = async () => {
   const vendas=(await loadVendas()).sort((a,b)=>b.numero-a.numero);
-  const aps=await Promise.all(vendas.filter(v=>v.status==='ATIVA'&&v.aparelhoToken).map(v=>DB.get('aparelhos',v.aparelhoToken).then(a=>({v,a})).catch(()=>({v,a:null}))));
   const mes=hoje().slice(0,7);
   const doMes=vendas.filter(v=>['ATIVA','QUITADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
   const analise=vendas.filter(v=>v.status==='ANALISE');
   const aprovadas=vendas.filter(v=>v.status==='APROVADA');
   const entrada=vendas.filter(v=>v.status==='AGUARDANDO_ENTRADA');
-  const instalar=aps.filter(x=>x.a&&!x.a.checkin?.em&&x.a.status==='ATIVO').map(x=>x.v);
+  const instalar=vendas.filter(v=>v.status==='INSTALANDO');
   const ini=n=>String(n||'').split(/\s+/).slice(0,2).map(s=>s[0]||'').join('').toUpperCase();
   const item=(v,acao)=>`<div class="pend"><div class="av">${esc(ini(v.clienteNome))}</div><div class="t2"><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · ${esc(apNome(v))}</span></div>${acao}</div>`;
   const pend=[...analise.map(v=>item(v,'<span class="badge b-amber"><span class="spin sm"></span>Em análise</span>')),
     ...aprovadas.map(v=>item(v,`<button class="btn sm gold" data-act="continuar" data-id="${v.id}">${v.aparelho?.modelo?'Colher assinatura':'Escolher aparelho'}</button>`)),
     ...entrada.map(v=>item(v,`<button class="btn sm gold" data-act="continuar" data-id="${v.id}">Receber entrada</button>`)),
-    ...instalar.map(v=>item(v,`<button class="btn sm navy" data-act="continuar" data-id="${v.id}">Instalar trava</button>`))];
+    ...instalar.map(v=>item(v,`<button class="btn sm red" data-act="continuar" data-id="${v.id}">Trava não instalada — continuar</button>`))];
   $('#view').innerHTML=`
   <div class="row mb" style="justify-content:space-between"><div><h2 style="font-size:22px;margin:0">Olá, ${esc(primeiroNome(S.me.nome))}!</h2><span class="muted">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}${S.me.codigo?' · ID '+esc(S.me.codigo):''}</span></div>
     <button class="btn gold lg" data-act="novaProposta">${svg(IC.nova)}Nova venda</button></div>
@@ -1224,7 +1289,7 @@ PAGES.vendas = async () => {
   const vendas=(await loadVendas()).sort((a,b)=>b.numero-a.numero);
   const f=S.filtro.vendas||'todas', q=(S.filtro.vq||'').toLowerCase();
   const lista=vendas.filter(v=>(f==='todas'||v.status===f) && (!q || [v.clienteNome,v.clienteCpf,v.aparelho?.imei,String(v.numero)].join(' ').toLowerCase().includes(q)));
-  const tabs=[['todas','Todas'],['ANALISE','Em análise'],['APROVADA','Aprovadas'],['AGUARDANDO_ENTRADA','Aguardando entrada'],['ATIVA','Ativas'],['QUITADA','Quitadas'],['REPROVADA','Reprovadas'],['CANCELADA','Canceladas']];
+  const tabs=[['todas','Todas'],['ANALISE','Em análise'],['APROVADA','Aprovadas'],['AGUARDANDO_ENTRADA','Aguardando entrada'],['INSTALANDO','Aguardando trava'],['ATIVA','Ativas'],['QUITADA','Quitadas'],['REPROVADA','Reprovadas'],['CANCELADA','Canceladas']];
   $('#view').innerHTML=`
   <div class="row mb"><input id="vq" placeholder="Buscar por nome, CPF, IMEI ou nº" style="max-width:340px" value="${esc(S.filtro.vq||'')}"></div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="vendas" data-v="${k}" class="${f===k?'on':''}">${l} (${k==='todas'?vendas.length:vendas.filter(v=>v.status===k).length})</button>`).join('')}</div>
@@ -1250,10 +1315,10 @@ async function verVenda(id){
   const v=await DB.get('vendas',id); if(!v) return;
   const ap=v.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken):null;
   const c=v.cliente, a=v.analise;
-  const podeContinuar=['APROVADA','AGUARDANDO_ENTRADA','ATIVA','ANALISE'].includes(v.status) && (v.status!=='ATIVA'||(ap&&!ap.checkin?.em)) && P.tabs.includes('nova') && (can('DONO','GERENTE')||v.vendedorUid===S.me.uid);
+  const podeContinuar=['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ANALISE'].includes(v.status) && P.tabs.includes('nova') && (can('DONO','GERENTE')||v.vendedorUid===S.me.uid);
   const docs=can('DONO','FINANCEIRO')?await DB.get('docs',id).catch(()=>null):null;
   const podeBaixar=v.status==='ATIVA' && can('DONO','FINANCEIRO');
-  const podeCancelar=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','ATIVA'].includes(v.status) && can('DONO','GERENTE');
+  const podeCancelar=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status) && can('DONO','GERENTE');
   openModal(`
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Venda nº ${v.numero}</h2>${vBadge(v.status)}</div>
     <p class="small muted">${esc(v.lojaNome)} · ${esc(v.vendedorNome)} · ${fmtDT(v.criadoEm)}</p>
@@ -1797,6 +1862,7 @@ async function salvarLoja(id){
 
 /* ======================= EVENTOS ======================= */
 const ACT = {
+  refazerInstalacao:d=>refazerInstalacao(d.id), avisarSuporteTrava:async d=>{ const v=await DB.get('vendas',d.id); await alertaTrava(v,'Vendedor pediu ajuda: a trava não sobe.'); toast('Suporte avisado — chamado aberto','ok'); }, verAvisoTrava:()=>verAvisoTrava(),
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
   filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },

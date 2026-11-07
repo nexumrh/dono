@@ -101,10 +101,18 @@ service cloud.firestore {
                     // vendedor: contrato assinado (sem mudar valores)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'AGUARDANDO_ENTRADA'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros']))
-                    // vendedor: entrada recebida → ativa
-                    || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'ATIVA'
+                    // vendedor: entrada recebida → aguardando a trava subir
+                    || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'INSTALANDO'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
-                        && request.resource.data.entradaPaga.valor >= resource.data.entrada);
+                        && request.resource.data.entradaPaga.valor >= resource.data.entrada)
+                    // vendedor: registra tentativas/alertas da instalação
+                    || (minhaVenda() && resource.data.status == 'INSTALANDO' && request.resource.data.status == 'INSTALANDO'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['instalacao']))
+                    // venda só é concluída quando o PRÓPRIO APARELHO confirmou a trava (check-in com administrador e IMEI certo)
+                    || (minhaVenda() && resource.data.status == 'INSTALANDO' && request.resource.data.status == 'ATIVA'
+                        && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros', 'aparelhoToken'])
+                        && get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.deviceOwner == true
+                        && get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.get('imeiConfere', true) == true);
       allow delete: if false;
     }
 
