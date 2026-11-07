@@ -665,11 +665,12 @@ PAGES.painel = async () => {
 
 /* ======================= IA: leitura de documento e biometria ======================= */
 const IA = window.NEXUMCELL_IA || {};
-const IA_ON = !!IA.chave;
+const iaChave = () => (S.cfg.iaChave||IA.chave||'').trim();
+const iaModelo = () => S.cfg.iaModelo||IA.modelo||'meta-llama/llama-4-scout-17b-16e-instruct';
 async function iaVisao(prompt, imagens){
   const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+IA.chave},
-    body:JSON.stringify({model:IA.modelo||'meta-llama/llama-4-scout-17b-16e-instruct',temperature:0,response_format:{type:'json_object'},
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
+    body:JSON.stringify({model:iaModelo(),temperature:0,response_format:{type:'json_object'},
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
   if(!r.ok) throw new Error('A IA não respondeu ('+r.status+'). Tente de novo.');
   const j=await r.json(); return JSON.parse(j.choices[0].message.content);
@@ -747,10 +748,10 @@ async function passoDoc(){
     <h2><span class="step">1</span>Documento do cliente</h2>
     <div class="tabs">${[['RG','RG'],['CIN','Nova identidade (CIN)'],['CNH','CNH']].map(([k,l])=>`<button data-act="docTipo" data-v="${k}" class="${w.docTipo===k?'on':''}">${l}</button>`).join('')}</div>
     <div class="grid g2">${caixaFoto('frente','Frente')}${precisaVerso?caixaFoto('verso','Verso'):'<div class="foto-box"><div class="foto-prev">'+svg('<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>')+'</div><b>CNH</b><span class="small muted">Basta a frente (os dados ficam no mesmo lado).</span></div>'}</div>
-    ${!IA_ON?`<div class="warn mt">${fb?'IA não configurada (chave do Groq em nexumcell-config.js): os dados serão digitados.':'Modo demonstração: a leitura por IA é simulada com um cliente de exemplo.'}</div>`:''}
+    ${!iaChave()?`<div class="warn mt">${fb?'IA não configurada: o Dono precisa colar a chave do Groq em Lojas e configurações → Inteligência artificial. Até lá, os dados serão digitados.':'Modo demonstração: a leitura por IA é simulada com um cliente de exemplo.'}</div>`:''}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="lerDoc" ${w.fotos.frente&&(!precisaVerso||w.fotos.verso)?'':'disabled'}>${svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>')}Ler documento com IA</button></div>
   </div>
-  ${w.dados?`<div class="card mt"><h2>Dados lidos do documento <span class="badge ${w.ia?.simulado?'b-amber':'b-green'}">${w.ia?.simulado?'simulado':'lido por IA'}</span></h2>
+  ${w.dados?`<div class="card mt"><h2>Dados lidos do documento <span class="badge ${w.ia?.manual?'b-gray':w.ia?.simulado?'b-amber':'b-green'}">${w.ia?.manual?'digitar manualmente':w.ia?.simulado?'simulado':'lido por IA'}</span></h2>
     <div class="grid g3">
       <label>Nome completo<input data-dado="nome" value="${esc(d.nome)}"></label>
       <label>CPF<input data-dado="cpf" value="${esc(fmtCpf(d.cpf))}" inputmode="numeric"></label>
@@ -775,7 +776,7 @@ async function lerDoc(btn){
   const w=S.w; btn.disabled=true; btn.innerHTML='<span class="spin"></span> Lendo documento…';
   try{
     let r;
-    if(IA_ON) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])]);
+    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])]);
     else if(!fb){ await new Promise(o=>setTimeout(o,1200)); r={legivel:true,tipo:w.docTipo,documento_original:true,nome:'Roberto Carlos Teixeira',cpf:gerarCpf(),rg:'12.345.678-9',orgao_emissor:'SESP/PR',data_nascimento:'1991-03-22',nome_mae:'Maria Aparecida Teixeira',simulado:true}; }
     else r={legivel:true,manual:true};
     if(!r.legivel){ w.fotos={}; toast('Documento ilegível: '+(r.motivo||'tire as fotos de novo'),'err'); passoDoc(); setTimeout(()=>{ const e=$('#erro_frente'); if(e) e.textContent='A IA não conseguiu ler: '+(r.motivo||'foto ilegível')+'. Tire as fotos de novo.'; },50); return; }
@@ -839,7 +840,7 @@ async function validarSelfie(url){
   if(!q.ok && !/desfocada/.test(q.motivo)) return fim({aprovado:false,motivo:q.motivo});
   try{
     if('FaceDetector' in window){ const n=(await new FaceDetector({maxDetectedFaces:3}).detect(img)).length; if(n!==1) return fim({aprovado:false,motivo:n?'Mais de um rosto na foto.':'Nenhum rosto encontrado. Enquadre o rosto no oval.'}); }
-    if(IA_ON){
+    if(iaChave()){
       const r=await iaVisao(PROMPT_FACE,[redimensionar(img,1024,0.85),w.fotos.frente.ia]);
       if(!r.rosto_detectado||r.quantidade_rostos!==1) return fim({aprovado:false,motivo:'O rosto não foi identificado com clareza. Tire de novo.'});
       if(r.foto_de_tela_ou_papel) return fim({aprovado:false,motivo:'A foto parece ser de uma tela ou papel. A biometria precisa ser do cliente presente.'});
@@ -1653,6 +1654,13 @@ PAGES.config = async () => {
     ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('jurosMensal','Juros ao mês (%)','number','step="0.01"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
     ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}
   </div></div>
+  <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
+    <div class="grid g2">
+      <label>Chave do Groq<input data-cfg="iaChave" type="password" value="${esc(c.iaChave||'')}" placeholder="gsk_..." autocomplete="off"></label>
+      <label>Modelo<input data-cfg="iaModelo" value="${esc(c.iaModelo||'meta-llama/llama-4-scout-17b-16e-instruct')}"></label>
+    </div>
+    <div class="row mt"><button class="btn sm" data-act="testarIA">Testar chave</button><span class="small muted" id="iaTeste">${c.iaChave?'Chave salva.':'Sem chave: o vendedor digita os dados do documento.'}</span></div>
+    <p class="hint">A chave fica guardada no Firebase (só a equipe logada consegue ler), e não no GitHub. Crie em console.groq.com/keys.</p></div>
   <div class="card mt"><h2>Vídeos de instalação da trava</h2><p class="hint" style="margin-top:-6px">Link do YouTube ou de um arquivo .mp4 por marca. Em branco, o vendedor vê o passo a passo animado.</p>
     <div class="grid g4 mt">${MARCAS.map(m=>`<label>${m}<input data-video="${m}" value="${esc((c.videos||{})[m]||'')}" placeholder="https://youtu.be/..."></label>`).join('')}</div></div>
   <div class="card mt"><h2>Trava</h2><div class="grid g4">
@@ -1720,7 +1728,9 @@ const ACT = {
   apModo:d=>apModo(d.id,d.modo), ap24h:d=>ap24h(d.id), apMsg:d=>apMsg(d.id), apLog:d=>apLog(d.id),
   novoChamado, salvarChamado:()=>salvarChamado(), verChamado:d=>verChamado(d.id), responderChamado:d=>responderChamado(d.id,d.st),
   novoUsuario, salvarUsuario:(d,b)=>salvarUsuario(b), toggleUser:d=>toggleUser(d.id),
-  catTodos:d=>catTodos(d.v==='1'), catSugerir:()=>catSugerir(), catUsar:(d,b)=>catAplicar(b.closest('tr').querySelector('[data-preco]'),+d.v), salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
+  catTodos:d=>catTodos(d.v==='1'), catSugerir:()=>catSugerir(), catUsar:(d,b)=>catAplicar(b.closest('tr').querySelector('[data-preco]'),+d.v), testarIA:async()=>{ const el=$('#iaTeste'), k=$('[data-cfg=iaChave]').value.trim(); if(!k){ el.textContent='Cole a chave primeiro.'; return; } el.textContent='Testando…';
+    try{ const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+k}}); el.innerHTML=r.ok?'<b style="color:var(--ok)">Chave funcionando.</b> Clique em Salvar configurações.':'<b style="color:var(--bad)">Chave recusada ('+r.status+').</b>'; }catch(e){ el.textContent='Não foi possível testar: '+e.message; } },
+  salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
 };
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;

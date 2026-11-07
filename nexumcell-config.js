@@ -17,8 +17,8 @@ window.NEXUMCELL_FIREBASE = {
   appId: "1:157346082090:web:628f1245e370a56a3e0253"
 };
 
-/* 3) IA que lê os documentos e confere a biometria (Groq — https://console.groq.com/keys).
-      Sem chave: no modo demonstração a leitura é simulada; com Firebase, os dados são digitados. */
+/* 3) IA: NÃO coloque a chave do Groq aqui (o repositório é público).
+      Cole a chave no Painel do Dono → Lojas e configurações → Inteligência artificial. */
 window.NEXUMCELL_IA = {
   chave: "",
   modelo: "meta-llama/llama-4-scout-17b-16e-instruct"
