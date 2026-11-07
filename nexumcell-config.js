@@ -29,5 +29,6 @@ window.NEXUMCELL_URLS = {
   gerente:    "https://nexumrh.github.io/gerente/",
   vendedor:   "https://nexumrh.github.io/vendedor/",
   financeiro: "https://nexumrh.github.io/financeiro/",
-  suporte:    "https://nexumrh.github.io/suporte/"
+  suporte:    "https://nexumrh.github.io/suporte/",
+  cliente:    "https://nexumrh.github.io/cliente/"
 };

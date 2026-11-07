@@ -254,6 +254,14 @@ details summary{cursor:pointer}
 .aviso-trava svg{width:22px;height:22px;flex:none}.aviso-trava span{font-size:13px;opacity:.85}
 .aviso-trava.bad{background:var(--bad-s);border-color:#F2C9C9;color:var(--bad);animation:pulsa 2s ease-in-out infinite}
 @keyframes pulsa{50%{box-shadow:0 0 0 4px rgba(194,59,59,.15)}}
+.ln-alerta{display:flex;gap:12px;align-items:flex-start;background:var(--bad-s);border:1px solid #F2C9C9;color:#7A1F1F;border-radius:12px;padding:12px 16px;margin:8px 0}
+.ln-alerta svg{width:22px;height:22px;flex:none;color:var(--bad)}.ln-alerta b{display:block;color:var(--bad);margin-bottom:2px}
+.cap .est{display:block;font-size:11px;color:var(--ok);font-weight:600}.cap:disabled .est{color:var(--mut)}
+.barra{height:8px;border-radius:6px;background:#E8ECF4;overflow:hidden;margin:6px 0 4px}.barra i{display:block;height:100%;background:var(--pri);border-radius:6px}.barra.ok i{background:var(--ok)}
+.prev{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;align-items:end;margin-top:14px}.prev-col{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.prev-col span{font-size:10px;color:var(--mut);white-space:nowrap}.prev-bar{position:relative;width:100%;max-width:38px;height:150px;background:#F2F5F9;border-radius:6px;overflow:hidden}
+.prev-bar i,.prev-bar b{position:absolute;bottom:0;left:0;right:0;border-radius:6px}.prev-bar i{background:#C9D8FF}.prev-bar b{background:var(--pri);left:20%;right:20%}
+@media(max-width:700px){.prev{grid-template-columns:repeat(6,1fr)}}
 .nota{display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:18px;align-items:center;border-radius:12px;padding:14px 18px;margin:10px 0 4px;border:1px solid var(--line)}
 .nota small{display:block;font-size:12px;color:var(--mut)}.nota b{font-size:20px}.nota-txt{font-size:13px;color:var(--mut)}
 .nota-ouro{background:#FFF8E1;border-color:#F3D98B}.nota-ouro b{color:#9A6B00}.nota-prata{background:#F2F5F9}.nota-bronze{background:#FBF1E8}.nota-bronze b{color:#8A5A2B}.nota-risco{background:var(--bad-s);border-color:#F2C9C9}.nota-risco b{color:var(--bad)}
@@ -374,13 +382,13 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','relatorios','seminovos','catalogo','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','relatorios','seminovos','estoque','listanegra','catalogo','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','vendas','cobranca','aparelhos','chamados','relatorios','seminovos','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','vendas','cobranca','aparelhos','chamados','estoque','relatorios','seminovos','listanegra','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','vendas','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','confirmacoes','cobranca','vendas','aparelhos','chamados','relatorios','seminovos'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','confirmacoes','cobranca','vendas','aparelhos','chamados','relatorios','seminovos','estoque','listanegra'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
   suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['aparelhos','chamados','confirmacoes','vendas'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
@@ -401,7 +409,7 @@ const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
   empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
   toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
-  apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
+  apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', exigirLocalLoja:'sim', exigirEstoque:'sim', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
 const VENDA_ST = {ANALISE:['Em análise','amber'],APROVADA:['Aprovada','blue'],AGUARDANDO_ENTRADA:['Aguardando entrada','amber'],INSTALANDO:['Aguardando trava','amber'],RETOMADA:['Aparelho retomado','gray'],REPROVADA:['Reprovada','red'],ATIVA:['Ativa','green'],QUITADA:['Quitada','gray'],CANCELADA:['Cancelada','gray']};
@@ -445,6 +453,7 @@ function avaliar(ap, now=Date.now()){
   if(!ap) return {travar:false, motivo:'—'};
   if(ap.quitado || ap.status==='QUITADO') return {travar:false, motivo:'Contrato quitado', final:true};
   if(ap.status==='CANCELADO') return {travar:false, motivo:'Contrato cancelado', final:true};
+  if(ap.roubo && !ap.roubo.liberadoEm) return {travar:true, motivo:'Cliente comunicou '+String(ap.roubo.tipo||'roubo').toLowerCase()};
   if(ap.modo==='TRAVAR') return {travar:true, motivo:'Bloqueio manual'};
   if(ap.modo==='LIBERAR') return {travar:false, motivo:'Liberado manualmente'};
   if(ap.liberadoAte && ap.liberadoAte>now) return {travar:false, motivo:'Liberação temporária até '+fmtDT(ap.liberadoAte)};
@@ -456,6 +465,7 @@ function avaliar(ap, now=Date.now()){
 function apSituacao(ap){
   if(ap.quitado||ap.status==='QUITADO') return ['Quitado — trava removida','gray'];
   if(ap.status==='CANCELADO') return ['Cancelado — trava removida','gray'];
+  if(ap.roubo&&!ap.roubo.liberadoEm) return ['Roubo/perda comunicado — travado','red'];
   if(!ap.checkin?.em) return ['Aguardando instalação','blue'];
   return avaliar(ap).travar ? ['Travado','red'] : ['Liberado','green'];
 }
@@ -501,7 +511,7 @@ async function log(acao,alvo,detalhe=''){ try{ await DB.add('logs',{em:Date.now(
 const FOTO_DEMO = t => 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220"><rect width="320" height="220" fill="#E8F0FF"/>${t==='ROSTO'?'<circle cx="160" cy="90" r="45" fill="#9DB7F5"/><rect x="85" y="145" width="150" height="80" rx="60" fill="#9DB7F5"/>':'<rect x="20" y="30" width="90" height="120" rx="6" fill="#9DB7F5"/><rect x="130" y="40" width="160" height="12" fill="#9DB7F5"/><rect x="130" y="70" width="120" height="12" fill="#9DB7F5"/><rect x="130" y="100" width="140" height="12" fill="#9DB7F5"/>'}<text x="160" y="210" font-size="13" text-anchor="middle" fill="#26406F" font-family="sans-serif">exemplo</text></svg>`);
 function seedDemo(){
   const now=Date.now(), h=hoje();
-  const d={users:{},lojas:{},clientes:{},vendas:{},aparelhos:{},chamados:{},logs:{},config:{},catalogo:{},docs:{}};
+  const d={users:{},lojas:{},clientes:{},vendas:{},aparelhos:{},chamados:{},logs:{},config:{},catalogo:{},docs:{},estoque:{},listanegra:{},metas:{},assinaturas:{},acessos:{},seminovos:{}};
   d.config.sistema={...CFG_PADRAO,empresa:'NexumCell (demo)',chavePix:'financeiro@nexumcell.com.br',telefoneSuporte:'(45) 99999-0000',apkUrl:'https://seusite.com.br/nexumcell-trava.apk',apkChecksumHex:'',ownerUid:'u_dono'};
   d.lojas.l1={nome:'Loja Centro',cidade:'Foz do Iguaçu',telefone:'(45) 99999-0001'};
   d.lojas.l2={nome:'Loja Vila Portes',cidade:'Foz do Iguaçu',telefone:'(45) 99999-0002'};
@@ -531,7 +541,7 @@ function seedDemo(){
       const tk='demo'+token(20); v.aparelhoToken=tk; v.assinadoEm=now-86400000*38; v.aceiteBloqueio=true; v.entradaPaga={valor:o.entrada,forma:'PIX',em:now-86400000*38,por:'Demo'};
       d.aparelhos[tk]={imei:o.imei,imei2:'',marca:o.marca,modelo:o.modelo,vendaId:id,vendaNumero:num,clienteNome:primeiroNome(o.nome),lojaId:o.loja,lojaNome:d.lojas[o.loja].nome,lojaTelefone:d.lojas[o.loja].telefone,
         chavePix:cfg.chavePix,telefoneSuporte:cfg.telefoneSuporte,status:o.status==='QUITADA'?'QUITADO':'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:cfg.toleranciaDias,maxDiasOffline:cfg.maxDiasOffline,
-        descontoPct:cfg.descontoAntecipadoPct,multaPct:cfg.multaPct,moraDiaPct:cfg.moraDiaPct,recebedor:'NexumCell',cidadeRecebedor:'FOZ DO IGUACU',
+        descontoPct:cfg.descontoAntecipadoPct,multaPct:cfg.multaPct,moraDiaPct:cfg.moraDiaPct,financiado:fin,nParcelas:o.n,jurosPct:cfg.jurosFinanciamentoPct,recebedor:'NexumCell',cidadeRecebedor:'FOZ DO IGUACU',
         mensagem:cfg.mensagemTrava,parcelas:parcelas.map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:p.pago})),quitado:o.status==='QUITADA',frpContas:'',criadoEm:now-86400000*38,
         ...(o.checkin?{checkin:{em:now-o.checkin*60000,imei:o.imei,bateria:64,travado:false,versao:'1.0',modelo:o.marca+' '+o.modelo,android:'14'}}:{})};
       if(o.checkin){ const ap=d.aparelhos[tk]; ap.checkin.travado=avaliar(ap).travar; }
@@ -544,6 +554,11 @@ function seedDemo(){
   mk({nome:'Carlos Eduardo Melo',cpf:'86288366757',tel:'(45) 99844-4444',loja:'l2',marca:'Samsung',modelo:'Galaxy A25',imei:'353918053012340',valor:1899,entrada:400,n:12,primeiro:addMonths(h,1),pagas:0,status:'ANALISE',semAparelho:true});
   mk({nome:'Beatriz Nunes Alves',cpf:'71428793860',tel:'(45) 99855-5555',loja:'l1',marca:'Motorola',modelo:'Moto E14',imei:'359881234567892',valor:749,entrada:150,n:6,primeiro:addMonths(h,1),pagas:0,status:'APROVADA',semAparelho:true});
   mk({nome:'Pedro Henrique Dias',cpf:'04512376809',tel:'(45) 99866-6666',loja:'l2',marca:'Samsung',modelo:'Galaxy A06',imei:'351234567890124',valor:899,entrada:180,n:9,primeiro:addMonths(h,1),pagas:0,status:'INSTALANDO'});
+  [['l1','Samsung','Galaxy A16','128 GB','356938035643817'],['l1','Samsung','Galaxy A16','128 GB','356938035643825'],['l1','Samsung','Galaxy A06','64 GB','356938035643833'],
+   ['l1','Motorola','Moto G15','128 GB','352123456789019'],['l1','Motorola','Moto G35','128 GB','352123456789027'],['l2','Samsung','Galaxy A16','128 GB','352987654321019'],['l2','Redmi','Redmi 14C','128 GB','352987654321027']]
+   .forEach(([lojaId,marca,modelo,capacidade,imei])=>d.estoque[imei]={imei,imei2:'',catalogoId:slugCat(marca,modelo,capacidade),marca,modelo,capacidade,cor:'Preto',lojaId,lojaNome:d.lojas[lojaId].nome,status:'DISPONIVEL',criadoEm:now-86400000*5,por:'Gustavo Gerente'});
+  d.metas[h.slice(0,7)]={lojas:{l1:15000,l2:10000},vendedores:{u_vend:8000,u_vend2:6000}};
+  d.listanegra['cpf_12345678909']={tipo:'CPF',valor:'12345678909',nome:'Cliente de exemplo (golpe)',motivo:'Documento falso',em:now-86400000*20,por:'Fernanda Financeiro'};
   d.config.contador={venda:num};
   d.chamados.c1={criadoEm:now-3600000*5,status:'ABERTO',assunto:'Aparelho travado — cliente diz que pagou',imei:'490154203237518',cliente:'João Pereira Santos',lojaId:'l1',
     descricao:'Cliente veio na loja dizendo que pagou a parcela por PIX ontem.',abertoPor:'u_vend',abertoPorNome:'Vitória Vendedora',respostas:[]};
@@ -566,6 +581,8 @@ const IC = {
   catalogo:'<rect x="5" y="2" width="10" height="17" rx="2"/><path d="M9 15h2"/><path d="M17 8h4v13h-8v-2"/>',
   relatorios:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   seminovos:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><rect x="9" y="8" width="6" height="9" rx="1"/>',
+  estoque:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+  listanegra:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -583,6 +600,8 @@ const TABS = [
   {id:'catalogo',label:'Aparelhos à venda',roles:['DONO']},
   {id:'relatorios',label:'Relatórios e comissões',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'seminovos',label:'Seminovos (retomados)',roles:['DONO','GERENTE','FINANCEIRO']},
+  {id:'estoque',label:'Estoque por IMEI',roles:['DONO','GERENTE','FINANCEIRO']},
+  {id:'listanegra',label:'Lista negra',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -819,6 +838,8 @@ async function docOk(){
   w.editados=Object.keys(d).filter(k=>w.lidos&&!w.ia?.manual&&String(w.lidos[k]||'')!==String(d[k]||''));
   const vs=(await DB.list('vendas',[['clienteCpf','==',d.cpf]]).catch(()=>[])).filter(v=>['ANALISE','APROVADA','AGUARDANDO_ENTRADA'].includes(v.status));
   if(vs.length){ toast(`Este CPF já tem uma proposta em andamento (nº ${vs[0].numero}).`,'err'); return; }
+  const ln=await naListaNegra(d.cpf,[]);
+  if(ln.length){ await log('Tentativa de venda para cliente da lista negra',d.cpf,`${d.nome} · ${ln.map(x=>x.motivo).join(', ')}`); bloqueadoLN(); return; }
   irPasso(2);
 }
 
@@ -915,6 +936,9 @@ async function enviarAnalise(btn){
   try{
     const equipe=(await DB.list('users')).filter(u=>u.telefone).map(u=>fone(u.telefone));
     if([t1,t2].some(t=>equipe.includes(t))){ err.textContent='Um dos telefones é de alguém da equipe. Informe telefones do próprio cliente.'; btn.disabled=false; return; }
+    const ln=await naListaNegra(S.w.dados.cpf,[t1,t2]);
+    if(ln.length){ await log('Tentativa de venda para cliente da lista negra',S.w.dados.cpf,ln.map(x=>x.tipo+' '+x.motivo).join(', ')); btn.disabled=false; bloqueadoLN(); return; }
+    let geo=null; try{ geo=await conferirLocal(); }catch(e){ err.textContent=e.message; btn.disabled=false; await log('Venda bloqueada: fora da loja',S.w.dados.cpf,e.message); return; }
     for(const t of [t1,t2]){
       const outros=(await DB.list('clientes',[['telefones','array-contains',t]]).catch(()=>[])).filter(x=>x.id!==S.w.dados.cpf);
       if(outros.length){ err.textContent=`O telefone ${fmtFone(t)} já está cadastrado para outro cliente.`; btn.disabled=false; return; }
@@ -923,7 +947,7 @@ async function enviarAnalise(btn){
     const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
-      verificacao:{docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
+      verificacao:{geo,docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
       confirmacaoDados:{status:'PENDENTE',prazo:agora+3*86400000}};
     await DB.batch([
       {c:'clientes',id:d.cpf,data:{...cli,atualizadoEm:agora}},
@@ -968,8 +992,11 @@ async function passoAnalise(){
 async function passoAparelho(){
   const v=await DB.get('vendas',S.w.vendaId);
   if(v.status!=='APROVADA'){ toast('Esta proposta não está aprovada','err'); return; }
-  const cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false&&x.preco>0);
-  const w=S.w; w.sel=w.sel||{marca:v.aparelho?.marca||MARCAS.find(m=>cat.some(x=>x.marca===m))||cat[0]?.marca};
+  let cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false&&x.preco>0);
+  const w=S.w, exigeEst=S.cfg.exigirEstoque!=='nao';
+  const est=exigeEst?(await DB.list('estoque',[['lojaId','==',v.lojaId]]).catch(()=>[])).filter(e=>e.status==='DISPONIVEL'):[];
+  w.estoque=est; const qtd=id=>est.filter(e=>e.catalogoId===id).length;
+  if(exigeEst) cat=cat.filter(x=>qtd(x.id)>0); w.sel=w.sel||{marca:v.aparelho?.marca||MARCAS.find(m=>cat.some(x=>x.marca===m))||cat[0]?.marca};
   const marcas=[...MARCAS.filter(m=>cat.some(x=>x.marca===m)),...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))];
   const doMarca=cat.filter(x=>x.marca===w.sel.marca);
   const modelos=[...new Set(doMarca.map(x=>x.modelo))];
@@ -977,17 +1004,17 @@ async function passoAparelho(){
   const lim=v.analise?.limite||0, pct=Number(S.cfg.entradaPct)||30;
   const cfg=S.cfg, ops=String(cfg.parcelasOpcoes).split(',').map(s=>+s.trim()).filter(Boolean);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">5</span>Escolha o aparelho</h2>
-    <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>'}</div>
+    <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||(exigeEst?'<div class="empty" style="width:100%"><b>Nenhum aparelho no estoque desta loja</b>O gerente precisa cadastrar os aparelhos (com IMEI) em “Estoque por IMEI”.</div>':'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>')}</div>
     <div class="modelos">${modelos.map(mo=>{ const caps=doMarca.filter(x=>x.modelo===mo).sort((a,b)=>a.preco-b.preco);
       return `<div class="modelo ${item?.modelo===mo?'on':''}"><div class="mo-ic">${svg(IC.aparelhos)}</div><b>${esc(mo)}</b><span class="small muted">a partir de ${brl(caps[0].preco)}</span>
-        <div class="caps">${caps.map(x=>{ const acima=lim&&x.preco*(1-pct/100)>lim; return `<button class="cap ${w.sel.itemId===x.id?'on':''}" data-act="selItem" data-id="${x.id}" ${acima?'disabled title="Acima do limite aprovado"':''}>${esc(x.capacidade)}<small>${brl(x.preco)}</small></button>`; }).join('')}</div></div>`; }).join('')}</div>
+        <div class="caps">${caps.map(x=>{ const acima=lim&&x.preco*(1-pct/100)>lim; return `<button class="cap ${w.sel.itemId===x.id?'on':''}" data-act="selItem" data-id="${x.id}" ${acima?'disabled title="Acima do limite aprovado"':''}>${esc(x.capacidade)}<small>${brl(x.preco)}</small>${exigeEst?`<small class="est">${qtd(x.id)} em estoque</small>`:''}</button>`; }).join('')}</div></div>`; }).join('')}</div>
   </div>
   ${item?`<div class="card mt"><h2>Aparelho e plano</h2>
     <div class="grid g4">
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
       <label>Juros sobre o financiado<input value="${jurosDo(item)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
-      <label><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}"></label>
+      <label><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
       <label><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
       <label>Entrada (mín. ${pct}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pct/100)}" value="${w.sel.entrada||r2(item.preco*pct/100)}"></label>
       <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||12)?'selected':''}>${n}x</option>`).join('')}</select></label>
@@ -1079,6 +1106,16 @@ async function salvarAparelho(btn){
   guardarCampos();
   if(!imeiOk(imei)) return toast('IMEI 1 inválido: o número não existe ou foi digitado errado (confira no *#06#)','err');
   if(imei2&&!imeiOk(imei2)) return toast('IMEI 2 inválido','err');
+  let estItem=null;
+  if(S.cfg.exigirEstoque!=='nao'){
+    const vv=await DB.get('vendas',w.vendaId);
+    estItem=await DB.get('estoque',imei).catch(()=>null);
+    if(!estItem&&imei2){ const e2=await DB.get('estoque',imei2).catch(()=>null); if(e2) estItem=e2; }
+    if(!estItem) return toast('Este IMEI não está no estoque da loja. O gerente precisa cadastrar o aparelho antes da venda.','err');
+    if(estItem.lojaId!==vv.lojaId) return toast(`Este aparelho está no estoque da ${estItem.lojaNome||'outra loja'}, não desta loja.`,'err');
+    if(estItem.status!=='DISPONIVEL') return toast('Este aparelho não está disponível no estoque (situação: '+estItem.status.toLowerCase()+').','err');
+    if(estItem.catalogoId!==x.id) return toast(`No estoque, este IMEI é um ${estItem.marca} ${estItem.modelo} ${estItem.capacidade}, não o aparelho escolhido.`,'err');
+  }
   if(imei2&&imei2===imei) return toast('IMEI 1 e IMEI 2 não podem ser iguais','err');
   if(!w.imeiFoto) return toast('Tire a foto da tela *#06# do aparelho','err');
   const an=$('#nAnatel').value; if(!an) return toast('Faça a consulta oficial (Anatel) e marque o resultado','err');
@@ -1095,7 +1132,7 @@ async function salvarAparelho(btn){
   const juros=jurosDo(x), fin=r2(x.preco-entrada), vp=parcelaFlat(fin,juros,n);
   await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
   const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
-  await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
+  await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
     valor:x.preco,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
   await log('Aparelho escolhido',w.vendaId,`${x.marca} ${x.modelo} ${x.capacidade} · IMEI ${imei}`);
@@ -1105,14 +1142,53 @@ async function salvarAparelho(btn){
 /* ---- 6. Contrato ---- */
 async function passoContrato(){
   const v=await DB.get('vendas',S.w.vendaId);
+  if(v.assinaturaPendente&&!S.w.modoAss) S.w.modoAss='celular';
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">6</span>Contrato e assinatura</h2>
     <div class="contrato">${contratoHTML(v)}</div>
     <label class="check mt"><input type="checkbox" id="sgAceite"> O cliente leu o contrato e <b>concorda com a cláusula 5 (bloqueio do aparelho por atraso)</b></label>
     <label class="check"><input type="checkbox" id="sgLgpd"> O cliente autoriza o tratamento dos dados pessoais e da biometria (cláusula 6)</label>
+    <div class="tabs mt">${[['loja','Assinar neste aparelho'],['celular','Cliente assina no celular dele']].map(([k,t])=>`<button data-act="modoAssinatura" data-v="${k}" class="${(S.w.modoAss||'loja')===k?'on':''}">${t}</button>`).join('')}</div>
+    <div id="assLoja" ${(S.w.modoAss||'loja')==='loja'?'':'hidden'}>
     <h3>Assinatura do cliente</h3><canvas id="sig" class="sig"></canvas>
     <div class="row mt" style="justify-content:space-between"><div class="row"><button class="btn" data-act="irPasso" data-n="5">Voltar</button><button class="btn sm" data-act="limparSig">Limpar assinatura</button></div>
-      <button class="btn gold lg" data-act="confirmarAssinatura" data-id="${v.id}">Assinar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`;
+      <button class="btn gold lg" data-act="confirmarAssinatura" data-id="${v.id}">Assinar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>
+    <div id="assCel" ${S.w.modoAss==='celular'?'':'hidden'}></div></div>`;
   setupSig($('#sig'));
+  if(S.w.modoAss==='celular') assinaturaRemota(v);
+}
+const urlCliente = () => (URLS.cliente || new URL('../cliente/', location.href).href);
+async function assinaturaRemota(v){
+  const box=$('#assCel'); if(!box) return;
+  let tk=v.assinaturaPendente, a=tk?await DB.get('assinaturas',tk).catch(()=>null):null;
+  if(a&&a.status==='ASSINADO'){ box.innerHTML='<div class="inst-status ok mt">Contrato já assinado pelo cliente. Registrando…</div>'; return registrarAssinatura(v.id,{assinatura:a.assinatura,assinadoEm:a.assinadoEm,contrato:a.contrato,via:'CELULAR_CLIENTE',tk,dispositivo:a.dispositivo||'',nomeDigitado:a.nomeDigitado||''}); }
+  if(!a||a.status!=='PENDENTE'||a.expiraEm<Date.now()){
+    tk=token(24); const agora=Date.now();
+    a={vendaId:v.id,numero:v.numero,clienteNome:v.clienteNome,empresa:S.cfg.empresa,lojaNome:v.lojaNome,contrato:contratoHTML(v),status:'PENDENTE',criadoEm:agora,expiraEm:agora+86400000,via:'CELULAR_CLIENTE',criadoPor:S.me.nome};
+    await DB.set('assinaturas',tk,a); await DB.set('vendas',v.id,{assinaturaPendente:tk});
+  }
+  const url=urlCliente()+'?assinar='+tk+(DEMO?'&demo':''), tel=(v.cliente?.telefones||[])[0]||'';
+  let qrHtml=''; try{ const q=qrcode(0,'M'); q.addData(url); q.make(); qrHtml=q.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){}
+  const msg=`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da ${S.cfg.empresa}. Para assinar o contrato nº ${v.numero} do seu ${apNome(v)}, abra este link no seu celular: ${url}`;
+  box.innerHTML=`<div class="grid g2 mt" style="align-items:center"><div class="qr" style="margin:0 auto">${qrHtml}</div>
+    <div><p>O cliente aponta a câmera do celular <b>dele</b> para o QR code (ou abre o link do WhatsApp), lê o contrato, marca as autorizações e assina com o dedo.</p>
+      <div class="row mt"><a class="btn green" target="_blank" rel="noopener" href="https://wa.me/55${onlyDig(tel)}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a><button class="btn" data-act="copiarTexto" data-t="${esc(url)}">Copiar link</button></div>
+      <div id="assSt" class="inst-status mt"><span class="spin"></span> Aguardando o cliente assinar…</div><p class="hint">O link vale por 24 horas.</p></div></div>
+    <div class="row mt"><button class="btn" data-act="irPasso" data-n="5">Voltar</button></div>`;
+  unwatch&&unwatch();
+  unwatch=DB.watch('assinaturas',tk,async x=>{ if(!x||x.status!=='ASSINADO'||!$('#assSt')) return; unwatch&&unwatch(); unwatch=null;
+    $('#assSt').className='inst-status ok'; $('#assSt').textContent='Contrato assinado pelo cliente. Registrando…';
+    await registrarAssinatura(v.id,{assinatura:x.assinatura,assinadoEm:x.assinadoEm,contrato:x.contrato,via:'CELULAR_CLIENTE',tk,dispositivo:x.dispositivo||'',nomeDigitado:x.nomeDigitado||''});
+  });
+}
+async function registrarAssinatura(id,o){
+  const hash=await sha256([o.contrato,o.assinatura,o.assinadoEm,id].join('|')), codigo=hash.slice(0,10).toUpperCase();
+  const dig={via:o.via,tk:o.tk,hash,codigo,dispositivo:o.dispositivo||navigator.userAgent.slice(0,180),nomeDigitado:o.nomeDigitado||'',por:S.me.nome};
+  if(o.via==='LOJA') await DB.set('assinaturas',o.tk,{vendaId:id,numero:o.numero||0,contrato:o.contrato,assinatura:o.assinatura,assinadoEm:o.assinadoEm,status:'ASSINADO',via:'LOJA',criadoEm:Date.now(),expiraEm:0,hash,codigo});
+  else await DB.set('assinaturas',o.tk,{hash,codigo});
+  await DB.set('vendas',id,{status:'AGUARDANDO_ENTRADA',assinatura:o.assinatura,assinadoEm:o.assinadoEm,aceiteBloqueio:true,aceiteLgpd:true,contratoTexto:o.contrato,assinaturaDigital:dig,assinaturaPendente:null});
+  await log('Contrato assinado',id,`${o.via==='LOJA'?'na loja':'no celular do cliente'} · código ${codigo}`);
+  toast('Contrato assinado','ok'); closeModal();
+  if(S.w&&S.w.vendaId===id) irPasso(7); else render();
 }
 
 /* ---- 7. Entrada ---- */
@@ -1134,6 +1210,7 @@ async function confirmarEntrada(btn){
   if(!$('#eOk').checked) return toast('Confirme o recebimento da entrada','err');
   if(valor<v.entrada) return toast(`O valor recebido precisa ser pelo menos ${brl(v.entrada)}`,'err');
   btn.disabled=true;
+  let geo=null; try{ geo=await conferirLocal(); }catch(e){ btn.disabled=false; await log('Entrada bloqueada: fora da loja',v.id,e.message); return toast(e.message,'err'); }
   try{
     const cfg=S.cfg, loja=S.lojas.find(l=>l.id===v.lojaId)||{}, tk=token(32), agora=Date.now();
     const ap={imei:v.aparelho.imei,imei2:v.aparelho.imei2||'',marca:v.aparelho.marca,modelo:v.aparelho.modelo,vendaId:v.id,vendaNumero:v.numero,clienteNome:primeiroNome(v.clienteNome),
@@ -1142,8 +1219,9 @@ async function confirmarEntrada(btn){
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
       mensagem:cfg.mensagemTrava||'',parcelas:v.parcelas.map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago})),quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
     await DB.batch([{c:'aparelhos',id:tk,data:ap},{c:'vendas',id:v.id,data:{status:'INSTALANDO',aparelhoToken:tk,instalacao:{tentativas:1,inicio:agora},
-      entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
+      entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome,geo},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
+    try{ await gravarAcesso(v,tk); }catch(e){ console.warn('acesso',e); }
     irPasso(8);
   }catch(e){ console.error(e); toast('Erro: '+e.message,'err'); btn.disabled=false; }
 }
@@ -1225,6 +1303,7 @@ async function passoTrava(){
       const vv=await DB.get('vendas',v.id); if(vv.instalacao?.falha!==e.k){ await DB.set('vendas',v.id,{instalacao:{...(vv.instalacao||{}),falha:e.k,falhaEm:Date.now()}}); await alertaTrava(vv,e.msg); } return; }
     ok=true; clearInterval(tick);
     const vv=await DB.get('vendas',v.id);
+    if(vv.status==='INSTALANDO'&&vv.aparelho?.estoqueId){ try{ await DB.set('estoque',vv.aparelho.estoqueId,{status:'VENDIDO',vendaId:v.id,vendidoEm:Date.now()}); }catch(e){ console.warn('estoque',e); } }
     if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
     el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
     $('#instAjuda').innerHTML=''; const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir e iniciar nova venda'; } });
@@ -1244,12 +1323,14 @@ async function alertaTrava(v,motivo){
 async function avisoTravas(){
   const box=$('#avisoTrava'); if(!box||!S.me) return;
   try{
+    const roubos=(await loadAparelhos().catch(()=>[])).filter(a=>a.roubo&&!a.roubo.tratadoEm); S._roubos=roubos;
+    const rb=roubos.length?`<div class="aviso-trava bad" data-act="verRoubos">${svg(IC.listanegra)}<b>${roubos.length} cliente(s) comunicaram roubo, furto ou perda</b><span>O aparelho já foi travado. Clique para ver e tratar.</span></div>`:'';
     let vs=(await loadVendas()).filter(v=>v.status==='INSTALANDO');
-    if(!vs.length){ box.innerHTML=''; return; }
+    if(!vs.length){ box.innerHTML=rb; return; }
     const lista=await Promise.all(vs.map(async v=>{ const a=v.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken).catch(()=>null):null; const e=estadoInstalacao(a);
       const min=Math.floor((Date.now()-(v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now()))/60000); return {v,e,min}; }));
     const prob=lista.filter(x=>x.e.k!=='ESPERA'&&x.e.k!=='OK'||x.min>=MIN_ALERTA);
-    box.innerHTML=`<div class="aviso-trava ${prob.length?'bad':''}" data-act="verAvisoTrava">${svg(IC.aparelhos)}<b>${prob.length?`${prob.length} instalação(ões) de trava com problema`:`${lista.length} venda(s) aguardando a trava subir`}</b><span>Venda só conclui quando o aparelho confirmar. Clique para ver.</span></div>`;
+    box.innerHTML=rb+`<div class="aviso-trava ${prob.length?'bad':''}" data-act="verAvisoTrava">${svg(IC.aparelhos)}<b>${prob.length?`${prob.length} instalação(ões) de trava com problema`:`${lista.length} venda(s) aguardando a trava subir`}</b><span>Venda só conclui quando o aparelho confirmar. Clique para ver.</span></div>`;
     S._avisoTrava=lista;
   }catch(e){ box.innerHTML=''; }
 }
@@ -1264,6 +1345,7 @@ function verAvisoTrava(){
 PAGES.inicio = async () => {
   const vendas=(await loadVendas()).sort((a,b)=>b.numero-a.numero);
   const mes=hoje().slice(0,7);
+  try{ const mt=await DB.get('metas',mes); S._metaVend=Number(mt?.vendedores?.[S.me.uid])||0; }catch(e){ S._metaVend=null; }
   const doMes=vendas.filter(v=>['ATIVA','QUITADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
   const analise=vendas.filter(v=>v.status==='ANALISE');
   const aprovadas=vendas.filter(v=>v.status==='APROVADA');
@@ -1280,6 +1362,7 @@ PAGES.inicio = async () => {
     <button class="btn gold lg" data-act="novaProposta">${svg(IC.nova)}Nova venda</button></div>
   <div class="kpis">
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
+    ${S._metaVend!=null?`<div class="kpi"><small>Meta do mês</small><b>${S._metaVend?Math.round(doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100)+'%':'—'}</b><div class="barra"><i style="width:${S._metaVend?Math.min(100,doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100):0}%"></i></div><span>${S._metaVend?brl(doMes.reduce((s,v)=>s+v.valor,0))+' de '+brl(S._metaVend):'meta não definida'}</span></div>`:''}
     <div class="kpi"><small>Comissão do mês</small><b style="color:var(--ok)">${brl(comissaoDe(vendas,mes))}</b><span>${S.cfg.comissaoPct||0}% das parcelas pagas</span></div>
     <div class="kpi"><small>Em análise</small><b>${analise.length}</b><span>aguardando o Dono</span></div>
     <div class="kpi"><small>Aprovadas</small><b style="color:${aprovadas.length?'var(--pri)':''}">${aprovadas.length}</b><span>escolher aparelho / assinar</span></div>
@@ -1384,7 +1467,10 @@ async function analisar(id){
   const histTxt=hist.length?hist.map(h=>{ const atr=(h.parcelas||[]).filter(p=>h.status==='ATIVA'&&stParc(p)==='atraso').length; return `Nº ${h.numero}: ${VENDA_ST[h.status]?.[0]||h.status}${atr?` — <b style="color:var(--bad)">${atr} em atraso</b>`:''}`; }).join('<br>'):'Primeira compra.';
   const idade=c.nasc?Math.floor((Date.now()-new Date(c.nasc))/31557600000):'—';
   const nota=notaCliente(hist,c.renda);
+  const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
+    ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
+    <div id="lnFace"></div>
     <div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
@@ -1402,7 +1488,9 @@ async function analisar(id){
     <label class="check"><input type="checkbox" id="ck_doc"> Documento legível e original</label>
     <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label></div>
     <label class="mt">Parecer<textarea id="aObs" rows="2"></textarea></label>
+    <label class="check"><input type="checkbox" id="aLN"> Ao reprovar, incluir este cliente (CPF, telefones e rosto) na <b>lista negra</b> — golpe, documento falso ou fraude</label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
+  if(docs.selfie) compararFaceLN(docs.selfie,c.cpf);
 }
 async function decidir(id,r){
   const ck={}; ['cpf','bio','doc'].forEach(k=>ck[k]=$('#ck_'+k).checked);
@@ -1410,6 +1498,7 @@ async function decidir(id,r){
   if(r==='REPROVADA' && !$('#aObs').value.trim()){ toast('Escreva o motivo da reprovação (fica só para a equipe).','err'); return; }
   const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck};
   await DB.set('vendas',id,{status:r,analise}); await log(r==='APROVADA'?'Crédito aprovado':'Crédito reprovado',id,analise.obs);
+  if(r==='REPROVADA'&&$('#aLN')?.checked){ const v=await DB.get('vendas',id); await adicionarLN(v,'Fraude na proposta: '+analise.obs); }
   toast(r==='APROVADA'?'Cliente aprovado — o vendedor já está vendo na tela':'Cliente reprovado', r==='APROVADA'?'ok':''); closeModal(); render();
 }
 
@@ -1454,10 +1543,7 @@ async function confirmarAssinatura(id,btn){
   btn.disabled=true;
   try{
     const v=await DB.get('vendas',id);
-    await DB.set('vendas',id,{status:'AGUARDANDO_ENTRADA',assinatura:reduzirAssinatura(cv),assinadoEm:Date.now(),aceiteBloqueio:true,aceiteLgpd:true,contratoTexto:contratoHTML(v)});
-    await log('Contrato assinado',id,`Nº ${v.numero}`);
-    toast('Contrato assinado','ok'); closeModal();
-    if(S.w&&S.w.vendaId===id) irPasso(7); else render();
+    await registrarAssinatura(id,{assinatura:reduzirAssinatura(cv),assinadoEm:Date.now(),contrato:contratoHTML(v),via:'LOJA',tk:token(24),numero:v.numero});
   }catch(e){ console.error(e); toast('Erro: '+e.message,'err'); btn.disabled=false; }
 }
 function reduzirAssinatura(cv){ const w=600, h=Math.round(cv.height*w/cv.width); const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.drawImage(cv,0,0,w,h); return c.toDataURL('image/jpeg',0.7); }
@@ -1465,7 +1551,7 @@ async function imprimirContrato(id){
   const v=await DB.get('vendas',id); const w=window.open('','_blank'); if(!w){ toast('Permita pop-ups para imprimir','err'); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contrato ${v.numero}</title><style>body{font-family:Arial,sans-serif;font-size:12px;line-height:1.5;max-width:760px;margin:30px auto;color:#111}h4{margin:14px 0 4px}.ass{margin-top:30px;display:flex;gap:40px}.ass div{flex:1;text-align:center;border-top:1px solid #000;padding-top:4px}img{max-width:260px;display:block;margin:0 auto -10px}</style></head><body>
   ${v.contratoTexto||contratoHTML(v)}<div class="ass"><div>${v.assinatura?`<img src="${v.assinatura}">`:''}${esc(v.clienteNome)}<br>COMPRADOR(A)</div><div><br><br>${esc(S.cfg.empresa)}<br>VENDEDORA</div></div>
-  <p style="font-size:10px;color:#555;margin-top:24px">Assinado eletronicamente em ${fmtDT(v.assinadoEm)} na loja ${esc(v.lojaNome)}, com aceite expresso das cláusulas 5 e 6.</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+  <p style="font-size:10px;color:#555;margin-top:24px">Assinado eletronicamente em ${fmtDT(v.assinadoEm)} ${v.assinaturaDigital?.via==='CELULAR_CLIENTE'?'pelo(a) comprador(a) no próprio celular':'na loja '+esc(v.lojaNome)}, com aceite expresso das cláusulas 5 e 6.${v.assinaturaDigital?`<br>Código de verificação: <b>${esc(v.assinaturaDigital.codigo)}</b> · SHA-256: <span style="font-family:monospace">${esc(v.assinaturaDigital.hash)}</span><br>Confira a autenticidade em ${esc(urlCliente())}?assinar=${esc(v.assinaturaDigital.tk)}`:''}</p><script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
 
@@ -1500,6 +1586,227 @@ async function mostrarQR(tk){
     <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="copiarQR" data-tk="${tk}">Copiar JSON</button><button class="btn gold" data-act="closeModal">Concluir</button></div>`, true);
 }
 
+
+
+/* ======================= UTILITÁRIOS: hash, localização ======================= */
+async function sha256(txt){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(txt))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+const chaveAcesso = (cpf,nasc,tel) => sha256(`nexumcell|${onlyDig(cpf)}|${nasc}|${onlyDig(tel).slice(-4)}`);
+function distM(a,b){ const R=6371000, rad=x=>x*Math.PI/180, dLa=rad(b.lat-a.lat), dLo=rad(b.lng-a.lng); const s=Math.sin(dLa/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
+function minhaPosicao(){ return new Promise((ok,err)=>{ if(!navigator.geolocation) return err(new Error('Este aparelho não informa a localização.'));
+  navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lng:p.coords.longitude,precisao:Math.round(p.coords.accuracy),em:Date.now()}),
+    e=>err(new Error(e.code===1?'Permita o acesso à localização no navegador: a venda só pode ser feita dentro da loja.':'Não foi possível pegar a localização. Ligue o GPS e tente de novo.')),{enableHighAccuracy:true,timeout:15000,maximumAge:0}); }); }
+async function conferirLocal(){
+  if(S.me.role!=='VENDEDOR'||S.cfg.exigirLocalLoja==='nao') return null;
+  const loja=S.lojas.find(l=>l.id===S.me.lojaId);
+  if(!loja||loja.lat==null||loja.lng==null) return null;   // loja ainda sem localização cadastrada
+  const g=await minhaPosicao(), dist=Math.round(distM(g,loja)), raio=+loja.raio||150;
+  Object.assign(g,{dist,lojaId:loja.id});
+  if(dist-Math.min(g.precisao||0,100)>raio) throw new Error(`Você está a ${dist>=1000?(dist/1000).toFixed(1).replace('.',',')+' km':dist+' m'} da ${loja.nome}. A venda só pode ser feita dentro da loja.`);
+  return g;
+}
+async function lojaGeo(){ const m=$('#lgGeoMsg'); m.textContent='Pegando a localização…';
+  try{ const g=await minhaPosicao(); $('#lgLat').value=g.lat.toFixed(6); $('#lgLng').value=g.lng.toFixed(6); m.textContent=`Pronto (precisão de ${g.precisao} m). Salve a loja.`; }catch(e){ m.textContent=e.message; } }
+
+/* ======================= LISTA NEGRA ======================= */
+async function naListaNegra(cpf,tels){
+  const ids=[cpf&&'cpf_'+onlyDig(cpf),...(tels||[]).map(t=>t&&'tel_'+onlyDig(t))].filter(Boolean);
+  const r=await Promise.all(ids.map(id=>DB.get('listanegra',id).catch(()=>null)));
+  return r.filter(x=>x&&x.ativo!==false);
+}
+function bloqueadoLN(){
+  $('#wz').innerHTML=`<div class="card resultado bad"><div class="res-ic">${svg('<path d="M18 6 6 18M6 6l12 12"/>')}</div>
+    <h2 style="justify-content:center;font-size:24px">Este cliente é inelegível para uma proposta de crédito no momento.</h2>
+    <p class="muted">Não é possível seguir com este cadastro. Se tiver dúvida, fale com o gerente ou o financeiro.</p>
+    <button class="btn lg" data-act="novaProposta">Voltar ao início</button></div>`;
+}
+async function adicionarLN(v,motivo){
+  const c=v.cliente||{}, base={nome:v.clienteNome,cpf:v.clienteCpf,motivo,vendaId:v.id,vendaNumero:v.numero,em:Date.now(),por:S.me.nome,ativo:true};
+  const ops=[{c:'listanegra',id:'cpf_'+onlyDig(v.clienteCpf),data:{...base,tipo:'CPF',valor:onlyDig(v.clienteCpf)}}];
+  (c.telefones||[]).filter(Boolean).forEach(t=>ops.push({c:'listanegra',id:'tel_'+onlyDig(t),data:{...base,tipo:'TELEFONE',valor:onlyDig(t)}}));
+  try{ const d=await DB.get('docs',v.id); if(d?.selfie) ops.push({c:'listanegra',id:'face_'+v.id,data:{...base,tipo:'ROSTO',valor:v.clienteCpf,foto:d.selfie}}); }catch(e){}
+  await DB.batch(ops); await log('Cliente incluído na lista negra',v.id,motivo); toast('Cliente incluído na lista negra','ok');
+}
+const PROMPT_LN=`A PRIMEIRA imagem é a selfie de um cliente novo. As outras imagens (numeradas 1, 2, 3... na ordem em que aparecem depois da primeira) são rostos de pessoas bloqueadas por fraude.
+Responda SOMENTE com JSON: {"iguais":[números das imagens que mostram a MESMA pessoa da primeira],"confianca":0,"observacao":""}
+Só inclua um número se tiver certeza razoável de que é a mesma pessoa (mesmo rosto, não só parecido). "confianca" de 0 a 100.`;
+async function compararFaceLN(selfie,cpf){
+  const box=$('#lnFace'); if(!box) return;
+  let faces=[]; try{ faces=(await DB.list('listanegra',[['tipo','==','ROSTO']])).filter(f=>f.foto&&f.ativo!==false&&onlyDig(f.valor)!==onlyDig(cpf)); }catch(e){ return; }
+  if(!faces.length) return;
+  if(!iaChave()){ box.innerHTML=`<p class="small muted">${faces.length} rosto(s) na lista negra — configure a IA para comparar automaticamente.</p>`; return; }
+  box.innerHTML='<p class="small muted"><span class="spin sm"></span> Comparando o rosto com a lista negra…</p>';
+  const achados=[];
+  try{
+    for(let i=0;i<faces.length;i+=4){ const lote=faces.slice(i,i+4);
+      const r=await iaVisao(PROMPT_LN,[selfie,...lote.map(f=>f.foto)]);
+      (r.iguais||[]).map(Number).forEach(n=>{ if(lote[n-1]&&(+r.confianca||0)>=60) achados.push({...lote[n-1],conf:r.confianca}); }); }
+    if(!$('#lnFace')) return;
+    box.innerHTML=achados.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>O rosto parece ser de alguém da lista negra</b>${achados.map(a=>`<div class="row" style="margin-top:6px"><img src="${a.foto}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"><span>${esc(a.nome)} · CPF ${fmtCpf(a.valor)} · ${esc(a.motivo)} (${a.conf}% de confiança)</span></div>`).join('')}</div></div>`
+      :`<p class="small" style="color:var(--ok)">✓ Rosto comparado com ${faces.length} pessoa(s) da lista negra: nenhuma parecida.</p>`;
+  }catch(e){ box.innerHTML='<p class="small muted">Não foi possível comparar o rosto agora.</p>'; }
+}
+PAGES.listanegra = async () => {
+  const l=(await DB.list('listanegra')).filter(x=>x.ativo!==false).sort((a,b)=>b.em-a.em), q=(S.filtro.lnq||'').toLowerCase();
+  const lista=l.filter(x=>!q||[x.nome,x.valor,x.motivo].join(' ').toLowerCase().includes(q));
+  const fmtV=x=>x.tipo==='CPF'?fmtCpf(x.valor):x.tipo==='TELEFONE'?fmtFone(x.valor):'Rosto (CPF '+fmtCpf(x.valor)+')';
+  $('#view').innerHTML=`<div class="row mb" style="justify-content:space-between"><input id="lnq" placeholder="Buscar por nome, CPF, telefone ou motivo" style="max-width:360px" value="${esc(S.filtro.lnq||'')}">
+    ${can('DONO','FINANCEIRO','GERENTE')?'<button class="btn gold" data-act="novoLN">Adicionar à lista negra</button>':''}</div>
+  <div class="card tablewrap"><table><tr><th></th><th>Tipo</th><th>Bloqueado</th><th>Nome</th><th>Motivo</th><th>Quando / quem</th><th></th></tr>
+  ${lista.map(x=>`<tr><td>${x.foto?`<img src="${x.foto}" style="width:44px;height:44px;object-fit:cover;border-radius:8px">`:''}</td><td>${badge(x.tipo==='ROSTO'?'Rosto':x.tipo==='CPF'?'CPF':'Telefone',x.tipo==='CPF'?'red':x.tipo==='ROSTO'?'amber':'gray')}</td>
+    <td class="mono">${esc(fmtV(x))}</td><td>${esc(x.nome||'—')}${x.vendaNumero?`<br><span class="small muted">contrato nº ${x.vendaNumero}</span>`:''}</td><td>${esc(x.motivo)}</td><td class="small">${fmtDT(x.em)}<br><span class="muted">${esc(x.por||'')}</span></td>
+    <td class="right">${can('DONO')?`<button class="btn sm" data-act="removerLN" data-id="${x.id}">Remover</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Lista negra vazia</td></tr>'}</table></div>
+  <p class="hint">Quem está aqui não consegue nova proposta: o sistema confere o CPF na leitura do documento, os telefones no cadastro e o rosto na análise de crédito. Entram automaticamente os clientes com aparelho retomado por inadimplência e os reprovados por fraude.</p>`;
+  $('#lnq').addEventListener('input',e=>{ S.filtro.lnq=e.target.value; clearTimeout(S._lnT); S._lnT=setTimeout(()=>PAGES.listanegra().then(()=>{ const el=$('#lnq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),250); });
+};
+function novoLN(){
+  openModal(`<h2>Adicionar à lista negra</h2><div class="grid g2">
+    <label>Tipo<select id="lnTipo"><option value="CPF">CPF</option><option value="TELEFONE">Telefone</option></select></label>
+    <label>CPF ou telefone<input id="lnValor" inputmode="numeric"></label>
+    <label>Nome da pessoa<input id="lnNome"></label>
+    <label>Motivo<input id="lnMotivo" placeholder="ex.: golpe, documento falso, não pagou"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn red" data-act="salvarLN">Bloquear</button></div>`);
+}
+async function salvarLN(){
+  const tipo=$('#lnTipo').value, valor=onlyDig($('#lnValor').value), motivo=$('#lnMotivo').value.trim();
+  if(tipo==='CPF'&&!cpfOk(valor)) return toast('CPF inválido','err');
+  if(tipo==='TELEFONE'&&!/^\d{10,11}$/.test(valor)) return toast('Telefone com DDD','err');
+  if(!motivo) return toast('Informe o motivo','err');
+  await DB.set('listanegra',(tipo==='CPF'?'cpf_':'tel_')+valor,{tipo,valor,nome:$('#lnNome').value.trim(),motivo,em:Date.now(),por:S.me.nome,ativo:true});
+  await log('Incluído na lista negra',valor,motivo); closeModal(); render();
+}
+async function removerLN(id){
+  if(!confirm('Tirar da lista negra? A pessoa volta a poder fazer propostas.')) return;
+  await DB.set('listanegra',id,{ativo:false,removidoEm:Date.now(),removidoPor:S.me.nome}); await log('Removido da lista negra',id,''); render();
+}
+
+/* ======================= ESTOQUE POR IMEI ======================= */
+const EST_ST={DISPONIVEL:['Disponível','green'],VENDIDO:['Vendido','blue'],RETOMADO:['Retomado','amber'],BAIXADO:['Baixado','gray']};
+PAGES.estoque = async () => {
+  const lojaF=can('DONO','FINANCEIRO')?(S.filtro.estLoja||''):S.me.lojaId;
+  let l=await DB.list('estoque',lojaF?[['lojaId','==',lojaF]]:[]);
+  const st=S.filtro.estSt||'DISPONIVEL', q=onlyDig(S.filtro.estq||'');
+  const lista=l.filter(e=>(st==='todos'||e.status===st)&&(!q||e.imei.includes(q)||(e.imei2||'').includes(q))).sort((a,b)=>b.criadoEm-a.criadoEm);
+  const disp=l.filter(e=>e.status==='DISPONIVEL'), grupos={};
+  disp.forEach(e=>{ const k=`${e.marca} ${e.modelo} ${e.capacidade}`; grupos[k]=(grupos[k]||0)+1; });
+  $('#view').innerHTML=`<div class="row mb" style="justify-content:space-between">
+    <div class="row">${can('DONO','FINANCEIRO')?`<select id="estLoja" style="width:200px"><option value="">Todas as lojas</option>${S.lojas.map(x=>`<option value="${x.id}" ${lojaF===x.id?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>`:''}
+      <input id="estq" inputmode="numeric" placeholder="Buscar IMEI" style="width:220px" value="${esc(S.filtro.estq||'')}"></div>
+    ${can('DONO','GERENTE')?'<button class="btn gold" data-act="cadEstoque">Cadastrar aparelhos</button>':''}</div>
+  <div class="kpis"><div class="kpi"><small>Disponíveis</small><b>${disp.length}</b><span>prontos para vender</span></div>
+    <div class="kpi"><small>Vendidos</small><b>${l.filter(e=>e.status==='VENDIDO').length}</b><span>com trava instalada</span></div>
+    <div class="kpi"><small>Retomados</small><b>${l.filter(e=>e.status==='RETOMADO').length}</b><span>voltaram para a loja</span></div>
+    <div class="kpi"><small>Modelos disponíveis</small><b>${Object.keys(grupos).length}</b><span>${Object.entries(grupos).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,n])=>esc(k)+': '+n).join(' · ')||'—'}</span></div></div>
+  <div class="tabs">${[['DISPONIVEL','Disponíveis'],['VENDIDO','Vendidos'],['RETOMADO','Retomados'],['BAIXADO','Baixados'],['todos','Todos']].map(([k,t])=>`<button data-act="filtro" data-k="estSt" data-v="${k}" class="${st===k?'on':''}">${t}</button>`).join('')}</div>
+  <div class="card tablewrap"><table><tr><th>Aparelho</th><th>IMEI</th><th>Loja</th><th>Entrada no estoque</th><th>Situação</th><th></th></tr>
+  ${lista.map(e=>`<tr><td><b>${esc(e.marca+' '+e.modelo)}</b> ${esc(e.capacidade)}<br><span class="small muted">${esc(e.cor||'')}${e.notaFiscal?' · NF '+esc(e.notaFiscal):''}</span></td>
+    <td class="mono small">${esc(e.imei)}${e.imei2?'<br>'+esc(e.imei2):''}</td><td>${esc(e.lojaNome||lojaNome(e.lojaId))}</td><td class="small">${fmtDT(e.criadoEm)}<br><span class="muted">${esc(e.por||'')}</span></td>
+    <td>${badge(...(EST_ST[e.status]||[e.status,'gray']))}${e.vendaId?` <a class="small" href="#" data-act="verVenda" data-id="${e.vendaId}">ver venda</a>`:''}${e.motivoBaixa?`<br><span class="small muted">${esc(e.motivoBaixa)}</span>`:''}</td>
+    <td class="right">${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?`<button class="btn sm" data-act="baixarEstoque" data-id="${e.id}">Dar baixa</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum aparelho</td></tr>'}</table></div>
+  <p class="hint">O vendedor só consegue vender um aparelho que esteja aqui como <b>disponível</b> na loja dele, com o mesmo modelo e memória. Quando a trava sobe, ele passa a <b>vendido</b> sozinho.</p>`;
+  $('#estLoja')?.addEventListener('change',e=>{ S.filtro.estLoja=e.target.value; render(); });
+  $('#estq').addEventListener('input',e=>{ S.filtro.estq=e.target.value; clearTimeout(S._esT); S._esT=setTimeout(()=>PAGES.estoque().then(()=>{ const el=$('#estq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),300); });
+};
+async function cadEstoque(){
+  const cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false).sort((a,b)=>(a.marca+a.modelo+a.capacidade).localeCompare(b.marca+b.modelo+b.capacidade,'pt-BR',{numeric:true}));
+  const lojas=can('DONO')?S.lojas:S.lojas.filter(l=>l.id===S.me.lojaId);
+  openModal(`<h2>Cadastrar aparelhos no estoque</h2>
+    <div class="grid g2"><label>Loja<select id="esLoja">${lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')}</select></label>
+      <label>Aparelho (do catálogo)<select id="esItem">${cat.map(x=>`<option value="${x.id}">${esc(x.marca+' '+x.modelo+' '+x.capacidade)}</option>`).join('')}</select></label>
+      <label>Cor<input id="esCor" placeholder="Preto"></label><label>Nota fiscal (opcional)<input id="esNF"></label></div>
+    <label class="mt">IMEIs — um aparelho por linha. Se for dual chip, coloque os dois IMEIs na mesma linha separados por espaço.<textarea id="esImeis" rows="6" class="mono" placeholder="356938035643817&#10;356938035643825 356938035643833"></textarea></label>
+    <p class="small muted">Dica: disque *#06# em cada aparelho ou leia a etiqueta da caixa. O sistema recusa IMEI inválido ou repetido.</p>
+    <div id="esMsg" class="small mt"></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarEstoque">Cadastrar</button></div>`, true);
+}
+async function salvarEstoque(btn){
+  const lojaId=$('#esLoja').value, x=await DB.get('catalogo',$('#esItem').value), loja=S.lojas.find(l=>l.id===lojaId)||{};
+  const linhas=$('#esImeis').value.split('\n').map(s=>s.trim()).filter(Boolean), erros=[], ops=[], vistos=new Set();
+  if(!x||!lojaId||!linhas.length) return toast('Escolha a loja, o aparelho e digite os IMEIs','err');
+  btn.disabled=true;
+  for(const ln of linhas){
+    const [a,b]=ln.split(/[\s;,]+/).map(onlyDig);
+    if(!imeiOk(a)){ erros.push(`${ln}: IMEI inválido`); continue; }
+    if(b&&!imeiOk(b)){ erros.push(`${ln}: IMEI 2 inválido`); continue; }
+    if(vistos.has(a)||(b&&vistos.has(b))){ erros.push(`${a}: repetido na lista`); continue; }
+    const ja=await DB.get('estoque',a).catch(()=>null);
+    if(ja){ erros.push(`${a}: já está no estoque (${ja.lojaNome||''}, ${(EST_ST[ja.status]||[ja.status])[0].toLowerCase()})`); continue; }
+    vistos.add(a); b&&vistos.add(b);
+    ops.push({c:'estoque',id:a,data:{imei:a,imei2:b||'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,cor:$('#esCor').value.trim(),notaFiscal:$('#esNF').value.trim(),lojaId,lojaNome:loja.nome||'',status:'DISPONIVEL',criadoEm:Date.now(),por:S.me.nome}});
+  }
+  if(ops.length){ await DB.batch(ops); await log('Aparelhos cadastrados no estoque',lojaId,`${ops.length}x ${x.marca} ${x.modelo} ${x.capacidade}`); }
+  if(erros.length){ btn.disabled=false; $('#esMsg').innerHTML=`${ops.length?`<b style="color:var(--ok)">${ops.length} cadastrado(s).</b> `:''}<b style="color:var(--bad)">Recusados:</b><br>${erros.map(esc).join('<br>')}`; $('#esImeis').value=''; return; }
+  toast(`${ops.length} aparelho(s) no estoque`,'ok'); closeModal(); render();
+}
+async function baixarEstoque(id){
+  const m=prompt('Motivo da baixa (defeito, devolução ao fornecedor, troca de loja...):'); if(!m) return;
+  await DB.set('estoque',id,{status:'BAIXADO',motivoBaixa:m,baixadoEm:Date.now(),baixadoPor:S.me.nome}); await log('Baixa no estoque',id,m); render();
+}
+
+/* ======================= METAS E PREVISÃO (dentro de Relatórios) ======================= */
+async function blocoMetas(vendas,mes,us){
+  let mt=await DB.get('metas',mes).catch(()=>null);
+  if(!mt){ const [y,m]=mes.split('-').map(Number), ant=isoDate(new Date(y,m-2,1)).slice(0,7); const a=await DB.get('metas',ant).catch(()=>null); mt={lojas:{...(a?.lojas||{})},vendedores:{...(a?.vendedores||{})},copiada:!!a}; }
+  const doMes=vendas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
+  const vend=us.filter(u=>u.role==='VENDEDOR'&&u.ativo!==false&&(can('DONO','FINANCEIRO')||u.lojaId===S.me.lojaId));
+  const lojas=S.lojas.filter(l=>can('DONO','FINANCEIRO')||l.id===S.me.lojaId);
+  const editar=can('DONO','GERENTE');
+  const linha=(nome,sub,feito,meta,attr)=>{ const pct=meta?feito/meta*100:0;
+    return `<tr><td><b>${esc(nome)}</b> <span class="small muted">${esc(sub)}</span></td><td class="right">${brl(feito)}</td>
+      <td class="right">${editar?`<input type="number" min="0" step="100" ${attr} value="${meta||''}" style="width:120px;min-height:32px;padding:4px 8px">`:brl(meta)}</td>
+      <td style="width:32%"><div class="barra ${pct>=100?'ok':''}"><i style="width:${Math.min(100,pct)}%"></i></div><span class="small muted">${meta?Math.round(pct)+'%':'sem meta'}</span></td></tr>`; };
+  return `<div class="card tablewrap"><div class="row" style="justify-content:space-between;padding:16px 16px 0"><h2 style="margin:0">Metas do mês</h2>${editar?'<button class="btn sm gold" data-act="salvarMetas">Salvar metas</button>':''}</div>
+    ${mt.copiada?'<p class="small muted" style="padding:0 16px">Metas copiadas do mês anterior — ajuste e salve.</p>':''}
+    <table><tr><th>Loja / vendedor</th><th class="right">Vendido (valor dos aparelhos)</th><th class="right">Meta</th><th>Progresso</th></tr>
+    ${lojas.map(l=>linha(l.nome,'loja',doMes.filter(v=>v.lojaId===l.id).reduce((s,v)=>s+v.valor,0),Number(mt.lojas?.[l.id])||0,`data-meta-loja="${l.id}"`)).join('')}
+    ${vend.map(u=>linha(u.nome,(u.codigo||'')+' · '+lojaNome(u.lojaId),doMes.filter(v=>v.vendedorUid===u.id).reduce((s,v)=>s+v.valor,0),Number(mt.vendedores?.[u.id])||0,`data-meta-vend="${u.id}"`)).join('')}
+    </table></div>`;
+}
+async function salvarMetas(){
+  const mes=S.filtro.relMes||hoje().slice(0,7), atual=await DB.get('metas',mes).catch(()=>null)||{};
+  const d={lojas:{...(atual.lojas||{})},vendedores:{...(atual.vendedores||{})},atualizadoEm:Date.now(),por:S.me.nome};
+  document.querySelectorAll('[data-meta-loja]').forEach(i=>d.lojas[i.dataset.metaLoja]=+i.value||0);
+  document.querySelectorAll('[data-meta-vend]').forEach(i=>d.vendedores[i.dataset.metaVend]=+i.value||0);
+  await DB.set('metas',mes,d); await log('Metas alteradas',mes,''); toast('Metas salvas','ok'); render();
+}
+function blocoPrevisao(vendas){
+  const ativos=vendas.filter(v=>v.status==='ATIVA'), h=hoje(), mes0=h.slice(0,7);
+  const inad=inadimplencia(vendas), taxa=inad.venc?Math.max(0.5,1-inad.pct/100):0.92;
+  const atraso=r2(ativos.reduce((s,v)=>s+(v.parcelas||[]).filter(p=>!p.pago&&p.venc<h).reduce((a,p)=>a+p.valor,0),0));
+  const meses=Array.from({length:12},(_,i)=>{ const [y,m]=mes0.split('-').map(Number); return isoDate(new Date(y,m-1+i,1)).slice(0,7); });
+  const linhas=meses.map(k=>{ const v=r2(ativos.reduce((s,x)=>s+(x.parcelas||[]).filter(p=>!p.pago&&p.venc.startsWith(k)&&p.venc>=h).reduce((a,p)=>a+p.valor,0),0)); return {k,v,esp:r2(v*taxa)}; });
+  const max=Math.max(1,...linhas.map(l=>l.v)), tot=linhas.reduce((s,l)=>s+l.v,0);
+  const nome=k=>{ const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}); };
+  return `<div class="card mt"><h2>Previsão de recebimentos — próximos 12 meses</h2>
+    <div class="kpis"><div class="kpi"><small>A receber (12 meses)</small><b>${brl(tot)}</b><span>parcelas em aberto dos contratos ativos</span></div>
+      <div class="kpi"><small>Esperado</small><b style="color:var(--ok)">${brl(tot*taxa)}</b><span>${Math.round(taxa*100)}% — taxa de pagamento da carteira</span></div>
+      <div class="kpi"><small>Em atraso hoje</small><b style="color:var(--bad)">${brl(atraso)}</b><span>fora da previsão acima</span></div></div>
+    <div class="prev">${linhas.map(l=>`<div class="prev-col"><span class="small">${l.v?brl(l.esp).replace('R$','').trim():''}</span><div class="prev-bar"><i style="height:${l.v/max*100}%"></i><b style="height:${l.esp/max*100}%"></b></div><small>${nome(l.k)}</small></div>`).join('')}</div>
+    <p class="hint">Barra clara: total das parcelas que vencem no mês. Barra escura: quanto deve entrar de fato, pela taxa de pagamento das safras.</p></div>`;
+}
+
+/* ======================= ROUBO / PERDA ======================= */
+function verRoubos(){
+  const l=S._roubos||[];
+  openModal(`<h2>Roubo, furto ou perda comunicados</h2>${l.map(a=>`<div class="pend"><div class="t2"><b>Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)}</b>
+    <span>${esc(a.roubo.tipo)} em ${fmtD(a.roubo.data)} · ${esc(a.roubo.local||'')}${a.roubo.bo?' · B.O. '+esc(a.roubo.bo):' · sem B.O.'} · comunicado ${relT(a.roubo.em)} pelo portal do cliente</span>
+    <span>IMEI <span class="mono">${esc(a.imei)}</span> · ${esc(a.lojaNome)} · aparelho travado</span></div>
+    ${can('DONO','FINANCEIRO','SUPORTE','GERENTE')?`<div class="row"><button class="btn sm" data-act="rouboTratado" data-id="${a.id}">Marcar como tratado</button><button class="btn sm" data-act="rouboLiberar" data-id="${a.id}">Foi engano — liberar</button></div>`:''}</div>`).join('')||'<p class="muted">Nada pendente.</p>'}
+    <p class="hint">O aparelho continua travado depois de “tratado”. As parcelas continuam valendo: o cliente segue pagando o contrato. Oriente o cliente a bloquear o IMEI no Celular Seguro (celularseguro.mj.gov.br).</p>`);
+}
+async function rouboTratado(id){ const a=await DB.get('aparelhos',id); await DB.set('aparelhos',id,{roubo:{...a.roubo,tratadoEm:Date.now(),tratadoPor:S.me.nome}}); await log('Roubo tratado',a.vendaId,a.imei); closeModal(); render(); }
+async function rouboLiberar(id){ if(!confirm('O cliente encontrou o aparelho? Ele será liberado.')) return; const a=await DB.get('aparelhos',id); await DB.set('aparelhos',id,{roubo:{...a.roubo,tratadoEm:Date.now(),liberadoEm:Date.now(),tratadoPor:S.me.nome}}); await log('Comunicação de roubo cancelada',a.vendaId,a.imei); closeModal(); render(); }
+
+/* ======================= PORTAL DO CLIENTE: acesso ======================= */
+async function gravarAcesso(v,tk){
+  const c=v.cliente||{}, tel=(c.telefones||[])[0]; if(!c.nasc||!tel) return;
+  const k=await chaveAcesso(v.clienteCpf,c.nasc,tel), a=await DB.get('acessos',k).catch(()=>null);
+  await DB.set('acessos',k,{nome:primeiroNome(v.clienteNome),tokens:[...new Set([...(a?.tokens||[]),tk])],atualizadoEm:Date.now()});
+}
+async function gerarAcessos(btn){
+  btn.disabled=true; const m=$('#acMsg'); m.textContent='Gerando…'; let n=0;
+  for(const v of (await DB.list('vendas')).filter(v=>v.aparelhoToken)){ try{ await gravarAcesso(v,v.aparelhoToken); n++; }catch(e){} }
+  m.textContent=`${n} contrato(s) liberado(s) no portal do cliente.`; btn.disabled=false;
+}
 
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda){
@@ -1609,6 +1916,7 @@ async function retomar(id){
       <label>Avaliação do aparelho (R$)<input id="rtAval" type="number" min="0" step="0.01" value="${r2((v.valor||0)*0.5)}"></label>
       <label>Saldo devedor do cliente (R$)<input id="rtSaldo" type="number" step="0.01" value="${q.total}"></label></div>
     <label class="mt">Observação<textarea id="rtObs" rows="2"></textarea></label>
+    <label class="check"><input type="checkbox" id="rtLN" checked> Se o motivo for inadimplência, incluir o cliente na lista negra</label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="confirmarRetomada" data-id="${id}">Confirmar retomada</button></div>`);
 }
 async function confirmarRetomada(id,btn){
@@ -1618,9 +1926,11 @@ async function confirmarRetomada(id,btn){
   const ret={em:Date.now(),por:S.me.nome,motivo:$('#rtMotivo').value,estado:$('#rtEstado').value,avaliacao:r2(+$('#rtAval').value||0),saldo:r2(+$('#rtSaldo').value||0),obs:$('#rtObs').value.trim()};
   const ops=[{c:'vendas',id,data:{status:'RETOMADA',retomada:ret}}];
   if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
+  if(v.aparelho?.estoqueId) ops.push({c:'estoque',id:v.aparelho.estoqueId,data:{status:'RETOMADO',retomadoEm:Date.now()}});
   ops.push({c:'seminovos',id:'s_'+id,data:{marca:v.aparelho?.marca||'',modelo:v.aparelho?.modelo||'',capacidade:v.aparelho?.capacidade||'',imei:v.aparelho?.imei||'',imei2:v.aparelho?.imei2||'',
     vendaId:id,vendaNumero:v.numero,cliente:v.clienteNome,estado:ret.estado,avaliacao:ret.avaliacao,precoVenda:r2(ret.avaliacao*1.3),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:Date.now()}});
   await DB.batch(ops); await log('Aparelho retomado',id,`${ret.motivo} · ${ret.estado} · saldo ${brl(ret.saldo)}`);
+  if(ret.motivo==='Inadimplência'&&$('#rtLN')?.checked) await adicionarLN(v,`Aparelho retomado por inadimplência (saldo ${brl(ret.saldo)})`);
   toast('Retomada registrada — aparelho no estoque de seminovos','ok'); closeModal(); render();
 }
 PAGES.seminovos = async () => {
@@ -1653,7 +1963,9 @@ PAGES.relatorios = async () => {
     .sort((a,b)=>a.inad.pct-b.inad.pct);
   const safras={}; vendas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&(v.entradaPaga||v.assinadoEm)).forEach(v=>{ const k=isoDate(new Date(v.entradaPaga?.em||v.assinadoEm)).slice(0,7); (safras[k]=safras[k]||[]).push(v); });
   const mesNome=k=>{ const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'}); };
+  const metasHtml=await blocoMetas(vendas,mes,us);
   $('#view').innerHTML=`<div class="row mb"><label style="flex-direction:row;align-items:center;gap:8px">Mês <input type="month" id="relMes" value="${mes}" style="width:180px"></label><span class="muted small">Comissão: ${pct}% sobre as parcelas efetivamente pagas no mês (entrada não conta).</span></div>
+  ${metasHtml}<div class="mt"></div>
   <div class="card tablewrap"><h2 style="padding:16px 16px 0">Vendedores — comissão e inadimplência</h2><table><tr><th>Vendedor</th><th class="right">Vendas no mês</th><th class="right">Recebido no mês</th><th class="right">Comissão</th><th class="right">Carteira</th><th class="right">Inadimplência</th><th class="right">Retomados</th></tr>
   ${linhas.map((l,i)=>`<tr><td><b>${esc(l.nome)}</b> <span class="small muted">${esc(l.codigo)} · ${esc(l.loja)}</span></td><td class="right">${l.vendasMes} · ${brl(l.valorMes)}</td><td class="right">${brl(l.rec)}</td><td class="right"><b style="color:var(--ok)">${brl(l.com)}</b></td><td class="right">${l.carteira}</td>
     <td class="right">${badge(l.inad.pct.toFixed(1)+'%',l.inad.pct>15?'red':l.inad.pct>7?'amber':'green')}<br><span class="small muted">${brl(l.inad.aberto)} em aberto</span></td><td class="right">${l.retom}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sem vendas</td></tr>'}</table></div>
@@ -1661,7 +1973,8 @@ PAGES.relatorios = async () => {
   <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Safras — como as vendas de cada mês estão pagando</h2><table><tr><th>Mês da venda</th><th class="right">Vendas</th><th class="right">Financiado</th><th class="right">Já venceu</th><th class="right">Pago do que venceu</th><th class="right">Em atraso</th><th class="right">Quitados</th><th class="right">Retomados</th></tr>
   ${Object.keys(safras).sort().reverse().map(k=>{ const vs=safras[k], inad=inadimplencia(vs), pago=inad.venc?100-inad.pct:100;
     return `<tr><td><b>${mesNome(k)}</b></td><td class="right">${vs.length}</td><td class="right">${brl(vs.reduce((s,v)=>s+(v.financiado||0),0))}</td><td class="right">${brl(inad.venc)}</td><td class="right">${badge(pago.toFixed(1)+'%',pago<85?'red':pago<93?'amber':'green')}</td><td class="right">${brl(inad.aberto)}</td><td class="right">${vs.filter(v=>v.status==='QUITADA').length}</td><td class="right">${vs.filter(v=>v.status==='RETOMADA').length}</td></tr>`; }).join('')||'<tr><td colspan="8" class="empty">Sem vendas concluídas</td></tr>'}</table></div>
-  <p class="hint">Se as safras mais recentes pagam pior que as antigas, aumente a entrada, os juros ou o rigor da análise.</p>`;
+  <p class="hint">Se as safras mais recentes pagam pior que as antigas, aumente a entrada, os juros ou o rigor da análise.</p>
+  ${can('DONO','FINANCEIRO')?blocoPrevisao(vendas):''}`;
   $('#relMes').addEventListener('change',e=>{ S.filtro.relMes=e.target.value; render(); });
 };
 
@@ -1982,11 +2295,11 @@ PAGES.config = async () => {
   const f=(k,l,t='text',x='')=>`<label>${l}<input data-cfg="${k}" type="${t}" value="${esc(c[k])}" ${x}></label>`;
   $('#view').innerHTML=`
   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lojas</h2><button class="btn sm gold" data-act="editarLoja" data-id="">Nova loja</button></div>
-    <div class="tablewrap mt"><table><tr><th>Loja</th><th>Cidade</th><th>Telefone (aparece na tela de bloqueio)</th><th></th></tr>
-    ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
+    <div class="tablewrap mt"><table><tr><th>Loja</th><th>Cidade</th><th>Telefone (aparece na tela de bloqueio)</th><th>Localização</th><th></th></tr>
+    ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td>${l.lat!=null&&l.lng!=null?badge('raio '+(l.raio||150)+' m','green'):badge('sem localização','amber')}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresa e crédito</h2><div class="grid g4">
     ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('comissaoPct','Comissão do vendedor sobre parcelas pagas (%)','number','step="0.1"')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
-    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}${f('servidorPagamentos','Servidor de pagamentos Asaas (opcional, ex.: https://nexumcell.vercel.app)')}
+    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}<label>Venda só dentro da loja<select data-cfg="exigirLocalLoja"><option value="sim" ${c.exigirLocalLoja!=='nao'?'selected':''}>Sim (pela localização do vendedor)</option><option value="nao" ${c.exigirLocalLoja==='nao'?'selected':''}>Não</option></select></label><label>Vender só aparelho do estoque<select data-cfg="exigirEstoque"><option value="sim" ${c.exigirEstoque!=='nao'?'selected':''}>Sim (IMEI cadastrado pelo gerente)</option><option value="nao" ${c.exigirEstoque==='nao'?'selected':''}>Não</option></select></label>${f('servidorPagamentos','Servidor de pagamentos Asaas (opcional, ex.: https://nexumcell.vercel.app)')}
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
@@ -2005,6 +2318,8 @@ PAGES.config = async () => {
     ${f('apkUrl','Link direto do APK (https)','url','placeholder="https://.../nexumcell-trava.apk"')}${f('apkChecksumHex','SHA-256 do certificado de assinatura do APK','text','placeholder="AB:CD:12:..." class="mono"')}
     ${f('wifiSsid','Wi-Fi da loja (opcional, vai no QR)')}${f('wifiSenha','Senha do Wi-Fi')}
   </div><p class="small muted">Veja o passo a passo no LEIA-ME para gerar o APK e copiar o SHA-256 (comando <span class="mono">keytool</span> ou <span class="mono">apksigner</span>). ${c.apkChecksumHex&&!hexToB64url(c.apkChecksumHex)?'<b style="color:var(--red)">O SHA-256 informado não tem 64 dígitos hexadecimais.</b>':''}</p></div>
+  <div class="card mt"><h2>Portal do cliente</h2><p class="small muted" style="margin-top:-6px">O cliente entra em ${esc(urlCliente())} com CPF, data de nascimento e os 4 últimos dígitos do celular cadastrado. Lá ele vê as faturas, paga por PIX, assina o contrato e comunica roubo.</p>
+    <div class="row mt"><button class="btn sm" data-act="gerarAcessos">Liberar o portal para os contratos já existentes</button><span class="small muted" id="acMsg"></span></div></div>
   <div class="row mt"><button class="btn gold" data-act="salvarConfig">Salvar configurações</button></div>`;
 };
 async function salvarConfig(){
@@ -2033,10 +2348,13 @@ async function salvarItem(id){
 async function editarLoja(id){
   const l=id?S.lojas.find(x=>x.id===id):{nome:'',cidade:'',telefone:''};
   openModal(`<h2>${id?'Editar':'Nova'} loja</h2><div class="grid g3"><label>Nome<input id="lgNome" value="${esc(l.nome)}"></label><label>Cidade<input id="lgCid" value="${esc(l.cidade)}"></label><label>Telefone / WhatsApp<input id="lgTel" value="${esc(l.telefone)}"></label></div>
+  <h3>Localização da loja (venda só dentro da loja)</h3>
+  <div class="grid g3"><label>Latitude<input id="lgLat" type="number" step="any" value="${l.lat??''}"></label><label>Longitude<input id="lgLng" type="number" step="any" value="${l.lng??''}"></label><label>Raio permitido (metros)<input id="lgRaio" type="number" min="30" value="${l.raio||150}"></label></div>
+  <div class="row mt"><button class="btn sm" data-act="lojaGeo">Usar a localização deste aparelho (esteja dentro da loja)</button><span class="small muted" id="lgGeoMsg"></span></div>
   <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarLoja" data-id="${id||''}">Salvar</button></div>`);
 }
 async function salvarLoja(id){
-  const d={nome:$('#lgNome').value.trim(),cidade:$('#lgCid').value.trim(),telefone:$('#lgTel').value.trim()}; if(!d.nome){ toast('Nome da loja','err'); return; }
+  const d={nome:$('#lgNome').value.trim(),cidade:$('#lgCid').value.trim(),telefone:$('#lgTel').value.trim(),lat:$('#lgLat').value===''?null:+$('#lgLat').value,lng:$('#lgLng').value===''?null:+$('#lgLng').value,raio:+$('#lgRaio').value||150}; if(!d.nome){ toast('Nome da loja','err'); return; }
   if(id) await DB.set('lojas',id,d); else await DB.add('lojas',d);
   S.lojas=await DB.list('lojas'); closeModal(); render();
 }
@@ -2046,6 +2364,9 @@ const ACT = {
   refazerInstalacao:d=>refazerInstalacao(d.id), avisarSuporteTrava:async d=>{ const v=await DB.get('vendas',d.id); await alertaTrava(v,'Vendedor pediu ajuda: a trava não sobe.'); toast('Suporte avisado — chamado aberto','ok'); }, verAvisoTrava:()=>verAvisoTrava(),
   quitar:d=>quitar(d.id), confirmarQuitacao:(d,b)=>confirmarQuitacao(d.id,b), renegociar:d=>renegociar(d.id), confirmarAcordo:(d,b)=>confirmarAcordo(d.id,b),
   retomar:d=>retomar(d.id), confirmarRetomada:(d,b)=>confirmarRetomada(d.id,b), snVender:d=>snVender(d.id),
+  modoAssinatura:d=>{ S.w.modoAss=d.v; passoContrato(); }, lojaGeo:()=>lojaGeo(), gerarAcessos:(d,b)=>gerarAcessos(b),
+  novoLN:()=>novoLN(), salvarLN:()=>salvarLN(), removerLN:d=>removerLN(d.id), cadEstoque:()=>cadEstoque(), salvarEstoque:(d,b)=>salvarEstoque(b), baixarEstoque:d=>baixarEstoque(d.id),
+  salvarMetas:()=>salvarMetas(), verRoubos:()=>verRoubos(), rouboTratado:d=>rouboTratado(d.id), rouboLiberar:d=>rouboLiberar(d.id),
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
   filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },

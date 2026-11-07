@@ -126,7 +126,60 @@ service cloud.firestore {
       allow update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                     || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
                     // o celular só pode atualizar o próprio "checkin"
-                    || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkin']));
+                    || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkin']))
+                    // portal do cliente: comunicar roubo, furto ou perda (uma vez; só a loja desfaz)
+                    || (anon() && !('roubo' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roubo'])
+                        && request.resource.data.roubo.keys().hasOnly(['tipo', 'data', 'local', 'bo', 'relato', 'em', 'via'])
+                        && request.resource.data.roubo.tipo in ['Roubo', 'Furto', 'Perda']);
+      allow delete: if false;
+    }
+
+    // ---------- Estoque por IMEI (ID do documento = IMEI 1) ----------
+    match /estoque/{imei} {
+      allow get: if staff();
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
+      allow update: if hasRole(['DONO', 'FINANCEIRO'])
+                    || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId && request.resource.data.lojaId == me().lojaId)
+                    // vendedor só marca como vendido o aparelho da própria loja
+                    || (hasRole(['VENDEDOR']) && resource.data.lojaId == me().lojaId && resource.data.status == 'DISPONIVEL'
+                        && request.resource.data.status == 'VENDIDO'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'vendaId', 'vendidoEm']));
+      allow delete: if false;
+    }
+
+    // ---------- Lista negra (ID: cpf_..., tel_..., face_...) ----------
+    match /listanegra/{id} {
+      allow get: if staff();
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'GERENTE']);
+      allow create, update: if hasRole(['DONO', 'FINANCEIRO', 'GERENTE']);
+      allow delete: if false;
+    }
+
+    // ---------- Metas do mês (ID: AAAA-MM) ----------
+    match /metas/{mes} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO', 'GERENTE']);
+    }
+
+    // ---------- Portal do cliente: chave = SHA-256(CPF + nascimento + 4 últimos dígitos do celular) ----------
+    match /acessos/{chave} {
+      allow get: if signed();
+      allow list: if false;
+      allow create, update: if staff();
+      allow delete: if false;
+    }
+
+    // ---------- Contrato assinado no celular do cliente (ID = token secreto do link) ----------
+    match /assinaturas/{tk} {
+      allow get: if signed();
+      allow list: if false;
+      allow create: if staff();
+      allow update: if staff()
+                    || (anon() && resource.data.status == 'PENDENTE' && request.resource.data.status == 'ASSINADO'
+                        && request.time.toMillis() < resource.data.expiraEm
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assinatura', 'assinadoEm', 'aceites', 'dispositivo', 'nomeDigitado']));
       allow delete: if false;
     }
 
