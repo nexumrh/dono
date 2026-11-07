@@ -358,6 +358,7 @@ const PORTAL_DO_PERFIL = {DONO:'dono',GERENTE:'gerente',VENDEDOR:'vendedor',FINA
 const URLS = window.NEXUMCELL_URLS || {};   // endereço de cada portal (nexumcell-config.js)
 const urlPortal = role => { const k=PORTAL_DO_PERFIL[role]; return URLS[k] || new URL(PORTAIS[k].arq, location.href).href; };
 const FB_ON = !!FIREBASE_CONFIG.apiKey;
+const DONO_EMAIL = String(window.NEXUMCELL_DONO||'').trim().toLowerCase();
 const FBV = '10.12.2';
 const APP_PKG = 'br.com.nexumcell.trava';
 const ADMIN_COMPONENT = APP_PKG + '/.AdminReceiver';
@@ -1664,13 +1665,17 @@ async function fbInit(){
     if(u.isAnonymous){ await au.signOut(fb.auth); return; }
     try{
       let p=await DB.get('users',u.uid);
-      if(!p){
+      const ehDono = DONO_EMAIL && String(u.email||'').toLowerCase()===DONO_EMAIL;
+      if(ehDono && (!p || p.role!=='DONO' || !p.ativo)){
+        // o e-mail do dono sempre entra como Dono, em qualquer portal
+        const perfil={nome:p?.nome||'Wevellen',email:u.email,role:'DONO',lojaId:'',ativo:true,criadoEm:p?.criadoEm||Date.now(),codigo:p?.codigo||'DON-0001'};
         const sis=await DB.get('config','sistema').catch(()=>null);
-        if(sis||PORTAL!=='dono'){ $('#lMsg').textContent=sis?'Seu usuário não tem perfil. Peça ao dono para cadastrar.':'Primeiro acesso: entre pelo Painel do Dono.'; await au.signOut(fb.auth); return; }
-        const perfil={nome:u.email.split('@')[0],email:u.email,role:'DONO',lojaId:'',ativo:true,criadoEm:Date.now()};
-        await DB.batch([{c:'users',id:u.uid,data:perfil},{c:'config',id:'sistema',data:{...CFG_PADRAO,ownerUid:u.uid}}]);
-        p={id:u.uid,...perfil}; toast('Bem-vindo! Você é o dono do sistema. Cadastre as lojas em Configurações.','ok');
+        const ops=[{c:'users',id:u.uid,data:perfil}];
+        if(!sis) ops.push({c:'config',id:'sistema',data:{...CFG_PADRAO,ownerUid:u.uid}});
+        await DB.batch(ops); p={id:u.uid,...perfil};
+        if(!sis) toast('Bem-vinda! Cadastre as lojas, o catálogo e a equipe em Lojas e configurações.','ok');
       }
+      if(!p){ $('#lMsg').textContent='Seu usuário não tem acesso. Peça ao dono para cadastrar você.'; await au.signOut(fb.auth); return; }
       if(!p.ativo){ $('#lMsg').textContent='Acesso desativado.'; await au.signOut(fb.auth); return; }
       if(!P.roles.includes(p.role)){ await au.signOut(fb.auth); $('#lMsg').innerHTML=`Este é o ${esc(P.nome)}. Seu acesso (${esc(ROLES[p.role])}) é pelo <a href="${esc(urlPortal(p.role))}">${esc(PORTAIS[PORTAL_DO_PERFIL[p.role]].nome)}</a>.`; return; }
       await iniciarSessao({uid:u.uid,...p});

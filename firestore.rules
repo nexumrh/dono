@@ -8,27 +8,24 @@ service cloud.firestore {
     function anon()    { return signed() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
     function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
     function me()      { return get(userDoc()).data; }
-    function staff()   { return signed() && !anon() && exists(userDoc()) && me().ativo == true; }
-    function hasRole(rs) { return staff() && me().role in rs; }
+    // E-mail do dono: entra em todos os portais com perfil de Dono
+    function donoEmail() { return signed() && request.auth.token.email == 'wevellenerrera21@gmail.com'; }
+    function staff()   { return donoEmail() || (signed() && !anon() && exists(userDoc()) && me().ativo == true); }
+    function hasRole(rs) { return (donoEmail() && 'DONO' in rs) || (signed() && !anon() && exists(userDoc()) && me().ativo == true && me().role in rs); }
     function sistemaExiste() { return exists(/databases/$(database)/documents/config/sistema); }
 
     // ---------- Configuração ----------
     match /config/{id} {
       allow get: if signed() && !anon();
       allow list: if staff();
-      // Primeiro login do sistema: quem entra primeiro vira o Dono.
-      allow create: if (id == 'sistema' && signed() && !anon() && !sistemaExiste()
-                        && request.resource.data.ownerUid == request.auth.uid)
-                    || (id == 'contador' && staff());
+      allow create: if (id == 'sistema' && donoEmail()) || (id == 'contador' && staff());
       allow update: if hasRole(['DONO']) || (id == 'contador' && staff());
     }
 
     // ---------- Equipe ----------
     match /users/{uid} {
       allow read: if staff() || (signed() && request.auth.uid == uid);
-      allow create: if (signed() && !anon() && request.auth.uid == uid && !sistemaExiste()
-                        && request.resource.data.role == 'DONO')
-                    || hasRole(['DONO'])
+      allow create: if hasRole(['DONO'])
                     || (hasRole(['GERENTE']) && request.resource.data.role == 'VENDEDOR'
                         && request.resource.data.lojaId == me().lojaId);
       allow update: if hasRole(['DONO'])

@@ -5,6 +5,9 @@
       Enquanto o apiKey estiver vazio, os portais abrem em modo demonstração.
    2) Endereço de cada portal (GitHub Pages ou domínio próprio). Usado nos links
       "seu acesso é pelo portal X" e quando o Dono/Gerente cria um acesso. */
+/* Dono do sistema: este e-mail entra em TODOS os portais com perfil de Dono. */
+window.NEXUMCELL_DONO = "wevellenerrera21@gmail.com";
+
 window.NEXUMCELL_FIREBASE = {
   apiKey: "AIzaSyAjIqm372XYqWRy9tYywy0snJmVLGd1Dyo",
   authDomain: "nexumcell.firebaseapp.com",
