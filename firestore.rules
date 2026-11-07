@@ -1,0 +1,129 @@
+rules_version = '2';
+// NexumCell — regras do Firestore
+// Console Firebase → Firestore Database → Regras → cole tudo e clique em Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signed()  { return request.auth != null; }
+    function anon()    { return signed() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function me()      { return get(userDoc()).data; }
+    function staff()   { return signed() && !anon() && exists(userDoc()) && me().ativo == true; }
+    function hasRole(rs) { return staff() && me().role in rs; }
+    function sistemaExiste() { return exists(/databases/$(database)/documents/config/sistema); }
+
+    // ---------- Configuração ----------
+    match /config/{id} {
+      allow get: if signed() && !anon();
+      allow list: if staff();
+      // Primeiro login do sistema: quem entra primeiro vira o Dono.
+      allow create: if (id == 'sistema' && signed() && !anon() && !sistemaExiste()
+                        && request.resource.data.ownerUid == request.auth.uid)
+                    || (id == 'contador' && staff());
+      allow update: if hasRole(['DONO']) || (id == 'contador' && staff());
+    }
+
+    // ---------- Equipe ----------
+    match /users/{uid} {
+      allow read: if staff() || (signed() && request.auth.uid == uid);
+      allow create: if (signed() && !anon() && request.auth.uid == uid && !sistemaExiste()
+                        && request.resource.data.role == 'DONO')
+                    || hasRole(['DONO'])
+                    || (hasRole(['GERENTE']) && request.resource.data.role == 'VENDEDOR'
+                        && request.resource.data.lojaId == me().lojaId);
+      allow update: if hasRole(['DONO'])
+                    || (hasRole(['GERENTE']) && resource.data.role == 'VENDEDOR' && resource.data.lojaId == me().lojaId
+                        && request.resource.data.role == 'VENDEDOR' && request.resource.data.lojaId == me().lojaId);
+      allow delete: if hasRole(['DONO']);
+    }
+
+    match /lojas/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']);
+    }
+
+    match /clientes/{cpf} {
+      allow read: if staff();
+      allow create, update: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO']);
+    }
+
+    // ---------- Catálogo de aparelhos e preços (só o Dono altera) ----------
+    match /catalogo/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']);
+    }
+
+    // ---------- Fotos do documento e biometria facial (só Dono e Financeiro veem) ----------
+    match /docs/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']);
+      allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']) && request.resource.data.vendedorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- Vendas / propostas ----------
+    function catalogoPreco(d) { return get(/databases/$(database)/documents/catalogo/$(d.aparelho.catalogoId)).data.preco; }
+    function entradaMin() { return get(/databases/$(database)/documents/config/sistema).data.entradaPct; }
+    function semMexer(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos) == false; }
+    function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
+
+    match /vendas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
+                  || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid);
+      // proposta nasce em análise, sem aparelho e sem valores
+      allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR'])
+                    && request.resource.data.status == 'ANALISE'
+                    && request.resource.data.vendedorUid == request.auth.uid
+                    && request.resource.data.aparelho == null && request.resource.data.valor == 0;
+      allow update: if hasRole(['DONO', 'FINANCEIRO'])
+                    // gerente acompanha a loja, mas não aprova crédito
+                    || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId
+                        && request.resource.data.lojaId == resource.data.lojaId
+                        && !(resource.data.status == 'ANALISE' && request.resource.data.status != 'ANALISE' && request.resource.data.status != 'CANCELADA'))
+                    // suporte só registra as confirmações por WhatsApp
+                    || (hasRole(['SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmacaoDados', 'confirmacaoEntrada']))
+                    // vendedor: escolher aparelho (preço do catálogo, entrada mínima)
+                    || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
+                        && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId'])
+                        && request.resource.data.valor == catalogoPreco(request.resource.data)
+                        && request.resource.data.entrada >= request.resource.data.valor * entradaMin() / 100)
+                    // vendedor: contrato assinado (sem mudar valores)
+                    || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'AGUARDANDO_ENTRADA'
+                        && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros']))
+                    // vendedor: entrada recebida → ativa
+                    || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'ATIVA'
+                        && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
+                        && request.resource.data.entradaPaga.valor >= resource.data.entrada);
+      allow delete: if false;
+    }
+
+    // ---------- Aparelhos (trava) ----------
+    // O ID do documento é um token secreto de 32 caracteres que só vai no QR code.
+    match /aparelhos/{token} {
+      allow get: if signed();   // o celular (login anônimo) lê só o próprio documento
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'VENDEDOR'])
+                  || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']);
+      allow update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                    || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
+                    // o celular só pode atualizar o próprio "checkin"
+                    || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkin']));
+      allow delete: if false;
+    }
+
+    // ---------- Suporte ----------
+    match /chamados/{id} {
+      allow read: if staff();
+      allow create: if staff() && request.resource.data.abertoPor == request.auth.uid;
+      allow update: if staff();
+      allow delete: if hasRole(['DONO']);
+    }
+
+    // ---------- Auditoria (não pode ser alterada) ----------
+    match /logs/{id} {
+      allow read: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO', 'SUPORTE']);
+      allow create: if staff() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
