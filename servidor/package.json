@@ -1,0 +1,7 @@
+{
+  "name": "nexumcell-servidor",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": { "firebase-admin": "^12.7.0" }
+}

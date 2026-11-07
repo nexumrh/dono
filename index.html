@@ -254,6 +254,10 @@ details summary{cursor:pointer}
 .aviso-trava svg{width:22px;height:22px;flex:none}.aviso-trava span{font-size:13px;opacity:.85}
 .aviso-trava.bad{background:var(--bad-s);border-color:#F2C9C9;color:var(--bad);animation:pulsa 2s ease-in-out infinite}
 @keyframes pulsa{50%{box-shadow:0 0 0 4px rgba(194,59,59,.15)}}
+.nota{display:grid;grid-template-columns:repeat(3,auto) 1fr;gap:18px;align-items:center;border-radius:12px;padding:14px 18px;margin:10px 0 4px;border:1px solid var(--line)}
+.nota small{display:block;font-size:12px;color:var(--mut)}.nota b{font-size:20px}.nota-txt{font-size:13px;color:var(--mut)}
+.nota-ouro{background:#FFF8E1;border-color:#F3D98B}.nota-ouro b{color:#9A6B00}.nota-prata{background:#F2F5F9}.nota-bronze{background:#FBF1E8}.nota-bronze b{color:#8A5A2B}.nota-risco{background:var(--bad-s);border-color:#F2C9C9}.nota-risco b{color:var(--bad)}
+@media(max-width:700px){.nota{grid-template-columns:1fr 1fr 1fr}.nota-txt{grid-column:1/-1}}
 .sw{display:inline-flex;cursor:pointer}.sw input{display:none}.sw span{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.15s}.sw span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}.sw input:checked+span{background:var(--ok)}.sw input:checked+span::after{left:21px}
 .top .sp,.row .sp{flex:1}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -370,13 +374,13 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','catalogo','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','relatorios','seminovos','catalogo','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','vendas','cobranca','aparelhos','chamados','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','vendas','cobranca','aparelhos','chamados','relatorios','seminovos','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','vendas','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','confirmacoes','cobranca','vendas','aparelhos','chamados'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','confirmacoes','cobranca','vendas','aparelhos','chamados','relatorios','seminovos'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
   suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['aparelhos','chamados','confirmacoes','vendas'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
@@ -396,11 +400,11 @@ const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
   empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
-  toleranciaDias:3, maxDiasOffline:15, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
-  apkUrl:'', apkChecksumHex:'', chavePix:'', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
+  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
+  apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
-const VENDA_ST = {ANALISE:['Em análise','amber'],APROVADA:['Aprovada','blue'],AGUARDANDO_ENTRADA:['Aguardando entrada','amber'],INSTALANDO:['Aguardando trava','amber'],REPROVADA:['Reprovada','red'],ATIVA:['Ativa','green'],QUITADA:['Quitada','gray'],CANCELADA:['Cancelada','gray']};
+const VENDA_ST = {ANALISE:['Em análise','amber'],APROVADA:['Aprovada','blue'],AGUARDANDO_ENTRADA:['Aguardando entrada','amber'],INSTALANDO:['Aguardando trava','amber'],RETOMADA:['Aparelho retomado','gray'],REPROVADA:['Reprovada','red'],ATIVA:['Ativa','green'],QUITADA:['Quitada','gray'],CANCELADA:['Cancelada','gray']};
 const CH_ST = {ABERTO:['Aberto','amber'],ANDAMENTO:['Em andamento','blue'],RESOLVIDO:['Resolvido','green']};
 
 /* ======================= UTILITÁRIOS ======================= */
@@ -560,6 +564,8 @@ const IC = {
   chamados:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   equipe:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   catalogo:'<rect x="5" y="2" width="10" height="17" rx="2"/><path d="M9 15h2"/><path d="M17 8h4v13h-8v-2"/>',
+  relatorios:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  seminovos:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><rect x="9" y="8" width="6" height="9" rx="1"/>',
   config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -575,6 +581,8 @@ const TABS = [
   {id:'chamados',label:'Suporte',roles:ALL},
   {id:'equipe',label:'Equipe',roles:['DONO','GERENTE']},
   {id:'catalogo',label:'Aparelhos à venda',roles:['DONO']},
+  {id:'relatorios',label:'Relatórios e comissões',roles:['DONO','GERENTE','FINANCEIRO']},
+  {id:'seminovos',label:'Seminovos (retomados)',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -1129,9 +1137,9 @@ async function confirmarEntrada(btn){
   try{
     const cfg=S.cfg, loja=S.lojas.find(l=>l.id===v.lojaId)||{}, tk=token(32), agora=Date.now();
     const ap={imei:v.aparelho.imei,imei2:v.aparelho.imei2||'',marca:v.aparelho.marca,modelo:v.aparelho.modelo,vendaId:v.id,vendaNumero:v.numero,clienteNome:primeiroNome(v.clienteNome),
-      lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
+      lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',servidorPix:cfg.servidorPagamentos||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,
-      descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,
+      descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
       mensagem:cfg.mensagemTrava||'',parcelas:v.parcelas.map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago})),quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
     await DB.batch([{c:'aparelhos',id:tk,data:ap},{c:'vendas',id:v.id,data:{status:'INSTALANDO',aparelhoToken:tk,instalacao:{tentativas:1,inicio:agora},
       entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
@@ -1272,6 +1280,7 @@ PAGES.inicio = async () => {
     <button class="btn gold lg" data-act="novaProposta">${svg(IC.nova)}Nova venda</button></div>
   <div class="kpis">
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
+    <div class="kpi"><small>Comissão do mês</small><b style="color:var(--ok)">${brl(comissaoDe(vendas,mes))}</b><span>${S.cfg.comissaoPct||0}% das parcelas pagas</span></div>
     <div class="kpi"><small>Em análise</small><b>${analise.length}</b><span>aguardando o Dono</span></div>
     <div class="kpi"><small>Aprovadas</small><b style="color:${aprovadas.length?'var(--pri)':''}">${aprovadas.length}</b><span>escolher aparelho / assinar</span></div>
     <div class="kpi"><small>Entrada / trava</small><b style="color:${entrada.length+instalar.length?'var(--warn)':''}">${entrada.length+instalar.length}</b><span>receber entrada ou instalar</span></div>
@@ -1289,7 +1298,7 @@ PAGES.vendas = async () => {
   const vendas=(await loadVendas()).sort((a,b)=>b.numero-a.numero);
   const f=S.filtro.vendas||'todas', q=(S.filtro.vq||'').toLowerCase();
   const lista=vendas.filter(v=>(f==='todas'||v.status===f) && (!q || [v.clienteNome,v.clienteCpf,v.aparelho?.imei,String(v.numero)].join(' ').toLowerCase().includes(q)));
-  const tabs=[['todas','Todas'],['ANALISE','Em análise'],['APROVADA','Aprovadas'],['AGUARDANDO_ENTRADA','Aguardando entrada'],['INSTALANDO','Aguardando trava'],['ATIVA','Ativas'],['QUITADA','Quitadas'],['REPROVADA','Reprovadas'],['CANCELADA','Canceladas']];
+  const tabs=[['todas','Todas'],['ANALISE','Em análise'],['APROVADA','Aprovadas'],['AGUARDANDO_ENTRADA','Aguardando entrada'],['INSTALANDO','Aguardando trava'],['ATIVA','Ativas'],['QUITADA','Quitadas'],['RETOMADA','Retomadas'],['REPROVADA','Reprovadas'],['CANCELADA','Canceladas']];
   $('#view').innerHTML=`
   <div class="row mb"><input id="vq" placeholder="Buscar por nome, CPF, IMEI ou nº" style="max-width:340px" value="${esc(S.filtro.vq||'')}"></div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="vendas" data-v="${k}" class="${f===k?'on':''}">${l} (${k==='todas'?vendas.length:vendas.filter(v=>v.status===k).length})</button>`).join('')}</div>
@@ -1336,12 +1345,17 @@ async function verVenda(id){
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
     ${v.obsVendedor?`<div class="msg"><small>Obs. do vendedor</small>${esc(v.obsVendedor)}</div>`:''}
     ${a?`<h3>Análise de crédito</h3><div class="msg"><small>${esc(a.porNome)} · ${fmtDT(a.em)}</small><b>${a.resultado==='APROVADA'?'Aprovada':'Reprovada'}</b> · score ${a.score||'—'}${a.obs?' · '+esc(a.obs):''}</div>`:''}
-    ${['ATIVA','QUITADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
+    ${['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
+    ${(v.acordos||[]).length?`<h3>Renegociações</h3>${v.acordos.map(a=>`<div class="msg"><small>${fmtDT(a.em)} · ${esc(a.por)}</small>Saldo ${brl(a.saldo)} → entrada ${brl(a.entrada)} + ${a.n}x ${brl(a.valorParcela)} (juros ${a.juros}%)${a.obs?' · '+esc(a.obs):''}</div>`).join('')}`:''}
+    ${v.retomada?`<h3>Retomada</h3><div class="msg"><small>${fmtDT(v.retomada.em)} · ${esc(v.retomada.por)}</small>${esc(v.retomada.motivo)} · estado ${esc(v.retomada.estado)} · avaliação ${brl(v.retomada.avaliacao)} · saldo devedor ${brl(v.retomada.saldo)}${v.retomada.obs?' · '+esc(v.retomada.obs):''}</div>`:''}
+    ${v.quitacao?`<h3>Quitação antecipada</h3><div class="msg"><small>${fmtDT(v.quitacao.em)} · ${esc(v.quitacao.por)}</small>Pago ${brl(v.quitacao.valor)} (${esc(v.quitacao.forma)}) · desconto de juros ${brl(v.quitacao.desconto)}</div>`:''}
     <div class="row mt" style="justify-content:flex-end">
       ${v.status==='ANALISE'&&can('DONO','FINANCEIRO')?`<button class="btn gold" data-act="analisar" data-id="${v.id}">Analisar crédito</button>`:''}
       ${podeContinuar?`<button class="btn gold" data-act="continuar" data-id="${v.id}">Continuar venda</button>`:''}
       ${v.status==='ATIVA'&&ap&&!ap.checkin?.em&&!P.tabs.includes('nova')?`<button class="btn navy" data-act="apQR" data-id="${ap.id}">QR de instalação</button>`:''}
       ${v.assinatura?`<button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>`:''}
+      ${v.status==='ATIVA'&&can('DONO','FINANCEIRO')?`<button class="btn green" data-act="quitar" data-id="${v.id}">Quitação antecipada</button><button class="btn" data-act="renegociar" data-id="${v.id}">Renegociar</button>`:''}
+      ${['ATIVA','INSTALANDO'].includes(v.status)&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="retomar" data-id="${v.id}">Retomar aparelho</button>`:''}
       ${podeCancelar?`<button class="btn red" data-act="cancelarVenda" data-id="${v.id}">Cancelar venda</button>`:''}
     </div>`, true);
 }
@@ -1369,7 +1383,9 @@ async function analisar(id){
   const hist=(await DB.list('vendas',[['clienteCpf','==',v.clienteCpf]])).filter(x=>x.id!==id);
   const histTxt=hist.length?hist.map(h=>{ const atr=(h.parcelas||[]).filter(p=>h.status==='ATIVA'&&stParc(p)==='atraso').length; return `Nº ${h.numero}: ${VENDA_ST[h.status]?.[0]||h.status}${atr?` — <b style="color:var(--bad)">${atr} em atraso</b>`:''}`; }).join('<br>'):'Primeira compra.';
   const idade=c.nasc?Math.floor((Date.now()-new Date(c.nasc))/31557600000):'—';
+  const nota=notaCliente(hist,c.renda);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
+    <div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
     <div class="row mt">${badge(vf.iaLeitura?(vf.simulado?'Leitura simulada':'Documento lido por IA'):'Dados digitados','blue')}
@@ -1384,7 +1400,7 @@ async function analisar(id){
     <label class="check"><input type="checkbox" id="ck_cpf"> CPF consultado (SPC/Serasa/Boa Vista) sem restrição impeditiva</label>
     <label class="check"><input type="checkbox" id="ck_bio"> Biometria facial confere com o documento</label>
     <label class="check"><input type="checkbox" id="ck_doc"> Documento legível e original</label>
-    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${Math.round((c.renda||0)*1.2)}"></label></div>
+    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label></div>
     <label class="mt">Parecer<textarea id="aObs" rows="2"></textarea></label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
 }
@@ -1483,6 +1499,171 @@ async function mostrarQR(tk){
     <details class="mt"><summary class="small muted">Conteúdo do QR (JSON)</summary><textarea readonly rows="6" class="mono small">${esc(json)}</textarea></details>
     <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="copiarQR" data-tk="${tk}">Copiar JSON</button><button class="btn gold" data-act="closeModal">Concluir</button></div>`, true);
 }
+
+
+/* ======================= NOTA INTERNA DO CLIENTE ======================= */
+function notaCliente(hist,renda){
+  let s=500; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
+  hist.forEach(v=>{
+    if(v.status==='QUITADA'){ s+=80; quitados++; }
+    if(v.status==='RETOMADA'){ s-=250; motivos.push('aparelho já retomado'); }
+    if(v.reprovadoPorImei){ s-=300; motivos.push('tentativa com IMEI irregular'); }
+    (v.parcelas||[]).forEach(p=>{
+      if(p.pago){ const d=p.pagoEm?diasEntre(p.venc,p.pagoEm):0; if(d<=0){ s+=25; emDia++; } else { s-=Math.min(60,5+2*d); atrasadas++; } }
+      else if(['ATIVA','INSTALANDO'].includes(v.status)&&stParc(p)==='atraso'){ s-=120; atrasoAberto++; }
+    });
+  });
+  s=Math.max(0,Math.min(1000,Math.round(s)));
+  if(!hist.length) motivos.push('cliente novo, sem histórico');
+  if(emDia) motivos.push(`${emDia} parcela(s) paga(s) em dia`);
+  if(atrasadas) motivos.push(`${atrasadas} paga(s) com atraso`);
+  if(quitados) motivos.push(`${quitados} contrato(s) quitado(s)`);
+  if(atrasoAberto) motivos.push(`${atrasoAberto} parcela(s) EM ATRASO agora`);
+  const faixa=atrasoAberto?'Risco':s>=750?'Ouro':s>=600?'Prata':s>=450?'Bronze':'Risco';
+  const mult={Ouro:2.5,Prata:1.8,Bronze:1.2,Risco:0.5}[faixa]*(hist.length?1:0.9);
+  const limite=atrasoAberto?0:Math.round(((renda||0)*mult)/50)*50;
+  return {score:s,faixa,limite,motivos,cor:{Ouro:'ouro',Prata:'prata',Bronze:'bronze',Risco:'risco'}[faixa]};
+}
+
+/* ======================= QUITAÇÃO ANTECIPADA (CDC art. 52, §2º) ======================= */
+function calcQuitacao(v){
+  const principal=(v.financiado||0)/(v.nParcelas||1), linhas=[]; let total=0, cheio=0;
+  (v.parcelas||[]).forEach((p,i)=>{ if(p.pago) return;
+    const e=encargos(p,S.cfg), futura=diasEntre(hoje(),p.venc)>0, val=futura?r2(Math.min(principal,p.valor)):e.total;
+    linhas.push({i,p,val,futura,cheio:futura?p.valor:e.total}); total+=val; cheio+=futura?p.valor:e.total; });
+  return {linhas,total:r2(total),desconto:r2(cheio-total)};
+}
+async function quitar(id){
+  const v=await DB.get('vendas',id), q=calcQuitacao(v);
+  openModal(`<h2>Quitação antecipada — contrato nº ${v.numero}</h2>
+    <p class="muted" style="margin-top:-6px">${esc(v.clienteNome)} · ${esc(apNome(v))}. Parcelas que ainda não venceram saem sem os juros (redução proporcional, CDC art. 52 §2º). Vencidas entram com multa e juros.</p>
+    <div class="tablewrap"><table><tr><th>Parcela</th><th>Vencimento</th><th class="right">Valor original</th><th class="right">Na quitação</th></tr>
+    ${q.linhas.map(l=>`<tr><td>${l.p.n}</td><td>${fmtD(l.p.venc)} ${l.futura?badge('a vencer','blue'):l.p.venc===hoje()?badge('vence hoje','amber'):badge('vencida','red')}</td><td class="right">${brl(l.cheio)}</td><td class="right"><b>${brl(l.val)}</b></td></tr>`).join('')}</table></div>
+    <div class="grid g3 mt"><div class="kpi"><small>Valor para quitar</small><b>${brl(q.total)}</b></div><div class="kpi"><small>Desconto de juros</small><b style="color:var(--ok)">${brl(q.desconto)}</b></div>
+      <label>Desconto extra (R$)<input id="qExtra" type="number" min="0" step="0.01" value="0"></label></div>
+    <div class="grid g3 mt"><label>Forma<select id="qForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option></select></label><label>Data<input id="qData" type="date" value="${hoje()}"></label><label>Comprovante / obs.<input id="qObs"></label></div>
+    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="copiarTexto" data-t="${esc(`Olá, ${primeiroNome(v.clienteNome)}! Para quitar hoje o contrato nº ${v.numero} (${apNome(v)}), o valor é ${brl(q.total)}, já com ${brl(q.desconto)} de desconto nos juros.${S.cfg.chavePix?' Chave PIX: '+S.cfg.chavePix+'.':''}`)}">Copiar mensagem para o cliente</button>
+      <button class="btn green lg" data-act="confirmarQuitacao" data-id="${id}">Registrar quitação e remover a trava</button></div>`, true);
+}
+async function confirmarQuitacao(id,btn){
+  if(!confirm('Confirmar o recebimento e quitar o contrato? A trava será removida do aparelho.')) return;
+  btn.disabled=true;
+  const v=await DB.get('vendas',id), q=calcQuitacao(v), extra=r2(+$('#qExtra').value||0), forma=$('#qForma').value, data=$('#qData').value||hoje();
+  const fator=q.total>0?Math.max(0,(q.total-extra)/q.total):1;
+  q.linhas.forEach(l=>{ v.parcelas[l.i]={...v.parcelas[l.i],pago:true,pagoEm:data,valorPago:r2(l.val*fator),forma,obs:'Quitação antecipada',por:S.me.nome,baixadoEm:Date.now()}; });
+  await DB.set('vendas',id,{quitacao:{em:Date.now(),por:S.me.nome,valor:r2(q.total-extra),desconto:r2(q.desconto+extra),forma,obs:$('#qObs').value.trim()}});
+  await salvarParcelas(v,'Quitação antecipada',`${brl(q.total-extra)} · ${forma}`);
+  closeModal(); render();
+}
+
+/* ======================= RENEGOCIAÇÃO ======================= */
+async function renegociar(id){
+  const v=await DB.get('vendas',id), q=calcQuitacao(v);
+  const vencidas=q.linhas.filter(l=>!l.futura), futuras=q.linhas.filter(l=>l.futura);
+  const saldo=r2(vencidas.reduce((s,l)=>s+l.val,0)+futuras.reduce((s,l)=>s+l.p.valor,0));
+  const ops=String(S.cfg.parcelasOpcoes).split(',').map(s=>+s.trim()).filter(Boolean);
+  openModal(`<h2>Renegociar — contrato nº ${v.numero}</h2>
+    <p class="muted" style="margin-top:-6px">${esc(v.clienteNome)} · ${vencidas.length} vencida(s) com multa/juros + ${futuras.length} a vencer.</p>
+    <div class="kpi" style="border:1px solid var(--line);border-radius:10px"><small>Saldo devedor atualizado</small><b id="rgSaldo" data-v="${saldo}">${brl(saldo)}</b></div>
+    <div class="grid g4 mt"><label>Entrada do acordo (R$)<input id="rgEntrada" type="number" min="0" step="0.01" value="0"></label>
+      <label>Parcelas<select id="rgN">${[...new Set([1,2,3,...ops,18,24])].sort((a,b)=>a-b).map(n=>`<option ${n===Math.max(1,futuras.length)?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label>Juros do acordo (% sobre o saldo)<input id="rgJuros" type="number" min="0" step="0.1" value="0"></label>
+      <label>1º vencimento<input id="rgVenc" type="date" value="${addMonths(hoje(),1)}"></label></div>
+    <label class="mt">Observação<input id="rgObs" placeholder="ex.: acordo feito por telefone"></label>
+    <div class="sim mt" id="rgSim"></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="confirmarAcordo" data-id="${id}">Fechar acordo</button></div>`, true);
+  simAcordo();
+}
+function simAcordo(){
+  const el=$('#rgSim'); if(!el) return;
+  const saldo=+$('#rgSaldo').dataset.v, e=+$('#rgEntrada').value||0, n=+$('#rgN').value, j=+$('#rgJuros').value||0;
+  const resto=Math.max(0,saldo-e), total=r2(resto*(1+j/100)), vp=r2(total/n);
+  el.innerHTML=`<div class="row"><div><small>Entrada</small><b>${brl(e)}</b></div><div><small>${n} parcela(s) de</small><b>${brl(vp)}</b></div><div><small>Total do acordo</small><b>${brl(total+e)}</b></div></div>`;
+  return {saldo,e,n,j,vp};
+}
+async function confirmarAcordo(id,btn){
+  const {saldo,e,n,j,vp}=simAcordo(), venc=$('#rgVenc').value;
+  if(!venc||diasEntre(hoje(),venc)<0) return toast('Escolha a data do 1º vencimento','err');
+  if(e>saldo) return toast('Entrada maior que o saldo','err');
+  btn.disabled=true;
+  const v=await DB.get('vendas',id), pagas=(v.parcelas||[]).filter(p=>p.pago);
+  let k=pagas.length; const novas=[...pagas];
+  if(e>0) novas.push({n:++k,venc:hoje(),valor:r2(e),pago:true,pagoEm:hoje(),valorPago:r2(e),forma:'Entrada do acordo',por:S.me.nome,baixadoEm:Date.now()});
+  for(let i=0;i<n;i++) novas.push({n:++k,venc:addMonths(venc,i),valor:vp,pago:false,acordo:true});
+  v.parcelas=novas;
+  const acordo={em:Date.now(),por:S.me.nome,saldo,entrada:e,n,juros:j,valorParcela:vp,obs:$('#rgObs').value.trim()};
+  await DB.set('vendas',id,{acordos:[...(v.acordos||[]),acordo],nParcelas:novas.length});
+  v.nParcelas=novas.length;
+  await salvarParcelas(v,'Renegociação',`${n}x ${brl(vp)}${e?' + entrada '+brl(e):''}`);
+  if(v.aparelhoToken) await DB.set('aparelhos',v.aparelhoToken,{modo:'AUTO',liberadoAte:0,nParcelas:novas.length});
+  closeModal(); render();
+}
+
+/* ======================= RETOMADA E SEMINOVOS ======================= */
+async function retomar(id){
+  const v=await DB.get('vendas',id), q=calcQuitacao(v);
+  openModal(`<h2>Retomar aparelho — contrato nº ${v.numero}</h2>
+    <p class="muted" style="margin-top:-6px">${esc(v.clienteNome)} · ${esc(apNome(v))} · IMEI ${esc(v.aparelho?.imei||'')}. O aparelho volta para a loja, a trava é removida e ele entra no estoque de seminovos.</p>
+    <div class="grid g2"><label>Motivo<select id="rtMotivo"><option>Inadimplência</option><option>Desistência do cliente</option><option>Troca</option><option>Garantia / defeito</option><option>Outro</option></select></label>
+      <label>Estado do aparelho<select id="rtEstado"><option>Ótimo</option><option>Bom</option><option>Regular</option><option>Ruim / para peças</option></select></label>
+      <label>Avaliação do aparelho (R$)<input id="rtAval" type="number" min="0" step="0.01" value="${r2((v.valor||0)*0.5)}"></label>
+      <label>Saldo devedor do cliente (R$)<input id="rtSaldo" type="number" step="0.01" value="${q.total}"></label></div>
+    <label class="mt">Observação<textarea id="rtObs" rows="2"></textarea></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="confirmarRetomada" data-id="${id}">Confirmar retomada</button></div>`);
+}
+async function confirmarRetomada(id,btn){
+  if(!confirm('O aparelho está fisicamente na loja? A trava será removida.')) return;
+  btn.disabled=true;
+  const v=await DB.get('vendas',id);
+  const ret={em:Date.now(),por:S.me.nome,motivo:$('#rtMotivo').value,estado:$('#rtEstado').value,avaliacao:r2(+$('#rtAval').value||0),saldo:r2(+$('#rtSaldo').value||0),obs:$('#rtObs').value.trim()};
+  const ops=[{c:'vendas',id,data:{status:'RETOMADA',retomada:ret}}];
+  if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
+  ops.push({c:'seminovos',id:'s_'+id,data:{marca:v.aparelho?.marca||'',modelo:v.aparelho?.modelo||'',capacidade:v.aparelho?.capacidade||'',imei:v.aparelho?.imei||'',imei2:v.aparelho?.imei2||'',
+    vendaId:id,vendaNumero:v.numero,cliente:v.clienteNome,estado:ret.estado,avaliacao:ret.avaliacao,precoVenda:r2(ret.avaliacao*1.3),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:Date.now()}});
+  await DB.batch(ops); await log('Aparelho retomado',id,`${ret.motivo} · ${ret.estado} · saldo ${brl(ret.saldo)}`);
+  toast('Retomada registrada — aparelho no estoque de seminovos','ok'); closeModal(); render();
+}
+PAGES.seminovos = async () => {
+  let lista=await DB.list('seminovos'); if(can('GERENTE')) lista=lista.filter(s=>s.lojaId===S.me.lojaId);
+  const f=S.filtro.sn||'DISPONIVEL', l=lista.filter(s=>f==='todos'||s.status===f).sort((a,b)=>b.criadoEm-a.criadoEm);
+  $('#view').innerHTML=`<div class="tabs">${[['DISPONIVEL','Disponíveis'],['VENDIDO','Vendidos'],['todos','Todos']].map(([k,t])=>`<button data-act="filtro" data-k="sn" data-v="${k}" class="${f===k?'on':''}">${t} (${k==='todos'?lista.length:lista.filter(s=>s.status===k).length})</button>`).join('')}</div>
+  <div class="card tablewrap"><table><tr><th>Aparelho</th><th>IMEI</th><th>Estado</th><th>Origem</th><th class="right">Avaliação</th><th class="right">Preço de venda</th><th>Situação</th><th></th></tr>
+  ${l.map(s=>`<tr><td><b>${esc(s.marca+' '+s.modelo)}</b> ${esc(s.capacidade||'')}</td><td class="mono small">${esc(s.imei)}</td><td>${esc(s.estado)}</td><td class="small">nº ${s.vendaNumero} · ${esc(s.cliente)}<br><span class="muted">${esc(s.lojaNome||'')} · ${fmtD(isoDate(new Date(s.criadoEm)))}</span></td>
+    <td class="right">${brl(s.avaliacao)}</td><td class="right"><input type="number" step="0.01" data-snpreco="${s.id}" value="${s.precoVenda||''}" style="width:120px;min-height:32px;padding:4px 8px" ${s.status!=='DISPONIVEL'?'disabled':''}></td>
+    <td>${s.status==='DISPONIVEL'?badge('Disponível','green'):badge('Vendido '+brl(s.vendidoPor),'gray')}</td>
+    <td class="right">${s.status==='DISPONIVEL'?`<button class="btn sm" data-act="snVender" data-id="${s.id}">Marcar vendido</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum aparelho retomado</td></tr>'}</table></div>
+  <p class="hint">Aparelhos entram aqui automaticamente quando uma venda é marcada como “Retomar aparelho”. Lembre de restaurar de fábrica antes de revender.</p>`;
+};
+async function snVender(id){
+  const s=await DB.get('seminovos',id), v=prompt(`Valor da venda do ${s.marca} ${s.modelo} (R$):`,s.precoVenda||''); if(!v) return;
+  await DB.set('seminovos',id,{status:'VENDIDO',vendidoPor:r2(+v),vendidoEm:Date.now(),vendidoPorNome:S.me.nome}); await log('Seminovo vendido',id,brl(+v)); render();
+}
+
+/* ======================= RELATÓRIOS E COMISSÕES ======================= */
+function comissaoDe(vendas,mes){ const pct=(Number(S.cfg.comissaoPct)||0)/100; let s=0; vendas.forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&String(p.pagoEm||'').startsWith(mes)&&p.forma!=='Entrada do acordo') s+=Number(p.valorPago||p.valor); })); return r2(s*pct); }
+function inadimplencia(vs){ let venc=0,aberto=0; const h=hoje(); vs.forEach(v=>{ if(!['ATIVA','QUITADA','RETOMADA'].includes(v.status)) return; (v.parcelas||[]).forEach(p=>{ if(diasEntre(p.venc,h)>0){ venc+=p.valor; if(!p.pago) aberto+=p.valor; } }); }); return {venc,aberto,pct:venc?aberto/venc*100:0}; }
+PAGES.relatorios = async () => {
+  const vendas=await loadVendas(), mes=S.filtro.relMes||hoje().slice(0,7), pct=Number(S.cfg.comissaoPct)||0;
+  const us=await DB.list('users').catch(()=>[]);
+  const porVend={}; vendas.forEach(v=>{ (porVend[v.vendedorUid]=porVend[v.vendedorUid]||{nome:v.vendedorNome,loja:v.lojaNome,vs:[]}).vs.push(v); });
+  const linhas=Object.entries(porVend).map(([uid,o])=>{ const ativos=o.vs.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)); const doMes=ativos.filter(v=>v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
+    const rec=o.vs.reduce((s,v)=>s+(v.parcelas||[]).filter(p=>p.pago&&String(p.pagoEm||'').startsWith(mes)&&p.forma!=='Entrada do acordo').reduce((a,p)=>a+Number(p.valorPago||p.valor),0),0);
+    const inad=inadimplencia(o.vs), retom=o.vs.filter(v=>v.status==='RETOMADA').length;
+    return {uid,nome:o.nome,loja:o.loja,codigo:us.find(u=>u.id===uid)?.codigo||'',vendasMes:doMes.length,valorMes:doMes.reduce((s,v)=>s+v.valor,0),rec,com:r2(rec*pct/100),inad,retom,carteira:ativos.length}; })
+    .sort((a,b)=>a.inad.pct-b.inad.pct);
+  const safras={}; vendas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&(v.entradaPaga||v.assinadoEm)).forEach(v=>{ const k=isoDate(new Date(v.entradaPaga?.em||v.assinadoEm)).slice(0,7); (safras[k]=safras[k]||[]).push(v); });
+  const mesNome=k=>{ const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'}); };
+  $('#view').innerHTML=`<div class="row mb"><label style="flex-direction:row;align-items:center;gap:8px">Mês <input type="month" id="relMes" value="${mes}" style="width:180px"></label><span class="muted small">Comissão: ${pct}% sobre as parcelas efetivamente pagas no mês (entrada não conta).</span></div>
+  <div class="card tablewrap"><h2 style="padding:16px 16px 0">Vendedores — comissão e inadimplência</h2><table><tr><th>Vendedor</th><th class="right">Vendas no mês</th><th class="right">Recebido no mês</th><th class="right">Comissão</th><th class="right">Carteira</th><th class="right">Inadimplência</th><th class="right">Retomados</th></tr>
+  ${linhas.map((l,i)=>`<tr><td><b>${esc(l.nome)}</b> <span class="small muted">${esc(l.codigo)} · ${esc(l.loja)}</span></td><td class="right">${l.vendasMes} · ${brl(l.valorMes)}</td><td class="right">${brl(l.rec)}</td><td class="right"><b style="color:var(--ok)">${brl(l.com)}</b></td><td class="right">${l.carteira}</td>
+    <td class="right">${badge(l.inad.pct.toFixed(1)+'%',l.inad.pct>15?'red':l.inad.pct>7?'amber':'green')}<br><span class="small muted">${brl(l.inad.aberto)} em aberto</span></td><td class="right">${l.retom}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sem vendas</td></tr>'}</table></div>
+  <p class="hint">Vendedores com inadimplência alta estão vendendo para clientes que não pagam: reveja as vendas deles na Análise de crédito.</p>
+  <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Safras — como as vendas de cada mês estão pagando</h2><table><tr><th>Mês da venda</th><th class="right">Vendas</th><th class="right">Financiado</th><th class="right">Já venceu</th><th class="right">Pago do que venceu</th><th class="right">Em atraso</th><th class="right">Quitados</th><th class="right">Retomados</th></tr>
+  ${Object.keys(safras).sort().reverse().map(k=>{ const vs=safras[k], inad=inadimplencia(vs), pago=inad.venc?100-inad.pct:100;
+    return `<tr><td><b>${mesNome(k)}</b></td><td class="right">${vs.length}</td><td class="right">${brl(vs.reduce((s,v)=>s+(v.financiado||0),0))}</td><td class="right">${brl(inad.venc)}</td><td class="right">${badge(pago.toFixed(1)+'%',pago<85?'red':pago<93?'amber':'green')}</td><td class="right">${brl(inad.aberto)}</td><td class="right">${vs.filter(v=>v.status==='QUITADA').length}</td><td class="right">${vs.filter(v=>v.status==='RETOMADA').length}</td></tr>`; }).join('')||'<tr><td colspan="8" class="empty">Sem vendas concluídas</td></tr>'}</table></div>
+  <p class="hint">Se as safras mais recentes pagam pior que as antigas, aumente a entrada, os juros ou o rigor da análise.</p>`;
+  $('#relMes').addEventListener('change',e=>{ S.filtro.relMes=e.target.value; render(); });
+};
 
 /* ---------- CONFIRMAÇÕES (equipe confirma dados e entrada por WhatsApp) ---------- */
 PAGES.confirmacoes = async () => {
@@ -1804,8 +1985,8 @@ PAGES.config = async () => {
     <div class="tablewrap mt"><table><tr><th>Loja</th><th>Cidade</th><th>Telefone (aparece na tela de bloqueio)</th><th></th></tr>
     ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresa e crédito</h2><div class="grid g4">
-    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
-    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}
+    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('comissaoPct','Comissão do vendedor sobre parcelas pagas (%)','number','step="0.1"')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
+    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}${f('servidorPagamentos','Servidor de pagamentos Asaas (opcional, ex.: https://nexumcell.vercel.app)')}
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
@@ -1863,6 +2044,8 @@ async function salvarLoja(id){
 /* ======================= EVENTOS ======================= */
 const ACT = {
   refazerInstalacao:d=>refazerInstalacao(d.id), avisarSuporteTrava:async d=>{ const v=await DB.get('vendas',d.id); await alertaTrava(v,'Vendedor pediu ajuda: a trava não sobe.'); toast('Suporte avisado — chamado aberto','ok'); }, verAvisoTrava:()=>verAvisoTrava(),
+  quitar:d=>quitar(d.id), confirmarQuitacao:(d,b)=>confirmarQuitacao(d.id,b), renegociar:d=>renegociar(d.id), confirmarAcordo:(d,b)=>confirmarAcordo(d.id,b),
+  retomar:d=>retomar(d.id), confirmarRetomada:(d,b)=>confirmarRetomada(d.id,b), snVender:d=>snVender(d.id),
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
   filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },
@@ -1897,8 +2080,8 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 document.addEventListener('click',e=>{ const im=e.target.closest('.docs-grid img'); if(im){ const w=window.open(''); if(w){ w.document.write(`<body style="margin:0;background:#000"><img src="${im.src}" style="width:100%">`); } } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#modal').hidden) closeModal(); });
 document.addEventListener('input',e=>{ if(['nEntrada','nParc','nImei'].includes(e.target.id)) simular(); });
-document.addEventListener('input',e=>{ const id=e.target.dataset.preco||e.target.dataset.juros; if(id&&document.querySelector(`[data-ex="${id}"]`)){ document.querySelector(`[data-ex="${id}"]`).innerHTML=exCat(document.querySelector(`[data-preco="${id}"]`).value,document.querySelector(`[data-juros="${id}"]`).value); } });
-document.addEventListener('change',e=>{ if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
+document.addEventListener('input',e=>{ if(['rgEntrada','rgN','rgJuros'].includes(e.target.id)) simAcordo(); const id=e.target.dataset.preco||e.target.dataset.juros; if(id&&document.querySelector(`[data-ex="${id}"]`)){ document.querySelector(`[data-ex="${id}"]`).innerHTML=exCat(document.querySelector(`[data-preco="${id}"]`).value,document.querySelector(`[data-juros="${id}"]`).value); } });
+document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 
 /* ======================= LOGIN ======================= */

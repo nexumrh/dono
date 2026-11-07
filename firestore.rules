@@ -130,6 +130,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- Seminovos (aparelhos retomados) ----------
+    match /seminovos/{id} {
+      allow read: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO']);
+      allow write: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO']);
+    }
+
     // ---------- Suporte ----------
     match /chamados/{id} {
       allow read: if staff();
