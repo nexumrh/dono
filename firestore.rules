@@ -138,7 +138,7 @@ service cloud.firestore {
                     || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkin']))
                     // portal do cliente: comunicar roubo, furto ou perda (uma vez; só a loja desfaz)
                     || (anon() && !('roubo' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roubo'])
-                        && request.resource.data.roubo.keys().hasOnly(['tipo', 'data', 'local', 'bo', 'relato', 'em', 'via'])
+                        && request.resource.data.roubo.keys().hasOnly(['tipo', 'data', 'local', 'bo', 'relato', 'em', 'via', 'localizar'])
                         && request.resource.data.roubo.tipo in ['Roubo', 'Furto', 'Perda'])
                     // app do cliente: liberação de confiança de 24 h, uma vez por mês (mês conferido pelo relógio do servidor)
                     || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confianca'])
@@ -269,6 +269,55 @@ service cloud.firestore {
     match /contagens/{id} {
       allow create: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow update, delete: if false;
+    }
+
+    // ---------- Conciliação pelo extrato do banco (ID = transação do banco) ----------
+    match /conciliacoes/{id} {
+      allow read, create: if hasRole(['DONO', 'FINANCEIRO']);
+      allow update, delete: if false;
+    }
+
+    // ---------- Campanhas de recuperação ----------
+    match /campanhas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'GERENTE', 'SUPORTE']);
+      allow create: if hasRole(['DONO']);
+      allow update: if hasRole(['DONO']) || (hasRole(['FINANCEIRO', 'GERENTE', 'SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enviados']));
+    }
+
+    // ---------- Despesas da loja ----------
+    match /despesas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
+      allow update, delete: if hasRole(['DONO']);
+    }
+
+    // ---------- Estoque mínimo por loja (ID = loja) ----------
+    match /estoqueMin/{lojaId} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']) || (hasRole(['GERENTE']) && lojaId == me().lojaId);
+    }
+
+    // ---------- Escala da semana (ID = loja_segunda-feira) ----------
+    match /escalas/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
+    }
+
+    // ---------- Respostas prontas do suporte ----------
+    match /respostas/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO', 'SUPORTE']);
+    }
+
+    // ---------- Nota do atendimento (ID = token do aparelho; uma por contrato) ----------
+    match /avaliacoes/{token} {
+      allow read: if staff();
+      allow create: if signed() && request.resource.data.token == token
+                    && request.resource.data.keys().hasOnly(['token', 'vendaId', 'lojaId', 'nota', 'comentario', 'em'])
+                    && request.resource.data.nota is int && request.resource.data.nota >= 0 && request.resource.data.nota <= 10
+                    && request.resource.data.comentario.size() <= 400
+                    && get(/databases/$(database)/documents/aparelhos/$(token)).data.vendaId == request.resource.data.vendaId;
       allow update, delete: if false;
     }
 
