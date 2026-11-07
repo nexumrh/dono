@@ -29,8 +29,18 @@ service cloud.firestore {
                     || (hasRole(['GERENTE']) && request.resource.data.role == 'VENDEDOR'
                         && request.resource.data.lojaId == me().lojaId);
       allow update: if hasRole(['DONO'])
+                    // a própria pessoa só marca que já trocou a senha temporária
+                    || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senhaTemporaria', 'senhaTrocadaEm']))
                     || (hasRole(['GERENTE']) && resource.data.role == 'VENDEDOR' && resource.data.lojaId == me().lojaId
                         && request.resource.data.role == 'VENDEDOR' && request.resource.data.lojaId == me().lojaId);
+      allow delete: if hasRole(['DONO']);
+    }
+
+    // ---------- Login por ID: ID → e-mail (só leitura de um ID por vez, sem listar) ----------
+    match /logins/{codigo} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if hasRole(['DONO']) || hasRole(['GERENTE']) || (donoEmail() && request.resource.data.uid == request.auth.uid);
       allow delete: if hasRole(['DONO']);
     }
 
