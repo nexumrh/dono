@@ -6,6 +6,10 @@ service cloud.firestore {
 
     function signed()  { return request.auth != null; }
     function anon()    { return signed() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    // "AAAA-MM" do relógio do servidor (UTC)
+    function mesAtual() {
+      return string(request.time.year()) + '-' + (request.time.month() < 10 ? '0' : '') + string(request.time.month());
+    }
     function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
     function me()      { return get(userDoc()).data; }
     // E-mail do dono: entra em todos os portais com perfil de Dono
@@ -64,7 +68,9 @@ service cloud.firestore {
     match /docs/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']);
       allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']) && request.resource.data.vendedorUid == request.auth.uid;
-      allow update, delete: if false;
+      // dono pode apagar fotos e biometria (pedido de exclusão LGPD)
+      allow update: if hasRole(['DONO']);
+      allow delete: if false;
     }
 
     // ---------- Vendas / propostas ----------
@@ -130,7 +136,14 @@ service cloud.firestore {
                     // portal do cliente: comunicar roubo, furto ou perda (uma vez; só a loja desfaz)
                     || (anon() && !('roubo' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roubo'])
                         && request.resource.data.roubo.keys().hasOnly(['tipo', 'data', 'local', 'bo', 'relato', 'em', 'via'])
-                        && request.resource.data.roubo.tipo in ['Roubo', 'Furto', 'Perda']);
+                        && request.resource.data.roubo.tipo in ['Roubo', 'Furto', 'Perda'])
+                    // app do cliente: liberação de confiança de 24 h, uma vez por mês (mês conferido pelo relógio do servidor)
+                    || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confianca'])
+                        && resource.data.get('confiancaMensal', 'sim') == 'sim'
+                        && request.resource.data.confianca.keys().hasOnly(['ate', 'mes', 'em'])
+                        && request.resource.data.confianca.mes == mesAtual()
+                        && request.resource.data.confianca.ate <= request.time.toMillis() + 86400000 + 300000
+                        && (!('confianca' in resource.data) || resource.data.confianca.mes != mesAtual()));
       allow delete: if false;
     }
 
@@ -138,10 +151,13 @@ service cloud.firestore {
     match /estoque/{imei} {
       allow get: if staff();
       allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
-                  || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+                  || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId)
+                  || (hasRole(['GERENTE']) && resource.data.get('lojaDestino', '') == me().lojaId);
       allow create: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
       allow update: if hasRole(['DONO', 'FINANCEIRO'])
                     || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId && request.resource.data.lojaId == me().lojaId)
+                    // transferência: o gerente da loja de destino confirma o recebimento
+                    || (hasRole(['GERENTE']) && resource.data.status == 'EM_TRANSITO' && resource.data.lojaDestino == me().lojaId && request.resource.data.lojaId == me().lojaId)
                     // vendedor só marca como vendido o aparelho da própria loja
                     || (hasRole(['VENDEDOR']) && resource.data.lojaId == me().lojaId && resource.data.status == 'DISPONIVEL'
                         && request.resource.data.status == 'VENDIDO'
@@ -180,6 +196,35 @@ service cloud.firestore {
                     || (anon() && resource.data.status == 'PENDENTE' && request.resource.data.status == 'ASSINADO'
                         && request.time.toMillis() < resource.data.expiraEm
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assinatura', 'assinadoEm', 'aceites', 'dispositivo', 'nomeDigitado']));
+      allow delete: if false;
+    }
+
+    // ---------- Fila de cobrança: contatos e promessas de pagamento (ID = venda) ----------
+    match /cobrancas/{vendaId} {
+      allow read, write: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                         || (hasRole(['GERENTE']) && (resource == null || resource.data.lojaId == me().lojaId)
+                             && (request.resource == null || request.resource.data.lojaId == me().lojaId));
+    }
+
+    // ---------- Fechamento de caixa (ID = loja_AAAA-MM-DD) ----------
+    match /caixas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
+      allow update: if hasRole(['DONO']);
+      allow delete: if false;
+    }
+
+    // ---------- Pedidos do portal do cliente: assistência técnica e LGPD ----------
+    match /pedidos/{id} {
+      allow create: if signed()
+                    && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm'])
+                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO']
+                    && request.resource.data.status == 'ABERTO'
+                    && request.resource.data.descricao.size() <= 600
+                    && get(/databases/$(database)/documents/aparelhos/$(request.resource.data.token)).data.lojaId == request.resource.data.lojaId
+                    && get(/databases/$(database)/documents/aparelhos/$(request.resource.data.token)).data.vendaId == request.resource.data.vendaId;
+      allow read, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                          || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow delete: if false;
     }
 
