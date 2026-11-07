@@ -244,6 +244,7 @@ details summary{cursor:pointer}
 .bio-cam video{transform:scaleX(-1)}
 .bio-oval{position:absolute;inset:12% 18% 18%;border:3px dashed rgba(255,255,255,.85);border-radius:50%;box-shadow:0 0 0 999px rgba(10,23,51,.35)}
 @media(max-width:700px){.bio{grid-template-columns:1fr}}
+.sugerido{border-color:var(--pri)!important;background:var(--pri-s)!important}
 .sw{display:inline-flex;cursor:pointer}.sw input{display:none}.sw span{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.15s}.sw span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}.sw input:checked+span{background:var(--ok)}.sw input:checked+span::after{left:21px}
 .top .sp,.row .sp{flex:1}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -1563,27 +1564,28 @@ async function salvarUsuario(btn){
 }
 async function toggleUser(id){ const u=await DB.get('users',id); await DB.set('users',id,{ativo:!u.ativo}); await log(u.ativo?'Usuário desativado':'Usuário reativado',id,u.nome); render(); }
 
-/* Linhas de aparelhos Android vendidos no Brasil (todos compatíveis com a trava: Android 8+).
+/* [modelo, memórias, valor de referência de mercado à vista por memória — aprox. nov/2026, Brasil]
+   Linhas de aparelhos Android vendidos no Brasil (todos compatíveis com a trava: Android 8+).
    O Dono só LIBERA os que a loja tem e coloca o valor. Modelo que faltar: "Adicionar outro modelo". */
 const BASE_APARELHOS = {
-  Samsung:[['Galaxy A06','64 GB,128 GB'],['Galaxy A07 4G','64 GB,128 GB'],['Galaxy A07 5G','128 GB,256 GB'],['Galaxy A15','128 GB,256 GB'],['Galaxy A16','128 GB,256 GB'],['Galaxy A16 5G','128 GB,256 GB'],
-    ['Galaxy A17 4G','128 GB,256 GB'],['Galaxy A17 5G','128 GB,256 GB'],['Galaxy A25','128 GB,256 GB'],['Galaxy A26','128 GB,256 GB'],['Galaxy A27','128 GB,256 GB'],['Galaxy A35','128 GB,256 GB'],
-    ['Galaxy A36','128 GB,256 GB'],['Galaxy A37','128 GB,256 GB'],['Galaxy A55','128 GB,256 GB'],['Galaxy A56','128 GB,256 GB'],['Galaxy A57','128 GB,256 GB'],['Galaxy M15','128 GB'],['Galaxy M35','128 GB,256 GB'],['Galaxy M55','256 GB'],
-    ['Galaxy S23 FE','128 GB,256 GB'],['Galaxy S24 FE','128 GB,256 GB'],['Galaxy S25','256 GB,512 GB'],['Galaxy S25+','256 GB,512 GB'],['Galaxy S25 Ultra','256 GB,512 GB,1 TB'],['Galaxy S25 FE','128 GB,256 GB,512 GB'],
-    ['Galaxy S26','256 GB,512 GB'],['Galaxy S26+','256 GB,512 GB'],['Galaxy S26 Ultra','256 GB,512 GB,1 TB'],['Galaxy S26 FE','128 GB,256 GB,512 GB'],['Galaxy Z Flip7','256 GB,512 GB'],['Galaxy Z Fold7','256 GB,512 GB,1 TB']],
-  Motorola:[['Moto E14','64 GB'],['Moto E15','128 GB'],['Moto G05','128 GB,256 GB'],['Moto G06','128 GB,256 GB'],['Moto G15','128 GB,256 GB'],['Moto G17','128 GB,256 GB'],['Moto G24','128 GB,256 GB'],
-    ['Moto G34','128 GB,256 GB'],['Moto G35','128 GB,256 GB'],['Moto G45','128 GB,256 GB'],['Moto G47','128 GB,256 GB'],['Moto G55','256 GB'],['Moto G56','256 GB'],['Moto G67','256 GB,512 GB'],['Moto G75','256 GB'],
-    ['Moto G77','256 GB,512 GB'],['Moto G85','256 GB'],['Moto G86','256 GB,512 GB'],['Moto G Max','256 GB,512 GB'],['Edge 50 Neo','256 GB'],['Edge 50 Fusion','256 GB'],['Edge 60','256 GB,512 GB'],['Edge 60 Neo','256 GB'],
-    ['Edge 60 Fusion','256 GB'],['Edge 60 Pro','256 GB,512 GB'],['Edge 70','256 GB,512 GB'],['Edge 70 Fusion','256 GB,512 GB'],['Edge 70 Fusion+','512 GB'],['Razr 60','256 GB,512 GB'],['Razr 60 Ultra','512 GB'],['Motorola Signature','512 GB,1 TB']],
-  Realme:[['C61','128 GB,256 GB'],['C63','128 GB,256 GB'],['C65','128 GB,256 GB'],['C67','256 GB'],['C71','128 GB,256 GB'],['C75','256 GB'],['Note 50','64 GB,128 GB'],['Note 60','128 GB,256 GB'],['Note 60x','64 GB,128 GB'],
-    ['Realme 12','256 GB,512 GB'],['Realme 12+','256 GB,512 GB'],['Realme 12 Pro','256 GB,512 GB'],['Realme 13','256 GB'],['Realme 13+','256 GB,512 GB'],['Realme 14','256 GB'],['Realme 14 Pro','256 GB,512 GB'],
-    ['Realme 15','256 GB'],['Realme 15 Pro','256 GB,512 GB'],['GT 7','256 GB,512 GB'],['GT 8 Pro','512 GB']],
-  Redmi:[['Redmi A3','64 GB,128 GB'],['Redmi A5','64 GB,128 GB'],['Redmi 13C','128 GB,256 GB'],['Redmi 14C','128 GB,256 GB'],['Redmi 15C','128 GB,256 GB'],['Redmi 13','128 GB,256 GB'],['Redmi 15','128 GB,256 GB'],
-    ['Redmi Note 13','128 GB,256 GB'],['Redmi Note 13 Pro','256 GB,512 GB'],['Redmi Note 14','128 GB,256 GB'],['Redmi Note 14 5G','256 GB'],['Redmi Note 14 Pro','256 GB,512 GB'],['Redmi Note 14 Pro+','512 GB'],
-    ['Redmi Note 15 4G','128 GB,256 GB'],['Redmi Note 15 5G','256 GB,512 GB'],['Redmi Note 15 Pro','512 GB'],['POCO M7','128 GB,256 GB'],['POCO X7','256 GB,512 GB'],['POCO X7 Pro','256 GB,512 GB']],
-  Oppo:[['A18','128 GB'],['A38','128 GB'],['A58','128 GB,256 GB'],['A60','128 GB,256 GB'],['A80','256 GB'],['A5','128 GB,256 GB'],['A5 Pro','256 GB'],['A6 Pro','256 GB'],['Reno12','256 GB,512 GB'],['Reno13','256 GB,512 GB'],['Reno14','256 GB,512 GB']],
-  Honor:[['X5b','64 GB,128 GB'],['X6b','128 GB,256 GB'],['X6c','128 GB,256 GB'],['X7c','256 GB'],['X8b','256 GB'],['X8c','256 GB,512 GB'],['Honor 200','256 GB,512 GB'],['Honor 400','256 GB,512 GB'],['Magic7 Lite','256 GB,512 GB']],
-  Infinix:[['Smart 8','64 GB,128 GB'],['Smart 9','128 GB'],['Smart 10','128 GB'],['Hot 40i','128 GB,256 GB'],['Hot 50','128 GB,256 GB'],['Hot 50 Pro','256 GB'],['Hot 60','128 GB,256 GB'],['Note 40','256 GB'],['Note 50','256 GB'],['GT 30 Pro','256 GB,512 GB']],
+  Samsung:[['Galaxy A06','64 GB,128 GB','649,749'],['Galaxy A07 4G','64 GB,128 GB','649,729'],['Galaxy A07 5G','128 GB,256 GB','999,1199'],['Galaxy A15','128 GB,256 GB','899,1049'],['Galaxy A16','128 GB,256 GB','899,1049'],['Galaxy A16 5G','128 GB,256 GB','975,1149'],
+    ['Galaxy A17 4G','128 GB,256 GB','899,1099'],['Galaxy A17 5G','128 GB,256 GB','990,1199'],['Galaxy A25','128 GB,256 GB','1199,1399'],['Galaxy A26','128 GB,256 GB','1299,1438'],['Galaxy A27','128 GB,256 GB','1599,1799'],['Galaxy A35','128 GB,256 GB','1399,1599'],
+    ['Galaxy A36','128 GB,256 GB','1467,1655'],['Galaxy A37','128 GB,256 GB','1799,1989'],['Galaxy A55','128 GB,256 GB','1699,1899'],['Galaxy A56','128 GB,256 GB','1749,1899'],['Galaxy A57','128 GB,256 GB','2099,2299'],['Galaxy M15','128 GB','999'],['Galaxy M35','128 GB,256 GB','1299,1499'],['Galaxy M55','256 GB','1799'],
+    ['Galaxy S23 FE','128 GB,256 GB','2199,2499'],['Galaxy S24 FE','128 GB,256 GB','2699,2935'],['Galaxy S25','256 GB,512 GB','3999,4599'],['Galaxy S25+','256 GB,512 GB','4599,5199'],['Galaxy S25 Ultra','256 GB,512 GB,1 TB','5999,6799,7999'],['Galaxy S25 FE','128 GB,256 GB,512 GB','2699,2999,3499'],
+    ['Galaxy S26','256 GB,512 GB','4274,4999'],['Galaxy S26+','256 GB,512 GB','4631,5399'],['Galaxy S26 Ultra','256 GB,512 GB,1 TB','6913,7799,9499'],['Galaxy S26 FE','128 GB,256 GB,512 GB','3999,4699,5299'],['Galaxy Z Flip7','256 GB,512 GB','5999,6799'],['Galaxy Z Fold7','256 GB,512 GB,1 TB','9999,10999,12999']],
+  Motorola:[['Moto E14','64 GB','549'],['Moto E15','128 GB','649'],['Moto G05','128 GB,256 GB','699,849'],['Moto G06','128 GB,256 GB','777,899'],['Moto G15','128 GB,256 GB','799,949'],['Moto G17','128 GB,256 GB','999,1199'],['Moto G24','128 GB,256 GB','799,949'],
+    ['Moto G34','128 GB,256 GB','899,1049'],['Moto G35','128 GB,256 GB','999,1149'],['Moto G45','128 GB,256 GB','1099,1249'],['Moto G47','128 GB,256 GB','1199,1499'],['Moto G55','256 GB','1299'],['Moto G56','256 GB','1390'],['Moto G67','256 GB,512 GB','1308,1599'],['Moto G75','256 GB','1499'],
+    ['Moto G77','256 GB,512 GB','1799,2099'],['Moto G85','256 GB','1399'],['Moto G86','256 GB,512 GB','1529,1799'],['Moto G Max','256 GB,512 GB','2519,2899'],['Edge 50 Neo','256 GB','1999'],['Edge 50 Fusion','256 GB','1699'],['Edge 60','256 GB,512 GB','2130,2499'],['Edge 60 Neo','256 GB','2499'],
+    ['Edge 60 Fusion','256 GB','1899'],['Edge 60 Pro','256 GB,512 GB','2599,2999'],['Edge 70','256 GB,512 GB','2350,2799'],['Edge 70 Fusion','256 GB,512 GB','1889,2199'],['Edge 70 Fusion+','512 GB','2989'],['Razr 60','256 GB,512 GB','3499,3999'],['Razr 60 Ultra','512 GB','5999'],['Motorola Signature','512 GB,1 TB','6999,7999']],
+  Realme:[['C61','128 GB,256 GB','799,899'],['C63','128 GB,256 GB','849,949'],['C65','128 GB,256 GB','899,999'],['C67','256 GB','1099'],['C71','128 GB,256 GB','899,999'],['C75','256 GB','1299'],['Note 50','64 GB,128 GB','599,699'],['Note 60','128 GB,256 GB','699,849'],['Note 60x','64 GB,128 GB','599,699'],
+    ['Realme 12','256 GB,512 GB','1499,1699'],['Realme 12+','256 GB,512 GB','1599,1799'],['Realme 12 Pro','256 GB,512 GB','1999,2299'],['Realme 13','256 GB','1699'],['Realme 13+','256 GB,512 GB','1899,2199'],['Realme 14','256 GB','1899'],['Realme 14 Pro','256 GB,512 GB','2499,2799'],
+    ['Realme 15','256 GB','2199'],['Realme 15 Pro','256 GB,512 GB','2999,3299'],['GT 7','256 GB,512 GB','3499,3899'],['GT 8 Pro','512 GB','5499']],
+  Redmi:[['Redmi A3','64 GB,128 GB','599,699'],['Redmi A5','64 GB,128 GB','649,749'],['Redmi 13C','128 GB,256 GB','799,949'],['Redmi 14C','128 GB,256 GB','849,999'],['Redmi 15C','128 GB,256 GB','899,1049'],['Redmi 13','128 GB,256 GB','999,1149'],['Redmi 15','128 GB,256 GB','1099,1299'],
+    ['Redmi Note 13','128 GB,256 GB','1199,1399'],['Redmi Note 13 Pro','256 GB,512 GB','1699,1899'],['Redmi Note 14','128 GB,256 GB','1199,1399'],['Redmi Note 14 5G','256 GB','1599'],['Redmi Note 14 Pro','256 GB,512 GB','1999,2299'],['Redmi Note 14 Pro+','512 GB','2799'],
+    ['Redmi Note 15 4G','128 GB,256 GB','1199,1299'],['Redmi Note 15 5G','256 GB,512 GB','1699,2299'],['Redmi Note 15 Pro','512 GB','3299'],['POCO M7','128 GB,256 GB','999,1149'],['POCO X7','256 GB,512 GB','1799,1999'],['POCO X7 Pro','256 GB,512 GB','2299,2599']],
+  Oppo:[['A18','128 GB','799'],['A38','128 GB','899'],['A58','128 GB,256 GB','1099,1249'],['A60','128 GB,256 GB','1199,1399'],['A80','256 GB','1599'],['A5','128 GB,256 GB','1199,1399'],['A5 Pro','256 GB','1799'],['A6 Pro','256 GB','2299'],['Reno12','256 GB,512 GB','2499,2799'],['Reno13','256 GB,512 GB','2999,3299'],['Reno14','256 GB,512 GB','3499,3799']],
+  Honor:[['X5b','64 GB,128 GB','599,699'],['X6b','128 GB,256 GB','899,999'],['X6c','128 GB,256 GB','949,1099'],['X7c','256 GB','1299'],['X8b','256 GB','1599'],['X8c','256 GB,512 GB','1799,1999'],['Honor 200','256 GB,512 GB','2799,3199'],['Honor 400','256 GB,512 GB','3299,3699'],['Magic7 Lite','256 GB,512 GB','2499,2799']],
+  Infinix:[['Smart 8','64 GB,128 GB','549,649'],['Smart 9','128 GB','699'],['Smart 10','128 GB','749'],['Hot 40i','128 GB,256 GB','799,899'],['Hot 50','128 GB,256 GB','899,999'],['Hot 50 Pro','256 GB','1199'],['Hot 60','128 GB,256 GB','999,1149'],['Note 40','256 GB','1399'],['Note 50','256 GB','1599'],['GT 30 Pro','256 GB,512 GB','1999,2299']],
 };
 const slugCat=(m,mo,c)=>(m+'_'+mo+'_'+c).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
 
@@ -1593,7 +1595,7 @@ PAGES.catalogo = async () => {
   const marca=S.filtro.catMarca||'Samsung', q=(S.filtro.catQ||'').toLowerCase();
   const pct=Number(S.cfg.entradaPct)||30;
   const linhas=[]; const vistos=new Set();
-  (BASE_APARELHOS[marca]||[]).forEach(([mo,caps])=>caps.split(',').forEach(c=>{ const id=slugCat(marca,mo,c); vistos.add(id); linhas.push({id,marca,modelo:mo,capacidade:c,...(porId[id]||{})}); }));
+  (BASE_APARELHOS[marca]||[]).forEach(([mo,caps,refs])=>{ const rs=String(refs||'').split(','); caps.split(',').forEach((c,k)=>{ const id=slugCat(marca,mo,c); vistos.add(id); linhas.push({id,marca,modelo:mo,capacidade:c,ref:+rs[k]||0,...(porId[id]||{})}); }); });
   cat.filter(x=>x.marca===marca&&!vistos.has(x.id)).forEach(x=>linhas.push(x));
   const lista=linhas.filter(x=>!q||x.modelo.toLowerCase().includes(q));
   const liberados=m=>cat.filter(x=>x.marca===m&&x.ativo!==false&&x.preco>0).length;
@@ -1601,14 +1603,18 @@ PAGES.catalogo = async () => {
   $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender e coloque o valor à vista. Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
   <div class="chips">${[...MARCAS,...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))].map(m=>`<button class="chip ${m===marca?'on':''}" data-act="filtro" data-k="catMarca" data-v="${esc(m)}">${esc(m)}${liberados(m)?` · ${liberados(m)}`:''}</button>`).join('')}</div>
   <div class="row mb"><input id="catQ" placeholder="Buscar modelo de ${esc(marca)}" style="max-width:320px" value="${esc(S.filtro.catQ||'')}">
-    <span class="sp"></span><button class="btn sm" data-act="catTodos" data-v="1">Liberar todos com valor</button><button class="btn sm" data-act="catTodos" data-v="0">Bloquear todos de ${esc(marca)}</button></div>
-  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th style="width:170px">Valor à vista (R$)</th><th class="right">Entrada ${pct}%</th></tr>
+    <span class="sp"></span><label style="flex-direction:row;align-items:center;gap:8px;font-weight:600">Margem sobre o mercado<input id="catMargem" type="number" step="1" value="${S.filtro.catMargem||0}" style="width:80px;min-height:34px;padding:6px 8px"> %</label>
+    <button class="btn sm gold" data-act="catSugerir">Sugerir valores de mercado</button><button class="btn sm" data-act="catTodos" data-v="1">Liberar todos com valor</button><button class="btn sm" data-act="catTodos" data-v="0">Bloquear todos de ${esc(marca)}</button></div>
+  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th>Mercado (ref.)</th><th style="width:170px">Valor à vista (R$)</th><th class="right">Entrada ${pct}%</th></tr>
   ${lista.map(x=>{ const on=x.ativo!==false&&x.preco>0&&porId[x.id]; return `<tr>
     <td><label class="sw"><input type="checkbox" data-cat="${x.id}" ${on?'checked':''}><span></span></label></td>
     <td><b>${esc(x.modelo)}</b></td><td>${esc(x.capacidade)}</td>
+    <td class="small">${x.ref?`<span class="muted">~${brl(x.ref)}</span> <button class="btn link sm" data-act="catUsar" data-id="${x.id}" data-v="${x.ref}" style="padding:2px 6px;min-height:0">usar</button>`:'<span class="muted">—</span>'}
+      <a class="small" target="_blank" rel="noopener" href="https://www.buscape.com.br/search?q=${encodeURIComponent((x.marca==='Redmi'?'Xiaomi ':x.marca+' ')+x.modelo+' '+x.capacidade)}">conferir</a></td>
     <td><input type="number" min="0" step="0.01" data-preco="${x.id}" data-marca="${esc(x.marca)}" data-modelo="${esc(x.modelo)}" data-cap="${esc(x.capacidade)}" value="${x.preco||''}" placeholder="0,00" style="min-height:34px;padding:6px 10px"></td>
     <td class="right muted">${x.preco?brl(x.preco*pct/100):'—'}</td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum modelo encontrado</td></tr>'}
-  </table></div>`;
+  </table></div>
+  <p class="hint">Valores de mercado são uma referência aproximada do preço à vista no varejo brasileiro (nov/2026) e mudam toda semana. Use “conferir” para ver o preço de hoje antes de liberar.</p>`;
   $('#catQ').addEventListener('input',e=>{ S.filtro.catQ=e.target.value; clearTimeout(S._cq); S._cq=setTimeout(()=>PAGES.catalogo().then(()=>{ const el=$('#catQ'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),250); });
 };
 async function catSalvar(id,ativo){
@@ -1617,6 +1623,15 @@ async function catSalvar(id,ativo){
   await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,ativo,atualizadoEm:Date.now(),por:S.me.nome});
   await log(ativo?'Aparelho liberado':'Aparelho bloqueado',id,`${inp.dataset.modelo} ${inp.dataset.cap} = ${brl(preco)}`);
   toast(ativo?`${inp.dataset.modelo} ${inp.dataset.cap} liberado por ${brl(preco)}`:`${inp.dataset.modelo} ${inp.dataset.cap} não aparece mais para o vendedor`,'ok');
+}
+function catAplicar(inp,ref){
+  const m=Number($('#catMargem')?.value)||0; S.filtro.catMargem=m;
+  const v=Math.ceil(ref*(1+m/100))-0.01; inp.value=v.toFixed(2); inp.classList.add('sugerido');
+  const ck=document.querySelector(`[data-cat="${inp.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(inp.dataset.preco,true);
+}
+function catSugerir(){
+  let n=0; document.querySelectorAll('[data-preco]').forEach(inp=>{ const b=inp.closest('tr').querySelector('[data-act=catUsar]'); if(b&&!(+inp.value>0)){ catAplicar(inp,+b.dataset.v); n++; } });
+  toast(n?`${n} valor(es) sugerido(s). Confira e ligue a chavinha (ou “Liberar todos com valor”).`:'Todos os modelos já têm valor. Use “usar” em cada linha para trocar pelo valor de mercado.', n?'ok':'');
 }
 async function catTodos(liberar){
   const els=[...document.querySelectorAll('[data-preco]')].filter(i=>liberar?(+i.value>0):true);
@@ -1705,7 +1720,7 @@ const ACT = {
   apModo:d=>apModo(d.id,d.modo), ap24h:d=>ap24h(d.id), apMsg:d=>apMsg(d.id), apLog:d=>apLog(d.id),
   novoChamado, salvarChamado:()=>salvarChamado(), verChamado:d=>verChamado(d.id), responderChamado:d=>responderChamado(d.id,d.st),
   novoUsuario, salvarUsuario:(d,b)=>salvarUsuario(b), toggleUser:d=>toggleUser(d.id),
-  catTodos:d=>catTodos(d.v==='1'), salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
+  catTodos:d=>catTodos(d.v==='1'), catSugerir:()=>catSugerir(), catUsar:(d,b)=>catAplicar(b.closest('tr').querySelector('[data-preco]'),+d.v), salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
 };
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
