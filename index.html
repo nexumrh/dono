@@ -244,6 +244,8 @@ details summary{cursor:pointer}
 .bio-cam video{transform:scaleX(-1)}
 .bio-oval{position:absolute;inset:12% 18% 18%;border:3px dashed rgba(255,255,255,.85);border-radius:50%;box-shadow:0 0 0 999px rgba(10,23,51,.35)}
 @media(max-width:700px){.bio{grid-template-columns:1fr}}
+.sw{display:inline-flex;cursor:pointer}.sw input{display:none}.sw span{width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;transition:.15s}.sw span::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.15s}.sw input:checked+span{background:var(--ok)}.sw input:checked+span::after{left:21px}
+.top .sp,.row .sp{flex:1}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:8px 16px;font-weight:600;color:var(--txt)}
 .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -358,7 +360,7 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','catalogo','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
   gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','vendas','cobranca','aparelhos','chamados','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
@@ -490,10 +492,10 @@ function seedDemo(){
   U('u_dono','Ana Dono','DONO'); U('u_ger','Gustavo Gerente','GERENTE','l1'); U('u_vend','Vitória Vendedora','VENDEDOR','l1');
   U('u_vend2','Valter Vendedor','VENDEDOR','l2'); U('u_fin','Fernanda Financeiro','FINANCEIRO'); U('u_sup','Sérgio Suporte','SUPORTE');
   [['Samsung','Galaxy A06','64 GB',899],['Samsung','Galaxy A06','128 GB',999],['Samsung','Galaxy A16','128 GB',1299],['Samsung','Galaxy A16','256 GB',1499],['Samsung','Galaxy A26','128 GB',1799],['Samsung','Galaxy A36','256 GB',2399],
-   ['Motorola','Moto E15','64 GB',749],['Motorola','Moto G15','128 GB',999],['Motorola','Moto G35','128 GB',1199],['Motorola','Moto G75','256 GB',1899],
+   ['Motorola','Moto E15','128 GB',749],['Motorola','Moto G15','128 GB',999],['Motorola','Moto G35','128 GB',1199],['Motorola','Moto G75','256 GB',1899],
    ['Realme','Note 60','128 GB',899],['Realme','C75','256 GB',1399],['Redmi','Redmi 14C','128 GB',949],['Redmi','Redmi 14C','256 GB',1099],['Redmi','Redmi Note 14','256 GB',1699],
    ['Oppo','A40','128 GB',1099],['Oppo','A60','256 GB',1499],['Honor','X6b','128 GB',999],['Honor','X7c','256 GB',1399],['Infinix','Smart 9','128 GB',749],['Infinix','Hot 50','256 GB',1199]]
-   .forEach(([marca,modelo,capacidade,preco],i)=>d.catalogo['c'+i]={marca,modelo,capacidade,preco,ativo:true});
+   .forEach(([marca,modelo,capacidade,preco])=>d.catalogo[slugCat(marca,modelo,capacidade)]={marca,modelo,capacidade,preco,ativo:true});
   const cfg=d.config.sistema; let num=0;
   const mk=(o)=>{
     num++; const id='v'+num, juros=cfg.jurosMensal/100, fin=o.valor-o.entrada, vp=r2(pmt(fin,juros,o.n));
@@ -543,6 +545,7 @@ const IC = {
   aparelhos:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   chamados:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   equipe:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  catalogo:'<rect x="5" y="2" width="10" height="17" rx="2"/><path d="M9 15h2"/><path d="M17 8h4v13h-8v-2"/>',
   config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -557,6 +560,7 @@ const TABS = [
   {id:'aparelhos',label:'Aparelhos e trava',roles:['DONO','SUPORTE','FINANCEIRO','GERENTE']},
   {id:'chamados',label:'Suporte',roles:ALL},
   {id:'equipe',label:'Equipe',roles:['DONO','GERENTE']},
+  {id:'catalogo',label:'Aparelhos à venda',roles:['DONO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -946,7 +950,7 @@ async function passoAparelho(){
   const lim=v.analise?.limite||0, pct=Number(S.cfg.entradaPct)||30;
   const cfg=S.cfg, ops=String(cfg.parcelasOpcoes).split(',').map(s=>+s.trim()).filter(Boolean);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">5</span>Escolha o aparelho</h2>
-    <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||'<span class="muted">O Dono ainda não cadastrou aparelhos no catálogo.</span>'}</div>
+    <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>'}</div>
     <div class="modelos">${modelos.map(mo=>{ const caps=doMarca.filter(x=>x.modelo===mo).sort((a,b)=>a.preco-b.preco);
       return `<div class="modelo ${item?.modelo===mo?'on':''}"><div class="mo-ic">${svg(IC.aparelhos)}</div><b>${esc(mo)}</b><span class="small muted">a partir de ${brl(caps[0].preco)}</span>
         <div class="caps">${caps.map(x=>{ const acima=lim&&x.preco*(1-pct/100)>lim; return `<button class="cap ${w.sel.itemId===x.id?'on':''}" data-act="selItem" data-id="${x.id}" ${acima?'disabled title="Acima do limite aprovado"':''}>${esc(x.capacidade)}<small>${brl(x.preco)}</small></button>`; }).join('')}</div></div>`; }).join('')}</div>
@@ -1559,6 +1563,69 @@ async function salvarUsuario(btn){
 }
 async function toggleUser(id){ const u=await DB.get('users',id); await DB.set('users',id,{ativo:!u.ativo}); await log(u.ativo?'Usuário desativado':'Usuário reativado',id,u.nome); render(); }
 
+/* Linhas de aparelhos Android vendidos no Brasil (todos compatíveis com a trava: Android 8+).
+   O Dono só LIBERA os que a loja tem e coloca o valor. Modelo que faltar: "Adicionar outro modelo". */
+const BASE_APARELHOS = {
+  Samsung:[['Galaxy A06','64 GB,128 GB'],['Galaxy A07 4G','64 GB,128 GB'],['Galaxy A07 5G','128 GB,256 GB'],['Galaxy A15','128 GB,256 GB'],['Galaxy A16','128 GB,256 GB'],['Galaxy A16 5G','128 GB,256 GB'],
+    ['Galaxy A17 4G','128 GB,256 GB'],['Galaxy A17 5G','128 GB,256 GB'],['Galaxy A25','128 GB,256 GB'],['Galaxy A26','128 GB,256 GB'],['Galaxy A27','128 GB,256 GB'],['Galaxy A35','128 GB,256 GB'],
+    ['Galaxy A36','128 GB,256 GB'],['Galaxy A37','128 GB,256 GB'],['Galaxy A55','128 GB,256 GB'],['Galaxy A56','128 GB,256 GB'],['Galaxy A57','128 GB,256 GB'],['Galaxy M15','128 GB'],['Galaxy M35','128 GB,256 GB'],['Galaxy M55','256 GB'],
+    ['Galaxy S23 FE','128 GB,256 GB'],['Galaxy S24 FE','128 GB,256 GB'],['Galaxy S25','256 GB,512 GB'],['Galaxy S25+','256 GB,512 GB'],['Galaxy S25 Ultra','256 GB,512 GB,1 TB'],['Galaxy S25 FE','128 GB,256 GB,512 GB'],
+    ['Galaxy S26','256 GB,512 GB'],['Galaxy S26+','256 GB,512 GB'],['Galaxy S26 Ultra','256 GB,512 GB,1 TB'],['Galaxy S26 FE','128 GB,256 GB,512 GB'],['Galaxy Z Flip7','256 GB,512 GB'],['Galaxy Z Fold7','256 GB,512 GB,1 TB']],
+  Motorola:[['Moto E14','64 GB'],['Moto E15','128 GB'],['Moto G05','128 GB,256 GB'],['Moto G06','128 GB,256 GB'],['Moto G15','128 GB,256 GB'],['Moto G17','128 GB,256 GB'],['Moto G24','128 GB,256 GB'],
+    ['Moto G34','128 GB,256 GB'],['Moto G35','128 GB,256 GB'],['Moto G45','128 GB,256 GB'],['Moto G47','128 GB,256 GB'],['Moto G55','256 GB'],['Moto G56','256 GB'],['Moto G67','256 GB,512 GB'],['Moto G75','256 GB'],
+    ['Moto G77','256 GB,512 GB'],['Moto G85','256 GB'],['Moto G86','256 GB,512 GB'],['Moto G Max','256 GB,512 GB'],['Edge 50 Neo','256 GB'],['Edge 50 Fusion','256 GB'],['Edge 60','256 GB,512 GB'],['Edge 60 Neo','256 GB'],
+    ['Edge 60 Fusion','256 GB'],['Edge 60 Pro','256 GB,512 GB'],['Edge 70','256 GB,512 GB'],['Edge 70 Fusion','256 GB,512 GB'],['Edge 70 Fusion+','512 GB'],['Razr 60','256 GB,512 GB'],['Razr 60 Ultra','512 GB'],['Motorola Signature','512 GB,1 TB']],
+  Realme:[['C61','128 GB,256 GB'],['C63','128 GB,256 GB'],['C65','128 GB,256 GB'],['C67','256 GB'],['C71','128 GB,256 GB'],['C75','256 GB'],['Note 50','64 GB,128 GB'],['Note 60','128 GB,256 GB'],['Note 60x','64 GB,128 GB'],
+    ['Realme 12','256 GB,512 GB'],['Realme 12+','256 GB,512 GB'],['Realme 12 Pro','256 GB,512 GB'],['Realme 13','256 GB'],['Realme 13+','256 GB,512 GB'],['Realme 14','256 GB'],['Realme 14 Pro','256 GB,512 GB'],
+    ['Realme 15','256 GB'],['Realme 15 Pro','256 GB,512 GB'],['GT 7','256 GB,512 GB'],['GT 8 Pro','512 GB']],
+  Redmi:[['Redmi A3','64 GB,128 GB'],['Redmi A5','64 GB,128 GB'],['Redmi 13C','128 GB,256 GB'],['Redmi 14C','128 GB,256 GB'],['Redmi 15C','128 GB,256 GB'],['Redmi 13','128 GB,256 GB'],['Redmi 15','128 GB,256 GB'],
+    ['Redmi Note 13','128 GB,256 GB'],['Redmi Note 13 Pro','256 GB,512 GB'],['Redmi Note 14','128 GB,256 GB'],['Redmi Note 14 5G','256 GB'],['Redmi Note 14 Pro','256 GB,512 GB'],['Redmi Note 14 Pro+','512 GB'],
+    ['Redmi Note 15 4G','128 GB,256 GB'],['Redmi Note 15 5G','256 GB,512 GB'],['Redmi Note 15 Pro','512 GB'],['POCO M7','128 GB,256 GB'],['POCO X7','256 GB,512 GB'],['POCO X7 Pro','256 GB,512 GB']],
+  Oppo:[['A18','128 GB'],['A38','128 GB'],['A58','128 GB,256 GB'],['A60','128 GB,256 GB'],['A80','256 GB'],['A5','128 GB,256 GB'],['A5 Pro','256 GB'],['A6 Pro','256 GB'],['Reno12','256 GB,512 GB'],['Reno13','256 GB,512 GB'],['Reno14','256 GB,512 GB']],
+  Honor:[['X5b','64 GB,128 GB'],['X6b','128 GB,256 GB'],['X6c','128 GB,256 GB'],['X7c','256 GB'],['X8b','256 GB'],['X8c','256 GB,512 GB'],['Honor 200','256 GB,512 GB'],['Honor 400','256 GB,512 GB'],['Magic7 Lite','256 GB,512 GB']],
+  Infinix:[['Smart 8','64 GB,128 GB'],['Smart 9','128 GB'],['Smart 10','128 GB'],['Hot 40i','128 GB,256 GB'],['Hot 50','128 GB,256 GB'],['Hot 50 Pro','256 GB'],['Hot 60','128 GB,256 GB'],['Note 40','256 GB'],['Note 50','256 GB'],['GT 30 Pro','256 GB,512 GB']],
+};
+const slugCat=(m,mo,c)=>(m+'_'+mo+'_'+c).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
+
+/* ---------- APARELHOS À VENDA (Dono libera e põe o valor) ---------- */
+PAGES.catalogo = async () => {
+  const cat=await DB.list('catalogo'), porId=Object.fromEntries(cat.map(x=>[x.id,x]));
+  const marca=S.filtro.catMarca||'Samsung', q=(S.filtro.catQ||'').toLowerCase();
+  const pct=Number(S.cfg.entradaPct)||30;
+  const linhas=[]; const vistos=new Set();
+  (BASE_APARELHOS[marca]||[]).forEach(([mo,caps])=>caps.split(',').forEach(c=>{ const id=slugCat(marca,mo,c); vistos.add(id); linhas.push({id,marca,modelo:mo,capacidade:c,...(porId[id]||{})}); }));
+  cat.filter(x=>x.marca===marca&&!vistos.has(x.id)).forEach(x=>linhas.push(x));
+  const lista=linhas.filter(x=>!q||x.modelo.toLowerCase().includes(q));
+  const liberados=m=>cat.filter(x=>x.marca===m&&x.ativo!==false&&x.preco>0).length;
+  $('#topActions').innerHTML='<button class="btn" data-act="editarItem" data-id="">Adicionar outro modelo</button>';
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender e coloque o valor à vista. Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
+  <div class="chips">${[...MARCAS,...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))].map(m=>`<button class="chip ${m===marca?'on':''}" data-act="filtro" data-k="catMarca" data-v="${esc(m)}">${esc(m)}${liberados(m)?` · ${liberados(m)}`:''}</button>`).join('')}</div>
+  <div class="row mb"><input id="catQ" placeholder="Buscar modelo de ${esc(marca)}" style="max-width:320px" value="${esc(S.filtro.catQ||'')}">
+    <span class="sp"></span><button class="btn sm" data-act="catTodos" data-v="1">Liberar todos com valor</button><button class="btn sm" data-act="catTodos" data-v="0">Bloquear todos de ${esc(marca)}</button></div>
+  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th style="width:170px">Valor à vista (R$)</th><th class="right">Entrada ${pct}%</th></tr>
+  ${lista.map(x=>{ const on=x.ativo!==false&&x.preco>0&&porId[x.id]; return `<tr>
+    <td><label class="sw"><input type="checkbox" data-cat="${x.id}" ${on?'checked':''}><span></span></label></td>
+    <td><b>${esc(x.modelo)}</b></td><td>${esc(x.capacidade)}</td>
+    <td><input type="number" min="0" step="0.01" data-preco="${x.id}" data-marca="${esc(x.marca)}" data-modelo="${esc(x.modelo)}" data-cap="${esc(x.capacidade)}" value="${x.preco||''}" placeholder="0,00" style="min-height:34px;padding:6px 10px"></td>
+    <td class="right muted">${x.preco?brl(x.preco*pct/100):'—'}</td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum modelo encontrado</td></tr>'}
+  </table></div>`;
+  $('#catQ').addEventListener('input',e=>{ S.filtro.catQ=e.target.value; clearTimeout(S._cq); S._cq=setTimeout(()=>PAGES.catalogo().then(()=>{ const el=$('#catQ'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),250); });
+};
+async function catSalvar(id,ativo){
+  const inp=document.querySelector(`[data-preco="${id}"]`), preco=r2(+inp.value||0);
+  if(ativo&&!(preco>0)){ toast('Coloque o valor antes de liberar','err'); const ck=document.querySelector(`[data-cat="${id}"]`); if(ck) ck.checked=false; inp.focus(); return; }
+  await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,ativo,atualizadoEm:Date.now(),por:S.me.nome});
+  await log(ativo?'Aparelho liberado':'Aparelho bloqueado',id,`${inp.dataset.modelo} ${inp.dataset.cap} = ${brl(preco)}`);
+  toast(ativo?`${inp.dataset.modelo} ${inp.dataset.cap} liberado por ${brl(preco)}`:`${inp.dataset.modelo} ${inp.dataset.cap} não aparece mais para o vendedor`,'ok');
+}
+async function catTodos(liberar){
+  const els=[...document.querySelectorAll('[data-preco]')].filter(i=>liberar?(+i.value>0):true);
+  if(!els.length){ toast(liberar?'Nenhum modelo com valor preenchido':'Nada para bloquear','err'); return; }
+  if(!confirm(liberar?`Liberar ${els.length} modelo(s) com valor preenchido?`:`Bloquear todos os modelos desta marca?`)) return;
+  await DB.batch(els.map(i=>({c:'catalogo',id:i.dataset.preco,data:{marca:i.dataset.marca,modelo:i.dataset.modelo,capacidade:i.dataset.cap,preco:r2(+i.value||0),ativo:!!liberar&&+i.value>0,atualizadoEm:Date.now(),por:S.me.nome}})));
+  await log(liberar?'Liberação em lote':'Bloqueio em lote',S.filtro.catMarca||'Samsung',''); render();
+}
+
 /* ---------- LOJAS E CONFIGURAÇÕES ---------- */
 PAGES.config = async () => {
   S.lojas=await DB.list('lojas'); const c=S.cfg, cat=await DB.list('catalogo');
@@ -1571,10 +1638,6 @@ PAGES.config = async () => {
     ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('jurosMensal','Juros ao mês (%)','number','step="0.01"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
     ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}
   </div></div>
-  <div class="card mt"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Aparelhos e preços</h2><button class="btn sm gold" data-act="editarItem" data-id="">Adicionar aparelho</button></div>
-    <p class="hint">Só aparecem para o vendedor os aparelhos ativos. O vendedor <b>não consegue alterar</b> o valor.</p>
-    <div class="tablewrap mt"><table><tr><th>Marca</th><th>Modelo</th><th>Memória</th><th class="right">Valor</th><th class="right">Entrada ${c.entradaPct||30}%</th><th>Situação</th><th></th></tr>
-    ${cat.sort((a,b)=>a.marca.localeCompare(b.marca)||a.modelo.localeCompare(b.modelo)||a.preco-b.preco).map(x=>`<tr><td>${esc(x.marca)}</td><td><b>${esc(x.modelo)}</b></td><td>${esc(x.capacidade)}</td><td class="right">${brl(x.preco)}</td><td class="right">${brl(x.preco*(c.entradaPct||30)/100)}</td><td>${x.ativo!==false?badge('Ativo','green'):badge('Oculto','gray')}</td><td class="right"><button class="btn sm" data-act="editarItem" data-id="${x.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty">Cadastre os aparelhos que a loja vende</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Vídeos de instalação da trava</h2><p class="hint" style="margin-top:-6px">Link do YouTube ou de um arquivo .mp4 por marca. Em branco, o vendedor vê o passo a passo animado.</p>
     <div class="grid g4 mt">${MARCAS.map(m=>`<label>${m}<input data-video="${m}" value="${esc((c.videos||{})[m]||'')}" placeholder="https://youtu.be/..."></label>`).join('')}</div></div>
   <div class="card mt"><h2>Trava</h2><div class="grid g4">
@@ -1607,7 +1670,7 @@ async function editarItem(id){
 async function salvarItem(id){
   const d={marca:$('#ctMarca').value,modelo:$('#ctModelo').value.trim(),capacidade:$('#ctCap').value,preco:r2(+$('#ctPreco').value),ativo:$('#ctAtivo').checked,atualizadoEm:Date.now(),por:S.me.nome};
   if(!d.modelo||!(d.preco>0)){ toast('Informe modelo e valor','err'); return; }
-  if(id) await DB.set('catalogo',id,d); else await DB.add('catalogo',d);
+  await DB.set('catalogo',id||slugCat(d.marca,d.modelo,d.capacidade),d);
   await log('Catálogo alterado',id||'novo',`${d.marca} ${d.modelo} ${d.capacidade} = ${brl(d.preco)}`); closeModal(); render();
 }
 async function editarLoja(id){
@@ -1625,7 +1688,7 @@ async function salvarLoja(id){
 const ACT = {
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
-  filtro:d=>{ S.filtro[d.k]=d.v; render(); },
+  filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },
   closeModal, login:()=>fazerLogin(),
   portais:()=>openModal(`<h2>Portais NexumCell</h2><p class="small muted">Envie a cada pessoa o link do portal do perfil dela.</p>${Object.entries(PORTAIS).map(([k,p])=>`<div class="msg"><b>${esc(p.nome)}</b><br>${URLS[k]?`<a href="${esc(URLS[k])}" target="_blank" rel="noopener">${esc(URLS[k])}</a>`:'<span class="muted">endereço não configurado em nexumcell-config.js</span>'}</div>`).join('')}`), logout:()=>sair(),
   demo:d=>entrarDemo(d.role), demoReset:()=>{ demoInit(true); toast('Exemplos restaurados','ok'); },
@@ -1642,7 +1705,7 @@ const ACT = {
   apModo:d=>apModo(d.id,d.modo), ap24h:d=>ap24h(d.id), apMsg:d=>apMsg(d.id), apLog:d=>apLog(d.id),
   novoChamado, salvarChamado:()=>salvarChamado(), verChamado:d=>verChamado(d.id), responderChamado:d=>responderChamado(d.id,d.st),
   novoUsuario, salvarUsuario:(d,b)=>salvarUsuario(b), toggleUser:d=>toggleUser(d.id),
-  salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
+  catTodos:d=>catTodos(d.v==='1'), salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
 };
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
@@ -1655,7 +1718,7 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 document.addEventListener('click',e=>{ const im=e.target.closest('.docs-grid img'); if(im){ const w=window.open(''); if(w){ w.document.write(`<body style="margin:0;background:#000"><img src="${im.src}" style="width:100%">`); } } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#modal').hidden) closeModal(); });
 document.addEventListener('input',e=>{ if(['nEntrada','nParc','nImei'].includes(e.target.id)) simular(); });
-document.addEventListener('change',e=>{ if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
+document.addEventListener('change',e=>{ if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 
 /* ======================= LOGIN ======================= */
