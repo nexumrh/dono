@@ -98,7 +98,10 @@ service cloud.firestore {
                     // vendedor: escolher aparelho (preço do catálogo, entrada mínima)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
                         && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId'])
-                        && request.resource.data.valor == catalogoPreco(request.resource.data)
+                        // valor = preço do catálogo + acessórios (no máximo 50% do aparelho)
+                        && request.resource.data.valor == catalogoPreco(request.resource.data) + request.resource.data.get('acessoriosValor', 0)
+                        && request.resource.data.get('acessoriosValor', 0) >= 0
+                        && request.resource.data.get('acessoriosValor', 0) <= catalogoPreco(request.resource.data) * 0.5
                         && request.resource.data.juros == get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25))
                         && request.resource.data.entrada >= request.resource.data.valor * entradaMin() / 100)
                     // vendedor: venda reprovada automaticamente por IMEI irregular (Anatel)
@@ -217,8 +220,8 @@ service cloud.firestore {
     // ---------- Pedidos do portal do cliente: assistência técnica e LGPD ----------
     match /pedidos/{id} {
       allow create: if signed()
-                    && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm'])
-                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO']
+                    && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm', 'novoDia'])
+                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO', 'VENCIMENTO']
                     && request.resource.data.status == 'ABERTO'
                     && request.resource.data.descricao.size() <= 600
                     && get(/databases/$(database)/documents/aparelhos/$(request.resource.data.token)).data.lojaId == request.resource.data.lojaId
@@ -226,6 +229,47 @@ service cloud.firestore {
       allow read, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                           || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow delete: if false;
+    }
+
+    // ---------- Acessórios vendidos no mesmo contrato ----------
+    match /acessorios/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']);
+    }
+
+    // ---------- Vitrine pública (aparelhos e lojas para a pré-análise online) ----------
+    match /publico/{id} {
+      allow get: if signed();
+      allow write: if hasRole(['DONO']);
+    }
+
+    // ---------- Pré-análise online (link público) ----------
+    match /preanalises/{id} {
+      allow get: if signed();
+      allow list: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if signed()
+                    && request.resource.data.keys().hasOnly(['nome', 'cpf', 'nasc', 'telefone', 'cidade', 'renda', 'profissao', 'aparelho', 'entrada', 'lojaId', 'lojaNome', 'aceiteLgpd', 'status', 'criadoEm'])
+                    && request.resource.data.status == 'NOVA' && request.resource.data.aceiteLgpd == true
+                    && request.resource.data.cpf is string && request.resource.data.cpf.size() == 11
+                    && request.resource.data.nome is string && request.resource.data.nome.size() <= 120
+                    && request.resource.data.renda is number;
+      allow update: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow delete: if false;
+    }
+
+    // ---------- Aprovação dupla: ações sensíveis esperam o dono ----------
+    match /aprovacoes/{id} {
+      allow create: if staff() && request.resource.data.solicitanteUid == request.auth.uid && request.resource.data.status == 'PENDENTE';
+      allow read: if hasRole(['DONO']) || (staff() && resource.data.solicitanteUid == request.auth.uid);
+      allow update: if hasRole(['DONO']);
+      allow delete: if false;
+    }
+
+    // ---------- Contagem cega do estoque ----------
+    match /contagens/{id} {
+      allow create: if hasRole(['DONO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow update, delete: if false;
     }
 
     // ---------- Seminovos (aparelhos retomados) ----------

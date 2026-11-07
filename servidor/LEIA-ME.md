@@ -4,6 +4,7 @@ Só é necessário quando você tiver conta no **Asaas**. Sem ele, tudo continua
 
 O que ele faz:
 - **/api/pix** — gera um PIX com valor exato (desconto de 5% ou multa já calculados) para cada parcela.
+- **/api/assistente** — o assistente do portal do cliente responde perguntas livres com IA. Crie também a variável `GROQ_API_KEY` com a sua chave da Groq (fica só no servidor, nunca no portal).
 - **/api/asaas-webhook** — quando o cliente paga, o Asaas avisa o servidor, a parcela é baixada sozinha e o aparelho destrava em poucos minutos. Ninguém precisa conferir comprovante.
 
 ## Como ativar (uma vez)
