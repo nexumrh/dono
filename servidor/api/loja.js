@@ -4,6 +4,7 @@
 // POST /api/loja {"acao":"negativar","vendaId":"...","n":3}      → pede a negativação da parcela (precisa estar liberado na conta)
 // POST /api/loja {"acao":"cartao","valor":1299,"parcelas":10,...} → link de pagamento no cartão de crédito
 // POST /api/loja {"acao":"antecipar","vendaIds":[...]}           → simula antecipação das parcelas a vencer
+// POST /api/loja {"acao":"cancelarCobrancas","vendaId":"..."}    → apaga no Asaas as cobranças em aberto (devolução / cancelamento)
 import { db, asaas, cors, gerarCobrancas, clienteAsaas, exigirEquipe, r2, hoje } from './_base.js';
 
 export default async function handler(req, res) {
@@ -62,6 +63,17 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json({ qtd, bruto: r2(bruto), liquido: r2(liquido), custo: r2(bruto - liquido), erros });
+    }
+    if (b.acao === 'cancelarCobrancas') {
+      const quem = await exigirEquipe(req, ['DONO', 'FINANCEIRO']);
+      const ref = db.collection('vendas').doc(String(b.vendaId)), v = (await ref.get()).data();
+      if (!v) throw new Error('venda não encontrada');
+      if (!['CANCELADA', 'RETOMADA'].includes(v.status)) throw new Error('só para venda cancelada ou retomada');
+      let apagadas = 0; const parcelas = (v.parcelas || []).map((p) => ({ ...p }));
+      for (const p of parcelas) if (!p.pago && p.asaasId) { try { await asaas('/payments/' + p.asaasId, { method: 'DELETE' }); apagadas++; } catch (e) {} delete p.asaasId; delete p.asaasLink; }
+      await ref.update({ parcelas, asaas: { ...(v.asaas || {}), ids: [], canceladoEm: Date.now() } });
+      await db.collection('logs').add({ em: Date.now(), acao: 'Cobranças apagadas no Asaas', alvo: b.vendaId, det: `${apagadas} cobrança(s)`, por: quem.nome });
+      return res.status(200).json({ apagadas });
     }
     return res.status(400).json({ erro: 'ação desconhecida' });
   } catch (e) {

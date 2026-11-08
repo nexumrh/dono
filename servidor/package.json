@@ -3,5 +3,11 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },
-  "dependencies": { "firebase-admin": "^12.7.0" }
+  "scripts": {
+    "cloudflare:publicar": "wrangler deploy",
+    "cloudflare:testar": "wrangler dev",
+    "cloudflare:logs": "wrangler tail"
+  },
+  "dependencies": { "firebase-admin": "^12.7.0" },
+  "devDependencies": { "wrangler": "^4.40.0" }
 }

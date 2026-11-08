@@ -1,0 +1,30 @@
+# Cloudflare Workers — servidor da NexumCell (veja GUIA-CLOUDFLARE.md)
+name = "nexumcell-servidor"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# O firebase-admin não roda no Cloudflare: este arquivo faz o mesmo papel usando a API REST do Firestore
+[alias]
+"firebase-admin" = "./worker/firebase-rest.js"
+
+# Rotinas diárias (horário UTC): 12:00, 12:20 e 12:40 UTC = 9h/9h20/9h40 de Brasília (lembretes e robô de voz,
+# em 3 rodadas por causa do limite do plano grátis) · 22:00 UTC = 19h de Brasília (resumo do dono)
+[triggers]
+crons = ["0 12 * * *", "20 12 * * *", "40 12 * * *", "0 22 * * *"]
+
+# Variáveis que NÃO são segredo (os segredos vão com "npx wrangler secret put NOME" ou no painel)
+[vars]
+ASAAS_URL = "https://api-sandbox.asaas.com/v3"
+PORTAL_ORIGEM = "https://nexumrh.github.io"
+PORTAL_CLIENTE_URL = "https://nexumrh.github.io/nexumcell-cliente/"
+BREVO_REMETENTE_NOME = "NexumCell"
+BREVO_SMS_REMETENTE = "NexumCell"
+FOCUS_NFE_URL = "https://homologacao.focusnfe.com.br"
+ZAPSIGN_URL = "https://sandbox.api.zapsign.com.br/api/v1"
+# Mensagens por rodada da rotina da manhã. Plano grátis do Cloudflare: 10 (limite de 50 chamadas por execução).
+# Se assinar o Workers Paid (US$ 5/mês), troque para "1000".
+ROTINA_MAX = "10"
+
+[observability]
+enabled = true

@@ -400,13 +400,13 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','simulador','seminovos','estoque','listanegra','catalogo','escala','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','simulador','seminovos','estoque','trocas','listanegra','catalogo','escala','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','listanegra','escala','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','trocas','listanegra','escala','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','treinamento','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','listanegra'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','listanegra'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
   suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['aparelhos','pedidos','chamados','fila','confirmacoes','vendas','aprovacoes'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
@@ -426,7 +426,7 @@ const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
   empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
-  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
+  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, brevoCanal:'nenhum', brevoLembretes:'nao', lembreteDiasAntes:2, lembreteDiasAtraso:'1,3,7', brevoRecibo:'nao', roboVoz:'nao', roboVozDias:15, resumoEmail:'sim', resumoCanal:'nao', splitComissao:'nao', vipOuroJuros:5, vipPrataJuros:2, vipOuroParcelas:6, trocaDias:7, nfAutomatica:'nao', nfNcm:'85171300', nfNcmAcessorio:'85177900', nfCfop:'5102', nfCsosn:'102', nfOrigem:'0', nfPisCst:'07', assinaturaZapsign:'nao', etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
   apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', exigirLocalLoja:'sim', exigirEstoque:'sim', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
@@ -614,6 +614,7 @@ const IC = {
   simulador:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 10h2M12 10h2M16 10h0M8 14h2M12 14h2M8 18h8"/>',
   conciliacao:'<path d="M3 10h18M5 6l7-3 7 3M6 10v8M10 10v8M14 10v8M18 10v8M3 21h18"/>',
   despesas:'<path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  trocas:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   escala:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   preanalises:'<path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/>',
   aprovacoes:'<path d="M9 12l2 2 4-4"/><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
@@ -653,6 +654,7 @@ const TABS = [
   {id:'seminovos',label:'Seminovos (retomados)',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'estoque',label:'Estoque por IMEI',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'listanegra',label:'Lista negra',roles:['DONO','GERENTE','FINANCEIRO']},
+  {id:'trocas',label:'Trocas e devoluções',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -1092,7 +1094,7 @@ async function passoAparelho(){
     <div class="grid g4">
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
-      <label>Juros sobre o financiado<input value="${jurosDo(item)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
+      <label>Juros sobre o financiado${S.w.vip?.descontoJuros?` <span class="badge b-amber">VIP ${esc(S.w.vip.nivel)}</span>`:''}<input value="${jurosVip(jurosDo(item),S.w.vip)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
       ${item.semTrava?`<label>Número de série (opcional)<input id="nSerie" value="${esc(w.sel.serie||'')}"></label>`:''}
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
@@ -1181,7 +1183,7 @@ function simular(){
     <p class="small" style="color:#A9B6D3;margin:8px 0 0">Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
   $('#nImeiOk').innerHTML=imeiMsg($('#nImei').value);
 }
-async function selItem(id){ const x=await DB.get('catalogo',id); S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosDo(x),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
+async function selItem(id){ const x=await DB.get('catalogo',id), vv=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w.vip=vv?.vip||null; S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosVip(jurosDo(x),vv?.vip),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
 async function salvarAparelho(btn){
   const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=Number(S.cfg.entradaPct)||30;
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
@@ -1215,7 +1217,7 @@ async function salvarAparelho(btn){
   if(conf&&!conf.confere){ btn.disabled=false; return toast(conf.msg,'err'); }
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
-  const juros=jurosDo(x), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaFlat(fin,juros,n)+prot);
+  const juros=jurosVip(jurosDo(x),v0.vip), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaFlat(fin,juros,n)+prot);
   await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
   const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
   await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
@@ -1229,18 +1231,20 @@ async function salvarAparelho(btn){
 async function passoContrato(){
   const v=await DB.get('vendas',S.w.vendaId);
   if(v.assinaturaPendente&&!S.w.modoAss) S.w.modoAss='celular';
+  if(v.zapsign?.status==='pendente'&&!S.w.modoAss) S.w.modoAss='zapsign';
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">6</span>Contrato e assinatura</h2>
     <div class="contrato">${contratoHTML(v)}</div>
     <label class="check mt"><input type="checkbox" id="sgAceite"> O cliente leu o contrato e <b>concorda com a cláusula 5 (bloqueio do aparelho por atraso)</b></label>
     <label class="check"><input type="checkbox" id="sgLgpd"> O cliente autoriza o tratamento dos dados pessoais e da biometria (cláusula 6)</label>
-    <div class="tabs mt">${[['loja','Assinar neste aparelho'],['celular','Cliente assina no celular dele']].map(([k,t])=>`<button data-act="modoAssinatura" data-v="${k}" class="${(S.w.modoAss||'loja')===k?'on':''}">${t}</button>`).join('')}</div>
+    <div class="tabs mt">${[['loja','Assinar neste aparelho'],['celular','Cliente assina no celular dele'],...(S.cfg.assinaturaZapsign==='sim'&&servLigado()?[['zapsign','ZapSign (selfie + documento)']]:[])].map(([k,t])=>`<button data-act="modoAssinatura" data-v="${k}" class="${(S.w.modoAss||'loja')===k?'on':''}">${t}</button>`).join('')}</div>
     <div id="assLoja" ${(S.w.modoAss||'loja')==='loja'?'':'hidden'}>
     <h3>Assinatura do cliente</h3><canvas id="sig" class="sig"></canvas>
     <div class="row mt" style="justify-content:space-between"><div class="row"><button class="btn" data-act="irPasso" data-n="5">Voltar</button><button class="btn sm" data-act="limparSig">Limpar assinatura</button></div>
       <button class="btn gold lg" data-act="confirmarAssinatura" data-id="${v.id}">Assinar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>
-    <div id="assCel" ${S.w.modoAss==='celular'?'':'hidden'}></div></div>`;
+    <div id="assCel" ${S.w.modoAss==='celular'?'':'hidden'}></div><div id="assZap" ${S.w.modoAss==='zapsign'?'':'hidden'}></div></div>`;
   setupSig($('#sig'));
   if(S.w.modoAss==='celular') assinaturaRemota(v);
+  if(S.w.modoAss==='zapsign') assinaturaZapsign(v);
 }
 const urlCliente = () => (URLS.cliente || new URL('../cliente/', location.href).href);
 async function assinaturaRemota(v){
@@ -1249,7 +1253,7 @@ async function assinaturaRemota(v){
   if(a&&a.status==='ASSINADO'){ box.innerHTML='<div class="inst-status ok mt">Contrato já assinado pelo cliente. Registrando…</div>'; return registrarAssinatura(v.id,{assinatura:a.assinatura,assinadoEm:a.assinadoEm,contrato:a.contrato,via:'CELULAR_CLIENTE',tk,dispositivo:a.dispositivo||'',nomeDigitado:a.nomeDigitado||''}); }
   if(!a||a.status!=='PENDENTE'||a.expiraEm<Date.now()){
     tk=token(24); const agora=Date.now();
-    a={vendaId:v.id,numero:v.numero,clienteNome:v.clienteNome,empresa:S.cfg.empresa,lojaNome:v.lojaNome,contrato:contratoHTML(v),status:'PENDENTE',criadoEm:agora,expiraEm:agora+86400000,via:'CELULAR_CLIENTE',criadoPor:S.me.nome};
+    a={vendaId:v.id,numero:v.numero,clienteNome:v.clienteNome,empresa:S.cfg.empresa,lojaNome:v.lojaNome,contrato:contratoHTML(v),status:'PENDENTE',criadoEm:agora,expiraEm:agora+86400000,via:'CELULAR_CLIENTE',criadoPor:S.me.nome,servidor:servidorPg()};
     await DB.set('assinaturas',tk,a); await DB.set('vendas',v.id,{assinaturaPendente:tk});
   }
   const url=urlCliente()+'?assinar='+tk+(DEMO?'&demo':''), tel=(v.cliente?.telefones||[])[0]||'';
@@ -1273,6 +1277,7 @@ async function registrarAssinatura(id,o){
   else await DB.set('assinaturas',o.tk,{hash,codigo});
   await DB.set('vendas',id,{status:'AGUARDANDO_ENTRADA',assinatura:o.assinatura,assinadoEm:o.assinadoEm,aceiteBloqueio:true,aceiteLgpd:true,contratoTexto:o.contrato,assinaturaDigital:dig,assinaturaPendente:null});
   await log('Contrato assinado',id,`${o.via==='LOJA'?'na loja':'no celular do cliente'} · código ${codigo}`);
+  if(o.via==='LOJA'||DEMO) carimbar(o.tk);
   toast('Contrato assinado','ok'); closeModal();
   if(S.w&&S.w.vendaId===id) irPasso(7); else render();
 }
@@ -1308,7 +1313,7 @@ async function confirmarEntrada(btn){
       lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',servidorPix:cfg.servidorPagamentos||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,...camposEtapas(cfg),
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
-      mensagem:cfg.mensagemTrava||'',parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
+      mensagem:cfg.mensagemTrava||'',vip:v.vip?.nivel||'',trocaDias:+cfg.trocaDias||7,parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
     const st=v.aparelho.semTrava?{status:'ATIVA',instaladoEm:agora}:{status:'INSTALANDO',instalacao:{tentativas:1,inicio:agora}};
     const extras=[]; if(v.usado) extras.push({c:'seminovos',id:'t_'+v.id,data:{origem:'TROCA',marca:v.usado.marca,modelo:v.usado.modelo,capacidade:'',imei:v.usado.imei,imei2:'',vendaId:v.id,vendaNumero:v.numero,cliente:v.clienteNome,estado:v.usado.estado,avaliacao:v.usado.valor,precoVenda:r2(v.usado.valor*1.35),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:agora,por:S.me.nome}});
     if(v.usado?.fotos?.length) extras.push({c:'docs',id:'u_'+v.id,data:{tipo:'USADO',vendaId:v.id,fotos:v.usado.fotos,criadoEm:agora,vendedorUid:S.me.uid}});
@@ -1316,7 +1321,7 @@ async function confirmarEntrada(btn){
       entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome,geo},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
     try{ await gravarAcesso(v,tk); }catch(e){ console.warn('acesso',e); }
-    if(v.aparelho.semTrava) sincronizarAsaas(v.id);
+    if(v.aparelho.semTrava){ sincronizarAsaas(v.id); nfAuto(v.id); }
     irPasso(8);
   }catch(e){ console.error(e); toast('Erro: '+e.message,'err'); btn.disabled=false; }
 }
@@ -1403,7 +1408,7 @@ async function passoTrava(){
     ok=true; clearInterval(tick);
     const vv=await DB.get('vendas',v.id);
     if(vv.status==='INSTALANDO'&&vv.aparelho?.estoqueId){ try{ await DB.set('estoque',vv.aparelho.estoqueId,{status:'VENDIDO',vendaId:v.id,vendidoEm:Date.now()}); }catch(e){ console.warn('estoque',e); } }
-    if(vv.status==='INSTALANDO') sincronizarAsaas(v.id);
+    if(vv.status==='INSTALANDO'){ sincronizarAsaas(v.id); nfAuto(v.id); }
     if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
     el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
     $('#instAjuda').innerHTML=''; const eb=$('#entregaBox'); if(eb) eb.hidden=false; if(S.w.entregaOk){ const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir e iniciar nova venda'; } } });
@@ -1537,6 +1542,7 @@ async function verVenda(id){
     ${v.status==='ATIVA'&&asaasLigado()&&can('DONO','FINANCEIRO','GERENTE')?`<div class="row mt"><span class="small">${v.pixAutomatico?.status==='ATIVO'?'✅ Débito automático no PIX ativo':v.asaas?`Cobranças no Asaas sincronizadas ${relT(v.asaas.sincronizadoEm||v.asaas.geradoEm)}`:'Sem cobranças no Asaas'}</span><button class="btn sm" data-act="sincAsaas" data-id="${v.id}">${v.asaas?'Sincronizar com o Asaas':'Gerar cobranças no Asaas'}</button></div>`:''}
     ${['ATIVA','QUITADA'].includes(v.status)&&can('DONO','FINANCEIRO','GERENTE')?(()=>{ const pt=pontosDe(v); return `<div class="row mt"><span class="small">Pontos do cliente: <b>${pt.saldo}</b> (${brl(pontosEmReais(pt.saldo))})</span>${pt.saldo>0?`<button class="btn sm" data-act="usarPontos" data-id="${v.id}">Usar pontos</button>`:''}${v.status==='QUITADA'?`<button class="btn sm" data-act="termoQuitacao" data-id="${v.id}">Termo de quitação</button>`:''}</div>`; })():''}
     ${can('DONO','FINANCEIRO')&&['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<div class="row mt"><button class="btn sm" data-act="verEntrega" data-id="${v.id}">Ver foto da entrega</button>${v.cliente?.indicacao?`<span class="small muted">Indicado por ${esc(v.cliente.indicacao)}${v.bonusPago?' · bônus pago':''}</span>`:''}</div>`:''}
+    ${blocoNF(v)}${blocoProvas(v)}${v.devolucao?`<h3>Devolução</h3><div class="msg"><small>${fmtDT(v.devolucao.em)} · ${esc(v.devolucao.por)}</small>${esc(v.devolucao.motivo)} · devolvido ${brl(v.devolucao.valor)} (${esc(v.devolucao.forma)})</div>`:''}${(v.trocas||[]).length?`<h3>Trocas de aparelho</h3>${v.trocas.map(t=>`<div class="msg"><small>${fmtDT(t.em)} · ${esc(t.por)}</small>IMEI ${esc(t.imeiAntigo)} → ${esc(t.imeiNovo)} · ${esc(t.motivo)}</div>`).join('')}`:''}
     ${v.retomada?`<h3>Retomada</h3><div class="msg"><small>${fmtDT(v.retomada.em)} · ${esc(v.retomada.por)}</small>${esc(v.retomada.motivo)} · estado ${esc(v.retomada.estado)} · avaliação ${brl(v.retomada.avaliacao)} · saldo devedor ${brl(v.retomada.saldo)}${v.retomada.obs?' · '+esc(v.retomada.obs):''}</div>`:''}
     ${v.quitacao?`<h3>Quitação antecipada</h3><div class="msg"><small>${fmtDT(v.quitacao.em)} · ${esc(v.quitacao.por)}</small>Pago ${brl(v.quitacao.valor)} (${esc(v.quitacao.forma)}) · desconto de juros ${brl(v.quitacao.desconto)}</div>`:''}
     <div class="row mt" style="justify-content:flex-end">
@@ -1546,6 +1552,7 @@ async function verVenda(id){
       ${v.assinatura?`<button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>`:''}
       ${v.status==='ATIVA'&&can('DONO','FINANCEIRO')?`<button class="btn green" data-act="quitar" data-id="${v.id}">Quitação antecipada</button><button class="btn" data-act="renegociar" data-id="${v.id}">Renegociar</button>`:''}
       ${['ATIVA','INSTALANDO'].includes(v.status)&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="retomar" data-id="${v.id}">Retomar aparelho</button>`:''}
+      ${dentroTroca(v)&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="abrirTroca" data-id="${v.id}">Troca ou devolução (${diasTroca()} dias)</button>`:''}
       ${podeCancelar?`<button class="btn red" data-act="cancelarVenda" data-id="${v.id}">Cancelar venda</button>`:''}
     </div>`, true);
 }
@@ -1574,12 +1581,12 @@ async function analisar(id){
   const histTxt=hist.length?hist.map(h=>{ const atr=(h.parcelas||[]).filter(p=>h.status==='ATIVA'&&stParc(p)==='atraso').length; return `Nº ${h.numero}: ${VENDA_ST[h.status]?.[0]||h.status}${atr?` — <b style="color:var(--bad)">${atr} em atraso</b>`:''}`; }).join('<br>'):'Primeira compra.';
   const idade=c.nasc?Math.floor((Date.now()-new Date(c.nasc))/31557600000):'—';
   let quebradas=0; try{ const cs=await Promise.all(hist.map(x=>DB.get('cobrancas',x.id).catch(()=>null))); quebradas=cs.reduce((s,x)=>s+((x?.promessas||[]).filter(p=>p.status==='QUEBRADA').length),0); }catch(e){}
-  const nota=notaCliente(hist,c.renda,quebradas);
+  const nota=notaCliente(hist,c.renda,quebradas), vip=vipDe(hist,nota); S._vipAnalise={id,vip};
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
     <div id="lnFace"></div><div id="serasaBox">${asaasLigado()?(v.serasa?`<div class="msg mt">Serasa consultado ${relT(v.serasa.em)}${v.serasa.link?` · <a href="${esc(v.serasa.link)}" target="_blank" rel="noopener">abrir relatório</a>`:''}</div>`:`<button class="btn sm mt" data-act="consultarSerasa" data-id="${id}">Consultar CPF no Serasa (Asaas, pago por consulta)</button>`):''}</div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
-    <div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
+    ${vipHtml(vip)}<div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
     <div class="row mt">${badge(vf.iaLeitura?(vf.simulado?'Leitura simulada':'Documento lido por IA'):'Dados digitados','blue')}
@@ -1606,7 +1613,8 @@ async function decidir(id,r){
   if(r==='APROVADA' && !(ck.cpf&&ck.bio&&ck.doc)){ toast('Para aprovar, marque as três conferências.','err'); return; }
   if(r==='REPROVADA' && !$('#aObs').value.trim()){ toast('Escreva o motivo da reprovação (fica só para a equipe).','err'); return; }
   const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck};
-  await DB.set('vendas',id,{status:r,analise}); await log(r==='APROVADA'?'Crédito aprovado':'Crédito reprovado',id,analise.obs);
+  const vip=r==='APROVADA'?(S._vipAnalise?.id===id?S._vipAnalise.vip:await vipDaVenda(await DB.get('vendas',id))):null;
+  await DB.set('vendas',id,{status:r,analise,vip:vip||null}); await log(r==='APROVADA'?'Crédito aprovado':'Crédito reprovado',id,analise.obs+(vip?` · cliente VIP ${vip.nivel}`:''));
   if(r==='REPROVADA'&&$('#aLN')?.checked){ const v=await DB.get('vendas',id); await adicionarLN(v,'Fraude na proposta: '+analise.obs); }
   toast(r==='APROVADA'?'Cliente aprovado — o vendedor já está vendo na tela':'Cliente reprovado', r==='APROVADA'?'ok':''); closeModal(); render();
 }
@@ -1623,8 +1631,9 @@ function contratoHTML(v){
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
   <h4>5. Aplicativo de gestão e bloqueio do aparelho</h4><p>O COMPRADOR declara ter sido informado, de forma clara e prévia, e concorda que o aparelho terá instalado o aplicativo de gestão NexumCell, que: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) <b>restringe o uso do aparelho quando houver parcela vencida há mais de ${cfg.toleranciaDias} dia(s)</b>, ou quando o aparelho ficar mais de ${cfg.maxDiasOffline} dias sem conexão com a internet; (c) mantém, mesmo durante a restrição, a possibilidade de <b>chamadas de emergência</b> e de contato com a loja; (d) é liberado automaticamente assim que o pagamento é registrado; (e) é <b>removido definitivamente</b> após a quitação. O COMPRADOR se compromete a não remover, desativar ou burlar o aplicativo nem regravar o sistema do aparelho até a quitação.</p>
   <h4>6. Dados pessoais (LGPD)</h4><p>Os dados do COMPRADOR, as imagens do documento e a biometria facial (coletadas para prevenção a fraude) e os dados do aparelho (IMEI, modelo, nível de bateria, data do último contato e estado da trava) são tratados exclusivamente para execução deste contrato, análise de crédito e cobrança (Lei 13.709/2018, art. 7º, V e X). O aplicativo não acessa fotos, mensagens, contatos nem localização. O COMPRADOR pode solicitar acesso e correção dos seus dados pelo telefone ${esc(cfg.telefoneSuporte||v.lojaNome)}.</p>
-  <h4>7. Garantia e assistência</h4><p>Garantia legal e do fabricante. O bloqueio por atraso não se confunde com defeito do produto.</p>
-  <h4>8. Foro</h4><p>Fica eleito o foro do domicílio do COMPRADOR.</p>
+  <h4>7. Garantia, troca e assistência</h4><p>Garantia legal (90 dias, CDC art. 26) e do fabricante. Por política da VENDEDORA, em até ${+cfg.trocaDias||7} dias da compra o COMPRADOR pode trocar o aparelho com defeito por outro igual ou devolvê-lo com caixa, acessórios e sem danos de uso, com o cancelamento deste contrato e a devolução do que pagou. O bloqueio por atraso não se confunde com defeito do produto.</p>
+  <h4>8. Assinatura eletrônica</h4><p>As partes aceitam a assinatura eletrônica deste contrato como válida e equivalente à assinatura de próprio punho (MP 2.200-2/2001, art. 10, §2º, e Lei 14.063/2020). A identificação do COMPRADOR é feita pelo documento com foto, pela biometria facial e pelo registro de data, hora, endereço IP e código de integridade (hash) do documento assinado, que ficam guardados como prova.</p>
+  <h4>9. Foro</h4><p>Fica eleito o foro do domicílio do COMPRADOR.</p>
   <p>${esc(c.cidade||'')} , ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}.</p>`;
 }
 async function assinar(id){
@@ -2008,11 +2017,11 @@ PAGES.fila = async () => {
   <div class="card" style="padding:0">${lista.map((i,n)=>{ const v=i.v, tel=(v.cliente?.telefones||[])[0]||v.cliente?.tel||'';
     return `<div class="fila-item ${i.contatoHoje?'feito':''}"><div><div><span class="prio">${f==='chamar'?n+1:i.dias||'•'}</span><b>${esc(v.clienteNome)}</b> <span class="small muted">nº ${v.numero} · ${esc(apNome(v))} · ${esc(v.lojaNome)}</span></div>
       <div class="meta">${i.atr.length?`<b style="color:var(--bad)">${i.dias} dia(s) de atraso · ${brl(i.valor)}</b>`:`Vence ${i.lembrete[0].venc===h?'hoje':'amanhã'} · ${brl(i.lembrete[0].valor)}`}
-        ${i.promAberta?` · ${badge('prometeu '+fmtD(i.promAberta.data)+(i.promAberta.valor?' · '+brl(i.promAberta.valor):''),i.promAberta.data<h?'red':'blue')}`:''}${i.quebradas?` · ${badge(i.quebradas+' promessa(s) quebrada(s)','red')}`:''}</div>
+        ${i.promAberta?` · ${badge('prometeu '+fmtD(i.promAberta.data)+(i.promAberta.valor?' · '+brl(i.promAberta.valor):''),i.promAberta.data<h?'red':'blue')}`:''}${i.quebradas?` · ${badge(i.quebradas+' promessa(s) quebrada(s)','red')}`:''}${v.roboVoz?.ligado?` · ${badge('🤖 robô de voz ligado','blue')}`:''}</div>
       <div class="meta">${i.ult?`Último contato ${relT(i.ult.em)}: ${esc(i.ult.resultado)} (${esc(i.ult.canal)}, ${esc(i.ult.por)})${i.ult.obs?' — '+esc(i.ult.obs):''}`:'Nenhum contato registrado'}</div></div>
       <div class="row" style="gap:6px;justify-content:flex-end">
         <a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(tel)}?text=${encodeURIComponent(msgCobranca(i))}">WhatsApp</a>
-        <a class="btn sm" href="tel:${onlyDig(tel)}">Ligar</a>
+        <a class="btn sm" href="tel:${onlyDig(tel)}">Ligar</a>${servLigado()&&S.cfg.brevoCanal&&S.cfg.brevoCanal!=='nenhum'?`<button class="btn sm" data-act="brevoCliente" data-id="${v.id}" data-t="${i.atr.length?'atraso':'lembrete'}" title="Mensagem automática pelo Brevo">Lembrete automático</button>`:''}
         <button class="btn sm gold" data-act="registrarContato" data-id="${v.id}">Registrar contato</button>
         ${asaasLigado()&&i.dias>=60&&can('DONO','FINANCEIRO')?(v.negativacao?badge('Serasa: '+(v.negativacao.status||'pedido'),'red'):`<button class="btn sm red" data-act="negativar" data-id="${v.id}">Negativar</button>`):''}</div></div>`; }).join('')||'<div class="empty">Nada aqui agora 🎉</div>'}</div>
   <p class="hint">A fila põe primeiro quem deve há mais tempo, deve mais e já quebrou promessa. Quando o cliente promete pagar, ele sai da fila até a data; se não pagar até lá, a promessa vira “quebrada”, volta para a fila e baixa a nota do cliente.</p>`;
@@ -3130,6 +3139,313 @@ async function simularAntecipacao(btn){
   catch(e){ $('#antRes').textContent=e.message; } btn.disabled=false;
 }
 
+/* ======================= SERVIDOR (Cloudflare ou Vercel): Brevo, nota fiscal, assinatura, rotinas ======================= */
+async function apiServ(rota,dados={}){
+  if(DEMO||!fb){ await new Promise(o=>setTimeout(o,400)); return simServ(rota,dados); }
+  const s=servidorPg(); if(!s.startsWith('https://')) throw new Error('Configure o endereço do servidor em Configurações.');
+  const idt=await fb.auth.currentUser.getIdToken();
+  const r=await fetch(s+'/api/'+rota,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idt},body:JSON.stringify(dados)});
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.erro||('Erro '+r.status)); return j;
+}
+function simServ(rota,d){
+  if(rota==='avisos'){
+    if(d.acao==='status') return {brevo:true,email:true,sms:true,whatsapp:true,modelos:{lembrete:true,atraso:true,recibo:true,resumo:false},asaas:true,asaasSandbox:true,notaFiscal:true,zapsign:true,ia:false,plataforma:'Cloudflare',simulado:true};
+    if(d.acao==='rotina') return d.qual==='noite'?{simulado:true,enviado:{email:'ok (simulado)'}}:{lembretes:2,falhas:0,roboVozLigados:1,roboVozDesligados:0,simulado:true};
+    if(d.acao==='teste') return {email:'ok (simulado)',sms:d.telefone?'ok (simulado)':undefined,whatsapp:d.telefone?'ok (simulado)':undefined};
+    return {ok:true,whatsapp:'ok',sms:null,simulado:true};
+  }
+  if(rota==='nf'){ if(d.acao==='cancelar') return {status:'cancelado',canceladaEm:Date.now(),simulado:true};
+    return {status:'autorizado',numero:String(1000+Math.floor(Math.random()*8999)),serie:'1',chave:'41'+Date.now()+'650010000012341000012345',danfe:'',mensagem:'Autorizado o uso da NFC-e (simulado)',em:Date.now(),simulado:true}; }
+  if(rota==='assinatura'){ if(d.acao==='zapsign') return {docToken:'demo'+Date.now(),signerToken:'s1',signUrl:'https://sandbox.app.zapsign.com.br/verificar/demo',status:'pendente',criadoEm:Date.now(),por:S.me.nome,simulado:true};
+    if(d.acao==='carimbo') return {servidorEm:Date.now(),servidorData:new Date().toISOString(),ip:'200.0.0.1 (simulado)',pais:'BR',navegador:navigator.userAgent.slice(0,120),codigo:token(10).toUpperCase(),simulado:true};
+    return {status:'signed',arquivo:'',simulado:true}; }
+  return {simulado:true};
+}
+const servLigado = () => DEMO || servidorPg().startsWith('https://');
+
+/* ---- e-mail automático do acesso (ID e senha) pelo Brevo ---- */
+async function enviarAcessoEmail(email,assunto,corpo){
+  const el=$('#emailAuto'); if(!el) return;
+  if(!servLigado()){ el.innerHTML='<span class="muted">Dica: com o servidor e o Brevo configurados, este e-mail sai sozinho.</span>'; return; }
+  el.innerHTML='<span class="spin"></span> Enviando o e-mail automático…';
+  try{ const r=await apiServ('avisos',{acao:'email',para:email,assunto,titulo:'Seu acesso à '+(S.cfg.empresa||'NexumCell'),texto:corpo});
+    el.innerHTML=`<span style="color:var(--ok)">✅ E-mail com o ID e a senha enviado para ${esc(email)}${r.simulado?' (simulado)':''}.</span>`; }
+  catch(e){ el.innerHTML=`<span style="color:var(--bad)">O e-mail automático falhou (${esc(e.message)}). Use os botões abaixo.</span>`; }
+}
+
+/* ---- planilha do contador e relatório por e-mail ---- */
+const b64Texto = t => btoa(unescape(encodeURIComponent(t)));
+async function emailContador(btn){
+  const para=String(S.cfg.emailContador||'').trim()||String(prompt('E-mail do contador:')||'').trim(); if(!para) return;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return toast('E-mail do contador inválido','err');
+  btn.disabled=true; const orig=baixarArquivo; let arq=null;
+  try{ baixarArquivo=(nome,conteudo)=>{ arq={nome,conteudo}; }; await csvContador(); }finally{ baixarArquivo=orig; }
+  if(!arq){ btn.disabled=false; return toast('Nada para enviar','err'); }
+  const mes=S.filtro.relMes||hoje().slice(0,7);
+  try{ await apiServ('avisos',{acao:'email',para,assunto:`Planilha de recebimentos ${mes} — ${S.cfg.empresa}`,texto:`Olá!\n\nSegue em anexo a planilha de recebimentos de ${mes} da ${S.cfg.empresa}${S.cfg.cnpj?' (CNPJ '+S.cfg.cnpj+')':''}, com entradas, parcelas, juros do financiamento, multas e descontos.\n\nEnviado por ${S.me.nome}.`,anexo:{nome:arq.nome,base64:b64Texto(arq.conteudo)}});
+    if(S.cfg.emailContador!==para) await DB.set('config','sistema',{emailContador:para}); S.cfg.emailContador=para;
+    await log('Planilha enviada ao contador por e-mail',mes,para); toast('Planilha enviada para '+para,'ok'); }
+  catch(e){ toast(e.message,'err'); } btn.disabled=false;
+}
+
+/* ---- mensagem ao cliente pelo Brevo (WhatsApp com modelo ou SMS) ---- */
+async function brevoCliente(id,tipo,btn){
+  if(btn) btn.disabled=true;
+  try{ const r=await apiServ('avisos',{acao:'cliente',vendaId:id,tipo});
+    const ok=r.whatsapp==='ok'?'WhatsApp':r.sms==='ok'?'SMS':'';
+    if(!ok) throw new Error([r.whatsapp,r.sms].filter(Boolean).join(' · ')||'não enviado');
+    if(DEMO) await log('Mensagem ao cliente (Brevo)',id,ok+' (simulado)');
+    toast(`Lembrete enviado por ${ok}${r.simulado?' (simulado)':''}`,'ok'); if(btn) btn.textContent='✓ '+ok; }
+  catch(e){ toast('Brevo: '+e.message,'err'); if(btn) btn.disabled=false; }
+}
+
+/* ---- status do servidor e testes (Configurações) ---- */
+async function statusServidor(){
+  const el=$('#srvStatus'); if(!el) return;
+  if(!servLigado()){ el.innerHTML='<div class="warn">Servidor ainda não configurado. Siga o <b>GUIA-CLOUDFLARE.md</b> e cole o endereço no campo “Endereço do servidor”.</div>'; return; }
+  el.innerHTML='<span class="spin"></span> Conferindo o servidor…';
+  try{ const s=await apiServ('avisos',{acao:'status'}), b=(ok,t)=>badge((ok?'✓ ':'✗ ')+t,ok?'green':'gray');
+    el.innerHTML=`<div class="row" style="gap:6px;flex-wrap:wrap">${badge('Servidor: '+(s.plataforma||'?')+(s.simulado?' (demonstração)':''),'navy')} ${b(s.asaas,'Asaas'+(s.asaasSandbox?' (sandbox)':''))} ${b(s.email,'E-mail Brevo')} ${b(s.sms,'SMS Brevo')} ${b(s.whatsapp,'WhatsApp Brevo')}
+      ${Object.entries(s.modelos||{}).map(([k,v])=>b(v,'modelo '+k)).join(' ')} ${b(s.notaFiscal,'Nota fiscal')} ${b(s.zapsign,'ZapSign')} ${b(s.ia,'IA do assistente')}</div>`; }
+  catch(e){ el.innerHTML=`<div class="warn">O servidor não respondeu: ${esc(e.message)}. Confira o endereço e os segredos (GUIA-CLOUDFLARE.md).</div>`; }
+}
+async function testarBrevo(btn){
+  const tel=onlyDig(prompt('Para testar SMS/WhatsApp, digite um celular com DDD (ou deixe vazio para testar só o e-mail):')||'');
+  btn.disabled=true;
+  try{ const r=await apiServ('avisos',{acao:'teste',telefone:tel||undefined});
+    alert('Resultado do teste do Brevo:\n\nE-mail para o dono: '+(r.email||'-')+(tel?'\nSMS: '+(r.sms||'-')+'\nWhatsApp: '+(r.whatsapp||'-'):'')); }
+  catch(e){ toast(e.message,'err'); } btn.disabled=false;
+}
+async function rodarRotina(qual,btn){
+  btn.disabled=true;
+  try{ const r=await apiServ('avisos',{acao:'rotina',qual});
+    if(qual==='noite'){ if(DEMO) await resumoLocal(); toast('Resumo gerado'+(r.simulado?' (simulado)':''),'ok'); render(); }
+    else toast(`Lembretes: ${r.lembretes??'-'} enviado(s) · robô de voz ligado em ${r.roboVozLigados??0}${r.simulado?' (simulado)':''}`,'ok'); }
+  catch(e){ toast(e.message,'err'); } btn.disabled=false;
+}
+
+/* ======================= RESUMO DIÁRIO DO DONO (19h) ======================= */
+async function resumoLocal(){   // modo demonstração: mesmo cálculo do servidor
+  const h=hoje(), todas=await DB.list('vendas'), ini=new Date(h+'T00:00:00-03:00').getTime();
+  const ativadas=todas.filter(v=>(v.criadoEm||0)>=ini&&['ATIVA','QUITADA'].includes(v.status));
+  let rec=0,np=0,atv=0; const atr=new Set();
+  todas.forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&p.pagoEm===h){ rec+=+(p.valorPago??p.valor); np++; } if(!p.pago&&v.status==='ATIVA'&&p.venc<h){ atv+=p.valor; atr.add(v.id); } }));
+  const ent=ativadas.reduce((s,v)=>s+(+v.entradaPaga?.valor||0),0), an=todas.filter(v=>v.status==='ANALISE').length;
+  const texto=[`Vendas hoje: ${ativadas.length} ativada(s)`,`Entradas recebidas: ${brl(ent)}`,`Parcelas recebidas: ${np} · ${brl(rec)}`,`Em atraso: ${atr.size} contrato(s) · ${brl(atv)}`,an?`Propostas esperando análise: ${an}`:''].filter(Boolean).join('\n');
+  await DB.set('notificacoes','resumo-'+h,{tipo:'RESUMO',para:'DONO',titulo:`Resumo de ${fmtD(h)} — ${S.cfg.empresa}`,texto,em:Date.now(),dia:h,lida:false,numeros:{vendas:ativadas.length,entradas:r2(ent),recebido:r2(rec),parcelas:np,atrasados:atr.size,atrasoValor:r2(atv),analise:an}});
+}
+async function blocoResumo(){
+  if(!can('DONO')) return '';
+  const h=hoje(), ontem=addDays(h,-1);
+  const r=await DB.get('notificacoes','resumo-'+h).catch(()=>null)||await DB.get('notificacoes','resumo-'+ontem).catch(()=>null);
+  if(!r) return `<div class="card mb"><div class="row" style="justify-content:space-between"><div><b>🌙 Resumo do dia</b><br><span class="small muted">Todo dia às 19h o servidor manda o resumo das vendas, recebimentos e atrasos ${S.cfg.resumoEmail!=='nao'?'por e-mail ':''}e aparece aqui.</span></div>
+    <button class="btn sm" data-act="rodarRotina" data-q="noite">Gerar o resumo agora</button></div></div>`;
+  const n=r.numeros||{};
+  return `<div class="card mb" style="border-color:#C9D6F2;background:#F6F9FF"><div class="row" style="justify-content:space-between"><b>🌙 ${esc(r.titulo)}</b><span class="small muted">${fmtDT(r.em)}</span></div>
+    <div class="kpis mt" style="margin-bottom:0"><div class="kpi"><small>Vendas</small><b>${n.vendas??'-'}</b><span>entradas ${brl(n.entradas||0)}</span></div><div class="kpi"><small>Parcelas recebidas</small><b style="color:var(--ok)">${brl(n.recebido||0)}</b><span>${n.parcelas||0} parcela(s)</span></div>
+    <div class="kpi"><small>Em atraso</small><b style="color:var(--bad)">${n.atrasados||0}</b><span>${brl(n.atrasoValor||0)}</span></div><div class="kpi"><small>Esperando análise</small><b>${n.analise||0}</b><span>propostas</span></div></div>
+    <div class="row mt"><button class="btn sm" data-act="rodarRotina" data-q="noite">Atualizar agora</button></div></div>`;
+}
+// aviso no celular/computador do dono quando o resumo das 19h chega (portal aberto ou instalado como app)
+setInterval(async()=>{ try{ if(!S.me||!can('DONO')) return; const h=hoje(), k='nxc_resumo_'+h; if(localStorage.getItem(k)) return;
+  const r=await DB.get('notificacoes','resumo-'+h).catch(()=>null); if(!r) return;
+  localStorage.setItem(k,'1'); avisarSistema(r.titulo,String(r.texto||'').split('\n').slice(0,4).join(' · ')); }catch(e){} },300000);
+
+/* ======================= PROGRAMA CLIENTE VIP ======================= */
+function vipDe(hist,nota){
+  if(!nota||nota.faixa==='Risco') return null;
+  const quit=hist.filter(v=>v.status==='QUITADA').length, emDia=hist.reduce((s,v)=>s+(v.parcelas||[]).filter(p=>p.pago&&p.pagoEm&&p.pagoEm<=p.venc&&!p.acordo).length,0);
+  if(nota.faixa==='Ouro'&&(quit>=1||emDia>=(+S.cfg.vipOuroParcelas||6))) return {nivel:'Ouro',descontoJuros:+S.cfg.vipOuroJuros||0,emDia,quitados:quit};
+  if(['Ouro','Prata'].includes(nota.faixa)&&(quit>=1||emDia>=3)) return {nivel:'Prata',descontoJuros:+S.cfg.vipPrataJuros||0,emDia,quitados:quit};
+  return null;
+}
+// mesma conta da regra do Firestore: juros do catálogo menos o desconto VIP (nunca negativo)
+const jurosVip = (base,vip) => { const d=+(vip?.descontoJuros)||0; return d<=base?base-d:0; };
+function vipHtml(vip){
+  if(!vip) return '';
+  return `<div class="msg mb" style="border-color:#F3D98B;background:#FFFBEF"><b>${vip.nivel==='Ouro'?'🥇':'🥈'} Cliente VIP ${vip.nivel}</b> · ${vip.quitados} contrato(s) quitado(s), ${vip.emDia} parcela(s) paga(s) em dia.${vip.descontoJuros?` Ao aprovar, os juros desta compra caem <b>${vip.descontoJuros} pontos</b> (benefício do programa VIP).`:''}</div>`;
+}
+async function vipDaVenda(v){
+  const hist=(await DB.list('vendas',[['clienteCpf','==',v.clienteCpf]]).catch(()=>[])).filter(x=>x.id!==v.id);
+  return vipDe(hist,notaCliente(hist,v.cliente?.renda||0));
+}
+function blocoVip(vendas){
+  const porCpf={}; vendas.forEach(v=>{ if(v.clienteCpf) (porCpf[v.clienteCpf]=porCpf[v.clienteCpf]||[]).push(v); });
+  const vips=Object.values(porCpf).map(h=>{ const nota=notaCliente(h,h[0].cliente?.renda||0), vip=vipDe(h,nota); return vip?{vip,v:h.sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0))[0],ativo:h.some(x=>['ATIVA','INSTALANDO','ANALISE','APROVADA'].includes(x.status))}:null; }).filter(Boolean);
+  const livres=vips.filter(x=>!x.ativo).sort((a,b)=>(a.vip.nivel==='Ouro'?0:1)-(b.vip.nivel==='Ouro'?0:1));
+  const msg=x=>`Olá, ${primeiroNome(x.v.clienteNome)}! Aqui é da ${S.cfg.empresa}. Você é cliente VIP ${x.vip.nivel} 🎉${x.vip.descontoJuros?` e tem juros ${x.vip.descontoJuros} pontos menores`:''} na sua próxima compra. Que tal trocar de celular? Passe na loja!`;
+  return `<div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Programa cliente VIP</h2><p class="small muted" style="padding:0 16px;margin:0">Ouro: nota alta e já quitou um contrato (ou ${+S.cfg.vipOuroParcelas||6}+ parcelas em dia) — juros ${+S.cfg.vipOuroJuros||0} pontos menores. Prata: ${+S.cfg.vipPrataJuros||0} pontos menores. ${vips.filter(x=>x.vip.nivel==='Ouro').length} Ouro · ${vips.filter(x=>x.vip.nivel==='Prata').length} Prata.</p>
+    <table><tr><th>Cliente</th><th>Nível</th><th>Histórico</th><th></th></tr>${livres.slice(0,15).map(x=>{ const tel=(x.v.cliente?.telefones||[])[0]||'';
+      return `<tr><td><b>${esc(x.v.clienteNome)}</b><br><span class="small muted">${esc(x.v.lojaNome||'')}</span></td><td>${badge((x.vip.nivel==='Ouro'?'🥇 ':'🥈 ')+x.vip.nivel,x.vip.nivel==='Ouro'?'amber':'gray')}</td><td class="small">${x.vip.quitados} quitado(s) · ${x.vip.emDia} em dia</td>
+      <td class="right">${tel?`<a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(tel)}?text=${encodeURIComponent(msg(x))}">Chamar para nova compra</a>`:''}</td></tr>`; }).join('')||'<tr><td colspan="4" class="empty">Nenhum cliente VIP sem contrato aberto agora</td></tr>'}</table></div>`;
+}
+
+/* ======================= GARANTIA DE TROCA / DEVOLUÇÃO EM 7 DIAS ======================= */
+const diasTroca = () => +S.cfg.trocaDias||7;
+const inicioContrato = v => v.entradaPaga?.em||v.instaladoEm||v.assinadoEm||v.criadoEm||0;
+const dentroTroca = v => ['ATIVA','INSTALANDO'].includes(v.status) && (Date.now()-inicioContrato(v)) <= diasTroca()*86400000;
+function valorPagoCliente(v){ return r2((+v.entradaPaga?.valor||0)+(v.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+(+(p.valorPago??p.valor)),0)+(v.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+(+p.pagoParcial||0),0)); }
+async function abrirTroca(id){
+  const v=await DB.get('vendas',id); if(!dentroTroca(v)) return toast(`Passou do prazo de ${diasTroca()} dias da compra`,'err');
+  const ate=isoDate(new Date(inicioContrato(v)+diasTroca()*86400000)), pago=valorPagoCliente(v);
+  openModal(`<h2>Troca ou devolução — contrato nº ${v.numero}</h2><p class="muted" style="margin-top:-6px">${esc(v.clienteNome)} · ${esc(apNome(v))} · prazo da garantia de troca até <b>${fmtD(ate)}</b></p>
+    <div class="grid g2"><label>O que o cliente quer<select id="tcTipo"><option value="TROCA_DEFEITO">Trocar por outro igual (defeito)</option><option value="DEVOLUCAO">Devolver e cancelar a compra</option></select></label>
+      <label>Estado do aparelho devolvido<select id="tcEstado"><option>Perfeito, na caixa, com acessórios</option><option>Usado sem marcas</option><option>Com defeito de fábrica</option><option>Com marcas de uso / dano</option></select></label></div>
+    <label class="mt">Motivo (o que o cliente relatou)<textarea id="tcMotivo" rows="2"></textarea></label>
+    <h3>Conferência do aparelho devolvido</h3>
+    ${[['caixa','Caixa, carregador e acessórios devolvidos'],['conta','Conta Google/Samsung removida (sem bloqueio de conta)'],['imei','IMEI do aparelho devolvido confere com o contrato ('+esc(v.aparelho?.imei||'')+')'],['dano','Sem quebra, oxidação ou dano por mau uso']].map(([k,t])=>`<label class="check"><input type="checkbox" data-tck="${k}"> ${t}</label>`).join('')}
+    <div id="tcTroca" class="grid g2 mt"><label>IMEI do aparelho novo (do estoque)<input id="tcImei" inputmode="numeric" maxlength="15"></label><label>IMEI 2 (se tiver)<input id="tcImei2" inputmode="numeric" maxlength="15"></label></div>
+    <div id="tcDev" class="grid g2 mt" hidden><label>Valor a devolver ao cliente (R$)<input id="tcValor" type="number" step="0.01" value="${pago}"></label><label>Como vai devolver<select id="tcForma"><option>PIX</option><option>Dinheiro</option><option>Estorno no cartão</option></select></label>
+      <p class="small muted" style="grid-column:1/-1">O cliente pagou até agora ${brl(pago)} (entrada + parcelas). A venda é cancelada, as cobranças do Asaas são apagadas e a trava sai do aparelho.</p></div>
+    <p class="hint">Política da loja: troca ou devolução em até ${diasTroca()} dias da compra. Defeito depois disso segue a garantia legal (90 dias, CDC art. 26): a loja tem até 30 dias para consertar (art. 18).</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarTroca" data-id="${id}">${can('DONO','FINANCEIRO')?'Registrar e executar':'Enviar para o Dono/Financeiro aprovar'}</button></div>`);
+  $('#tcTipo').onchange=e=>{ $('#tcTroca').hidden=e.target.value!=='TROCA_DEFEITO'; $('#tcDev').hidden=e.target.value!=='DEVOLUCAO'; };
+}
+async function salvarTroca(id,btn){
+  const v=await DB.get('vendas',id), tipo=$('#tcTipo').value, ck={}; document.querySelectorAll('[data-tck]').forEach(x=>ck[x.dataset.tck]=x.checked);
+  const motivo=$('#tcMotivo').value.trim(); if(motivo.length<5) return toast('Escreva o motivo','err');
+  if(!ck.conta||!ck.imei) return toast('Confira o IMEI e se a conta Google foi removida antes de aceitar o aparelho','err');
+  const t={vendaId:id,numero:v.numero,clienteNome:v.clienteNome,lojaId:v.lojaId,lojaNome:v.lojaNome,tipo,motivo,estado:$('#tcEstado').value,checklist:ck,imeiAntigo:v.aparelho?.imei||'',
+    novoImei:tipo==='TROCA_DEFEITO'?onlyDig($('#tcImei').value):'',novoImei2:tipo==='TROCA_DEFEITO'?onlyDig($('#tcImei2').value):'',
+    valorDevolver:tipo==='DEVOLUCAO'?r2(+$('#tcValor').value||0):0,formaDevolucao:tipo==='DEVOLUCAO'?$('#tcForma').value:'',status:'PENDENTE',criadoEm:Date.now(),por:S.me.nome,porUid:S.me.uid};
+  if(tipo==='TROCA_DEFEITO'&&!imeiOk(t.novoImei)) return toast('IMEI do aparelho novo inválido','err');
+  if(tipo==='TROCA_DEFEITO'){ const e=await DB.get('estoque',t.novoImei).catch(()=>null);
+    if(S.cfg.exigirEstoque!=='nao'){ if(!e) return toast('O aparelho novo não está no estoque','err'); if(e.status!=='DISPONIVEL') return toast('O aparelho novo não está disponível no estoque','err');
+      if(e.lojaId!==v.lojaId) return toast('O aparelho novo é de outra loja','err'); if(v.aparelho?.catalogoId&&e.catalogoId!==v.aparelho.catalogoId) return toast('Troca por defeito é pelo mesmo modelo. Para outro modelo, faça a devolução e uma venda nova.','err'); } }
+  btn.disabled=true;
+  const ref=await DB.add('trocas',t), tid=ref?.id||ref; await log(tipo==='DEVOLUCAO'?'Devolução registrada':'Troca registrada',id,motivo);
+  if(can('DONO','FINANCEIRO')) return executarTroca(tid);
+  toast('Enviado para aprovação do Dono/Financeiro','ok'); closeModal(); render();
+}
+async function executarTroca(tid,btn){
+  if(btn) btn.disabled=true;
+  const t=await DB.get('trocas',tid), v=await DB.get('vendas',t.vendaId), agora=Date.now();
+  if(!t||t.status!=='PENDENTE') return toast('Esta troca já foi resolvida','err');
+  const rec={tipo:t.tipo,motivo:t.motivo,estado:t.estado,em:agora,por:S.me.nome,trocaId:tid};
+  const bom=/Perfeito|sem marcas/.test(t.estado), ops=[];
+  if(t.tipo==='DEVOLUCAO'){
+    ops.push({c:'vendas',id:v.id,data:{status:'CANCELADA',canceladoEm:agora,canceladoPor:S.me.nome,motivoCancelamento:`Devolução em até ${diasTroca()} dias: ${t.motivo}`,devolucao:{...rec,valor:t.valorDevolver,forma:t.formaDevolucao}}});
+    if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
+    if(v.aparelho?.estoqueId) ops.push({c:'estoque',id:v.aparelho.estoqueId,data:{status:bom?'DISPONIVEL':'BAIXADO',vendaId:'',obs:'Devolvido pelo cliente ('+t.estado+')',atualizadoEm:agora}});
+  } else {
+    const e=await DB.get('estoque',t.novoImei).catch(()=>null);
+    ops.push({c:'vendas',id:v.id,data:{aparelho:{...v.aparelho,imei:t.novoImei,imei2:t.novoImei2||'',estoqueId:e?e.id:t.novoImei},trocas:[...(v.trocas||[]),{...rec,imeiAntigo:t.imeiAntigo,imeiNovo:t.novoImei}]}});
+    if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{imei:t.novoImei,imei2:t.novoImei2||'',trocaAparelho:{em:agora,imeiAntigo:t.imeiAntigo}}});
+    if(v.aparelho?.estoqueId) ops.push({c:'estoque',id:v.aparelho.estoqueId,data:{status:'BAIXADO',vendaId:'',obs:'Devolvido com defeito (troca em garantia) — mandar para a assistência/fabricante',atualizadoEm:agora}});
+    if(e) ops.push({c:'estoque',id:e.id,data:{status:'VENDIDO',vendaId:v.id,atualizadoEm:agora}});
+  }
+  ops.push({c:'trocas',id:tid,data:{status:'CONCLUIDA',executadoEm:agora,executadoPor:S.me.nome}});
+  await DB.batch(ops);
+  if(t.tipo==='DEVOLUCAO'&&t.valorDevolver>0) await DB.add('despesas',{lojaId:v.lojaId,categoria:'Devolução ao cliente',valor:t.valorDevolver,data:hoje(),descricao:`Contrato ${v.numero} · ${v.clienteNome} · ${t.formaDevolucao}`,doCaixa:t.formaDevolucao==='Dinheiro',por:S.me.nome,em:agora});
+  if(t.tipo==='DEVOLUCAO'&&v.asaas&&asaasLigado()) apiLoja('cancelarCobrancas',{vendaId:v.id}).catch(e=>toast('Asaas: '+e.message,'err'));
+  await log(t.tipo==='DEVOLUCAO'?'Devolução executada (venda cancelada)':'Troca de aparelho executada',v.id,t.tipo==='DEVOLUCAO'?brl(t.valorDevolver)+' · '+t.formaDevolucao:`IMEI ${t.imeiAntigo} → ${t.novoImei}`);
+  closeModal();
+  if(t.tipo==='TROCA_DEFEITO'&&v.aparelhoToken){ toast('Troca registrada. Agora instale a trava no aparelho NOVO com este QR.','ok'); return mostrarQR(v.aparelhoToken); }
+  if(t.tipo==='DEVOLUCAO'&&v.notaFiscal?.status==='autorizado') alert('Venda cancelada. Atenção: esta venda tem nota fiscal autorizada. Cancele a nota (botão no contrato) ou peça ao contador a nota de devolução.');
+  else toast('Devolução feita: venda cancelada e trava removida','ok');
+  render();
+}
+async function recusarTroca(tid){ const m=prompt('Motivo da recusa:'); if(!m) return; await DB.set('trocas',tid,{status:'RECUSADA',recusadoEm:Date.now(),recusadoPor:S.me.nome,motivoRecusa:m}); await log('Troca/devolução recusada',tid,m); render(); }
+PAGES.trocas = async () => {
+  let l=await DB.list('trocas').catch(()=>[]); if(can('GERENTE')) l=l.filter(x=>x.lojaId===S.me.lojaId);
+  l.sort((a,b)=>(a.status==='PENDENTE'?0:1)-(b.status==='PENDENTE'?0:1)||b.criadoEm-a.criadoEm);
+  const T={DEVOLUCAO:'Devolução',TROCA_DEFEITO:'Troca por defeito'};
+  $('#view').innerHTML=`<div class="card mb"><b>Garantia de troca em ${diasTroca()} dias</b><p class="small muted" style="margin:4px 0 0">Para registrar, abra a venda (Vendas → contrato) e toque em “Troca ou devolução”. O gerente registra; o Dono ou o Financeiro executam. Depois do prazo vale a garantia legal de 90 dias (conserto em até 30 dias).</p></div>
+  <div class="card tablewrap"><table><tr><th>Quando</th><th>Contrato</th><th>Tipo</th><th>Motivo</th><th>Situação</th><th></th></tr>
+  ${l.map(x=>`<tr><td>${fmtDT(x.criadoEm)}<br><span class="small muted">${esc(x.por)} · ${esc(x.lojaNome||'')}</span></td><td><b>nº ${x.numero}</b><br><span class="small">${esc(x.clienteNome)}</span></td><td>${badge(T[x.tipo]||x.tipo,x.tipo==='DEVOLUCAO'?'red':'blue')}${x.tipo==='DEVOLUCAO'?`<br><span class="small">${brl(x.valorDevolver)} · ${esc(x.formaDevolucao)}</span>`:`<br><span class="small mono">${esc(x.imeiAntigo)} → ${esc(x.novoImei)}</span>`}</td>
+    <td class="small">${esc(x.motivo)}<br><span class="muted">${esc(x.estado)}</span></td><td>${badge({PENDENTE:'Aguardando',CONCLUIDA:'Concluída',RECUSADA:'Recusada'}[x.status]||x.status,{PENDENTE:'amber',CONCLUIDA:'green',RECUSADA:'gray'}[x.status])}</td>
+    <td class="right">${x.status==='PENDENTE'&&can('DONO','FINANCEIRO')?`<button class="btn sm gold" data-act="executarTroca" data-id="${x.id}">Executar</button><button class="btn sm" data-act="recusarTroca" data-id="${x.id}">Recusar</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma troca ou devolução</td></tr>'}</table></div>`;
+};
+
+/* ======================= NOTA FISCAL (NFC-e) ======================= */
+async function emitirNF(id,btn,silencioso=false){
+  if(btn) btn.disabled=true;
+  try{ const r=await apiServ('nf',{acao:'emitir',vendaId:id}); if(DEMO) await DB.set('vendas',id,{notaFiscal:{...r,por:S.me.nome}});
+    if(!silencioso){ toast(r.status==='autorizado'?`Nota fiscal nº ${r.numero} autorizada${r.simulado?' (simulada)':''}`:'Nota: '+(r.mensagem||r.status),r.status==='autorizado'?'ok':'err'); closeModal(); verVenda(id); } return r; }
+  catch(e){ if(!silencioso) toast('Nota fiscal: '+e.message,'err'); else await log('Nota fiscal automática falhou',id,e.message); if(btn) btn.disabled=false; }
+}
+async function consultarNF(id){ try{ const r=await apiServ('nf',{acao:'consultar',vendaId:id}); if(DEMO) await DB.set('vendas',id,{notaFiscal:r}); toast('Nota: '+r.status,'ok'); closeModal(); verVenda(id); }catch(e){ toast(e.message,'err'); } }
+async function cancelarNF(id){
+  const m=prompt('Motivo do cancelamento da nota (mínimo 15 letras):'); if(!m) return; if(m.trim().length<15) return toast('O motivo precisa ter pelo menos 15 letras','err');
+  try{ const r=await apiServ('nf',{acao:'cancelar',vendaId:id,motivo:m}); if(DEMO) await DB.set('vendas',id,{notaFiscal:{...(await DB.get('vendas',id)).notaFiscal,...r,motivoCancelamento:m}});
+    await log('Nota fiscal cancelada',id,m); toast('Nota cancelada','ok'); closeModal(); verVenda(id); }catch(e){ toast(e.message,'err'); }
+}
+function nfAuto(id){ if(S.cfg.nfAutomatica==='sim'&&servLigado()) setTimeout(()=>emitirNF(id,null,true),3000); }
+function blocoNF(v){
+  if(!['ATIVA','QUITADA','CANCELADA'].includes(v.status)||!can('DONO','FINANCEIRO','GERENTE')) return '';
+  const n=v.notaFiscal;
+  if(!n) return v.status==='CANCELADA'?'':`<div class="row mt"><span class="small">Sem nota fiscal</span>${servLigado()?`<button class="btn sm" data-act="emitirNF" data-id="${v.id}">Emitir nota fiscal (NFC-e)</button>`:''}</div>`;
+  const ok=n.status==='autorizado';
+  return `<h3>Nota fiscal</h3><div class="msg"><b>${ok?'NFC-e nº '+esc(n.numero)+' série '+esc(n.serie||'1'):'NFC-e: '+esc(n.status)}</b>${n.simulado?' (simulada)':''} · ${fmtDT(n.em)}${n.mensagem?'<br><span class="small">'+esc(n.mensagem)+'</span>':''}${n.chave?`<br><span class="small mono">${esc(n.chave)}</span>`:''}
+    <div class="row mt">${n.danfe?`<a class="btn sm" target="_blank" rel="noopener" href="${esc(n.danfe)}">Abrir DANFE</a>`:''}${!ok&&n.status!=='cancelado'?`<button class="btn sm" data-act="consultarNF" data-id="${v.id}">Consultar</button><button class="btn sm gold" data-act="emitirNF" data-id="${v.id}">Tentar de novo</button>`:''}${ok&&can('DONO','FINANCEIRO')?`<button class="btn sm red" data-act="cancelarNF" data-id="${v.id}">Cancelar nota</button>`:''}</div></div>`;
+}
+
+/* ======================= ASSINATURA COM PROVA JURÍDICA ======================= */
+async function carimbar(tk){ if(!servLigado()) return null; try{ const r=await apiServ('assinatura',{acao:'carimbo',tk}); if(DEMO){ await DB.set('assinaturas',tk,{carimbo:r}); const a=await DB.get('assinaturas',tk); if(a?.vendaId) await DB.set('vendas',a.vendaId,{carimboAssinatura:r}); } return r; }catch(e){ console.warn('carimbo',e); return null; } }
+async function assinaturaZapsign(v){
+  const box=$('#assZap'); if(!box) return;
+  box.innerHTML='<div class="inst-status mt"><span class="spin"></span> Criando o documento na ZapSign…</div>';
+  try{ let z=v.zapsign&&v.zapsign.status==='pendente'?v.zapsign:null;
+    if(!z){ z=await apiServ('assinatura',{acao:'zapsign',vendaId:v.id,contratoHtml:contratoHTML(v)}); if(DEMO) await DB.set('vendas',v.id,{zapsign:z,contratoTexto:contratoHTML(v)}); }
+    let qrHtml=''; try{ const q=qrcode(0,'M'); q.addData(z.signUrl); q.make(); qrHtml=q.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){}
+    const tel=(v.cliente?.telefones||[])[0]||'', msg=`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da ${S.cfg.empresa}. Para assinar o contrato nº ${v.numero} com validade jurídica (selfie + documento), abra: ${z.signUrl}`;
+    box.innerHTML=`<div class="grid g2 mt" style="align-items:center"><div class="qr" style="margin:0 auto">${qrHtml}</div><div>
+      <p>O cliente abre o link no celular dele, confere o contrato, tira uma <b>selfie</b> e a <b>foto do documento</b> e assina. A ZapSign guarda o PDF assinado com a trilha de auditoria (IP, data, hora, geolocalização) — prova forte em caso de cobrança na Justiça.</p>
+      <div class="row mt"><a class="btn green" target="_blank" rel="noopener" href="https://wa.me/${telWa(tel)}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a><button class="btn" data-act="copiarTexto" data-t="${esc(z.signUrl)}">Copiar link</button>${DEMO?`<button class="btn sm" data-act="simZapsign" data-id="${v.id}">Simular assinatura</button>`:''}</div>
+      <div id="zapSt" class="inst-status mt"><span class="spin"></span> Aguardando o cliente assinar na ZapSign…</div></div></div>
+      <div class="row mt"><button class="btn" data-act="irPasso" data-n="5">Voltar</button></div>`;
+    unwatch&&unwatch();
+    unwatch=DB.watch('vendas',v.id,x=>{ if(!x||x.zapsign?.status!=='assinado'||!$('#zapSt')) return; unwatch&&unwatch(); unwatch=null;
+      $('#zapSt').className='inst-status ok'; $('#zapSt').textContent='Contrato assinado na ZapSign!'; toast('Contrato assinado (ZapSign)','ok'); setTimeout(()=>irPasso(7),900); });
+  }catch(e){ box.innerHTML=`<div class="warn mt">ZapSign: ${esc(e.message)}</div><div class="row mt"><button class="btn" data-act="irPasso" data-n="5">Voltar</button></div>`; }
+}
+async function simZapsign(id){   // só no modo demonstração: faz o papel do webhook da ZapSign
+  const v=await DB.get('vendas',id);
+  await DB.set('vendas',id,{zapsign:{...v.zapsign,status:'assinado',assinadoEm:Date.now(),selfie:true,documento:true},status:'AGUARDANDO_ENTRADA',assinadoEm:Date.now(),aceiteBloqueio:true,aceiteLgpd:true,assinaturaPendente:null,
+    assinaturaDigital:{via:'ZAPSIGN',codigo:String(v.zapsign?.docToken||'demo').slice(0,10).toUpperCase(),hash:v.zapsign?.docToken||'demo',por:'ZapSign',dispositivo:'ZapSign · selfie + documento'}});
+  await log('Contrato assinado (ZapSign)',id,'simulado');
+}
+async function pdfZapsign(id,btn){ btn.disabled=true; try{ const r=await apiServ('assinatura',{acao:'zapsignArquivo',vendaId:id}); if(r.arquivo) window.open(r.arquivo,'_blank','noopener'); else toast('No modo demonstração não há PDF','err'); }catch(e){ toast(e.message,'err'); } btn.disabled=false; }
+function blocoProvas(v){
+  const d=v.assinaturaDigital, c=v.carimboAssinatura, z=v.zapsign;
+  if(!d&&!z) return '';
+  return `<h3>Provas da assinatura</h3><div class="msg small">
+    ${d?`Assinado ${d.via==='ZAPSIGN'?'na ZapSign (selfie + documento)':d.via==='LOJA'?'na loja':'no celular do cliente'} · código <b class="mono">${esc(d.codigo||'')}</b>${v.assinadoEm?' · '+fmtDT(v.assinadoEm):''}<br>`:''}
+    ${c?`Carimbo do servidor: ${esc(c.servidorData||'')} · IP ${esc(c.ip||'—')}${c.pais?' ('+esc(c.pais)+')':''} · hash <span class="mono">${esc(String(c.hashConteudo||c.codigo||'').slice(0,16))}…</span><br>`:''}
+    ${z?`ZapSign: ${esc(z.status)}${z.assinadoEm?' em '+fmtDT(z.assinadoEm):''}${z.selfie?' · selfie ✓':''}${z.documento?' · documento ✓':''}`:''}
+    <div class="row mt">${z?.status==='assinado'?`<button class="btn sm" data-act="pdfZapsign" data-id="${v.id}">Baixar PDF assinado (ZapSign)</button>`:''}${can('DONO','FINANCEIRO')?`<button class="btn sm" data-act="dossieProvas" data-id="${v.id}">Dossiê de provas (PDF)</button>`:''}</div></div>`;
+}
+async function dossieProvas(id){
+  const v=await DB.get('vendas',id), docs=await DB.get('docs',id).catch(()=>null)||{}, d=v.assinaturaDigital||{}, c=v.carimboAssinatura||{}, z=v.zapsign||{};
+  const logs=(await DB.list('logs',[['alvo','==',id]]).catch(()=>[])).sort((a,b)=>a.em-b.em);
+  const L=(k,x)=>x?`<tr><td>${k}</td><td>${x}</td></tr>`:'';
+  janelaImpressao('Dossiê de provas — contrato '+v.numero,`<h1>DOSSIÊ DE PROVAS DA CONTRATAÇÃO — CONTRATO Nº ${v.numero}</h1><div class="cab">${esc(S.cfg.empresa)}${S.cfg.cnpj?' · CNPJ '+esc(S.cfg.cnpj):''} · gerado em ${fmtDT(Date.now())} por ${esc(S.me.nome)}</div>
+    <h2>1. Identificação do comprador</h2><table>${L('Nome',esc(v.clienteNome))}${L('CPF',fmtCpf(v.clienteCpf))}${L('Telefone',esc((v.cliente?.telefones||[]).map(fmtFone).join(' · ')))}${L('Endereço',esc([v.cliente?.endereco,v.cliente?.bairro,v.cliente?.cidade,v.cliente?.uf].filter(Boolean).join(', ')))}
+      ${L('Documento lido',v.verificacao?.iaLeitura?'Sim, por IA':'Digitado')}${L('Rosto x documento',esc(v.verificacao?.face?.mesma_pessoa||'—')+(v.verificacao?.face?.confianca!=null?' ('+v.verificacao.face.confianca+'%)':''))}${L('Prova de vida',v.verificacao?.vida?'Sim':'—')}</table>
+    ${docs.selfie||docs.frente?`<div style="display:flex;gap:10px;margin:8px 0">${docs.selfie?`<img src="${docs.selfie}" style="height:150px;border:1px solid #ccc">`:''}${docs.frente?`<img src="${docs.frente}" style="height:150px;border:1px solid #ccc">`:''}${docs.verso?`<img src="${docs.verso}" style="height:150px;border:1px solid #ccc">`:''}</div>`:''}
+    <h2>2. Assinatura</h2><table>${L('Meio',d.via==='ZAPSIGN'?'ZapSign (selfie + documento, trilha de auditoria da ZapSign)':d.via==='LOJA'?'Assinatura manuscrita digital na loja':'Assinatura manuscrita digital no celular do próprio cliente')}${L('Data e hora',v.assinadoEm?fmtDT(v.assinadoEm):'')}
+      ${L('Código de verificação',esc(d.codigo||''))}${L('Hash SHA-256 (contrato + assinatura)','<span style="font-family:monospace;font-size:11px">'+esc(d.hash||'')+'</span>')}${L('Nome digitado pelo cliente',esc(d.nomeDigitado||''))}${L('Aparelho usado',esc(d.dispositivo||''))}
+      ${L('Carimbo do servidor (data)',esc(c.servidorData||''))}${L('IP de origem',esc(c.ip||''))}${L('País',esc(c.pais||''))}${L('Navegador',esc(c.navegador||''))}${L('Hash no servidor','<span style="font-family:monospace;font-size:11px">'+esc(c.hashConteudo||'')+'</span>')}
+      ${L('ZapSign',z.docToken?esc(z.status)+' · documento '+esc(z.docToken):'')}${L('Aceite do bloqueio por atraso',v.aceiteBloqueio?'Sim':'')}${L('Autorização LGPD',v.aceiteLgpd?'Sim':'')}</table>
+    ${v.assinatura?`<p><img src="${v.assinatura}" style="height:90px;border-bottom:1px solid #000"></p>`:''}
+    <h2>3. Entrega e pagamento da entrada</h2><table>${L('Entrada',v.entradaPaga?brl(v.entradaPaga.valor)+' · '+esc(v.entradaPaga.forma)+' · '+fmtDT(v.entradaPaga.em):'')}${L('Local da venda',v.entradaPaga?.geo?`${v.entradaPaga.geo.lat?.toFixed?.(5)}, ${v.entradaPaga.geo.lng?.toFixed?.(5)} (± ${Math.round(v.entradaPaga.geo.prec||0)} m)`:'')}${L('Aparelho',esc(apNome(v))+' · IMEI '+esc(v.aparelho?.imei||''))}${L('Nota fiscal',v.notaFiscal?.numero?'NFC-e nº '+esc(v.notaFiscal.numero)+' · '+esc(v.notaFiscal.chave||''):'')}</table>
+    <h2>4. Histórico do sistema</h2><table>${logs.map(l=>`<tr><td>${fmtDT(l.em)}</td><td>${esc(l.acao)} · ${esc(l.det||'')} <i>(${esc(l.por||'')})</i></td></tr>`).join('')}</table>
+    <h2>5. Contrato assinado</h2><div style="font-size:12px">${v.contratoTexto||''}</div>
+    <p style="font-size:11px;color:#555;margin-top:20px">Documento eletrônico assinado nos termos da MP 2.200-2/2001 (art. 10, §2º) e da Lei 14.063/2020, com identificação do signatário por documento, biometria facial e registro de data, hora e IP. A integridade pode ser conferida recalculando o hash SHA-256.</p>`);
+}
+
+/* ======================= SPLIT DA COMISSÃO E CONTA ASAAS DO VENDEDOR ======================= */
+async function editarComissao(uid){
+  const u=await DB.get('users',uid);
+  openModal(`<h2>Comissão de ${esc(u.nome)}</h2><p class="muted" style="margin-top:-6px">Com o split ligado (Configurações), a comissão cai direto na conta Asaas do vendedor toda vez que o cliente paga uma parcela. O vendedor precisa ter conta no Asaas: o Wallet ID fica em Minha conta → Integrações (ou peça ao suporte do Asaas).</p>
+    <div class="grid g2"><label>Wallet ID do Asaas do vendedor<input id="cmWallet" class="mono" value="${esc(u.asaasWalletId||'')}" placeholder="ex.: 48548710-9baa-4ec1-a11f-9010193527c6"></label>
+      <label>Comissão própria (%) — vazio = padrão ${S.cfg.comissaoPct||0}%<input id="cmPct" type="number" step="0.1" min="0" max="50" value="${u.comissaoPct??''}"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="cmOk">Salvar</button></div>`);
+  $('#cmOk').onclick=async()=>{ const w=$('#cmWallet').value.trim(), p=$('#cmPct').value;
+    if(w&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(w)) return toast('Wallet ID em formato inválido','err');
+    await DB.set('users',uid,{asaasWalletId:w,comissaoPct:p===''?null:+p}); await log('Comissão / conta Asaas alterada',uid,`${u.nome} · ${w?'wallet '+w.slice(0,8)+'…':'sem wallet'} · ${p===''?'padrão':p+'%'}`); closeModal(); render(); };
+}
+
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda,quebradas=0){
   let s=500-quebradas*60; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
@@ -3542,11 +3858,11 @@ async function salvarUsuario(btn){
     await log('Usuário criado',uid,`${nome} (${ROLES[role]}) ${codigo}`);
     const url=urlPortal(role), assunto=`Seu acesso ao ${PORTAIS[PORTAL_DO_PERFIL[role]].nome} — NexumCell`;
     const corpo=`Olá, ${primeiroNome(nome)}!\n\nSeu acesso à NexumCell foi criado.\n\nPortal: ${url}\nSeu ID: ${codigo}\nSenha temporária: ${senha}\n\nEntre com o ID e a senha temporária. No primeiro acesso você vai criar a sua própria senha.\nSe esquecer a senha, toque em “Esqueci minha senha” na tela de login: o link para criar uma nova chega neste e-mail (${email}).\n\nO acesso é pessoal e intransferível.\n\nEquipe NexumCell`;
-    closeModal(); openModal(`<h2>Acesso criado</h2><p>Envie os dados para <b>${esc(nome)}</b>:</p><div class="msg mono" style="white-space:pre-wrap">${esc(corpo)}</div>
+    closeModal(); openModal(`<h2>Acesso criado</h2><p>Envie os dados para <b>${esc(nome)}</b>:</p><div id="emailAuto" class="small mb"></div><div class="msg mono" style="white-space:pre-wrap">${esc(corpo)}</div>
       <div class="row mt" style="justify-content:flex-end">
         <button class="btn" data-act="copiarTexto" data-t="${esc(corpo)}">Copiar</button>
         <a class="btn" target="_blank" rel="noopener" href="https://wa.me/55${tel}?text=${encodeURIComponent(corpo)}">WhatsApp</a>
-        <a class="btn gold" href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}">${svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>')}Enviar por e-mail</a></div>`); render();
+        <a class="btn gold" href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}">${svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>')}Enviar por e-mail</a></div>`); enviarAcessoEmail(email,assunto,corpo); render();
   }catch(e){ toast(e.code==='auth/email-already-in-use'?'Esse e-mail já tem acesso':'Erro: '+e.message,'err'); btn.disabled=false; }
 }
 async function toggleUser(id){ const u=await DB.get('users',id); await DB.set('users',id,{ativo:!u.ativo}); await log(u.ativo?'Usuário desativado':'Usuário reativado',id,u.nome); render(); }
@@ -3641,7 +3957,7 @@ PAGES.config = async () => {
     ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td>${l.lat!=null&&l.lng!=null?badge('raio '+(l.raio||150)+' m','green'):badge('sem localização','amber')}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresa e crédito</h2><div class="grid g4">
     ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('comissaoPct','Comissão do vendedor sobre parcelas pagas (%)','number','step="0.1"')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
-    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}<label>Venda só dentro da loja<select data-cfg="exigirLocalLoja"><option value="sim" ${c.exigirLocalLoja!=='nao'?'selected':''}>Sim (pela localização do vendedor)</option><option value="nao" ${c.exigirLocalLoja==='nao'?'selected':''}>Não</option></select></label><label>Vender só aparelho do estoque<select data-cfg="exigirEstoque"><option value="sim" ${c.exigirEstoque!=='nao'?'selected':''}>Sim (IMEI cadastrado pelo gerente)</option><option value="nao" ${c.exigirEstoque==='nao'?'selected':''}>Não</option></select></label>${f('servidorPagamentos','Servidor de pagamentos Asaas (opcional, ex.: https://nexumcell.vercel.app)')}
+    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}<label>Venda só dentro da loja<select data-cfg="exigirLocalLoja"><option value="sim" ${c.exigirLocalLoja!=='nao'?'selected':''}>Sim (pela localização do vendedor)</option><option value="nao" ${c.exigirLocalLoja==='nao'?'selected':''}>Não</option></select></label><label>Vender só aparelho do estoque<select data-cfg="exigirEstoque"><option value="sim" ${c.exigirEstoque!=='nao'?'selected':''}>Sim (IMEI cadastrado pelo gerente)</option><option value="nao" ${c.exigirEstoque==='nao'?'selected':''}>Não</option></select></label>${f('servidorPagamentos','Endereço do servidor (Cloudflare ou Vercel), ex.: https://nexumcell-servidor.SEU-NOME.workers.dev')}
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
@@ -3777,6 +4093,46 @@ document.addEventListener('input',e=>{ if(['rgEntrada','rgN','rgJuros'].includes
 if(licencaVencida()) document.body.insertAdjacentHTML('beforeend',`<div class="lic"><div><h1>Licença vencida</h1><p>A licença do sistema venceu em ${fmtD(window.NEXUMCELL_LICENCA.validoAte)}. Fale com o fornecedor para renovar.</p></div></div>`);
 bannerOffline();
 { const _cat=PAGES.catalogo; PAGES.catalogo=async()=>{ await _cat(); $('#view').insertAdjacentHTML('beforeend',await blocoAcessorios()); publicarVitrine(); }; }
+/* ---- ações e telas da rodada 8 (Brevo, Cloudflare, nota fiscal, VIP, troca, ZapSign, split) ---- */
+Object.assign(ACT,{
+  emailContador:(d,b)=>emailContador(b), brevoCliente:(d,b)=>brevoCliente(d.id,d.t,b), testarBrevo:(d,b)=>testarBrevo(b), rodarRotina:(d,b)=>rodarRotina(d.q,b), statusServidor:()=>statusServidor(),
+  abrirTroca:d=>abrirTroca(d.id), salvarTroca:(d,b)=>salvarTroca(d.id,b), executarTroca:(d,b)=>executarTroca(d.id,b), recusarTroca:d=>recusarTroca(d.id),
+  emitirNF:(d,b)=>emitirNF(d.id,b), consultarNF:d=>consultarNF(d.id), cancelarNF:d=>cancelarNF(d.id),
+  simZapsign:d=>simZapsign(d.id), pdfZapsign:(d,b)=>pdfZapsign(d.id,b), dossieProvas:d=>dossieProvas(d.id), editarComissao:d=>editarComissao(d.id),
+});
+{ const _p=PAGES.painel; PAGES.painel=async()=>{ await _p(); if(!can('DONO')) return; const h=await blocoResumo(); if(h&&$('#view')) $('#view').insertAdjacentHTML('afterbegin',h); }; }
+{ const _r=PAGES.relatorios; PAGES.relatorios=async()=>{ await _r(); const vw=$('#view'); if(!vw) return;
+  const bt=vw.querySelector('[data-act="csvContador"]'); if(bt&&servLigado()) bt.insertAdjacentHTML('afterend',`<button class="btn" data-act="emailContador">Enviar ao contador por e-mail</button>`);
+  if(S.cfg.splitComissao==='sim') vw.insertAdjacentHTML('afterbegin','<div class="msg mb small">💸 Comissão paga por <b>split no Asaas</b>: cai direto na conta do vendedor que tem Wallet ID cadastrado (Equipe → Comissão) quando o cliente paga a parcela. Os valores abaixo servem de conferência.</div>');
+  if(can('DONO','FINANCEIRO')) vw.insertAdjacentHTML('beforeend',blocoVip(await loadVendas())); }; }
+{ const _e=PAGES.equipe; PAGES.equipe=async()=>{ await _e(); if(!can('DONO')) return;
+  const us=await DB.list('users'); document.querySelectorAll('#view [data-act="toggleUser"]').forEach(b=>{ const u=us.find(x=>x.id===b.dataset.id); if(u&&['VENDEDOR','GERENTE'].includes(u.role)) b.insertAdjacentHTML('beforebegin',`<button class="btn sm" data-act="editarComissao" data-id="${u.id}">${u.asaasWalletId?'💸 ':''}Comissão</button> `); }); }; }
+{ const _c=PAGES.config; PAGES.config=async()=>{ await _c(); const c=S.cfg, vw=$('#view'); if(!vw) return;
+  const f=(k,l,t='text',x='')=>`<label>${l}<input data-cfg="${k}" type="${t}" value="${esc(c[k]??'')}" ${x}></label>`;
+  const sel=(k,l,ops,pad)=>`<label>${l}<select data-cfg="${k}">${ops.map(([v,t])=>`<option value="${v}" ${(c[k]??pad)===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
+  const sn=[['sim','Sim'],['nao','Não']];
+  const html=`<div class="card mt"><h2>Servidor, Brevo e automações</h2><p class="small muted" style="margin-top:-6px">O servidor (Cloudflare Workers ou Vercel) guarda as chaves secretas e faz o trabalho automático: cobranças do Asaas, e-mails e WhatsApp/SMS pelo Brevo, nota fiscal, assinatura ZapSign e as rotinas das 9h e das 19h. Passo a passo: <b>GUIA-CLOUDFLARE.md</b> e <b>GUIA-BREVO.md</b>.</p>
+    <div id="srvStatus" class="mb"></div>
+    <div class="grid g4">
+      ${sel('brevoCanal','Mensagens automáticas ao cliente',[['nenhum','Desligado (só o Asaas avisa)'],['whatsapp_ou_sms','WhatsApp; se falhar, SMS'],['whatsapp','Só WhatsApp'],['sms','Só SMS'],['ambos','WhatsApp e SMS']],'nenhum')}
+      ${sel('brevoLembretes','Lembrete de vencimento e atraso (9h)',sn,'nao')}${f('lembreteDiasAntes','Avisar quantos dias antes de vencer','number','min="1" max="10"')}${f('lembreteDiasAtraso','Avisar com quantos dias de atraso (ex.: 1,3,7)')}
+      ${sel('brevoRecibo','Recibo automático quando o Asaas recebe',sn,'nao')}${sel('roboVoz','Robô de voz do Asaas para atraso longo',sn,'nao')}${f('roboVozDias','Ligar o robô com quantos dias de atraso','number','min="5" max="60"')}
+      ${sel('resumoEmail','Resumo das 19h por e-mail ao dono',sn,'sim')}${f('resumoEmailsExtras','Outros e-mails para o resumo (separe por vírgula)')}
+      ${sel('resumoCanal','Resumo das 19h no celular do dono',[['nao','Não'],['sms','SMS'],['whatsapp','WhatsApp (modelo "resumo")']],'nao')}${f('donoTelefone','Celular do dono (com DDD)','tel')}${f('emailContador','E-mail do contador')}
+    </div></div>
+  <div class="card mt"><h2>Comissão por split (Asaas)</h2><div class="grid g4">${sel('splitComissao','Pagar a comissão direto na conta do vendedor',sn,'nao')}</div>
+    <p class="small muted">Cada parcela nova gerada no Asaas já leva a comissão do vendedor (${c.comissaoPct||0}% ou a comissão própria dele) para a conta Asaas dele, calculada sobre o valor líquido da parcela. Cadastre o Wallet ID de cada vendedor em Equipe → Comissão. Parcelas que já estavam no Asaas não mudam.</p></div>
+  <div class="card mt"><h2>Programa cliente VIP</h2><div class="grid g4">${f('vipOuroJuros','VIP Ouro: juros menores em (pontos %)','number','step="0.1" min="0"')}${f('vipPrataJuros','VIP Prata: juros menores em (pontos %)','number','step="0.1" min="0"')}${f('vipOuroParcelas','Ouro sem quitar: parcelas pagas em dia','number','min="3"')}</div>
+    <p class="small muted">Ex.: juros padrão 25% e Ouro = 5 → o cliente Ouro compra com 20% de juros. O benefício é gravado na aprovação do crédito e o vendedor não consegue alterar.</p></div>
+  <div class="card mt"><h2>Garantia de troca</h2><div class="grid g4">${f('trocaDias','Prazo para troca ou devolução (dias)','number','min="0" max="90"')}</div></div>
+  <div class="card mt"><h2>Nota fiscal (NFC-e)</h2><p class="small muted" style="margin-top:-6px">Emitida pela Focus NFe (o Asaas não emite nota de produto). <b>Confirme os códigos fiscais com o seu contador</b> antes de usar em produção.</p><div class="grid g4">
+    ${sel('nfAutomatica','Emitir sozinho quando a venda fica ativa',sn,'nao')}${f('nfNcm','NCM do celular (padrão 85171300)')}${f('nfNcmAcessorio','NCM dos acessórios (padrão 85177900)')}${f('nfCfop','CFOP (padrão 5102)')}
+    ${f('nfCsosn','CSOSN/CST do ICMS (Simples: 102)')}${f('nfOrigem','Origem da mercadoria (0 = nacional, 1/2 = importada)')}${f('nfPisCst','CST do PIS/COFINS (Simples: 07 ou 49)')}</div></div>
+  <div class="card mt"><h2>Assinatura com validade jurídica</h2><div class="grid g4">${sel('assinaturaZapsign','Oferecer assinatura ZapSign (selfie + documento)',sn,'nao')}</div>
+    <p class="small muted">Toda assinatura já ganha o carimbo do servidor (data, hora, IP e hash). A ZapSign é opcional (paga por documento) e dá o PDF assinado com trilha de auditoria.</p></div>
+  <div class="row mt"><button class="btn sm" data-act="statusServidor">Conferir servidor</button><button class="btn sm" data-act="testarBrevo" ${servLigado()?'':'disabled'}>Testar Brevo</button><button class="btn sm" data-act="rodarRotina" data-q="manha" ${servLigado()?'':'disabled'}>Enviar os lembretes de hoje agora</button><button class="btn sm" data-act="rodarRotina" data-q="noite" ${servLigado()?'':'disabled'}>Gerar o resumo do dia agora</button></div>`;
+  const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
+  statusServidor(); }; }
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 

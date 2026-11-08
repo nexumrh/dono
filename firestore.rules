@@ -77,6 +77,7 @@ service cloud.firestore {
     function catalogoPreco(d) { return get(/databases/$(database)/documents/catalogo/$(d.aparelho.catalogoId)).data.preco; }
     function entradaMin() { return get(/databases/$(database)/documents/config/sistema).data.entradaPct; }
     function semMexer(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos) == false; }
+    function jurosComVip(base, desc) { return desc <= base ? base - desc : 0; }
     function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
 
     match /vendas/{id} {
@@ -97,12 +98,14 @@ service cloud.firestore {
                     || (hasRole(['SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmacaoDados', 'confirmacaoEntrada']))
                     // vendedor: escolher aparelho (preço do catálogo, entrada mínima)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
-                        && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId'])
+                        && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId', 'vip'])
                         // valor = preço do catálogo + acessórios (no máximo 50% do aparelho)
                         && request.resource.data.valor == catalogoPreco(request.resource.data) + request.resource.data.get('acessoriosValor', 0)
                         && request.resource.data.get('acessoriosValor', 0) >= 0
                         && request.resource.data.get('acessoriosValor', 0) <= catalogoPreco(request.resource.data) * 0.5
-                        && request.resource.data.juros == get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25))
+                        // juros do catálogo (ou padrão), menos o desconto do programa VIP gravado na aprovação do crédito
+                        && request.resource.data.juros == jurosComVip(get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25)),
+                                                                      resource.data.get('vip', {}) == null ? 0 : resource.data.get('vip', {}).get('descontoJuros', 0))
                         // usado na entrada: no máximo 50% do valor
                         && request.resource.data.get('usado', {'valor': 0}).get('valor', 0) <= request.resource.data.valor * 0.5
                         // produto sem trava exige entrada maior
@@ -299,6 +302,18 @@ service cloud.firestore {
     }
 
     // ---------- Despesas da loja ----------
+    // resumo diário do dono (gravado pelo servidor às 19h)
+    match /notificacoes/{id} {
+      allow read, write: if hasRole(['DONO']);
+    }
+    // troca ou devolução em até X dias: gerente registra, dono/financeiro executam
+    match /trocas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO', 'FINANCEIRO'])
+                    || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId && request.resource.data.status == 'PENDENTE');
+      allow update: if hasRole(['DONO', 'FINANCEIRO']);
+      allow delete: if false;
+    }
     match /despesas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);

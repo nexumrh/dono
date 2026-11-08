@@ -6,15 +6,24 @@
 //   PORTAL_ORIGEM             -> https://nexumrh.github.io
 import admin from 'firebase-admin';
 
-if (!admin.apps.length) {
+// Na Vercel é o firebase-admin de verdade; no Cloudflare o wrangler.toml troca por worker/firebase-rest.js
+if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
   admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
 }
 export const db = admin.firestore();
 export const auth = admin.auth();
-export const ASAAS = process.env.ASAAS_URL || 'https://api.asaas.com/v3';
+export const ASAAS = () => process.env.ASAAS_URL || 'https://api.asaas.com/v3';
+
+// Configurações do Painel do Dono (Firestore config/sistema), guardadas por 5 minutos
+let _cfg = null;
+export async function config() {
+  if (_cfg && _cfg.em > Date.now() - 300e3) return _cfg.d;
+  const d = (await db.collection('config').doc('sistema').get()).data() || {};
+  _cfg = { em: Date.now(), d }; return d;
+}
 
 export async function asaas(path, opts = {}) {
-  const r = await fetch(ASAAS + path, {
+  const r = await fetch(ASAAS() + path, {
     ...opts,
     headers: { 'Content-Type': 'application/json', access_token: process.env.ASAAS_API_KEY, 'User-Agent': 'nexumcell', ...(opts.headers || {}) },
   });
@@ -98,7 +107,9 @@ export async function gerarCobrancas(vendaId) {
   const ref = db.collection('vendas').doc(vendaId), s = await ref.get();
   if (!s.exists) throw new Error('venda não encontrada');
   const v = s.data(), ap = v.aparelhoToken ? (await db.collection('aparelhos').doc(v.aparelhoToken).get()).data() || {} : {};
+  if (['CANCELADA', 'RETOMADA', 'REPROVADA'].includes(v.status)) return { criadas: 0, ignorado: v.status };
   if (v.pixAutomatico?.status === 'ATIVO') return { criadas: 0, pixAutomatico: true };
+  let split = await splitDoVendedor(v);
   const cli = await clienteAsaas(v), parcelas = [...(v.parcelas || [])], vivos = new Set(parcelas.map((p) => p.asaasId).filter(Boolean));
   let criadas = 0, atualizadas = 0, apagadas = 0, emDinheiro = 0;
   // 1) cobranças antigas que não existem mais (renegociação): apaga no Asaas para o cliente não receber lembrete errado
@@ -113,20 +124,37 @@ export async function gerarCobrancas(vendaId) {
       continue;
     }
     // 4) parcela nova: cria a cobrança (o Asaas aplica desconto, multa e juros e manda os lembretes)
-    const cob = await asaas('/payments', { method: 'POST', body: JSON.stringify({
+    const corpo = {
       customer: cli.id, billingType: 'UNDEFINED', value: p.valor, dueDate: venc,
       description: `${ap.recebedor || 'NexumCell'} · contrato ${v.numero} · parcela ${p.n}/${parcelas.length}`.slice(0, 500),
       externalReference: `${vendaId}:${p.n}`,
       discount: { value: Number(ap.descontoPct) || 0, dueDateLimitDays: 0, type: 'PERCENTAGE' },
       fine: { value: Number(ap.multaPct) || 0, type: 'PERCENTAGE' },
       interest: { value: r2((Number(ap.moraDiaPct) || 0) * 30) },   // Asaas: juros ao mês
-    }) });
+    };
+    // split: a comissão do vendedor cai direto na conta Asaas dele quando o cliente paga a parcela
+    if (split) corpo.splits = [split];
+    let cob;
+    try { cob = await asaas('/payments', { method: 'POST', body: JSON.stringify(corpo) }); }
+    catch (e) { if (!split) throw e; delete corpo.splits; split = null; cob = await asaas('/payments', { method: 'POST', body: JSON.stringify(corpo) });
+      await db.collection('logs').add({ em: Date.now(), acao: 'Split da comissão recusado pelo Asaas', alvo: vendaId, det: String(e.message).slice(0, 300), por: 'Servidor' }); }
+    if (corpo.splits) p.split = { walletId: split.walletId, pct: split.percentualValue };
     Object.assign(p, { asaasId: cob.id, asaasLink: cob.invoiceUrl, asaasValor: p.valor, asaasVenc: p.venc }); criadas++;
   }
   const ids = [...new Set(parcelas.map((p) => p.asaasId).filter(Boolean))];
   await ref.update({ parcelas, asaas: { customer: cli.id, ids, sincronizadoEm: Date.now() } });
   if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ parcelas: parcelas.map(paraAparelho) }, { merge: true });
   return { criadas, atualizadas, apagadas, emDinheiro, customer: cli.id };
+}
+
+// Comissão no split: vale quando o Dono liga "Pagar comissão por split" e o vendedor tem conta Asaas (walletId)
+export async function splitDoVendedor(v) {
+  const cfg = await config();
+  if (cfg.splitComissao !== 'sim' || !v.vendedorUid) return null;
+  const u = (await db.collection('users').doc(v.vendedorUid).get()).data() || {};
+  const pct = Number(u.comissaoPct ?? cfg.comissaoPct) || 0;
+  if (!u.asaasWalletId || !(pct > 0)) return null;
+  return { walletId: u.asaasWalletId, percentualValue: Math.min(50, pct) };
 }
 
 // Acha a parcela de uma cobrança: pela referência "venda:parcela" ou, nas cobranças do PIX Automático, pela data

@@ -1,6 +1,7 @@
 // Webhook do Asaas. Configure no Asaas: Integrações > Webhooks > URL https://SEU-PROJETO.vercel.app/api/asaas-webhook
 // Eventos de cobrança (PAYMENT_RECEIVED, PAYMENT_CONFIRMED) e do PIX Automático. Token = ASAAS_WEBHOOK_TOKEN.
-import { db, asaas, baixarParcela, parcelaDaCobranca } from './_base.js';
+import { db, asaas, baixarParcela, parcelaDaCobranca, config } from './_base.js';
+import { brevoLigado, avisarCliente } from './_brevo.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -38,6 +39,16 @@ export default async function handler(req, res) {
     if (!alvo) return res.status(200).json({ ok: true, ignorado: 'sem referência NexumCell' });
     const forma = payment.billingType === 'PIX' ? (payment.pixAutomaticAuthorizationId ? 'PIX Automático (Asaas)' : 'PIX (Asaas)') : payment.billingType === 'BOLETO' ? 'Boleto (Asaas)' : payment.billingType === 'CREDIT_CARD' ? 'Cartão (Asaas)' : payment.billingType + ' (Asaas)';
     await baixarParcela(alvo.vendaId, alvo.n, payment.value, forma, 'Cobrança ' + payment.id);
+    // recibo automático ao cliente (WhatsApp/SMS pelo Brevo), se ligado nas Configurações
+    try {
+      const cfg = await config();
+      if (brevoLigado() && cfg.brevoRecibo === 'sim' && (cfg.brevoCanal || 'nenhum') !== 'nenhum') {
+        const v = (await db.collection('vendas').doc(alvo.vendaId).get()).data() || {}, tel = (v.cliente?.telefones || [])[0];
+        const valor = 'R$ ' + Number(payment.value).toFixed(2).replace('.', ','), nome = String(v.clienteNome || '').split(' ')[0];
+        if (tel) await avisarCliente(tel, cfg.brevoCanal, { modelo: 'recibo', params: { NOME: nome, VALOR: valor, PARCELA: `${alvo.n}/${(v.parcelas || []).length}` },
+          texto: `${cfg.empresa || 'NexumCell'}: ${nome}, recebemos ${valor} da parcela ${alvo.n}/${(v.parcelas || []).length}. Obrigado!` });
+      }
+    } catch (e) { console.error('recibo', e.message); }
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error(e);
