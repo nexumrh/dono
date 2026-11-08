@@ -34,7 +34,7 @@ service cloud.firestore {
                         && request.resource.data.lojaId == me().lojaId);
       allow update: if hasRole(['DONO'])
                     // a própria pessoa só marca que já trocou a senha temporária
-                    || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senhaTemporaria', 'senhaTrocadaEm']))
+                    || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senhaTemporaria', 'senhaTrocadaEm', 'treinamento']))
                     || (hasRole(['GERENTE']) && resource.data.role == 'VENDEDOR' && resource.data.lojaId == me().lojaId
                         && request.resource.data.role == 'VENDEDOR' && request.resource.data.lojaId == me().lojaId);
       allow delete: if hasRole(['DONO']);
@@ -103,7 +103,11 @@ service cloud.firestore {
                         && request.resource.data.get('acessoriosValor', 0) >= 0
                         && request.resource.data.get('acessoriosValor', 0) <= catalogoPreco(request.resource.data) * 0.5
                         && request.resource.data.juros == get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25))
-                        && request.resource.data.entrada >= request.resource.data.valor * entradaMin() / 100)
+                        // usado na entrada: no máximo 50% do valor
+                        && request.resource.data.get('usado', {'valor': 0}).get('valor', 0) <= request.resource.data.valor * 0.5
+                        // produto sem trava exige entrada maior
+                        && request.resource.data.entrada >= request.resource.data.valor * (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
+                              ? get(/databases/$(database)/documents/config/sistema).data.get('entradaSemTravaPct', 50) : entradaMin()) / 100)
                     // vendedor: venda reprovada automaticamente por IMEI irregular (Anatel)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'REPROVADA'
                         && request.resource.data.reprovadoPorImei == true && semMexer(['analise', 'cliente', 'valor', 'entrada', 'parcelas']))
@@ -113,7 +117,12 @@ service cloud.firestore {
                     // vendedor: entrada recebida → aguardando a trava subir
                     || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'INSTALANDO'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
-                        && request.resource.data.entradaPaga.valor >= resource.data.entrada)
+                        && request.resource.data.entradaPaga.valor + resource.data.get('usado', {'valor': 0}).get('valor', 0) >= resource.data.entrada)
+                    // vendedor: produto SEM TRAVA (cadastrado assim pelo dono) fica ativo direto ao receber a entrada
+                    || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'ATIVA'
+                        && get(/databases/$(database)/documents/catalogo/$(resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
+                        && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
+                        && request.resource.data.entradaPaga.valor + resource.data.get('usado', {'valor': 0}).get('valor', 0) >= resource.data.entrada)
                     // vendedor: registra tentativas/alertas da instalação
                     || (minhaVenda() && resource.data.status == 'INSTALANDO' && request.resource.data.status == 'INSTALANDO'
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['instalacao']))
@@ -246,7 +255,11 @@ service cloud.firestore {
     // ---------- Pré-análise online (link público) ----------
     match /preanalises/{id} {
       allow get: if signed();
-      allow list: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow list: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      // cliente pré-aprovado agenda a retirada pelo link
+      allow update: if anon() && resource.data.status == 'PRE_APROVADO'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['agendamento'])
+                    && request.resource.data.agendamento.keys().hasOnly(['data', 'hora', 'em']);
       allow create: if signed()
                     && request.resource.data.keys().hasOnly(['nome', 'cpf', 'nasc', 'telefone', 'cidade', 'renda', 'profissao', 'aparelho', 'entrada', 'lojaId', 'lojaNome', 'aceiteLgpd', 'status', 'criadoEm'])
                     && request.resource.data.status == 'NOVA' && request.resource.data.aceiteLgpd == true
@@ -325,6 +338,8 @@ service cloud.firestore {
     match /seminovos/{id} {
       allow read: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO']);
       allow write: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO']);
+      // vendedor: usado recebido como parte da entrada entra no estoque de seminovos da loja
+      allow create: if hasRole(['VENDEDOR']) && request.resource.data.origem == 'TROCA' && request.resource.data.lojaId == me().lojaId && request.resource.data.status == 'DISPONIVEL';
     }
 
     // ---------- Suporte ----------

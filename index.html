@@ -254,6 +254,9 @@ details summary{cursor:pointer}
 .aviso-trava svg{width:22px;height:22px;flex:none}.aviso-trava span{font-size:13px;opacity:.85}
 .aviso-trava.bad{background:var(--bad-s);border-color:#F2C9C9;color:var(--bad);animation:pulsa 2s ease-in-out infinite}
 @keyframes pulsa{50%{box-shadow:0 0 0 4px rgba(194,59,59,.15)}}
+.compr{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:1px dashed var(--line);border-radius:12px;padding:12px}
+.bio-cam .vida{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:20px;font-weight:700;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.lic{position:fixed;inset:0;z-index:999;background:#0A1733;color:#fff;display:grid;place-items:center;text-align:center;padding:30px}
 .off-bar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#A86A12;color:#fff;text-align:center;padding:10px 14px;font-weight:600;font-size:14px}
 .sim-balcao{background:var(--ink,#0A1733);color:#fff;border-radius:16px;padding:22px;text-align:center}.sim-balcao:fullscreen{display:flex;flex-direction:column;justify-content:center;border-radius:0}
 .sb-ap{font-size:24px;font-weight:700}.sb-ap small{display:block;font-size:14px;color:#A9B6D3;font-weight:400}.sb-ent{font-size:18px;margin:10px 0 16px}.sb-ent b{color:#E2B33B;font-size:24px}
@@ -401,7 +404,7 @@ const PORTAIS = {
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
   gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','listanegra','escala','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
-  vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','chamados'],
+  vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','treinamento','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
   financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','listanegra'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
@@ -423,7 +426,7 @@ const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
   empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
-  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
+  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
   apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', exigirLocalLoja:'sim', exigirEstoque:'sim', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
@@ -491,6 +494,7 @@ function apSituacao(ap){
   if(ap.quitado||ap.status==='QUITADO') return ['Quitado — trava removida','gray'];
   if(ap.status==='CANCELADO') return ['Cancelado — trava removida','gray'];
   if(ap.roubo&&!ap.roubo.liberadoEm) return ['Roubo/perda comunicado — travado','red'];
+  if(ap.semTrava) return ['Produto sem trava','gray'];
   if(!ap.checkin?.em) return ['Aguardando instalação','blue'];
   const r=avaliar(ap); return r.travar ? ['Travado','red'] : r.nivel===2 ? ['Funções limitadas','amber'] : r.nivel===1 ? ['Aviso de atraso na tela','amber'] : ap.confianca?.ate>Date.now() ? ['Liberação de confiança (24 h)','blue'] : ['Liberado','green'];
 }
@@ -541,7 +545,7 @@ function seedDemo(){
   d.lojas.l1={nome:'Loja Centro',cidade:'Foz do Iguaçu',telefone:'(45) 99999-0001'};
   d.lojas.l2={nome:'Loja Vila Portes',cidade:'Foz do Iguaçu',telefone:'(45) 99999-0002'};
   let uc=0; const U=(id,nome,role,lojaId='')=>d.users[id]={nome,email:id.slice(2)+'@demo.com',role,lojaId,ativo:true,criadoEm:now,telefone:'4599700000'+(++uc),codigo:{DONO:'DON',GERENTE:'GER',VENDEDOR:'VND',FINANCEIRO:'FIN',SUPORTE:'SUP'}[role]+'-'+String(1000+uc)};
-  U('u_dono','Ana Dono','DONO'); U('u_ger','Gustavo Gerente','GERENTE','l1'); U('u_vend','Vitória Vendedora','VENDEDOR','l1');
+  U('u_dono','Ana Dono','DONO'); U('u_ger','Gustavo Gerente','GERENTE','l1'); U('u_vend','Vitória Vendedora','VENDEDOR','l1'); d.users.u_vend.treinamento={aprovado:true,nota:100,em:now-86400000*30};
   U('u_vend2','Valter Vendedor','VENDEDOR','l2'); U('u_fin','Fernanda Financeiro','FINANCEIRO'); U('u_sup','Sérgio Suporte','SUPORTE');
   [['Samsung','Galaxy A06','64 GB',899],['Samsung','Galaxy A06','128 GB',999],['Samsung','Galaxy A16','128 GB',1299],['Samsung','Galaxy A16','256 GB',1499],['Samsung','Galaxy A26','128 GB',1799],['Samsung','Galaxy A36','256 GB',2399],
    ['Motorola','Moto E15','128 GB',749],['Motorola','Moto G15','128 GB',999],['Motorola','Moto G35','128 GB',1199],['Motorola','Moto G75','256 GB',1899],
@@ -606,6 +610,7 @@ const IC = {
   catalogo:'<rect x="5" y="2" width="10" height="17" rx="2"/><path d="M9 15h2"/><path d="M17 8h4v13h-8v-2"/>',
   relatorios:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   seminovos:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><rect x="9" y="8" width="6" height="9" rx="1"/>',
+  treinamento:'<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
   simulador:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 10h2M12 10h2M16 10h0M8 14h2M12 14h2M8 18h8"/>',
   conciliacao:'<path d="M3 10h18M5 6l7-3 7 3M6 10v8M10 10v8M14 10v8M18 10v8M3 21h18"/>',
   despesas:'<path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
@@ -633,6 +638,7 @@ const TABS = [
   {id:'chamados',label:'Suporte',roles:ALL},
   {id:'equipe',label:'Equipe',roles:['DONO','GERENTE']},
   {id:'catalogo',label:'Aparelhos à venda',roles:['DONO']},
+  {id:'treinamento',label:'Treinamento',roles:['VENDEDOR','GERENTE','DONO']},
   {id:'simulador',label:'Simulador de balcão',roles:['VENDEDOR','GERENTE','DONO']},
   {id:'conciliacao',label:'Ler extrato do banco',roles:['DONO','FINANCEIRO']},
   {id:'despesas',label:'Despesas da loja',roles:['DONO','GERENTE','FINANCEIRO']},
@@ -918,7 +924,7 @@ function pararCamera(){ if(camStream){ camStream.getTracks().forEach(t=>t.stop()
 async function passoBio(){
   const w=S.w;
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">2</span>Biometria facial</h2>
-    <p class="muted" style="margin-top:-6px">Peça ao cliente para tirar óculos e boné, olhar para a câmera e ficar num lugar iluminado. Só é aceita foto tirada agora.</p>
+    <p class="muted" style="margin-top:-6px">Peça ao cliente para tirar óculos e boné e ficar num lugar iluminado. Ao tocar em Capturar, siga as instruções na tela: <b>olhar para a câmera, virar o rosto e sorrir</b> (prova de vida — impede o uso de foto).</p>
     <div class="bio">
       <div class="bio-cam">${w.selfie?`<img src="${w.selfie}" alt="">`:'<video id="cam" playsinline autoplay muted></video>'}<div class="bio-oval"></div></div>
       <div class="bio-info">
@@ -942,12 +948,13 @@ function faceResumo(f){
   return `<div class="${ok?'msg':'err-box'}"><b>${ok?'Rosto validado':'Biometria recusada'}</b>${f.simulado?' <span class="badge b-amber">simulado</span>':''}<br>
     <span class="small">${esc(f.motivo||'')}${f.mesma_pessoa?` · Confere com o documento: <b>${f.mesma_pessoa}</b>${f.confianca!=null?` (${f.confianca}%)`:''}`:''}</span></div>`;
 }
-async function bioCapturar(){
+async function bioCapturar(){ return bioCapturarVida(); }
+async function bioCapturarSimples(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Câmera ainda não está pronta','err'); return; }
   const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0);
   pararCamera(); await validarSelfie(c.toDataURL('image/jpeg',0.9));
 }
-async function bioArquivo(input){ const f=input.files[0]; if(!f) return; if(Date.now()-f.lastModified>120000){ $('#bioErro').textContent='Use uma foto tirada agora, não da galeria.'; return; } await validarSelfie(await lerArquivo(f)); }
+async function bioArquivo(input){ const f=input.files[0]; if(!f) return; S.w.vida={ok:null,metodo:'ARQUIVO'}; if(Date.now()-f.lastModified>120000){ $('#bioErro').textContent='Use uma foto tirada agora, não da galeria.'; return; } await validarSelfie(await lerArquivo(f)); }
 async function validarSelfie(url){
   const w=S.w, img=await carregarImg(url), q=qualidadeFoto(img);
   w.selfie=redimensionar(img,720,0.75); w.face={motivo:'Validando…'}; passoBio();
@@ -984,6 +991,7 @@ async function passoContato(){
       <label>Renda mensal (R$) *<input id="cRenda" type="number" min="0" step="0.01" value="${esc(c.renda||'')}"></label>
       <label>Código de indicação (opcional)<input id="cInd" placeholder="ex.: NXC-12" value="${esc(c.indicacao||'')}"></label>
     </div>
+    ${blocoCompr()}
     <p class="foto-erro" id="telErro"></p>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="irPasso" data-n="2">Voltar</button>
       <button class="btn gold lg" data-act="enviarAnalise">${svg('<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>')}Enviar para análise de crédito</button></div></div>`;
@@ -1018,12 +1026,12 @@ async function enviarAnalise(btn){
     const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
-      verificacao:{geo,docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
+      verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
       confirmacaoDados:{status:'PENDENTE',prazo:agora+3*86400000}};
     await DB.batch([
       {c:'clientes',id:d.cpf,data:{...cli,atualizadoEm:agora}},
       {c:'vendas',id,data:venda},
-      {c:'docs',id,data:{vendaId:id,cpf:d.cpf,docTipo:w.docTipo,frente:w.fotos.frente.ver,verso:w.fotos.verso?.ver||'',selfie:w.selfie,criadoEm:agora,vendedorUid:S.me.uid}}]);
+      {c:'docs',id,data:{vendaId:id,cpf:d.cpf,docTipo:w.docTipo,frente:w.fotos.frente.ver,verso:w.fotos.verso?.ver||'',selfie:w.selfie,comprRenda:w.compr?.renda?.foto||'',comprEndereco:w.compr?.endereco?.foto||'',criadoEm:agora,vendedorUid:S.me.uid}}]);
     await log('Proposta enviada para análise',id,`Nº ${numero} — ${d.nome}`);
     w.vendaId=id; irPasso(4);
   }catch(e){ console.error(e); toast('Erro ao enviar: '+e.message,'err'); btn.disabled=false; }
@@ -1067,7 +1075,7 @@ async function passoAparelho(){
   const w=S.w, exigeEst=S.cfg.exigirEstoque!=='nao';
   const est=exigeEst?(await DB.list('estoque',[['lojaId','==',v.lojaId]]).catch(()=>[])).filter(e=>e.status==='DISPONIVEL'):[];
   w.estoque=est; const qtd=id=>est.filter(e=>e.catalogoId===id).length;
-  if(exigeEst) cat=cat.filter(x=>qtd(x.id)>0); w.sel=w.sel||{marca:v.aparelho?.marca||MARCAS.find(m=>cat.some(x=>x.marca===m))||cat[0]?.marca};
+  if(exigeEst) cat=cat.filter(x=>x.semTrava||qtd(x.id)>0); w.sel=w.sel||{marca:v.aparelho?.marca||MARCAS.find(m=>cat.some(x=>x.marca===m))||cat[0]?.marca};
   const marcas=[...MARCAS.filter(m=>cat.some(x=>x.marca===m)),...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))];
   const doMarca=cat.filter(x=>x.marca===w.sel.marca);
   const modelos=[...new Set(doMarca.map(x=>x.modelo))];
@@ -1085,16 +1093,18 @@ async function passoAparelho(){
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
       <label>Juros sobre o financiado<input value="${jurosDo(item)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
-      <label><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
-      <label><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
-      <label>Entrada (mín. ${pct}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pct/100)}" value="${w.sel.entrada||r2(item.preco*pct/100)}"></label>
+      ${item.semTrava?`<label>Número de série (opcional)<input id="nSerie" value="${esc(w.sel.serie||'')}"></label>`:''}
+      <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
+      <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
+      ${(()=>{ const pe=item.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):pct; return `<label>Entrada total (mín. ${pe}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pe/100)}" value="${w.sel.entrada||r2(item.preco*pe/100)}"></label>`; })()}
       <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||12)?'selected':''}>${n}x</option>`).join('')}</select></label>
       <label>1º vencimento<input id="nVenc" type="date" value="${w.sel.venc||addMonths(hoje(),1)}"></label>
       <label>Cor<input id="nCor" value="${esc(w.sel.cor||'')}"></label>
     </div>
     <div id="acessBox"></div>
+    ${blocoExtrasVenda(item)}
     <div class="sim mt" id="nSim"></div>
-    ${blocoImei()}
+    <div ${item.semTrava?'hidden':''}>${blocoImei()}</div>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="salvarAparelho">Gerar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
   if(item) simular();
 }
@@ -1161,22 +1171,24 @@ function simular(){
   const it=S.w?.sel&&S.w.sel.itemId; if(!it||!$('#nSim')) return;
   guardarCampos(); if($('#imeiCheck')) $('#imeiCheck').innerHTML=imeiMsg($('#nImei').value)||'<span class="muted small">Digite o IMEI acima</span>';
   if($('#nImei2Ok')) $('#nImei2Ok').innerHTML=imeiMsg($('#nImei2').value);
-  const preco=S.w.sel.preco+(S.w.sel.acessValor||0), pct=Number(S.cfg.entradaPct)||30, min=r2(preco*pct/100);
+  const preco=S.w.sel.preco+(S.w.sel.acessValor||0), pct=S.w.sel.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):(Number(S.cfg.entradaPct)||30), min=r2(preco*pct/100);
   let e=+$('#nEntrada').value||0; const n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null);
-  const fin=Math.max(0,preco-e), p=parcelaFlat(fin,jp,n);
+  const fin=Math.max(0,preco-e), prot=S.w.sel.protecao&&!S.w.sel.semTrava?(Number(S.cfg.protecaoMensal)||0):0, p=r2(parcelaFlat(fin,jp,n)+prot), us=S.w.sel.usado?.valor||0;
   $('#nSim').innerHTML=`<div class="row">
-    <div><small>Entrada</small><b>${brl(e)}</b></div><div><small>Financiado</small><b>${brl(fin)}</b></div>
+    <div><small>Entrada${us?' (usado + dinheiro)':''}</small><b>${brl(e)}</b>${us?`<span class="small" style="color:#A9B6D3">usado ${brl(us)} + ${brl(Math.max(0,e-us))}</span>`:''}</div><div><small>Financiado</small><b>${brl(fin)}</b></div>
     <div><small>${n} parcelas de</small><b>${brl(p)}</b></div><div><small>Total a prazo</small><b>${brl(p*n+e)}</b></div></div>
     ${e<min?`<p class="small" style="color:#FFB4B4;margin:8px 0 0">A entrada mínima é ${pct}% (${brl(min)}).</p>`:''}
     <p class="small" style="color:#A9B6D3;margin:8px 0 0">Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
   $('#nImeiOk').innerHTML=imeiMsg($('#nImei').value);
 }
-async function selItem(id){ const x=await DB.get('catalogo',id); S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosDo(x),entrada:null}; passoAparelho(); }
+async function selItem(id){ const x=await DB.get('catalogo',id); S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosDo(x),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
 async function salvarAparelho(btn){
   const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=Number(S.cfg.entradaPct)||30;
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
   guardarCampos();
+  if(x.semTrava) return salvarProdutoSemTrava(x,btn);
   const acs=await acessoriosEscolhidos(), acessValor=r2(acs.reduce((s,a)=>s+a.preco,0)), valorTotal=r2(x.preco+acessValor);
+  if(w.sel.usado&&w.sel.usado.valor>entrada) return toast('O valor do usado é maior que a entrada: aumente a entrada','err');
   if(acessValor>x.preco*0.5) return toast('Os acessórios passam de 50% do valor do aparelho','err');
   if(!imeiOk(imei)) return toast('IMEI 1 inválido: o número não existe ou foi digitado errado (confira no *#06#)','err');
   if(imei2&&!imeiOk(imei2)) return toast('IMEI 2 inválido','err');
@@ -1203,11 +1215,11 @@ async function salvarAparelho(btn){
   if(conf&&!conf.confere){ btn.disabled=false; return toast(conf.msg,'err'); }
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
-  const juros=jurosDo(x), fin=r2(valorTotal-entrada), vp=parcelaFlat(fin,juros,n);
+  const juros=jurosDo(x), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaFlat(fin,juros,n)+prot);
   await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
   const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
   await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
-    valor:valorTotal,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
+    valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
   await log('Aparelho escolhido',w.vendaId,`${x.marca} ${x.modelo} ${x.capacidade} · IMEI ${imei}`);
   irPasso(6);
@@ -1269,20 +1281,25 @@ async function registrarAssinatura(id,o){
 async function passoEntrada(){
   const v=await DB.get('vendas',S.w.vendaId);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">7</span>Receber a entrada</h2>
-    <div class="entrada-box"><small>Entrada a receber</small><b>${brl(v.entrada)}</b><span>${esc(v.clienteNome)} · ${esc(apNome(v))}</span></div>
+    <div class="entrada-box"><small>${v.usado?'Entrada a receber em dinheiro/PIX/cartão':'Entrada a receber'}</small><b>${brl(v.entrada-(v.usado?.valor||0))}</b><span>${esc(v.clienteNome)} · ${esc(apNome(v))}${v.usado?` · entrada total ${brl(v.entrada)} − usado ${esc(v.usado.marca+' '+v.usado.modelo)} ${brl(v.usado.valor)}`:''}</span></div>
     <div class="warn mt"><b>O aparelho só sai da loja depois que a entrada for paga.</b> A equipe vai mandar uma mensagem no WhatsApp do cliente confirmando o valor recebido.</div>
     <div class="grid g3 mt">
-      <label>Valor recebido (R$)<input id="eValor" type="number" step="0.01" min="${v.entrada}" value="${v.entrada}"></label>
+      <label>Valor recebido (R$)<input id="eValor" type="number" step="0.01" min="${r2(v.entrada-(v.usado?.valor||0))}" value="${r2(v.entrada-(v.usado?.valor||0))}"></label>
       <label>Forma de pagamento<select id="eForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option></select></label>
       <label>Nº do comprovante / observação<input id="eObs"></label>
     </div>
+    ${v.usado?'<label class="check mt"><input type="checkbox" id="eUsado"> <span>Recebi o aparelho usado avaliado, desbloqueado e sem conta</span></label>':''}
+    ${blocoChip()}
     <label class="check mt"><input type="checkbox" id="eOk"> Confirmo que o valor foi recebido pela loja</label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="confirmarEntrada">${svg('<path d="M20 6 9 17l-5-5"/>')}Confirmar entrada e instalar a trava</button></div></div>`;
 }
 async function confirmarEntrada(btn){
   const v=await DB.get('vendas',S.w.vendaId), valor=r2(+$('#eValor').value);
   if(!$('#eOk').checked) return toast('Confirme o recebimento da entrada','err');
-  if(valor<v.entrada) return toast(`O valor recebido precisa ser pelo menos ${brl(v.entrada)}`,'err');
+  const minDin=r2(v.entrada-(v.usado?.valor||0));
+  if(valor<minDin) return toast(`O valor recebido precisa ser pelo menos ${brl(minDin)}`,'err');
+  if(v.usado&&!$('#eUsado').checked) return toast('Confirme o recebimento do aparelho usado','err');
+  const chip=lerChip();
   btn.disabled=true;
   let geo=null; try{ geo=await conferirLocal(); }catch(e){ btn.disabled=false; await log('Entrada bloqueada: fora da loja',v.id,e.message); return toast(e.message,'err'); }
   try{
@@ -1291,8 +1308,11 @@ async function confirmarEntrada(btn){
       lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',servidorPix:cfg.servidorPagamentos||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,...camposEtapas(cfg),
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
-      mensagem:cfg.mensagemTrava||'',parcelas:v.parcelas.map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago})),quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
-    await DB.batch([{c:'aparelhos',id:tk,data:ap},{c:'vendas',id:v.id,data:{status:'INSTALANDO',aparelhoToken:tk,instalacao:{tentativas:1,inicio:agora},
+      mensagem:cfg.mensagemTrava||'',parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,quitado:false,frpContas:cfg.frpContas||'',criadoEm:agora};
+    const st=v.aparelho.semTrava?{status:'ATIVA',instaladoEm:agora}:{status:'INSTALANDO',instalacao:{tentativas:1,inicio:agora}};
+    const extras=[]; if(v.usado) extras.push({c:'seminovos',id:'t_'+v.id,data:{origem:'TROCA',marca:v.usado.marca,modelo:v.usado.modelo,capacidade:'',imei:v.usado.imei,imei2:'',vendaId:v.id,vendaNumero:v.numero,cliente:v.clienteNome,estado:v.usado.estado,avaliacao:v.usado.valor,precoVenda:r2(v.usado.valor*1.35),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:agora,por:S.me.nome}});
+    if(v.usado?.fotos?.length) extras.push({c:'docs',id:'u_'+v.id,data:{tipo:'USADO',vendaId:v.id,fotos:v.usado.fotos,criadoEm:agora,vendedorUid:S.me.uid}});
+    await DB.batch([{c:'aparelhos',id:tk,data:ap},...extras,{c:'vendas',id:v.id,data:{...st,aparelhoToken:tk,...(chip?{chip}:{}),...(v.usado?{usado:{...v.usado,fotos:[]}}:{}),
       entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome,geo},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
     try{ await gravarAcesso(v,tk); }catch(e){ console.warn('acesso',e); }
@@ -1344,6 +1364,7 @@ function estadoInstalacao(a){
 const MIN_ALERTA=10;
 async function passoTrava(){
   const v=await DB.get('vendas',S.w.vendaId), tk=v.aparelhoToken;
+  if(v.aparelho?.semTrava) return passoEntregaSemTrava(v);
   if(!tk){ $('#wz').innerHTML='<div class="card empty"><b>Trava ainda não gerada</b>Confirme a entrada primeiro.</div>'; return; }
   const json=payloadProvisionamento(tk), marca=v.aparelho.marca;
   let qrHtml=''; try{ if(typeof qrcode==='function'){ const q=qrcode(0,'L'); q.addData(json,'Byte'); q.make(); qrHtml=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
@@ -1554,7 +1575,7 @@ async function analisar(id){
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
-    <div id="lnFace"></div>
+    <div id="lnFace"></div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
     <div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
@@ -1575,6 +1596,7 @@ async function analisar(id){
     <label class="check"><input type="checkbox" id="aLN"> Ao reprovar, incluir este cliente (CPF, telefones e rosto) na <b>lista negra</b> — golpe, documento falso ou fraude</label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
   if(docs.selfie) compararFaceLN(docs.selfie,c.cpf);
+  revisaoIA(v,docs);
 }
 async function decidir(id,r){
   const ck={}; ['cpf','bio','doc'].forEach(k=>ck[k]=$('#ck_'+k).checked);
@@ -1592,6 +1614,7 @@ function contratoHTML(v){
   return `<h4 style="text-align:center">CONTRATO DE COMPRA E VENDA A PRAZO COM RESERVA DE DOMÍNIO Nº ${v.numero}</h4>
   <p><b>VENDEDORA:</b> ${emp}, loja ${esc(v.lojaNome)}.<br><b>COMPRADOR(A):</b> ${esc(c.nome)}, CPF ${fmtCpf(c.cpf)}, nascido(a) em ${fmtD(c.nasc)}, residente em ${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}, telefone ${esc(c.tel)}.</p>
   <h4>1. Objeto</h4><p>Aparelho celular ${esc(v.aparelho.marca)} ${esc(v.aparelho.modelo)} ${esc(v.aparelho.armazenamento||'')}, IMEI ${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''}, novo, entregue nesta data em perfeito funcionamento${(v.acessorios||[]).length?`, acompanhado dos acessórios: ${v.acessorios.map(a=>esc(a.nome)+' ('+brl(a.preco)+')').join(', ')}`:''}.</p>
+  ${v.usado?`<p>Parte da entrada (${brl(v.usado.valor)}) foi paga com o aparelho usado ${esc(v.usado.marca+' '+v.usado.modelo)}, IMEI ${esc(v.usado.imei)}, que passa a ser de propriedade da VENDEDORA, declarando o(a) COMPRADOR(A) que o aparelho é de sua propriedade e não tem restrição.</p>`:''}${v.protecao?`<p>Inclui a Proteção NexumCell (${brl(v.protecao.mensal)} por parcela): ${esc(v.protecao.cobertura)}.</p>`:''}${v.aparelho?.semTrava?'<p>Este produto não possui sistema de bloqueio; as cláusulas de bloqueio do aparelho não se aplicam.</p>':''}
   <h4>2. Preço e pagamento</h4><p>Preço à vista: ${brl(v.valor)}. Entrada: ${brl(v.entrada)}. Saldo de ${brl(v.financiado)} pago em ${v.nParcelas} parcelas mensais de ${brl(v.valorParcela)}, com acréscimo de juros de ${v.juros}% sobre o valor financiado (já incluído nas parcelas), vencendo a primeira em ${fmtD(v.primeiroVenc)} e as demais no mesmo dia dos meses seguintes. Valor total a prazo: ${brl(v.total+v.entrada)}. Custo efetivo informado ao comprador antes da assinatura.</p>
   <h4>3. Atraso</h4><p>O atraso implica multa de ${cfg.multaPct}% e juros de mora de ${cfg.moraDiaPct}% ao dia sobre a parcela vencida.</p>
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
@@ -2100,6 +2123,7 @@ async function verPedido(id){
     <p class="muted" style="margin-top:-6px">Contrato nº ${x.vendaNumero} · ${esc((x.marca||'')+' '+(x.modelo||''))} · IMEI <span class="mono">${esc(x.imei||'')}</span> · aberto em ${fmtDT(x.criadoEm)}</p>
     ${x.descricao?`<div class="msg"><small>Cliente</small>${esc(x.descricao)}</div>`:''}
     ${(x.respostas||[]).map(r=>`<div class="msg"><small>${fmtDT(r.em)} · ${esc(r.por)} · ${esc((PED_ST[r.status]||[r.status])[0])}</small>${esc(r.texto)}</div>`).join('')}
+    ${x.tipo==='ASSISTENCIA'&&v?.protecao?`<div class="msg mt"><b>Cliente tem Proteção NexumCell</b> (${brl(v.protecao.mensal)}/parcela): ${esc(v.protecao.cobertura)}${v.protecaoUsada?' · <b>já usada</b>':''}</div>`:''}
     ${x.tipo==='VENCIMENTO'?`<div class="warn mt">O cliente pediu para as próximas parcelas vencerem todo <b>dia ${x.novoDia}</b>. ${v?.vencAlterado?'<b>Este contrato já teve a data trocada uma vez.</b>':'Marque “Atendido” para mudar as datas das parcelas que ainda não venceram (os valores não mudam).'}</div>`:''}
     ${x.tipo==='LGPD_COPIA'?`<div class="warn mt">Baixe a cópia dos dados e envie ao cliente pelo e-mail ou WhatsApp cadastrado. Prazo da LGPD: até 15 dias.</div><div class="row mt"><button class="btn sm" data-act="copiaLgpd" data-id="${id}">Baixar cópia dos dados do cliente</button></div>`:''}
     ${x.tipo==='LGPD_EXCLUSAO'?`<div class="warn mt">${encerrado?'O contrato está encerrado: você pode apagar as fotos do documento e a biometria. Os dados do contrato (nome, CPF, valores) continuam guardados pelo prazo legal.':'O contrato está ativo: os dados precisam ser mantidos para cumprir o contrato e obrigações legais (LGPD, art. 7º, V e art. 16). Explique isso ao cliente; os dados podem ser apagados depois do encerramento e do prazo legal.'}</div>
@@ -2489,6 +2513,7 @@ PAGES.tv = async () => {
       <div><small>Meta da loja</small><b>${metaLoja?Math.round(vendMes/metaLoja*100)+'%':'—'}</b><div class="barra ${vendMes>=metaLoja&&metaLoja?'ok':''}"><i style="width:${metaLoja?Math.min(100,vendMes/metaLoja*100):0}%"></i></div></div></div>
     <div class="tv-rank">${lista.map((r,i)=>`<div class="tv-row"><span class="pos">${i<3?['🥇','🥈','🥉'][i]:i+1+'º'}</span><b>${esc(r.nome)}</b><span>${r.qtd} venda(s)</span><span class="val">${brl(r.valor)}</span>
       <div class="barra ${r.meta&&r.valor>=r.meta?'ok':''}" style="grid-column:2/-1"><i style="width:${r.meta?Math.min(100,r.valor/r.meta*100):0}%"></i></div></div>`).join('')||'<p class="muted">Nenhuma venda no mês ainda. Bora!</p>'}</div>
+    ${desafioHtml(vendas,'').replace('class="card mt" style="border-color:#F3D98B;background:#FFFBEF"','class="card mt" style="background:rgba(226,179,59,.15);border-color:#E2B33B;color:#fff"')}
     <p class="small muted">Atualiza sozinho a cada minuto · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</p></div>`;
   $('#tvLoja')?.addEventListener('change',e=>{ S.filtro.tvLoja=e.target.value; PAGES.tv(); });
   _tvT=setInterval(()=>{ if(S.tab==='tv') PAGES.tv(); else clearInterval(_tvT); },60000);
@@ -2789,6 +2814,251 @@ window.addEventListener('offline',bannerOffline);
 const CHECK_ENTREGA=[['liga','Aparelho liga e funciona (tela, câmera, som, chip)',true],['estado','Sem riscos, trincas ou marcas',true],['caixa','Caixa com carregador/cabo que vieram de fábrica',false],
   ['pelicula','Película aplicada (se comprou)',false],['capa','Capinha entregue (se comprou)',false],['cliente','Cliente conferiu e recebeu o aparelho',true]];
 
+
+/* ======================= PROVA DE VIDA NA BIOMETRIA ======================= */
+const PROMPT_VIDA=`As 3 primeiras imagens são quadros seguidos da câmera frontal durante uma prova de vida: 1) olhando para a câmera, 2) virando o rosto para o lado, 3) sorrindo. A 4ª imagem é a foto do documento de identidade.
+Responda SOMENTE com JSON: {"mesma_pessoa_nos_quadros":true,"movimento_real":true,"foto_de_tela_ou_papel":false,"mascara_ou_boneco":false,"mesma_pessoa_do_documento":"sim|nao|incerto","confianca":0,"observacao":""}
+"movimento_real" = o rosto realmente mudou de posição/expressão entre os quadros (não é a mesma imagem parada). "foto_de_tela_ou_papel" = há sinais de que a câmera filmou uma tela, uma foto impressa ou um documento (bordas, reflexos, moiré, pixels).`;
+function quadro(v){ const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0); return c; }
+function diferenca(a,b){ const W=64,H=48, g=c=>{ const t=document.createElement('canvas'); t.width=W; t.height=H; t.getContext('2d').drawImage(c,W*0.2,0,W*0.6,H,0,0,W,H); const d=t.getContext('2d').getImageData(0,0,W,H).data; const o=[]; for(let i=0;i<d.length;i+=4) o.push((d[i]+d[i+1]+d[i+2])/3); return o; };
+  const x=g(a), y=g(b); let s=0; for(let i=0;i<x.length;i++) s+=Math.abs(x[i]-y[i]); return s/x.length; }
+async function provaDeVida(){
+  const v=$('#cam'); if(!v||!v.videoWidth){ toast('Câmera ainda não está pronta','err'); return null; }
+  const passos=['Olhe para a câmera','Vire o rosto devagar para o lado','Agora sorria 🙂'], quadros=[];
+  let ov=document.querySelector('.bio-cam .vida'); if(!ov){ ov=document.createElement('div'); ov.className='vida'; document.querySelector('.bio-cam').appendChild(ov); }
+  for(const p of passos){ ov.textContent=p; await new Promise(o=>setTimeout(o,1700)); quadros.push(quadro(v)); }
+  ov.remove();
+  const d1=diferenca(quadros[0],quadros[1]), d2=diferenca(quadros[0],quadros[2]);
+  return {quadros,d1,d2,mexeu:Math.max(d1,d2)>6};
+}
+async function bioCapturarVida(){
+  const btn=document.querySelector('[data-act="bioCapturar"]'); if(btn) btn.disabled=true;
+  const r=await provaDeVida(); if(!r){ if(btn) btn.disabled=false; return; }
+  pararCamera(); const w=S.w;
+  if(!r.mexeu){ w.vida={ok:false,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2))}; w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: o rosto não se mexeu. Pode ser uma foto. Siga as instruções na tela.'}; return passoBio(); }
+  const urls=r.quadros.map(c=>c.toDataURL('image/jpeg',0.85));
+  if(iaChave()){
+    try{ const ia=await iaVisao(PROMPT_VIDA,[...urls.map(u=>u),w.fotos.frente.ia]);
+      w.vida={ok:!!(ia.mesma_pessoa_nos_quadros&&ia.movimento_real&&!ia.foto_de_tela_ou_papel&&!ia.mascara_ou_boneco),metodo:'IA',ia};
+      if(!w.vida.ok){ w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: '+(ia.foto_de_tela_ou_papel?'parece foto de tela ou papel.':ia.mascara_ou_boneco?'parece máscara ou boneco.':!ia.movimento_real?'não houve movimento real.':'os quadros não são da mesma pessoa.')}; return passoBio(); }
+    }catch(e){ w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2)),obs:'IA indisponível'}; }
+  } else w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2))};
+  await validarSelfie(urls[0]);
+}
+
+/* ======================= COMPROVANTES DE RENDA E ENDEREÇO (foto + IA) ======================= */
+const PROMPT_COMPR={
+  renda:`A imagem deve ser um comprovante de renda brasileiro (holerite, contracheque, extrato bancário com salário, declaração do INSS ou pró-labore). Responda SOMENTE com JSON:
+{"e_comprovante_de_renda":true,"legivel":true,"nome_titular":"","renda_liquida_mensal":0,"mes_referencia":"MM/AAAA","tipo":"","foto_de_tela":false,"observacao":""}`,
+  endereco:`A imagem deve ser um comprovante de endereço brasileiro (conta de luz, água, internet, telefone, banco). Responda SOMENTE com JSON:
+{"e_comprovante_de_endereco":true,"legivel":true,"nome_titular":"","logradouro_e_numero":"","bairro":"","cidade":"","cep":"","data_emissao":"DD/MM/AAAA","foto_de_tela":false,"observacao":""}`};
+const normTxt=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function nomesBatem(a,b){ const x=normTxt(a).split(' ').filter(p=>p.length>2), y=normTxt(b).split(' ').filter(p=>p.length>2); if(!x.length||!y.length) return false; const comuns=x.filter(p=>y.includes(p)).length; return comuns>=Math.min(2,x.length,y.length); }
+async function receberCompr(input){
+  const tipo=input.dataset.compr, f=input.files[0]; if(!f) return; const w=S.w; w.compr=w.compr||{};
+  guardarContato();
+  const img=await carregarImg(await lerArquivo(f)), q=qualidadeFoto(img);
+  if(!q.ok&&!/desfocada/.test(q.motivo)){ toast('Foto recusada: '+q.motivo,'err'); return; }
+  const foto=redimensionar(img,1100,0.75); w.compr[tipo]={foto,status:'LENDO'}; passoContato();
+  let r;
+  try{
+    if(iaChave()){ const ia=await iaVisao(PROMPT_COMPR[tipo],[redimensionar(img,1600,0.85)]), nome=w.dados?.nome||'';
+      if(tipo==='renda'){ const ok=ia.e_comprovante_de_renda&&ia.legivel&&!ia.foto_de_tela, nb=nomesBatem(ia.nome_titular,nome), renda=+$('#cRenda')?.value||w.contato?.renda||0, val=+ia.renda_liquida_mensal||0;
+        r={ok:ok&&nb,nome:ia.nome_titular,valor:val,ref:ia.mes_referencia,msg:!ok?'Não parece um comprovante de renda legível.':!nb?'O nome do comprovante não é o do cliente.':val&&renda&&val<renda*0.7?`Renda no comprovante (${brl(val)}) bem menor que a declarada (${brl(renda)}).`:`Renda confirmada: ${brl(val)} (${ia.mes_referencia||'mês não lido'}).`,alerta:val&&renda&&val<renda*0.7}; }
+      else { const ok=ia.e_comprovante_de_endereco&&ia.legivel&&!ia.foto_de_tela, nb=nomesBatem(ia.nome_titular,nome), cepOk=onlyDig(ia.cep)&&onlyDig(ia.cep)===onlyDig($('#nCep')?.value||'');
+        r={ok,nome:ia.nome_titular,endereco:[ia.logradouro_e_numero,ia.bairro,ia.cidade].filter(Boolean).join(', '),cep:ia.cep,data:ia.data_emissao,msg:!ok?'Não parece um comprovante de endereço legível.':`${nb?'Em nome do cliente':'Em nome de outra pessoa ('+(ia.nome_titular||'?')+')'} · ${cepOk?'CEP confere':'CEP diferente do informado'}`,alerta:!nb||!cepOk}; }
+    } else r={ok:true,simulado:!fb,msg:fb?'Sem IA: o analista confere a foto.':'Comprovante lido (simulado).'};
+  }catch(e){ r={ok:true,msg:'IA indisponível: o analista confere a foto.'}; }
+  w.compr[tipo]={foto,...r,status:'OK'}; passoContato();
+}
+function guardarContato(){ const w=S.w; if(!$('#cTel1')) return; w.contatoRasc={}; ['cTel1','cTel2','cEmail','nCep','nEnd','nBairro','nCidade','cProf','cRenda','cInd'].forEach(id=>{ const e=$('#'+id); if(e) w.contatoRasc[id]=e.value; }); }
+function blocoCompr(){
+  const w=S.w, c=w.compr||{}, item=(t,nome)=>{ const x=c[t];
+    return `<div class="compr"><b>${nome}</b><span class="small muted">opcional — ajuda a aprovar</span>
+      ${x?.status==='LENDO'?'<div class="small"><span class="spin sm"></span> Lendo…</div>':x?`<div class="small" style="color:${x.ok&&!x.alerta?'var(--ok)':'var(--bad)'}">${x.ok&&!x.alerta?'✓':'⚠'} ${esc(x.msg||'')}</div>`:''}
+      <label class="btn sm">${x?'Trocar foto':'Fotografar'}<input type="file" accept="image/*" capture="environment" data-compr="${t}" hidden></label></div>`; };
+  return `<h3>Comprovantes</h3><div class="grid g2">${item('renda','Comprovante de renda')}${item('endereco','Comprovante de endereço')}</div>`;
+}
+function restaurarContato(){ const r=S.w?.contatoRasc; if(!r) return; Object.entries(r).forEach(([id,v])=>{ const e=$('#'+id); if(e&&v!=null&&!e.value) e.value=v; }); }
+
+/* ======================= REVISÃO DA PROPOSTA PELA IA ======================= */
+const PROMPT_REV=`Você é um analista antifraude de uma loja que vende celular parcelado. Imagens: 1) frente do documento, 2) selfie do cliente${'${extra}'}. DADOS informados pelo vendedor estão abaixo.
+Procure sinais de fraude: documento fotografado de uma tela ou fotocópia, documento adulterado (fontes, alinhamento, foto colada), idade aparente na selfie muito diferente da data de nascimento, selfie que parece foto impressa, dados que não combinam (nome, nascimento, CPF no documento).
+Responda SOMENTE com JSON: {"risco":"baixo|medio|alto","alertas":["frases curtas em português"],"resumo":""}
+DADOS: `;
+async function revisaoIA(v,docs){
+  const box=$('#iaRev'); if(!box) return;
+  if(!iaChave()){ box.innerHTML='<p class="small muted">Revisão automática da IA: configure a chave da IA para ativar.</p>'; return; }
+  if(!docs.frente||!docs.selfie) return;
+  box.innerHTML='<p class="small muted"><span class="spin sm"></span> A IA está revisando a proposta…</p>';
+  try{ const c=v.cliente||{}, dados={nome:c.nome,cpf:c.cpf,nascimento:c.nasc,renda:c.renda,profissao:c.profissao,cidade:c.cidade,comprovantes:v.verificacao?.comprovantes||null};
+    const r=await iaVisao(PROMPT_REV.replace('${extra}','')+JSON.stringify(dados),[docs.frente,docs.selfie]); if(!$('#iaRev')) return;
+    const cor={baixo:'green',medio:'amber',alto:'red'}[r.risco]||'gray';
+    box.innerHTML=`<div class="${r.risco==='alto'?'ln-alerta':'msg'}" style="margin:8px 0"><div><b>Revisão da IA: risco ${badge(r.risco||'?',cor)}</b> ${esc(r.resumo||'')}${(r.alertas||[]).length?'<br>'+r.alertas.map(a=>'• '+esc(a)).join('<br>'):''}</div></div>`;
+  }catch(e){ box.innerHTML='<p class="small muted">A revisão da IA não respondeu agora.</p>'; }
+}
+function blocoVerificacoesExtra(v){
+  const vd=v.verificacao?.vida, cp=v.verificacao?.comprovantes||{};
+  const linha=(t,ok,txt)=>`<div class="small">${ok===true?'✅':ok===false?'⚠️':'⬜'} <b>${t}:</b> ${esc(txt)}</div>`;
+  return `<div class="mt">${linha('Prova de vida',vd?vd.ok:null,vd?(vd.ok?(vd.metodo==='IA'?'confirmada pela IA':'movimento do rosto confirmado'):'recusada'):'não feita (foto enviada por arquivo)')}
+    ${linha('Comprovante de renda',cp.renda?(cp.renda.ok&&!cp.renda.alerta):null,cp.renda?cp.renda.msg:'não enviado')}
+    ${linha('Comprovante de endereço',cp.endereco?(cp.endereco.ok&&!cp.endereco.alerta):null,cp.endereco?cp.endereco.msg:'não enviado')}</div>`;
+}
+
+/* ======================= CELULAR USADO NA ENTRADA ======================= */
+function formUsado(){
+  const w=S.w, u=w.sel.usado||{}, max=r2((w.sel.preco||0)*(Number(S.cfg.usadoMaxPct)||40)/100);
+  openModal(`<h2>Celular usado como parte da entrada</h2><p class="muted" style="margin-top:-6px">Avalie o aparelho do cliente. O valor abate a entrada e o aparelho vai para o estoque de seminovos. Máximo: ${brl(max)} (${S.cfg.usadoMaxPct||40}% do aparelho novo).</p>
+    <div class="grid g3"><label>Marca<input id="usMarca" value="${esc(u.marca||'')}"></label><label>Modelo<input id="usModelo" value="${esc(u.modelo||'')}"></label><label>IMEI<input id="usImei" inputmode="numeric" maxlength="15" value="${esc(u.imei||'')}"></label>
+      <label>Estado<select id="usEstado">${['Ótimo','Bom','Regular'].map(e=>`<option ${u.estado===e?'selected':''}>${e}</option>`).join('')}</select></label><label>Valor da avaliação (R$)<input id="usValor" type="number" step="0.01" max="${max}" value="${u.valor||''}"></label></div>
+    <div class="grid g2 mt">${[['liga','Liga e funciona (tela, câmera, som)'],['tela','Tela sem trincas'],['conta','Conta Google/iCloud removida na frente do vendedor'],['bateria','Bateria segura carga'],['anatel','IMEI consultado no Celular Legal (Anatel): regular']].map(([k,t])=>`<label class="check"><input type="checkbox" data-usck="${k}" ${(u.ck||{})[k]?'checked':''}> <span>${t} *</span></label>`).join('')}</div>
+    <div class="row mt"><label class="btn sm">Foto da frente<input type="file" accept="image/*" capture="environment" data-usfoto="0" hidden></label><label class="btn sm">Foto de trás<input type="file" accept="image/*" capture="environment" data-usfoto="1" hidden></label><span id="usFotos" class="small muted">${(u.fotos||[]).filter(Boolean).length} foto(s)</span></div>
+    <div class="row mt" style="justify-content:space-between">${u.valor?'<button class="btn red" id="usTirar">Tirar o usado</button>':'<span></span>'}<button class="btn gold" id="usOk">Usar na entrada</button></div>`);
+  S._usFotos=[...(u.fotos||[])];
+  document.querySelectorAll('[data-usfoto]').forEach(i=>i.addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f) return; const img=await carregarImg(await lerArquivo(f)); S._usFotos[+e.target.dataset.usfoto]=redimensionar(img,900,0.7); $('#usFotos').textContent=S._usFotos.filter(Boolean).length+' foto(s)'; }));
+  $('#usTirar')?.addEventListener('click',()=>{ delete w.sel.usado; closeModal(); passoAparelho(); });
+  $('#usOk').onclick=async()=>{ const ck={}; document.querySelectorAll('[data-usck]').forEach(i=>ck[i.dataset.usck]=i.checked);
+    const d={marca:$('#usMarca').value.trim(),modelo:$('#usModelo').value.trim(),imei:onlyDig($('#usImei').value),estado:$('#usEstado').value,valor:r2(+$('#usValor').value||0),ck,fotos:S._usFotos};
+    if(!d.marca||!d.modelo) return toast('Informe marca e modelo','err'); if(!imeiOk(d.imei)) return toast('IMEI do usado inválido','err');
+    if(Object.values(ck).filter(Boolean).length<5) return toast('Confira todos os itens do checklist','err'); if(S._usFotos.filter(Boolean).length<2) return toast('Tire as duas fotos do usado','err');
+    if(!(d.valor>0)||d.valor>max) return toast(`O valor precisa ser entre R$ 0,01 e ${brl(max)}`,'err');
+    const emUso=(await DB.list('aparelhos',[['imei','==',d.imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
+    if(emUso.length) return toast('Este IMEI tem contrato ativo com a loja: não pode entrar como usado.','err');
+    const ln=await DB.get('listanegra','imei_'+d.imei).catch(()=>null); if(ln) return toast('IMEI bloqueado na lista negra.','err');
+    w.sel.usado=d; closeModal(); passoAparelho(); };
+}
+
+/* ======================= PROTEÇÃO DO APARELHO E CHIP JUNTO ======================= */
+function blocoExtrasVenda(item){
+  const w=S.w, pm=Number(S.cfg.protecaoMensal)||0, u=w.sel.usado;
+  return `<div class="grid g2 mt">
+    <div class="compr"><b>Celular usado na entrada</b>${u?`<span class="small">${esc(u.marca+' '+u.modelo)} · ${esc(u.estado)} · <b>${brl(u.valor)}</b> abatidos da entrada</span>`:'<span class="small muted">o cliente tem um celular para dar como parte do pagamento?</span>'}
+      <button class="btn sm" data-act="formUsado">${u?'Editar avaliação':'Avaliar usado'}</button></div>
+    ${pm>0&&!item.semTrava?`<div class="compr"><b>Proteção NexumCell</b><span class="small muted">${esc(S.cfg.protecaoCobertura||'Conserto de tela e defeitos fora da garantia')} · +${brl(pm)} por parcela</span>
+      <label class="check"><input type="checkbox" id="nProtecao" ${w.sel.protecao?'checked':''}> <span>Incluir proteção</span></label></div>`:''}</div>`;
+}
+function blocoChip(){
+  const tipos=String(S.cfg.chipComissoes||'Pré-pago:5,Controle:15,Pós-pago:30').split(',').map(s=>s.split(':'));
+  return `<div class="card mt" style="padding:14px"><b>Chip ou plano vendido junto (opcional)</b><div class="grid g4 mt">
+    <label>Operadora<select id="chOp"><option value="">Não vendeu</option>${['TIM','Claro','Vivo','Outra'].map(o=>`<option>${o}</option>`).join('')}</select></label>
+    <label>Tipo<select id="chTipo">${tipos.map(([t,c])=>`<option value="${esc(t)}">${esc(t)} (comissão ${brl(+c||0)})</option>`).join('')}</select></label>
+    <label>Número da linha<input id="chNum" inputmode="tel"></label><label>ICCID (número do chip)<input id="chIccid" inputmode="numeric" maxlength="22"></label></div></div>`;
+}
+function lerChip(){ const op=$('#chOp')?.value; if(!op) return null; const tipos=Object.fromEntries(String(S.cfg.chipComissoes||'Pré-pago:5,Controle:15,Pós-pago:30').split(',').map(s=>s.split(':')));
+  const t=$('#chTipo').value; return {operadora:op,tipo:t,numero:onlyDig($('#chNum').value),iccid:onlyDig($('#chIccid').value),comissao:+tipos[t]||0,em:Date.now(),vendedorNome:S.me.nome}; }
+
+/* ======================= PRODUTOS SEM TRAVA ======================= */
+async function salvarProdutoSemTrava(x,btn){
+  const w=S.w, pct=Number(S.cfg.entradaSemTravaPct)||50, entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
+  const acs=await acessoriosEscolhidos(), acessValor=r2(acs.reduce((s,a)=>s+a.preco,0)), valorTotal=r2(x.preco+acessValor), usado=w.sel.usado||null;
+  if(entrada<r2(valorTotal*pct/100)) return toast(`Produto sem trava: a entrada mínima é ${pct}% (${brl(valorTotal*pct/100)})`,'err');
+  if(entrada>=valorTotal) return toast('Entrada maior que o valor da compra','err');
+  if(usado&&usado.valor>entrada) return toast('O valor do usado é maior que a entrada','err');
+  if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
+  btn.disabled=true;
+  const juros=jurosDo(x), fin=r2(valorTotal-entrada), vp=parcelaFlat(fin,juros,n);
+  await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei:'',imei2:'',serie:($('#nSerie')?.value||'').trim(),cor:w.sel.cor||'',semTrava:true},
+    valor:valorTotal,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:0,usado,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
+    parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
+  await log('Produto escolhido (sem trava)',w.vendaId,`${x.marca} ${x.modelo}`); irPasso(6);
+}
+async function passoEntregaSemTrava(v){
+  $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Entrega do ${esc(apNome(v))}</h2>
+    <div class="msg mb">Este produto não tem trava. A venda já está ativa e as parcelas aparecem no portal do cliente.</div>
+    <div id="entregaBox"><div class="warn"><b>Foto da entrega (obrigatória):</b> tire uma foto do cliente com o produto.</div>
+      <div class="grid g2 mt">${CHECK_ENTREGA.filter(([k])=>k!=='liga').map(([k,t,ob])=>`<label class="check"><input type="checkbox" data-ck="${k}"> <span>${t}${ob?' *':''}</span></label>`).join('')}</div>
+      <div class="row mt"><label class="btn gold">Tirar foto da entrega<input type="file" accept="image/*" capture="environment" data-entrega="${v.id}" hidden></label><span id="entregaMsg" class="small muted"></span></div></div>
+    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
+      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled>Concluir venda</button></div><div id="instStatus" class="inst-status ok" hidden></div></div>`;
+}
+
+/* ======================= TREINAMENTO DO VENDEDOR ======================= */
+const TREINO=[
+ ['O processo de venda','A venda tem 8 passos: documento, biometria (com prova de vida), contato, análise de crédito, escolha do aparelho, contrato, entrada e instalação da trava. Nenhum passo pode ser pulado.'],
+ ['Documento e biometria','Só vale documento original, na mão do cliente. A biometria é feita na hora, com o cliente na loja: ele olha, vira o rosto e sorri. Nunca use foto de foto ou foto de tela.'],
+ ['Telefones e confirmação','Os dois telefones precisam ser do próprio cliente, diferentes e nunca da equipe. O financeiro confirma os dados por WhatsApp em até 3 dias.'],
+ ['Preço e entrada','O preço e os juros vêm do sistema e não podem ser mudados. A entrada mínima é a definida pelo dono. Usado na entrada só com checklist completo e fotos.'],
+ ['IMEI e estoque','Só se vende aparelho que está no estoque da loja. O IMEI é conferido pelo *#06# com foto, e o número precisa ser consultado no Celular Legal (Anatel).'],
+ ['Trava e entrega','O aparelho só sai da loja depois que a trava sobe e o painel fica verde. Antes de entregar: checklist e foto do cliente com o aparelho.'],
+ ['Postura com o cliente','Explique com calma as parcelas, o desconto de pagar antes e o bloqueio em caso de atraso. Nunca prometa o que não está no contrato.']];
+const QUIZ=[
+ ['O cliente quer levar o aparelho e pagar a entrada amanhã. O que fazer?',['Entregar, ele parece confiável','Só entregar depois da entrada paga e da trava instalada','Entregar e travar depois'],1],
+ ['O cliente mandou por WhatsApp a foto do RG. Pode usar?',['Sim','Não, o documento precisa ser fotografado na loja','Só se for nítida'],1],
+ ['Qual telefone NÃO pode ser cadastrado?',['O celular do cliente','O telefone de um parente do cliente','O seu telefone ou de alguém da equipe'],2],
+ ['O cliente pediu desconto no preço do aparelho. Você:',['Muda o preço no sistema','Explica que o preço é fixo e oferece o desconto de pagar antes do vencimento','Dá o desconto na entrada sem avisar'],1],
+ ['O IMEI digitado não confere com a tela *#06#. O que fazer?',['Seguir assim mesmo','Conferir de novo; se não bater, não vender aquele aparelho','Digitar outro IMEI do estoque'],1],
+ ['A trava não subiu depois de 15 minutos. Você:',['Entrega o aparelho e pede para o cliente voltar','Não entrega, refaz a instalação e avisa o suporte se continuar','Cancela a venda sem avisar'],1],
+ ['Quando a biometria é aceita?',['Com o cliente na loja, fazendo a prova de vida na câmera','Com foto da galeria','Com a foto do documento'],0],
+ ['O usado do cliente ainda está com a conta Google. Você:',['Aceita e remove depois','Pede para ele remover na sua frente antes de avaliar','Recusa qualquer usado'],1]];
+PAGES.treinamento = async () => {
+  const t=S.me.treinamento;
+  $('#view').innerHTML=`<div class="card"><h2>Treinamento NexumCell</h2><p class="muted" style="margin-top:-6px">${t?.aprovado?`✅ Você foi aprovado(a) em ${fmtDT(t.em)} com ${t.nota}% de acertos.`:'Leia as lições e responda a prova. É preciso acertar 80% para começar a vender.'}</p>
+    ${TREINO.map(([ti,tx],i)=>`<div class="msg"><small>Lição ${i+1}</small><b>${esc(ti)}</b><br>${esc(tx)}</div>`).join('')}
+    ${S.cfg.urlTreinamento?`<p><a class="btn" target="_blank" rel="noopener" href="${esc(S.cfg.urlTreinamento)}">Assistir aos vídeos do treinamento</a></p>`:''}</div>
+  <div class="card mt"><h2>Prova</h2>${QUIZ.map(([q,ops],i)=>`<div class="mt"><b>${i+1}. ${esc(q)}</b>${ops.map((o,k)=>`<label class="check"><input type="radio" name="q${i}" value="${k}"> <span>${esc(o)}</span></label>`).join('')}</div>`).join('')}
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="corrigirQuiz">Enviar respostas</button></div></div>`;
+};
+async function corrigirQuiz(){
+  const r=QUIZ.map((q,i)=>+(document.querySelector(`[name=q${i}]:checked`)?.value??-1)); if(r.includes(-1)) return toast('Responda todas as perguntas','err');
+  const nota=Math.round(QUIZ.filter((q,i)=>q[2]===r[i]).length/QUIZ.length*100), aprovado=nota>=80;
+  const t={nota,aprovado,em:Date.now(),tentativas:(S.me.treinamento?.tentativas||0)+1};
+  await DB.set('users',S.me.uid,{treinamento:t}).catch(()=>{}); S.me.treinamento=t; await log('Prova do treinamento',S.me.uid,`${nota}%`);
+  toast(aprovado?`Aprovado(a) com ${nota}%! Já pode vender.`:`Você acertou ${nota}%. Releia as lições e tente de novo.`,aprovado?'ok':'err'); render();
+}
+const precisaTreino=()=>S.me?.role==='VENDEDOR'&&S.cfg.treinamentoObrigatorio!=='nao'&&!S.me.treinamento?.aprovado;
+
+/* ======================= MEDALHAS E DESAFIO DA SEMANA ======================= */
+function medalhasDe(vendas,avals,uid){
+  const h=hoje(), mes=h.slice(0,7), sem=addDays(h,-7), conc=vendas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&v.entradaPaga);
+  const dt=v=>isoDate(new Date(v.entradaPaga.em)), meus=conc.filter(v=>v.vendedorUid===uid), mesV=meus.filter(v=>dt(v).startsWith(mes)), m=[];
+  const porV={}; conc.filter(v=>dt(v)>=sem).forEach(v=>porV[v.vendedorUid]=(porV[v.vendedorUid]||0)+1); const top=Object.entries(porV).sort((a,b)=>b[1]-a[1])[0];
+  if(top&&top[0]===uid&&top[1]>0) m.push(['🏆','Vendedor da semana',`${top[1]} vendas em 7 dias`]);
+  const p1=mesV.filter(v=>(v.parcelas||[])[0]?.venc<h); if(mesV.length>=3&&p1.every(v=>v.parcelas[0].pago&&v.parcelas[0].pagoEm<=v.parcelas[0].venc)) m.push(['🛡️','Zero calote','clientes do mês pagaram a 1ª parcela em dia']);
+  if(mesV.filter(v=>(v.acessorios||[]).length).length>=3) m.push(['🎧','Rei dos acessórios',`${mesV.filter(v=>(v.acessorios||[]).length).length} vendas com acessório`]);
+  if(mesV.filter(v=>v.chip).length>=3) m.push(['📶','Rei do chip',`${mesV.filter(v=>v.chip).length} chips no mês`]);
+  const av=avals.filter(a=>meus.some(v=>v.id===a.vendaId)); if(av.length>=3&&av.reduce((s,a)=>s+a.nota,0)/av.length>=9) m.push(['⭐','Cliente feliz','média 9+ nas avaliações']);
+  return m;
+}
+function desafioHtml(vendas,uid){
+  const meta=+S.cfg.desafioMeta||0; if(!meta||!S.cfg.desafioTexto) return '';
+  const sem=segundaDe(hoje()), qtd=vendas.filter(v=>['ATIVA','QUITADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em))>=sem&&(!uid||v.vendedorUid===uid)).length;
+  return `<div class="card mt" style="border-color:#F3D98B;background:#FFFBEF"><b>🎯 Desafio da semana:</b> ${esc(S.cfg.desafioTexto)}${S.cfg.desafioPremio?` · Prêmio: <b>${esc(S.cfg.desafioPremio)}</b>`:''}
+    <div class="barra ${qtd>=meta?'ok':''}"><i style="width:${Math.min(100,qtd/meta*100)}%"></i></div><span class="small">${qtd} de ${meta} vendas${uid?'':' (todos)'}${qtd>=meta?' — conquistado! 🎉':''}</span></div>`;
+}
+async function blocoMedalhas(vendas){
+  const avals=await DB.list('avaliacoes').catch(()=>[]), us=(await DB.list('users').catch(()=>[])).filter(u=>u.role==='VENDEDOR'&&u.ativo!==false);
+  return `<div class="card mt"><h2>Medalhas do mês</h2>${us.map(u=>{ const m=medalhasDe(vendas,avals,u.id); return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)"><b style="min-width:180px">${esc(u.nome)}</b>${m.map(x=>`<span class="badge b-amber" title="${esc(x[2])}">${x[0]} ${esc(x[1])}</span>`).join(' ')||'<span class="small muted">nenhuma ainda</span>'}<span class="small muted" style="margin-left:auto">${u.treinamento?.aprovado?'treinamento ✓':'sem treinamento'}</span></div>`; }).join('')}
+    ${desafioHtml(vendas,'')}</div>`;
+}
+
+/* ======================= RELATÓRIO DO MÊS (PDF) ======================= */
+async function relatorioMes(){
+  const mes=S.filtro.relMes||hoje().slice(0,7), vendas=await loadVendas(), [y,m]=mes.split('-');
+  const conc=vendas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
+  let rec=0; vendas.forEach(v=>{ if(v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes)) rec+=+v.entradaPaga.valor; (v.parcelas||[]).forEach(p=>{ if(p.pago&&String(p.pagoEm||'').startsWith(mes)) rec+=+(p.valorPago??p.valor); }); });
+  const desp=(await DB.list('despesas').catch(()=>[])).filter(d=>String(d.data).startsWith(mes)).reduce((s,d)=>s+d.valor,0), inad=inadimplencia(vendas);
+  const rank={}; conc.forEach(v=>{ const r=rank[v.vendedorNome]=rank[v.vendedorNome]||{q:0,v:0}; r.q++; r.v+=v.valor; });
+  const porLoja={}; conc.forEach(v=>{ const r=porLoja[v.lojaNome]=porLoja[v.lojaNome]||{q:0,v:0}; r.q++; r.v+=v.valor; });
+  const nome=new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  janelaImpressao('Relatório '+nome,`<h1>RELATÓRIO DO MÊS — ${nome.toUpperCase()}</h1><div class="cab">${esc(S.cfg.empresa)} · gerado em ${fmtDT(Date.now())} por ${esc(S.me.nome)}</div>
+    <table><tr><td>Vendas concluídas</td><td><b>${conc.length}</b> · ${brl(conc.reduce((s,v)=>s+v.valor,0))}</td></tr><tr><td>Recebido no mês (entradas + parcelas)</td><td><b>${brl(rec)}</b></td></tr>
+      <tr><td>Despesas lançadas</td><td>${brl(desp)}</td></tr><tr><td>Saldo do mês</td><td><b>${brl(rec-desp)}</b></td></tr><tr><td>Inadimplência da carteira</td><td>${inad.pct.toFixed(1)}% · ${brl(inad.aberto)} em aberto</td></tr>
+      <tr><td>Contratos ativos</td><td>${vendas.filter(v=>v.status==='ATIVA').length}</td></tr><tr><td>Retomados no mês</td><td>${vendas.filter(v=>v.status==='RETOMADA'&&String(v.retomada?.em&&isoDate(new Date(v.retomada.em))).startsWith(mes)).length}</td></tr></table>
+    <h3 style="font-family:Arial">Por loja</h3><table>${Object.entries(porLoja).map(([n,r])=>`<tr><td>${esc(n)}</td><td>${r.q} vendas</td><td>${brl(r.v)}</td></tr>`).join('')||'<tr><td>—</td></tr>'}</table>
+    <h3 style="font-family:Arial">Ranking de vendedores</h3><table>${Object.entries(rank).sort((a,b)=>b[1].v-a[1].v).map(([n,r],i)=>`<tr><td>${i+1}º ${esc(n)}</td><td>${r.q} vendas</td><td>${brl(r.v)}</td></tr>`).join('')||'<tr><td>—</td></tr>'}</table>`);
+}
+
+/* ======================= RETIRADAS AGENDADAS ======================= */
+async function blocoRetiradas(){
+  try{ const l=(await DB.list('preanalises',[['lojaId','==',S.me.lojaId]])).filter(x=>x.agendamento&&x.agendamento.data>=hoje()).sort((a,b)=>(a.agendamento.data+a.agendamento.hora).localeCompare(b.agendamento.data+b.agendamento.hora)).slice(0,8);
+    if(!l.length) return '';
+    return `<div class="card mt"><h2>Retiradas agendadas (pré-aprovados)</h2>${l.map(x=>`<div class="pend"><div class="t2"><b>${fmtD(x.agendamento.data)} às ${esc(x.agendamento.hora)} · ${esc(x.nome)}</b><span>${esc(x.aparelho||'')} · pré-aprovado até ${brl(x.limite||0)} · ${fmtFone(x.telefone)}</span></div>
+      <a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(x.telefone)}?text=${encodeURIComponent('Olá, '+primeiroNome(x.nome)+'! Confirmando sua retirada na '+(x.lojaNome||'loja')+' em '+fmtD(x.agendamento.data)+' às '+x.agendamento.hora+'. Traga RG ou CNH.')}">Confirmar</a></div>`).join('')}</div>`; }catch(e){ return ''; }
+}
+
+/* ======================= LICENÇA (sistema vendido para outras lojas) ======================= */
+function licencaVencida(){ const l=window.NEXUMCELL_LICENCA; if(!l||!l.validoAte) return false; return hoje()>l.validoAte; }
+
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda,quebradas=0){
   let s=500-quebradas*60; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
@@ -2957,9 +3227,10 @@ PAGES.relatorios = async () => {
     return `<tr><td><b>${mesNome(k)}</b></td><td class="right">${vs.length}</td><td class="right">${brl(vs.reduce((s,v)=>s+(v.financiado||0),0))}</td><td class="right">${brl(inad.venc)}</td><td class="right">${badge(pago.toFixed(1)+'%',pago<85?'red':pago<93?'amber':'green')}</td><td class="right">${brl(inad.aberto)}</td><td class="right">${vs.filter(v=>v.status==='QUITADA').length}</td><td class="right">${vs.filter(v=>v.status==='RETOMADA').length}</td></tr>`; }).join('')||'<tr><td colspan="8" class="empty">Sem vendas concluídas</td></tr>'}</table></div>
   <p class="hint">Se as safras mais recentes pagam pior que as antigas, aumente a entrada, os juros ou o rigor da análise.</p>
   ${can('DONO','FINANCEIRO')?blocoPrevisao(vendas):''}
-  <div class="row mt"><button class="btn" data-act="csvContador">${svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>')}Baixar planilha do contador (${mesNome(mes)})</button></div>
+  <div class="row mt"><button class="btn" data-act="relatorioMes">Relatório do mês (PDF)</button><button class="btn" data-act="csvContador">${svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>')}Baixar planilha do contador (${mesNome(mes)})</button></div>
   ${can('DONO','FINANCEIRO')?blocoLucro(vendas)+await blocoFluxo(vendas)+await blocoComparativo(vendas):''}${can('DONO')?blocoSimulador(vendas):''}${await blocoNps(vendas)}
-  ${can('DONO','FINANCEIRO')?blocoPdd(vendas):''}${blocoTroca(vendas)}${can('DONO','FINANCEIRO')?blocoIndicacoes(vendas):''}${can('DONO','FINANCEIRO')?await blocoFraude(vendas,us):''}`;
+  ${can('DONO','FINANCEIRO')?blocoPdd(vendas):''}${await blocoMedalhas(vendas)}${(()=>{ const ch=vendas.filter(v=>v.chip&&String(isoDate(new Date(v.chip.em))).startsWith(mes)), g={}; ch.forEach(v=>{ const o=g[v.vendedorNome]=g[v.vendedorNome]||{q:0,c:0}; o.q++; o.c+=v.chip.comissao||0; });
+    return ch.length?`<div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Chips vendidos no mês</h2><table><tr><th>Vendedor</th><th class="right">Chips</th><th class="right">Comissão</th></tr>${Object.entries(g).map(([n,o])=>`<tr><td>${esc(n)}</td><td class="right">${o.q}</td><td class="right">${brl(o.c)}</td></tr>`).join('')}</table></div>`:''; })()}${blocoTroca(vendas)}${can('DONO','FINANCEIRO')?blocoIndicacoes(vendas):''}${can('DONO','FINANCEIRO')?await blocoFraude(vendas,us):''}`;
   $('#relMes').addEventListener('change',e=>{ S.filtro.relMes=e.target.value; render(); });
 };
 
@@ -3310,7 +3581,7 @@ PAGES.config = async () => {
   <div class="card mt"><h2>Vídeos de instalação da trava</h2><p class="hint" style="margin-top:-6px">Link do YouTube ou de um arquivo .mp4 por marca. Em branco, o vendedor vê o passo a passo animado.</p>
     <div class="grid g4 mt">${MARCAS.map(m=>`<label>${m}<input data-video="${m}" value="${esc((c.videos||{})[m]||'')}" placeholder="https://youtu.be/..."></label>`).join('')}</div></div>
   <div class="card mt"><h2>Trava</h2><div class="grid g4">
-    ${f('etapaParcialDias','Limitar funções (redes sociais) com X dias de atraso','number','min="1"')}${f('etapaTotalDias','Bloqueio total com X dias de atraso','number','min="1"')}<label>Liberação de confiança (24 h, 1 vez por mês)<select data-cfg="confiancaMensal"><option value="sim" ${c.confiancaMensal!=='nao'?'selected':''}>Permitir</option><option value="nao" ${c.confiancaMensal==='nao'?'selected':''}>Não permitir</option></select></label>${f('appsParcial','Apps extras bloqueados na etapa parcial (pacotes separados por vírgula)')}${f('bonusIndicacao','Bônus por indicação de amigo (R$ de desconto na parcela)','number','step="0.01"')}${f('pontosPorParcela','Pontos por parcela paga em dia','number','min="0"')}${f('pontosValor','Valor de 100 pontos (R$)','number','step="0.01"')}${f('limiteDescontoPct','Desconto máximo sem aprovação do dono (%)','number','step="0.5"')}${f('urlPonto','Link do ponto no NEXUM RH')}${f('horaAbre','Loja abre às','time')}${f('horaFecha','Loja fecha às','time')}${f('maxDiasOffline','Trava se ficar X dias sem internet','number','min="1"')}${f('telefoneSuporte','Telefone do suporte')}${f('frpContas','IDs das contas Google de proteção (FRP)')}
+    ${f('etapaParcialDias','Limitar funções (redes sociais) com X dias de atraso','number','min="1"')}${f('etapaTotalDias','Bloqueio total com X dias de atraso','number','min="1"')}<label>Liberação de confiança (24 h, 1 vez por mês)<select data-cfg="confiancaMensal"><option value="sim" ${c.confiancaMensal!=='nao'?'selected':''}>Permitir</option><option value="nao" ${c.confiancaMensal==='nao'?'selected':''}>Não permitir</option></select></label>${f('appsParcial','Apps extras bloqueados na etapa parcial (pacotes separados por vírgula)')}${f('bonusIndicacao','Bônus por indicação de amigo (R$ de desconto na parcela)','number','step="0.01"')}${f('pontosPorParcela','Pontos por parcela paga em dia','number','min="0"')}${f('pontosValor','Valor de 100 pontos (R$)','number','step="0.01"')}${f('limiteDescontoPct','Desconto máximo sem aprovação do dono (%)','number','step="0.5"')}${f('urlPonto','Link do ponto no NEXUM RH')}${f('usadoMaxPct','Usado na entrada: máximo (% do aparelho novo)','number')}${f('protecaoMensal','Proteção NexumCell (R$ por parcela, 0 = desligada)','number','step="0.01"')}${f('protecaoCobertura','O que a proteção cobre')}${f('chipComissoes','Comissão de chip (Tipo:R$, separados por vírgula)')}${f('entradaSemTravaPct','Entrada mínima de produtos sem trava (%)','number')}<label>Treinamento obrigatório para vendedor novo<select data-cfg="treinamentoObrigatorio"><option value="sim" ${c.treinamentoObrigatorio!=='nao'?'selected':''}>Sim</option><option value="nao" ${c.treinamentoObrigatorio==='nao'?'selected':''}>Não</option></select></label>${f('urlTreinamento','Link dos vídeos de treinamento (ELEVARE, YouTube…)')}${f('desafioTexto','Desafio da semana (texto)')}${f('desafioMeta','Desafio: vendas na semana','number')}${f('desafioPremio','Desafio: prêmio')}${f('horaAbre','Loja abre às','time')}${f('horaFecha','Loja fecha às','time')}${f('maxDiasOffline','Trava se ficar X dias sem internet','number','min="1"')}${f('telefoneSuporte','Telefone do suporte')}${f('frpContas','IDs das contas Google de proteção (FRP)')}
   </div><label class="mt">Mensagem padrão na tela de bloqueio<textarea data-cfg="mensagemTrava" rows="2">${esc(c.mensagemTrava)}</textarea></label>
   <p class="small muted">Alterações de tolerância, mensagem e FRP valem para os próximos contratos. Para contratos existentes, altere pelo aparelho (Mensagem) ou peça ao suporte.</p></div>
   <div class="card mt"><h2>Instalação do app (QR code)</h2><div class="grid g2">
@@ -3335,15 +3606,16 @@ async function salvarConfig(){
 async function editarItem(id){
   const x=id?await DB.get('catalogo',id):{marca:'Samsung',modelo:'',capacidade:'128 GB',preco:'',ativo:true};
   openModal(`<h2>${id?'Editar':'Adicionar'} aparelho</h2><div class="grid g2">
-    <label>Marca<select id="ctMarca">${[...MARCAS,'Outra'].map(m=>`<option ${m===x.marca?'selected':''}>${m}</option>`).join('')}</select></label>
+    <label>Marca<input id="ctMarca" list="dlMarcas" value="${esc(x.marca)}"><datalist id="dlMarcas">${MARCAS.map(m=>`<option>${m}</option>`).join('')}</datalist></label>
     <label>Modelo<input id="ctModelo" value="${esc(x.modelo)}" placeholder="Galaxy A16"></label>
-    <label>Memória (armazenamento)<select id="ctCap">${['32 GB','64 GB','128 GB','256 GB','512 GB','1 TB'].map(m=>`<option ${m===x.capacidade?'selected':''}>${m}</option>`).join('')}</select></label>
+    <label>Memória (armazenamento)<select id="ctCap">${['—','32 GB','64 GB','128 GB','256 GB','512 GB','1 TB'].map(m=>`<option ${m===x.capacidade?'selected':''}>${m}</option>`).join('')}</select></label>
     <label>Valor à vista (R$)<input id="ctPreco" type="number" step="0.01" min="0" value="${x.preco}"></label></div>
     <label class="check mt"><input type="checkbox" id="ctAtivo" ${x.ativo!==false?'checked':''}> Disponível para venda</label>
+    <label class="check"><input type="checkbox" id="ctSemTrava" ${x.semTrava?'checked':''}> <span><b>Produto sem trava</b> (fone, relógio, caixa de som, tablet sem Android…) — não instala a trava e exige entrada maior (${S.cfg.entradaSemTravaPct||50}%)</span></label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarItem" data-id="${id||''}">Salvar</button></div>`);
 }
 async function salvarItem(id){
-  const d={marca:$('#ctMarca').value,modelo:$('#ctModelo').value.trim(),capacidade:$('#ctCap').value,preco:r2(+$('#ctPreco').value),ativo:$('#ctAtivo').checked,atualizadoEm:Date.now(),por:S.me.nome};
+  const d={marca:$('#ctMarca').value.trim()||'Outra',modelo:$('#ctModelo').value.trim(),capacidade:$('#ctCap').value,preco:r2(+$('#ctPreco').value),ativo:$('#ctAtivo').checked,semTrava:$('#ctSemTrava').checked,atualizadoEm:Date.now(),por:S.me.nome};
   if(!d.modelo||!(d.preco>0)){ toast('Informe modelo e valor','err'); return; }
   await DB.set('catalogo',id||slugCat(d.marca,d.modelo,d.capacidade),d);
   await log('Catálogo alterado',id||'novo',`${d.marca} ${d.modelo} ${d.capacidade} = ${brl(d.preco)}`); closeModal(); render();
@@ -3381,6 +3653,7 @@ const ACT = {
   novaDespesa:()=>novaDespesa(), editarMinimo:()=>editarMinimo(), escSemana:d=>{ S.filtro.escSem=d.v; render(); }, salvarEscala:()=>salvarEscala(),
   sbCheia:()=>{ const e=document.querySelector('.sim-balcao'); (e.requestFullscreen||e.webkitRequestFullscreen||(()=>{})).call(e); }, sbCopiar:()=>{ navigator.clipboard?.writeText(S._simTxt||''); toast('Copiado — cole no WhatsApp do cliente','ok'); },
   avisoMassa:()=>avisoMassa(), gerenciarRespostas:()=>gerenciarRespostas(), apagarResposta:async d=>{ await DB.set('respostas',d.id,{ativo:false}); gerenciarRespostas(); },
+  formUsado:()=>formUsado(), corrigirQuiz:()=>corrigirQuiz(), relatorioMes:()=>relatorioMes(),
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
   filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },
@@ -3389,7 +3662,7 @@ const ACT = {
   demo:d=>entrarDemo(d.role), demoReset:()=>{ demoInit(true); toast('Exemplos restaurados','ok'); },
   novaProposta:()=>{ novoFluxo(); S.tab='nova'; render(); }, continuar:d=>continuar(d.id), irPasso:d=>irPasso(+d.n),
   docTipo:d=>{ S.w.docTipo=d.v; S.w.fotos={}; S.w.dados=null; passoDoc(); }, lerDoc:(d,b)=>lerDoc(b), docOk:()=>docOk(),
-  bioCapturar:()=>bioCapturar(), bioRefazer:()=>{ S.w.selfie=null; S.w.face=null; passoBio(); },
+  bioCapturar:()=>bioCapturar(), bioRefazer:()=>{ S.w.selfie=null; S.w.face=null; S.w.vida=null; passoBio(); },
   enviarAnalise:(d,b)=>enviarAnalise(b), simularDecisao:async d=>{ await DB.set('vendas',S.w.vendaId,{status:d.r,analise:{resultado:d.r,porNome:'Simulação',em:Date.now(),limite:d.r==='APROVADA'?3000:null}}); },
   selMarca:d=>{ S.w.sel={marca:d.v}; passoAparelho(); }, selItem:d=>selItem(d.id), salvarAparelho:(d,b)=>salvarAparelho(b), confirmarEntrada:(d,b)=>confirmarEntrada(b),
   confirmarDado:d=>confirmarDado(d.id,d.k,d.st), verVenda:d=>verVenda(d.id), cancelarVenda:d=>cancelarVenda(d.id),
@@ -3421,9 +3694,14 @@ document.addEventListener('input',e=>{ if(['rgEntrada','rgN','rgJuros'].includes
 { const _vc=verChamado; verChamado=async(...a)=>{ await _vc(...a); respostasProntas('#chResp'); }; }
 { const _vp=verPedido; verPedido=async(...a)=>{ await _vp(...a); respostasProntas('#pdTxt'); }; }
 { const _ch=PAGES.chamados; PAGES.chamados=async()=>{ await _ch(); if(can('DONO','SUPORTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn sm" data-act="gerenciarRespostas">Respostas prontas</button></div>'); }; }
+{ const _pc=passoContato; passoContato=async(...a)=>{ const r=await _pc(...a); restaurarContato(); return r; }; }
+{ const _nv=PAGES.nova; PAGES.nova=async()=>{ if(precisaTreino()){ await PAGES.treinamento(); $('#view').insertAdjacentHTML('afterbegin','<div class="warn mb"><b>Antes de vender, faça o treinamento.</b> Leia as lições e passe na prova (80%).</div>'); return; } return _nv(); }; }
+{ const _i2=PAGES.inicio; PAGES.inicio=async()=>{ await _i2(); if(!can('VENDEDOR','GERENTE')) return; const vs=await loadVendas(), av=await DB.list('avaliacoes').catch(()=>[]), m=can('VENDEDOR')?medalhasDe(vs,av,S.me.uid):[];
+  $('#view').insertAdjacentHTML('beforeend',desafioHtml(vs,can('VENDEDOR')?S.me.uid:'')+(m.length?`<div class="card mt"><h2>Minhas medalhas do mês</h2><div class="row">${m.map(x=>`<div class="kpi" style="min-width:150px"><small>${x[0]} ${esc(x[1])}</small><span>${esc(x[2])}</span></div>`).join('')}</div></div>`:'')+(precisaTreino()?'<div class="warn mt"><b>Falta o treinamento:</b> faça na aba Treinamento para liberar as vendas.</div>':'')+await blocoRetiradas()); }; }
+if(licencaVencida()) document.body.insertAdjacentHTML('beforeend',`<div class="lic"><div><h1>Licença vencida</h1><p>A licença do sistema venceu em ${fmtD(window.NEXUMCELL_LICENCA.validoAte)}. Fale com o fornecedor para renovar.</p></div></div>`);
 bannerOffline();
 { const _cat=PAGES.catalogo; PAGES.catalogo=async()=>{ await _cat(); $('#view').insertAdjacentHTML('beforeend',await blocoAcessorios()); publicarVitrine(); }; }
-document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
+document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 
 /* ======================= LOGIN ======================= */
