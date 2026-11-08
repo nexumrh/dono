@@ -27,6 +27,11 @@ export default async function handler(req, res) {
     const apDoc = v.aparelhoToken ? (await db.collection('aparelhos').doc(v.aparelhoToken).get()).data() : {};
     const valor = encargos(p, apDoc || {});
 
+    // parcela que já tem cobrança no Asaas (cobranças automáticas): usa o PIX dela (o Asaas aplica desconto/multa/juros)
+    if (p.asaasId) {
+      const qr = await asaas(`/payments/${p.asaasId}/pixQrCode`);
+      return res.status(200).json({ valor, copiaECola: qr.payload, qrBase64: qr.encodedImage, expira: qr.expirationDate, cobranca: p.asaasId });
+    }
     // cliente no Asaas (procura pelo CPF, cria se não existir)
     const cpf = String(v.clienteCpf || '').replace(/\D/g, '');
     let cli = (await asaas('/customers?cpfCnpj=' + cpf)).data?.[0];

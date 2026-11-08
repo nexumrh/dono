@@ -56,11 +56,101 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
     t.update(ref, { parcelas, status: quitado ? 'QUITADA' : v.status, ...(quitado ? { quitadoEm: Date.now() } : {}) });
     if (v.aparelhoToken) {
       t.update(db.collection('aparelhos').doc(v.aparelhoToken), {
-        parcelas: parcelas.map((p) => ({ n: p.n, venc: p.venc, valor: p.valor, pago: !!p.pago })),
+        parcelas: parcelas.map(paraAparelho),
         quitado,
         status: quitado ? 'QUITADO' : 'ATIVO',
       });
     }
     t.set(db.collection('logs').doc(), { em: Date.now(), acao: 'Pagamento automático (Asaas)', alvo: vendaId, det: `parcela ${n} · R$ ${valorPago} · ${forma}`, por: 'Asaas' });
   });
+}
+
+// ---------- usados pelas novas rotas ----------
+export async function exigirEquipe(req, perfis = ['DONO', 'FINANCEIRO', 'GERENTE', 'SUPORTE', 'VENDEDOR']) {
+  const idt = String(req.headers.authorization || '').replace('Bearer ', '');
+  const u = await auth.verifyIdToken(idt);
+  const me = await db.collection('users').doc(u.uid).get();
+  const dono = (u.email || '').toLowerCase() === String(process.env.DONO_EMAIL || '').toLowerCase();
+  const role = dono ? 'DONO' : me.exists ? me.data().role : '';
+  if (!perfis.includes(role)) { const e = new Error('sem permissão'); e.status = 403; throw e; }
+  return { uid: u.uid, role, nome: dono ? 'Dono' : me.data()?.nome || '' };
+}
+
+// Cliente no Asaas: procura pelo CPF, cria se não existir (com WhatsApp/SMS/e-mail de cobrança ligados)
+export async function clienteAsaas(v) {
+  if (v.asaas?.customer) return { id: v.asaas.customer };
+  const cpf = String(v.clienteCpf || '').replace(/\D/g, '');
+  const achado = (await asaas('/customers?cpfCnpj=' + cpf)).data?.[0];
+  if (achado) return achado;
+  const c = v.cliente || {};
+  return asaas('/customers', { method: 'POST', body: JSON.stringify({
+    name: v.clienteNome, cpfCnpj: cpf, email: c.email || undefined,
+    mobilePhone: String((c.telefones || [])[0] || '').replace(/\D/g, '') || undefined,
+    phone: String((c.telefones || [])[1] || '').replace(/\D/g, '') || undefined,
+    postalCode: String(c.cep || '').replace(/\D/g, '') || undefined, address: c.endereco || undefined, province: c.bairro || undefined,
+    externalReference: 'cpf:' + cpf, notificationDisabled: false,
+  }) });
+}
+
+// Uma cobrança no Asaas para cada parcela em aberto. O próprio Asaas aplica desconto, multa e juros,
+// e manda os lembretes (WhatsApp/SMS/e-mail) conforme a régua configurada no painel do Asaas.
+export async function gerarCobrancas(vendaId) {
+  const ref = db.collection('vendas').doc(vendaId), s = await ref.get();
+  if (!s.exists) throw new Error('venda não encontrada');
+  const v = s.data(), ap = v.aparelhoToken ? (await db.collection('aparelhos').doc(v.aparelhoToken).get()).data() || {} : {};
+  if (v.pixAutomatico?.status === 'ATIVO') return { criadas: 0, pixAutomatico: true };
+  const cli = await clienteAsaas(v), parcelas = [...(v.parcelas || [])], vivos = new Set(parcelas.map((p) => p.asaasId).filter(Boolean));
+  let criadas = 0, atualizadas = 0, apagadas = 0, emDinheiro = 0;
+  // 1) cobranças antigas que não existem mais (renegociação): apaga no Asaas para o cliente não receber lembrete errado
+  for (const id of v.asaas?.ids || []) if (!vivos.has(id)) { try { await asaas('/payments/' + id, { method: 'DELETE' }); apagadas++; } catch (e) {} }
+  for (const p of parcelas) {
+    // 2) paga na loja (dinheiro, PIX direto, extrato): avisa o Asaas para parar de cobrar
+    if (p.pago) { if (p.asaasId && !p.asaasPago && !String(p.forma || '').includes('Asaas')) { try { await asaas(`/payments/${p.asaasId}/receiveInCash`, { method: 'POST', body: JSON.stringify({ paymentDate: p.pagoEm || hoje(), value: +(p.valorPago ?? p.valor), notifyCustomer: false }) }); emDinheiro++; } catch (e) {} p.asaasPago = true; } continue; }
+    const venc = p.venc < hoje() ? hoje() : p.venc;
+    // 3) mudou valor ou data (pagamento parcial, troca de vencimento): atualiza a cobrança
+    if (p.asaasId) {
+      if (p.asaasValor !== p.valor || p.asaasVenc !== p.venc) { try { await asaas('/payments/' + p.asaasId, { method: 'POST', body: JSON.stringify({ value: p.valor, dueDate: venc }) }); p.asaasValor = p.valor; p.asaasVenc = p.venc; atualizadas++; } catch (e) {} }
+      continue;
+    }
+    // 4) parcela nova: cria a cobrança (o Asaas aplica desconto, multa e juros e manda os lembretes)
+    const cob = await asaas('/payments', { method: 'POST', body: JSON.stringify({
+      customer: cli.id, billingType: 'UNDEFINED', value: p.valor, dueDate: venc,
+      description: `${ap.recebedor || 'NexumCell'} · contrato ${v.numero} · parcela ${p.n}/${parcelas.length}`.slice(0, 500),
+      externalReference: `${vendaId}:${p.n}`,
+      discount: { value: Number(ap.descontoPct) || 0, dueDateLimitDays: 0, type: 'PERCENTAGE' },
+      fine: { value: Number(ap.multaPct) || 0, type: 'PERCENTAGE' },
+      interest: { value: r2((Number(ap.moraDiaPct) || 0) * 30) },   // Asaas: juros ao mês
+    }) });
+    Object.assign(p, { asaasId: cob.id, asaasLink: cob.invoiceUrl, asaasValor: p.valor, asaasVenc: p.venc }); criadas++;
+  }
+  const ids = [...new Set(parcelas.map((p) => p.asaasId).filter(Boolean))];
+  await ref.update({ parcelas, asaas: { customer: cli.id, ids, sincronizadoEm: Date.now() } });
+  if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ parcelas: parcelas.map(paraAparelho) }, { merge: true });
+  return { criadas, atualizadas, apagadas, emDinheiro, customer: cli.id };
+}
+
+// Acha a parcela de uma cobrança: pela referência "venda:parcela" ou, nas cobranças do PIX Automático, pela data
+export async function parcelaDaCobranca(payment) {
+  const [vendaId, n] = String(payment.externalReference || '').split(':');
+  if (vendaId && n) return { vendaId, n: +n };
+  let vid = vendaId && vendaId.startsWith('v') ? vendaId : null;
+  if (!vid && payment.pixAutomaticAuthorizationId) {
+    const q = await db.collection('vendas').where('pixAutomatico.id', '==', payment.pixAutomaticAuthorizationId).limit(1).get();
+    if (!q.empty) vid = q.docs[0].id;
+  }
+  if (vid) { const vendaId = vid;
+    const v = (await db.collection('vendas').doc(vendaId).get()).data();
+    const p = (v?.parcelas || []).filter((x) => !x.pago).sort((a, b) => Math.abs(new Date(a.venc) - new Date(payment.dueDate)) - Math.abs(new Date(b.venc) - new Date(payment.dueDate)))[0];
+    if (p) return { vendaId, n: p.n };
+  }
+  return null;
+}
+
+// mesmo formato que o portal grava no aparelho (app, portal do cliente, pontos e recibos)
+export function paraAparelho(p) {
+  const o = { n: p.n, venc: p.venc, valor: p.valor, pago: !!p.pago };
+  if (p.pago) Object.assign(o, { pagoEm: p.pagoEm || '', valorPago: +(p.valorPago ?? p.valor), emDia: !!p.pagoEm && p.pagoEm <= p.venc && !p.acordo });
+  if (p.pagoParcial) o.pagoParcial = p.pagoParcial;
+  if (!p.pago && p.asaasLink) o.asaasLink = p.asaasLink;
+  return o;
 }

@@ -400,7 +400,7 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','seminovos','estoque','listanegra','catalogo','escala','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','simulador','seminovos','estoque','listanegra','catalogo','escala','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
   gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','listanegra','escala','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
@@ -1316,6 +1316,7 @@ async function confirmarEntrada(btn){
       entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome,geo},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
     try{ await gravarAcesso(v,tk); }catch(e){ console.warn('acesso',e); }
+    if(v.aparelho.semTrava) sincronizarAsaas(v.id);
     irPasso(8);
   }catch(e){ console.error(e); toast('Erro: '+e.message,'err'); btn.disabled=false; }
 }
@@ -1402,6 +1403,7 @@ async function passoTrava(){
     ok=true; clearInterval(tick);
     const vv=await DB.get('vendas',v.id);
     if(vv.status==='INSTALANDO'&&vv.aparelho?.estoqueId){ try{ await DB.set('estoque',vv.aparelho.estoqueId,{status:'VENDIDO',vendaId:v.id,vendidoEm:Date.now()}); }catch(e){ console.warn('estoque',e); } }
+    if(vv.status==='INSTALANDO') sincronizarAsaas(v.id);
     if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
     el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
     $('#instAjuda').innerHTML=''; const eb=$('#entregaBox'); if(eb) eb.hidden=false; if(S.w.entregaOk){ const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir e iniciar nova venda'; } } });
@@ -1532,6 +1534,7 @@ async function verVenda(id){
     ${a?`<h3>Análise de crédito</h3><div class="msg"><small>${esc(a.porNome)} · ${fmtDT(a.em)}</small><b>${a.resultado==='APROVADA'?'Aprovada':'Reprovada'}</b> · score ${a.score||'—'}${a.obs?' · '+esc(a.obs):''}</div>`:''}
     ${['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
     ${(v.acordos||[]).length?`<h3>Renegociações</h3>${v.acordos.map(a=>`<div class="msg"><small>${fmtDT(a.em)} · ${esc(a.por)}</small>Saldo ${brl(a.saldo)} → entrada ${brl(a.entrada)} + ${a.n}x ${brl(a.valorParcela)} (juros ${a.juros}%)${a.obs?' · '+esc(a.obs):''}</div>`).join('')}`:''}
+    ${v.status==='ATIVA'&&asaasLigado()&&can('DONO','FINANCEIRO','GERENTE')?`<div class="row mt"><span class="small">${v.pixAutomatico?.status==='ATIVO'?'✅ Débito automático no PIX ativo':v.asaas?`Cobranças no Asaas sincronizadas ${relT(v.asaas.sincronizadoEm||v.asaas.geradoEm)}`:'Sem cobranças no Asaas'}</span><button class="btn sm" data-act="sincAsaas" data-id="${v.id}">${v.asaas?'Sincronizar com o Asaas':'Gerar cobranças no Asaas'}</button></div>`:''}
     ${['ATIVA','QUITADA'].includes(v.status)&&can('DONO','FINANCEIRO','GERENTE')?(()=>{ const pt=pontosDe(v); return `<div class="row mt"><span class="small">Pontos do cliente: <b>${pt.saldo}</b> (${brl(pontosEmReais(pt.saldo))})</span>${pt.saldo>0?`<button class="btn sm" data-act="usarPontos" data-id="${v.id}">Usar pontos</button>`:''}${v.status==='QUITADA'?`<button class="btn sm" data-act="termoQuitacao" data-id="${v.id}">Termo de quitação</button>`:''}</div>`; })():''}
     ${can('DONO','FINANCEIRO')&&['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<div class="row mt"><button class="btn sm" data-act="verEntrega" data-id="${v.id}">Ver foto da entrega</button>${v.cliente?.indicacao?`<span class="small muted">Indicado por ${esc(v.cliente.indicacao)}${v.bonusPago?' · bônus pago':''}</span>`:''}</div>`:''}
     ${v.retomada?`<h3>Retomada</h3><div class="msg"><small>${fmtDT(v.retomada.em)} · ${esc(v.retomada.por)}</small>${esc(v.retomada.motivo)} · estado ${esc(v.retomada.estado)} · avaliação ${brl(v.retomada.avaliacao)} · saldo devedor ${brl(v.retomada.saldo)}${v.retomada.obs?' · '+esc(v.retomada.obs):''}</div>`:''}
@@ -1575,7 +1578,7 @@ async function analisar(id){
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
-    <div id="lnFace"></div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
+    <div id="lnFace"></div><div id="serasaBox">${asaasLigado()?(v.serasa?`<div class="msg mt">Serasa consultado ${relT(v.serasa.em)}${v.serasa.link?` · <a href="${esc(v.serasa.link)}" target="_blank" rel="noopener">abrir relatório</a>`:''}</div>`:`<button class="btn sm mt" data-act="consultarSerasa" data-id="${id}">Consultar CPF no Serasa (Asaas, pago por consulta)</button>`):''}</div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
     <div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
@@ -2010,7 +2013,8 @@ PAGES.fila = async () => {
       <div class="row" style="gap:6px;justify-content:flex-end">
         <a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(tel)}?text=${encodeURIComponent(msgCobranca(i))}">WhatsApp</a>
         <a class="btn sm" href="tel:${onlyDig(tel)}">Ligar</a>
-        <button class="btn sm gold" data-act="registrarContato" data-id="${v.id}">Registrar contato</button></div></div>`; }).join('')||'<div class="empty">Nada aqui agora 🎉</div>'}</div>
+        <button class="btn sm gold" data-act="registrarContato" data-id="${v.id}">Registrar contato</button>
+        ${asaasLigado()&&i.dias>=60&&can('DONO','FINANCEIRO')?(v.negativacao?badge('Serasa: '+(v.negativacao.status||'pedido'),'red'):`<button class="btn sm red" data-act="negativar" data-id="${v.id}">Negativar</button>`):''}</div></div>`; }).join('')||'<div class="empty">Nada aqui agora 🎉</div>'}</div>
   <p class="hint">A fila põe primeiro quem deve há mais tempo, deve mais e já quebrou promessa. Quando o cliente promete pagar, ele sai da fila até a data; se não pagar até lá, a promessa vira “quebrada”, volta para a fila e baixa a nota do cliente.</p>`;
 };
 function registrarContato(id){
@@ -2047,6 +2051,7 @@ PAGES.caixa = async () => {
     (v.parcelas||[]).forEach(p=>{ if(p.pago&&p.baixadoEm&&isoDate(new Date(p.baixadoEm))===data&&!String(p.por||'').startsWith('Asaas')&&p.forma!=='Entrada do acordo')
       movs.push({tipo:p.obs==='Quitação antecipada'?'Quitação':'Parcela '+p.n,v,valor:+(p.valorPago||p.valor),forma:p.forma||'—',por:p.por||'',em:p.baixadoEm}); });
   });
+  (await DB.list('linksCartao',[['lojaId','==',lojaId]]).catch(()=>[])).filter(l=>l.status==='PAGO'&&l.pagoEm&&isoDate(new Date(l.pagoEm))===data).forEach(l=>movs.push({tipo:'Venda no cartão (link)',v:{numero:'—',clienteNome:l.cliente},valor:+l.valor,forma:'Cartão (link Asaas)',por:l.por,em:l.pagoEm}));
   movs.sort((a,b)=>a.em-b.em);
   const porForma={}; movs.forEach(m=>porForma[m.forma]=r2((porForma[m.forma]||0)+m.valor));
   const saidas=(await DB.list('despesas',[['lojaId','==',lojaId]]).catch(()=>[])).filter(d=>d.data===data&&d.doCaixa), saida=r2(saidas.reduce((s,d)=>s+d.valor,0));
@@ -2519,7 +2524,7 @@ PAGES.tv = async () => {
   _tvT=setInterval(()=>{ if(S.tab==='tv') PAGES.tv(); else clearInterval(_tvT); },60000);
 };
 
-function parcelasAparelho(ps){ return (ps||[]).map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago,...(p.pago?{pagoEm:p.pagoEm||'',valorPago:+(p.valorPago??p.valor),emDia:!!p.pagoEm&&p.pagoEm<=p.venc&&!p.acordo}:{}),...(p.pagoParcial?{pagoParcial:p.pagoParcial}:{})})); }
+function parcelasAparelho(ps){ return (ps||[]).map(p=>({n:p.n,venc:p.venc,valor:p.valor,pago:!!p.pago,...(p.pago?{pagoEm:p.pagoEm||'',valorPago:+(p.valorPago??p.valor),emDia:!!p.pagoEm&&p.pagoEm<=p.venc&&!p.acordo}:{}),...(p.pagoParcial?{pagoParcial:p.pagoParcial}:{}),...(!p.pago&&p.asaasLink?{asaasLink:p.asaasLink}:{})})); }
 function trocarVencimento(v,dia){
   const h=hoje(), fut=(v.parcelas||[]).filter(p=>!p.pago&&p.venc>h); if(!fut.length) return;
   const [y,m]=fut[0].venc.split('-').map(Number); let d0=isoDate(new Date(y,m-1,Math.min(28,Math.max(1,dia))));
@@ -2751,11 +2756,12 @@ PAGES.simulador = async () => {
     const total=r2(x.preco+ac.reduce((s,a)=>s+a.preco,0)), pct=Number(S.cfg.entradaPct)||30, min=r2(total*pct/100);
     let e=+$('#sbEnt').value||0; if(e<min){ e=min; $('#sbEnt').value=min; } const fin=total-e, j=jurosDo(x);
     const ops=String(S.cfg.parcelasOpcoes||'6,10,12').split(',').map(Number).filter(Boolean);
+    S._simTotal=total; S._simDesc=`${x.marca} ${x.modelo} ${x.capacidade}${ac.length?' + '+ac.map(a=>a.nome).join(', '):''}`;
     S._simTxt=`${x.marca} ${x.modelo} ${x.capacidade}${ac.length?' + '+ac.map(a=>a.nome).join(', '):''}\nEntrada: ${brl(e)}\n`+ops.map(n=>`${n}x de ${brl(parcelaFlat(fin,j,n))}`).join('\n')+`\nPagando antes do vencimento: ${S.cfg.descontoAntecipadoPct||5}% de desconto.`;
     $('#sbRes').innerHTML=`<div class="sim-balcao"><div class="sb-ap">${esc(x.marca+' '+x.modelo+' '+x.capacidade)}${ac.length?`<small> + ${ac.map(a=>esc(a.nome)).join(', ')}</small>`:''}</div>
       <div class="sb-ent">Entrada <b>${brl(e)}</b> <small>(mínimo ${pct}%)</small></div><div class="sb-ops">${ops.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaFlat(fin,j,n))}</b></div>`).join('')}</div>
       <p class="small">Pagando antes do vencimento, ${S.cfg.descontoAntecipadoPct||5}% de desconto em cada parcela.</p></div>
-      <div class="row mt"><button class="btn" data-act="sbCheia">Mostrar em tela cheia</button><button class="btn" data-act="sbCopiar">Copiar para o WhatsApp</button><button class="btn gold" data-act="go" data-tab="nova">Fazer a proposta</button></div>`; };
+      <div class="row mt">${asaasLigado()?'<button class="btn" data-act="linkCartao">Vender no cartão (link Asaas)</button>':''}<button class="btn" data-act="sbCheia">Mostrar em tela cheia</button><button class="btn" data-act="sbCopiar">Copiar para o WhatsApp</button><button class="btn gold" data-act="go" data-tab="nova">Fazer a proposta</button></div>`; };
   $('#sbItem').addEventListener('change',()=>{ $('#sbEnt').value=''; calc(); }); $('#sbEnt').addEventListener('change',calc); document.querySelectorAll('[data-sbacs]').forEach(i=>i.addEventListener('change',e=>{ e.target.closest('.chip').classList.toggle('on',e.target.checked); $('#sbEnt').value=''; calc(); }));
   calc();
 };
@@ -3059,6 +3065,71 @@ async function blocoRetiradas(){
 /* ======================= LICENÇA (sistema vendido para outras lojas) ======================= */
 function licencaVencida(){ const l=window.NEXUMCELL_LICENCA; if(!l||!l.validoAte) return false; return hoje()>l.validoAte; }
 
+
+/* ======================= ASAAS (servidor de pagamentos) ======================= */
+const servidorPg = () => String(S.cfg.servidorPagamentos||'').trim().replace(/\/$/,'');
+async function apiLoja(acao,dados={}){
+  if(DEMO||!fb){ await new Promise(o=>setTimeout(o,500));
+    const sim={cobrancas:{criadas:3,atualizadas:0,apagadas:0,emDinheiro:0},serasa:{id:'demo',link:'#',simulado:true},negativar:{id:'demo',status:'PENDING'},cartao:{id:'demo'+Date.now(),link:'https://sandbox.asaas.com/i/demo'},antecipar:{qtd:9,bruto:900,liquido:842.4,custo:57.6,erros:0}};
+    return {...sim[acao],simulado:true}; }
+  const s=servidorPg(); if(!s.startsWith('https://')) throw new Error('Configure o servidor de pagamentos (Asaas) em Configurações.');
+  const idt=await fb.auth.currentUser.getIdToken();
+  const r=await fetch(s+'/api/loja',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idt},body:JSON.stringify({acao,...dados})});
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.erro||('Erro '+r.status)); return j;
+}
+const asaasLigado = () => DEMO || servidorPg().startsWith('https://');
+async function sincronizarAsaas(vendaId,silencioso=true){
+  if(!asaasLigado()) return;
+  try{ const r=await apiLoja('cobrancas',{vendaId}); if(!silencioso) toast(`Asaas: ${r.criadas||0} cobrança(s) criada(s), ${r.atualizadas||0} atualizada(s)`,'ok'); return r; }
+  catch(e){ console.warn('asaas',e); if(!silencioso) toast('Asaas: '+e.message,'err'); }
+}
+async function asaasTodos(btn){
+  btn.disabled=true; const m=$('#asMsg'); let n=0;
+  for(const v of (await DB.list('vendas')).filter(v=>v.status==='ATIVA')){ m.textContent=`Gerando… ${++n}`; await sincronizarAsaas(v.id); }
+  m.textContent=`Pronto: ${n} contrato(s) com cobranças no Asaas.`; btn.disabled=false;
+}
+async function consultarSerasa(id,btn){
+  if(!confirm('A consulta Serasa é cobrada pelo Asaas a cada uso. Consultar agora?')) return;
+  btn.disabled=true; const v=await DB.get('vendas',id);
+  try{ const r=await apiLoja('serasa',{cpf:v.clienteCpf,uf:v.cliente?.uf||'PR'});
+    await DB.set('vendas',id,{serasa:{em:Date.now(),por:S.me.nome,link:r.link||'',id:r.id||''}}); await log('Consulta Serasa (Asaas)',id,v.clienteCpf);
+    $('#serasaBox').innerHTML=`<div class="msg mt"><b>Consulta Serasa feita.</b> ${r.link?`<a href="${esc(r.link)}" target="_blank" rel="noopener">Abrir relatório</a>`:'O relatório aparece no painel do Asaas → Consulta Serasa.'}${r.simulado?' (simulado)':''}</div>`;
+  }catch(e){ toast(e.message,'err'); btn.disabled=false; }
+}
+async function negativar(id,btn){
+  const v=await DB.get('vendas',id);
+  if(!confirm(`Pedir a negativação de ${v.clienteNome} no Serasa?\n\nUse só depois de esgotar a cobrança (WhatsApp, ligação, campanha). O Asaas cobra por negativação e pode pedir o contrato assinado.`)) return;
+  btn.disabled=true;
+  try{ const r=await apiLoja('negativar',{vendaId:id}); if(DEMO) await DB.set('vendas',id,{negativacao:{id:r.id,status:r.status,em:Date.now(),por:S.me.nome}});
+    await log('Negativação pedida (Serasa via Asaas)',id,r.status||''); toast('Negativação pedida ao Asaas','ok'); render(); }
+  catch(e){ toast(e.message,'err'); btn.disabled=false; }
+}
+function linkCartao(){
+  const total=S._simTotal||0;
+  openModal(`<h2>Venda no cartão de crédito (sem crediário)</h2><p class="muted" style="margin-top:-6px">Gera um link do Asaas para o cliente pagar no cartão dele, em até 12x. A loja recebe sem risco de calote e não precisa instalar a trava.</p>
+    <div class="grid g2"><label>Nome do cliente<input id="lcNome"></label><label>CPF<input id="lcCpf" inputmode="numeric"></label><label>WhatsApp<input id="lcTel" inputmode="tel"></label>
+      <label>Valor (R$)<input id="lcValor" type="number" step="0.01" value="${total||''}"></label><label>Parcelas no cartão<select id="lcN">${Array.from({length:12},(_,i)=>`<option ${i===9?'selected':''}>${i+1}</option>`).join('')}</select></label>
+      <label>Descrição<input id="lcDesc" value="${esc(S._simDesc||'')}"></label></div>
+    <div id="lcRes" class="mt"></div><div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="lcOk">Gerar link</button></div>`);
+  $('#lcOk').onclick=async()=>{ const d={nome:$('#lcNome').value.trim(),cpf:onlyDig($('#lcCpf').value),telefone:onlyDig($('#lcTel').value),valor:+$('#lcValor').value,parcelas:+$('#lcN').value,descricao:$('#lcDesc').value.trim(),lojaId:S.me.lojaId||''};
+    if(!d.nome||!cpfOk(d.cpf)||!(d.valor>0)) return toast('Preencha nome, CPF válido e valor','err');
+    $('#lcOk').disabled=true;
+    try{ const r=await apiLoja('cartao',d); await log('Link de pagamento no cartão',r.id,`${brl(d.valor)} em ${d.parcelas}x · ${d.nome}`);
+      const msg=`Olá, ${primeiroNome(d.nome)}! Aqui é da ${S.cfg.empresa}. Este é o link para pagar ${d.descricao||'sua compra'} no cartão (${brl(d.valor)} em até ${d.parcelas}x): ${r.link}`;
+      $('#lcRes').innerHTML=`<div class="msg"><b>Link gerado${r.simulado?' (simulado)':''}.</b><br><span class="mono small">${esc(r.link)}</span><div class="row mt"><a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(d.telefone)}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a><button class="btn sm" data-act="copiarTexto" data-t="${esc(r.link)}">Copiar link</button></div><p class="small muted">Entregue o produto só quando o pagamento aparecer como confirmado no Caixa.</p></div>`;
+    }catch(e){ toast(e.message,'err'); $('#lcOk').disabled=false; } };
+}
+async function blocoAntecipacao(vendas){
+  return `<div class="card mt"><h2>Antecipação de recebíveis (Asaas)</h2><p class="small muted" style="margin-top:-6px">Receba agora o dinheiro das próximas parcelas (com desconto cobrado pelo Asaas) para comprar mais estoque. A simulação não antecipa nada.</p>
+    <div class="row"><button class="btn sm gold" data-act="simularAntecipacao">Simular antecipação das próximas parcelas</button><span id="antRes" class="small"></span></div></div>`;
+}
+async function simularAntecipacao(btn){
+  btn.disabled=true; $('#antRes').textContent='Simulando…';
+  try{ const ids=(await loadVendas()).filter(v=>v.status==='ATIVA'&&(v.asaas||DEMO)).map(v=>v.id).slice(0,30); const r=await apiLoja('antecipar',{vendaIds:ids});
+    $('#antRes').innerHTML=`${r.qtd} parcela(s): valor ${brl(r.bruto)} → você recebe <b>${brl(r.liquido)}</b> (custo ${brl(r.custo)})${r.simulado?' · simulado':''}. Para antecipar de verdade, use o painel do Asaas.`; }
+  catch(e){ $('#antRes').textContent=e.message; } btn.disabled=false;
+}
+
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda,quebradas=0){
   let s=500-quebradas*60; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
@@ -3229,7 +3300,7 @@ PAGES.relatorios = async () => {
   ${can('DONO','FINANCEIRO')?blocoPrevisao(vendas):''}
   <div class="row mt"><button class="btn" data-act="relatorioMes">Relatório do mês (PDF)</button><button class="btn" data-act="csvContador">${svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>')}Baixar planilha do contador (${mesNome(mes)})</button></div>
   ${can('DONO','FINANCEIRO')?blocoLucro(vendas)+await blocoFluxo(vendas)+await blocoComparativo(vendas):''}${can('DONO')?blocoSimulador(vendas):''}${await blocoNps(vendas)}
-  ${can('DONO','FINANCEIRO')?blocoPdd(vendas):''}${await blocoMedalhas(vendas)}${(()=>{ const ch=vendas.filter(v=>v.chip&&String(isoDate(new Date(v.chip.em))).startsWith(mes)), g={}; ch.forEach(v=>{ const o=g[v.vendedorNome]=g[v.vendedorNome]||{q:0,c:0}; o.q++; o.c+=v.chip.comissao||0; });
+  ${can('DONO','FINANCEIRO')&&asaasLigado()?await blocoAntecipacao(vendas):''}${can('DONO','FINANCEIRO')?blocoPdd(vendas):''}${await blocoMedalhas(vendas)}${(()=>{ const ch=vendas.filter(v=>v.chip&&String(isoDate(new Date(v.chip.em))).startsWith(mes)), g={}; ch.forEach(v=>{ const o=g[v.vendedorNome]=g[v.vendedorNome]||{q:0,c:0}; o.q++; o.c+=v.chip.comissao||0; });
     return ch.length?`<div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Chips vendidos no mês</h2><table><tr><th>Vendedor</th><th class="right">Chips</th><th class="right">Comissão</th></tr>${Object.entries(g).map(([n,o])=>`<tr><td>${esc(n)}</td><td class="right">${o.q}</td><td class="right">${brl(o.c)}</td></tr>`).join('')}</table></div>`:''; })()}${blocoTroca(vendas)}${can('DONO','FINANCEIRO')?blocoIndicacoes(vendas):''}${can('DONO','FINANCEIRO')?await blocoFraude(vendas,us):''}`;
   $('#relMes').addEventListener('change',e=>{ S.filtro.relMes=e.target.value; render(); });
 };
@@ -3325,6 +3396,7 @@ async function salvarParcelas(v,acao,det){
   const ops=[{c:'vendas',id:v.id,data:{parcelas:v.parcelas,status:quitado?'QUITADA':'ATIVA',...(quitado?{quitadoEm:Date.now()}:{})}}];
   if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{parcelas:parcelasAparelho(v.parcelas),quitado,status:quitado?'QUITADO':'ATIVO'}});
   await DB.batch(ops); await log(acao,v.id,det);
+  if(v.asaas||(await DB.get('vendas',v.id))?.asaas) sincronizarAsaas(v.id);
   toast(quitado?'Contrato quitado! A trava será removida do aparelho.':'Pagamento registrado','ok');
 }
 
@@ -3588,6 +3660,8 @@ PAGES.config = async () => {
     ${f('apkUrl','Link direto do APK (https)','url','placeholder="https://.../nexumcell-trava.apk"')}${f('apkChecksumHex','SHA-256 do certificado de assinatura do APK','text','placeholder="AB:CD:12:..." class="mono"')}
     ${f('wifiSsid','Wi-Fi da loja (opcional, vai no QR)')}${f('wifiSenha','Senha do Wi-Fi')}
   </div><p class="small muted">Veja o passo a passo no LEIA-ME para gerar o APK e copiar o SHA-256 (comando <span class="mono">keytool</span> ou <span class="mono">apksigner</span>). ${c.apkChecksumHex&&!hexToB64url(c.apkChecksumHex)?'<b style="color:var(--red)">O SHA-256 informado não tem 64 dígitos hexadecimais.</b>':''}</p></div>
+  <div class="card mt"><h2>Asaas (cobrança automática)</h2><p class="small muted" style="margin-top:-6px">${c.servidorPagamentos?'Servidor ligado: '+esc(c.servidorPagamentos):'Preencha o “Servidor de pagamentos Asaas” acima (passo a passo em servidor/LEIA-ME.md).'} Cada venda nova já gera as cobranças sozinha. Para os contratos antigos:</p>
+    <div class="row"><button class="btn sm" data-act="asaasTodos" ${c.servidorPagamentos||DEMO?'':'disabled'}>Gerar cobranças no Asaas para todos os contratos ativos</button><span class="small muted" id="asMsg"></span></div></div>
   <div class="card mt"><h2>Regras de bloqueio nos aparelhos</h2><p class="small muted" style="margin-top:-6px">Com 1 dia de atraso aparece um aviso na tela; depois, as redes sociais e vídeos são bloqueados; por fim, o bloqueio total. Ao mudar as regras, salve e aplique nos aparelhos que já estão com clientes.</p>
     <div class="row"><button class="btn sm" data-act="aplicarRegras">Aplicar as regras atuais em todos os aparelhos</button><span class="small muted" id="arMsg"></span></div></div>
   <div class="card mt"><h2>Cópia de segurança</h2><p class="small muted" style="margin-top:-6px">Baixe uma cópia completa dos dados toda semana e guarde fora do computador (Google Drive, pendrive). Última cópia: <b>${c.ultimoBackup?fmtDT(c.ultimoBackup):'nunca'}</b>.</p>
@@ -3654,6 +3728,8 @@ const ACT = {
   sbCheia:()=>{ const e=document.querySelector('.sim-balcao'); (e.requestFullscreen||e.webkitRequestFullscreen||(()=>{})).call(e); }, sbCopiar:()=>{ navigator.clipboard?.writeText(S._simTxt||''); toast('Copiado — cole no WhatsApp do cliente','ok'); },
   avisoMassa:()=>avisoMassa(), gerenciarRespostas:()=>gerenciarRespostas(), apagarResposta:async d=>{ await DB.set('respostas',d.id,{ativo:false}); gerenciarRespostas(); },
   formUsado:()=>formUsado(), corrigirQuiz:()=>corrigirQuiz(), relatorioMes:()=>relatorioMes(),
+  consultarSerasa:(d,b)=>consultarSerasa(d.id,b), negativar:(d,b)=>negativar(d.id,b), sincAsaas:d=>sincronizarAsaas(d.id,false).then(()=>{ closeModal(); render(); }), asaasTodos:(d,b)=>asaasTodos(b),
+  linkCartao:()=>linkCartao(), simularAntecipacao:(d,b)=>simularAntecipacao(b),
   menu:()=>$('#side').classList.toggle('open'),
   go:d=>{ S.tab=d.tab; $('#side').classList.remove('open'); $('#topActions').innerHTML=fb?'':'<span class="demo-flag">Modo demonstração</span>'; render(); },
   filtro:d=>{ S.filtro[d.k]=d.v; if(d.k==='catMarca') S.filtro.catQ=''; render(); },

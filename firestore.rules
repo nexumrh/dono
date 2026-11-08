@@ -334,6 +334,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---------- Links de pagamento no cartão (gravados pelo servidor Asaas) ----------
+    match /linksCartao/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow write: if false;
+    }
+
     // ---------- Seminovos (aparelhos retomados) ----------
     match /seminovos/{id} {
       allow read: if hasRole(['DONO', 'GERENTE', 'FINANCEIRO']);

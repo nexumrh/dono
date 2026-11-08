@@ -17,5 +17,15 @@ O que ele faz:
    - `ASAAS_WEBHOOK_TOKEN` = uma senha qualquer que você inventar
    - `ASAAS_URL` = `https://api.asaas.com/v3` (ou `https://api-sandbox.asaas.com/v3` para testar)
    - `PORTAL_ORIGEM` = `https://nexumrh.github.io`
+   - `DONO_EMAIL` = o e-mail do dono (o mesmo dos portais)
+   - `GROQ_API_KEY` = chave da IA (opcional, para o assistente do cliente)
 5. No Asaas: Integrações → Webhooks → URL `https://SEU-PROJETO.vercel.app/api/asaas-webhook`, eventos **PAYMENT_RECEIVED** e **PAYMENT_CONFIRMED**, token = o mesmo do passo 4.
 6. No Painel do Dono → Lojas e configurações, preencha **Servidor de pagamentos** com `https://SEU-PROJETO.vercel.app`.
+
+## O que o servidor faz com o Asaas
+- **Cobranças automáticas**: quando a venda fica ativa, cada parcela vira uma cobrança no Asaas (PIX, boleto ou cartão, à escolha do cliente), com desconto antecipado, multa e juros iguais aos do contrato. Renegociação, troca de vencimento, pagamento parcial e baixa na loja são sincronizados sozinhos.
+- **Lembretes por WhatsApp, SMS e e-mail**: ligue no painel do Asaas em *Configurações → Notificações* (cobrado por mensagem enviada).
+- **PIX Automático**: o cliente ativa no portal; o QR paga a próxima parcela e autoriza o débito mensal das seguintes. **Teste no sandbox antes** (os nomes dos campos do QR imediato precisam ser conferidos).
+- **Consulta Serasa** (na análise) e **negativação** (na fila de cobrança): pagas por uso. A negativação via API precisa ser liberada pelo gerente de contas do Asaas e pode exigir o contrato assinado.
+- **Link de pagamento no cartão** (Simulador de balcão) e **simulação de antecipação** (Relatórios).
+- No webhook do Asaas, marque também os eventos do **PIX Automático**.
