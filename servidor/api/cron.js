@@ -11,7 +11,7 @@ const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
 const brl = (n) => 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const dataBR = (d) => String(d || '').split('-').reverse().join('/');
 const primeiroNome = (n) => String(n || '').trim().split(/\s+/)[0] || '';
-const urlCliente = () => process.env.PORTAL_CLIENTE_URL || (process.env.PORTAL_ORIGEM || 'https://nexumrh.github.io') + '/nexumcell-cliente/';
+const urlCliente = () => process.env.PORTAL_CLIENTE_URL || (process.env.PORTAL_ORIGEM || 'https://nexumrh.github.io') + '/cliente/';
 
 // texto do SMS e parâmetros do modelo de WhatsApp para um contrato
 export function dadosAviso(v, cfg, tipo) {

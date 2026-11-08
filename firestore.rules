@@ -301,7 +301,7 @@ service cloud.firestore {
       allow update: if hasRole(['DONO']) || (hasRole(['FINANCEIRO', 'GERENTE', 'SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enviados']));
     }
 
-    // ---------- Despesas da loja ----------
+    // ---------- Resumo diário do dono (gravado pelo servidor às 19h) ----------
     // resumo diário do dono (gravado pelo servidor às 19h)
     match /notificacoes/{id} {
       allow read, write: if hasRole(['DONO']);
@@ -314,6 +314,7 @@ service cloud.firestore {
       allow update: if hasRole(['DONO', 'FINANCEIRO']);
       allow delete: if false;
     }
+    // ---------- Despesas da loja ----------
     match /despesas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId);
