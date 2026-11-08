@@ -4,6 +4,9 @@ main = "worker/index.js"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Endereço público https://nexumcell-servidor.SEU-NOME.workers.dev (precisa ficar ligado)
+workers_dev = true
+
 # O firebase-admin não roda no Cloudflare: este arquivo faz o mesmo papel usando a API REST do Firestore
 [alias]
 "firebase-admin" = "./worker/firebase-rest.js"
