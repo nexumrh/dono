@@ -1485,6 +1485,7 @@ async function passoTrava(){
   const tent=v.instalacao?.tentativas||1;
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Instalar a trava no ${esc(apNome(v))} ${tent>1?badge('tentativa '+tent,'amber'):''}</h2>
     <div class="warn mb"><b>A venda só é concluída quando a trava subir no aparelho.</b> Não entregue o celular antes da confirmação abaixo ficar verde.</div>
+    ${!S.cfg.wifiSsid?`<div class="msg mb small">📶 Dica: cadastre o Wi-Fi da loja em Configurações (Trava). Com o Wi-Fi dentro do QR, o aparelho (principalmente Realme e Oppo) conecta sozinho e baixa o app sem erro.</div>`:''}
     <div class="grid g2" style="align-items:start">
       <div>${videoMarca(marca)}</div>
       <div><div class="qr" style="margin:0 auto">${qrHtml||'<span class="small muted">QR indisponível sem internet.</span>'}</div>
@@ -1812,13 +1813,18 @@ async function imprimirContrato(id){
 }
 
 /* ---------- QR DE INSTALAÇÃO ---------- */
+// O link "releases/latest" do GitHub passa por 2 redirecionamentos; alguns aparelhos (Realme, Oppo…) não seguem
+// e dizem que "não baixou o app". Para esse link usamos a cópia direta publicada junto com o portal do Dono.
+function apkDireto(u){ u=String(u||'').trim(); if(/github\.com\/nexumrh\/trava\/releases\//i.test(u)) return 'https://nexumrh.github.io/dono/nexumcell-trava.apk'; return u; }
 function payloadProvisionamento(tk){
   const c=S.cfg, p={
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME':ADMIN_COMPONENT,
-    'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION':c.apkUrl||'',
+    'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION':apkDireto(c.apkUrl),
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM':hexToB64url(c.apkChecksumHex),
     'android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED':true,
     'android.app.extra.PROVISIONING_SKIP_ENCRYPTION':true,
+    // baixa o app também pelo 4G/5G se o Wi-Fi não conectar (Android 9+)
+    'android.app.extra.PROVISIONING_USE_MOBILE_DATA':true,
     'android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE':{token:tk,apiKey:FIREBASE_CONFIG.apiKey||'DEMO',projectId:FIREBASE_CONFIG.projectId||'DEMO'}
   };
   if(c.wifiSsid){ p['android.app.extra.PROVISIONING_WIFI_SSID']=c.wifiSsid; p['android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE']=c.wifiSenha?'WPA':'NONE'; if(c.wifiSenha) p['android.app.extra.PROVISIONING_WIFI_PASSWORD']=c.wifiSenha; }
