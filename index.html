@@ -786,13 +786,13 @@ PAGES.painel = async () => {
 /* ======================= IA: leitura de documento e biometria ======================= */
 const IA = window.NEXUMCELL_IA || {};
 const iaChave = () => (S.cfg.iaChave||IA.chave||'').trim();
-const iaModelo = () => S.cfg.iaModelo||IA.modelo||'meta-llama/llama-4-scout-17b-16e-instruct';
+const iaModelo = () => S.cfg.iaModelo||IA.modelo||'qwen/qwen3.8-27b';
 // modelos de visão do Groq, do preferido para o reserva (o Groq às vezes aposenta um modelo)
-const IA_VISAO=['meta-llama/llama-4-scout-17b-16e-instruct','meta-llama/llama-4-maverick-17b-128e-instruct','qwen/qwen3.6-27b'];
-async function iaChamar(modelo,prompt,imagens){
+const IA_VISAO=['qwen/qwen3.8-27b','qwen/qwen3.6-27b','meta-models/muse-spark-open','meta-llama/llama-4-scout-17b-16e-instruct'];
+async function iaChamar(modelo,prompt,imagens,semJson=false){
   return fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
-    body:JSON.stringify({model:modelo,temperature:0,response_format:{type:'json_object'},
+    body:JSON.stringify({model:modelo,temperature:0,...(semJson?{}:{response_format:{type:'json_object'}}),
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
 }
 // procura na conta do Groq um modelo que leia imagens, quando o configurado não existe mais
@@ -800,7 +800,7 @@ async function iaAcharModelo(){
   const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+iaChave()}});
   if(!r.ok) return null;
   const ids=((await r.json()).data||[]).filter(m=>m.active!==false).map(m=>m.id);
-  return IA_VISAO.find(x=>ids.includes(x)) || ids.find(x=>/scout|maverick|vision|-vl|qwen3\.?6|gemma-?[34]|kimi/i.test(x)) || null;
+  return IA_VISAO.find(x=>ids.includes(x)) || ids.find(x=>/qwen3\.?[6-9]|muse|vision|-vl|gemma-?[34]|kimi|scout|maverick/i.test(x)) || null;
 }
 async function iaVisao(prompt, imagens){
   if(!iaChave()) throw new Error('A chave da IA não está configurada (Painel do Dono → Configurações → IA).');
@@ -814,10 +814,13 @@ async function iaVisao(prompt, imagens){
         if(r.ok&&can('DONO')) DB.set('config','sistema',{iaModelo:novo}).catch(()=>{}); }
     }
   }
+  // alguns modelos não aceitam o "modo JSON": tenta de novo sem ele
+  if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true); }
   if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
   if(r.status===429) throw new Error('A IA atingiu o limite de uso do plano grátis. Espere um minuto e tente de novo.');
   if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
-  const j=await r.json(); return JSON.parse(j.choices[0].message.content);
+  const j=await r.json(), txt=String(j.choices?.[0]?.message?.content||'');
+  try{ return JSON.parse(txt); }catch(e){ const m=txt.replace(/<think>[\s\S]*?<\/think>/g,'').match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('A IA respondeu fora do formato. Tente de novo.'); }
 }
 const PROMPT_DOC=`Você é um verificador de documentos brasileiros. As imagens são a frente e (se houver) o verso de um documento de identidade (RG, CNH ou CIN).
 Responda SOMENTE com JSON neste formato:
@@ -4125,7 +4128,7 @@ PAGES.config = async () => {
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
       <label>Chave do Groq<input data-cfg="iaChave" type="password" value="${esc(c.iaChave||'')}" placeholder="gsk_..." autocomplete="off"></label>
-      <label>Modelo<input data-cfg="iaModelo" value="${esc(c.iaModelo||'meta-llama/llama-4-scout-17b-16e-instruct')}"></label>
+      <label>Modelo<input data-cfg="iaModelo" value="${esc(c.iaModelo||'qwen/qwen3.8-27b')}"></label>
     </div>
     <div class="row mt"><button class="btn sm" data-act="testarIA">Testar chave</button><span class="small muted" id="iaTeste">${c.iaChave?'Chave salva.':'Sem chave: o vendedor digita os dados do documento.'}</span></div>
     <p class="hint">A chave fica guardada no Firebase (só a equipe logada consegue ler), e não no GitHub. Crie em console.groq.com/keys.</p></div>

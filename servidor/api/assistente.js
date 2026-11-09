@@ -3,7 +3,7 @@
 // POST /api/assistente  {"token":"<token do aparelho>","pergunta":"..."}
 import { db, cors, encargos, hoje } from './_base.js';
 
-const MODELO = process.env.GROQ_MODELO || 'llama-3.3-70b-versatile';
+const MODELO = process.env.GROQ_MODELO || 'openai/gpt-oss-120b';
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
