@@ -1672,7 +1672,11 @@ async function cancelarVenda(id){
   const motivo=prompt('Motivo do cancelamento (a trava será removida do aparelho):'); if(!motivo) return;
   const v=await DB.get('vendas',id); const ops=[{c:'vendas',id,data:{status:'CANCELADA',canceladoEm:Date.now(),canceladoPor:S.me.nome,motivoCancelamento:motivo}}];
   if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
-  await DB.batch(ops); await log('Venda cancelada',id,motivo);
+  // o aparelho volta para o estoque da loja, disponível para vender de novo
+  let volta=null; const eid=v.aparelho?.estoqueId||v.aparelho?.imei;
+  if(eid){ const e=await DB.get('estoque',eid).catch(()=>null); if(e&&e.status!=='DISPONIVEL'){ volta=e; ops.push({c:'estoque',id:e.id,data:{status:'DISPONIVEL',vendaId:'',vendidoEm:null,obs:`Voltou ao estoque: venda nº ${v.numero} cancelada (${motivo})`,atualizadoEm:Date.now()}}); } }
+  await DB.batch(ops); await log('Venda cancelada',id,motivo+(volta?` · aparelho IMEI ${volta.imei||volta.id} voltou ao estoque`:''));
+  if(volta) toast('Aparelho voltou ao estoque da loja, disponível para venda','ok');
   if(v.asaas&&asaasLigado()&&can('DONO','FINANCEIRO')){ try{ const r=await apiLoja('cancelarCobrancas',{vendaId:id}); toast(`Venda cancelada e ${r.apagadas??'as'} cobrança(s) apagada(s) no Asaas`,'ok'); }catch(e){ toast('Venda cancelada, mas o Asaas não apagou as cobranças: '+e.message,'err'); } }
   else toast('Venda cancelada');
   closeModal(); render();
