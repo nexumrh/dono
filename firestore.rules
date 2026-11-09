@@ -24,8 +24,8 @@ service cloud.firestore {
     match /config/{id} {
       allow get: if signed() && !anon();
       allow list: if staff();
-      allow create: if (id == 'sistema' && donoEmail()) || (id == 'contador' && staff());
-      allow update: if hasRole(['DONO']) || (id == 'contador' && staff());
+      allow create: if (id == 'sistema' && donoEmail()) || (id in ['contador', 'protocolos'] && staff());
+      allow update: if hasRole(['DONO']) || (id in ['contador', 'protocolos'] && staff());
     }
 
     // ---------- Equipe ----------
@@ -207,6 +207,18 @@ service cloud.firestore {
                         && request.resource.data.confianca.mes == mesAtual()
                         && request.resource.data.confianca.ate <= request.time.toMillis() + 86400000 + 300000
                         && (!('confianca' in resource.data) || resource.data.confianca.mes != mesAtual()));
+      allow delete: if false;
+    }
+
+    // ---------- Atendimento (chat do vendedor/gerente com o assistente e o suporte) ----------
+    match /atendimentos/{id} {
+      allow read: if hasRole(['DONO', 'SUPORTE']) || (staff() && resource.data.abertoPor == request.auth.uid);
+      allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'BOT';
+      allow update: if hasRole(['DONO', 'SUPORTE'])
+                    || (staff() && resource.data.abertoPor == request.auth.uid && resource.data.status != 'CONCLUIDO'
+                        && request.resource.data.abertoPor == resource.data.abertoPor
+                        && request.resource.data.status in ['BOT', 'HUMANO', 'CONCLUIDO']
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['protocolo', 'atendente', 'concluidoPor']));
       allow delete: if false;
     }
 
