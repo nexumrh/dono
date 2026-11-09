@@ -1674,7 +1674,7 @@ async function cancelarVenda(id){
   if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
   // o aparelho volta para o estoque da loja, disponível para vender de novo
   let volta=null; const eid=v.aparelho?.estoqueId||v.aparelho?.imei;
-  if(eid){ const e=await DB.get('estoque',eid).catch(()=>null); if(e&&e.status!=='DISPONIVEL'){ volta=e; ops.push({c:'estoque',id:e.id,data:{status:'DISPONIVEL',vendaId:'',vendidoEm:null,obs:`Voltou ao estoque: venda nº ${v.numero} cancelada (${motivo})`,atualizadoEm:Date.now()}}); } }
+  if(eid||v.aparelho){ const e=(eid?await DB.get('estoque',eid).catch(()=>null):null)||(await DB.list('estoque',[['vendaId','==',id]]).catch(()=>[]))[0]; if(e&&e.status!=='DISPONIVEL'){ volta=e; ops.push({c:'estoque',id:e.id,data:{status:'DISPONIVEL',vendaId:'',vendidoEm:null,obs:`Voltou ao estoque: venda nº ${v.numero} cancelada (${motivo})`,atualizadoEm:Date.now()}}); } }
   await DB.batch(ops); await log('Venda cancelada',id,motivo+(volta?` · aparelho IMEI ${volta.imei||volta.id} voltou ao estoque`:''));
   if(volta) toast('Aparelho voltou ao estoque da loja, disponível para venda','ok');
   if(v.asaas&&asaasLigado()&&can('DONO','FINANCEIRO')){ try{ const r=await apiLoja('cancelarCobrancas',{vendaId:id}); toast(`Venda cancelada e ${r.apagadas??'as'} cobrança(s) apagada(s) no Asaas`,'ok'); }catch(e){ toast('Venda cancelada, mas o Asaas não apagou as cobranças: '+e.message,'err'); } }
@@ -5526,6 +5526,22 @@ Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus
     <p class="small muted">Pré-aprovado: todo dia à noite, quem pagou 60% ou mais em dia (ou quitou) ganha limite para trocar de aparelho, válido por 90 dias. Aparece no app e no portal do cliente e acelera a análise.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
+/* ---- Aparelho de venda cancelada volta ao estoque (corrige também cancelamentos antigos) ---- */
+async function devolverCancelados(){
+  if(!can('DONO','FINANCEIRO','GERENTE')) return 0;
+  try{
+    const est=(can('GERENTE')?await DB.list('estoque',[['lojaId','==',S.me.lojaId]]):await DB.list('estoque')).filter(e=>['VENDIDO','RESERVADO'].includes(e.status));
+    const canc=(await loadVendas()).filter(v=>v.status==='CANCELADA'&&v.aparelho&&!v.devolucao&&!v.aparelho.semTrava);
+    const ops=[];
+    for(const v of canc){ const e=est.find(x=>x.vendaId===v.id||(v.aparelho.estoqueId&&x.id===v.aparelho.estoqueId)||(v.aparelho.imei&&(x.id===v.aparelho.imei||x.imei===v.aparelho.imei)));
+      if(e&&(!e.vendaId||e.vendaId===v.id)) ops.push({c:'estoque',id:e.id,data:{status:'DISPONIVEL',vendaId:'',vendidoEm:null,obs:`Voltou ao estoque: venda nº ${v.numero} cancelada`,atualizadoEm:Date.now()}}); }
+    if(ops.length){ await DB.batch(ops); await log('Aparelhos de vendas canceladas voltaram ao estoque','',ops.length+' aparelho(s)'); }
+    return ops.length;
+  }catch(e){ console.warn('devolver cancelados',e); return 0; }
+}
+{ const _pe=PAGES.estoque; PAGES.estoque=async()=>{ const n=await devolverCancelados(); await _pe(); if(n) toast(n+' aparelho(s) de venda cancelada voltaram ao estoque','ok'); }; }
+{ const _pp2=PAGES.painel; PAGES.painel=async()=>{ await _pp2(); if(!S._devCanc&&can('DONO','GERENTE')){ S._devCanc=1; devolverCancelados(); } }; }
+
 /* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
 const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
 function blocoInstalarLink(v,tk){
