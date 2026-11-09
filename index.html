@@ -5555,7 +5555,7 @@ function blocoInstalarLink(v,tk){
       <li>Siga os botões do app: administrador, sobrepor apps e bateria.</li>
       <li>Espere aqui ficar verde. Só entregue o aparelho depois disso.</li></ol>
     <div class="row mt" style="gap:12px;align-items:center"><div class="qr" style="margin:0;width:170px">${qr}</div>
-      <div style="flex:1;min-width:200px"><input readonly value="${esc(url)}" class="mono small" style="width:100%"><div class="row mt" style="gap:6px"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar link</button><button class="btn sm green" data-act="instLinkWa" data-id="${v.id}">Enviar por WhatsApp</button></div>
+      <div style="flex:1;min-width:200px"><input readonly value="${esc(url)}" class="mono small" style="width:100%">
 </div></div>`;
 }
 { const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
