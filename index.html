@@ -2351,7 +2351,7 @@ function publicarVitrine(){ if(!can('DONO')) return; clearTimeout(_vitT); _vitT=
   const cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false&&x.preco>0).map(x=>({marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,preco:x.preco,juros:jurosDo(x)}))
     .sort((a,b)=>(a.marca+a.modelo).localeCompare(b.marca+b.modelo,'pt-BR',{numeric:true}));
   await DB.set('publico','vitrine',{empresa:S.cfg.empresa||'NexumCell',entradaPct:+S.cfg.entradaPct||30,jurosPadrao:jurosDo(null),parcelasOpcoes:String(S.cfg.parcelasOpcoes||'6,10,12'),
-    lojas:S.lojas.map(l=>({id:l.id,nome:l.nome,cidade:l.cidade||'',telefone:l.telefone||''})),aparelhos:cat,atualizadoEm:Date.now()});
+    lojas:S.lojas.map(l=>({id:l.id,nome:l.nome,cidade:l.cidade||'',telefone:l.telefone||''})),aparelhos:cat,servidor:servidorPg(),atualizadoEm:Date.now()});
 }catch(e){ console.warn('vitrine',e); } },1500); }
 
 /* ======================= PRÉ-ANÁLISE ONLINE ======================= */

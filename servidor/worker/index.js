@@ -10,9 +10,10 @@ import avisos from '../api/avisos.js';
 import nf from '../api/nf.js';
 import assinatura from '../api/assinatura.js';
 import zapsignWebhook from '../api/zapsign-webhook.js';
+import preanalise from '../api/preanalise.js';
 import { rotinas } from '../api/cron.js';
 
-const ROTAS = { pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook };
+const ROTAS = { pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };

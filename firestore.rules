@@ -309,11 +309,11 @@ service cloud.firestore {
     }
 
     // ---------- Resumo diário do dono (gravado pelo servidor às 19h) ----------
-    // resumo diário do dono (gravado pelo servidor às 19h)
     match /notificacoes/{id} {
       allow read, write: if hasRole(['DONO']);
     }
-    // troca ou devolução em até X dias: gerente registra, dono/financeiro executam
+
+    // ---------- Troca ou devolução em até X dias: gerente registra, dono/financeiro executam ----------
     match /trocas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['DONO', 'FINANCEIRO'])
@@ -321,6 +321,7 @@ service cloud.firestore {
       allow update: if hasRole(['DONO', 'FINANCEIRO']);
       allow delete: if false;
     }
+
     // ---------- Despesas da loja ----------
     match /despesas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
