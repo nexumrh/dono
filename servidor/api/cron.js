@@ -6,6 +6,8 @@
 // Vercel: vercel.json chama GET /api/cron?r=manha e ?r=noite com o cabeçalho Authorization: Bearer CRON_SECRET.
 import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv, pushNotificacao } from './_base.js';
 import { saasRotina } from './saas.js';
+import { repasseRotina } from './repasse.js';
+import { nota } from './motor.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
@@ -55,6 +57,24 @@ async function regua(cfg, vendas) {
     await db.collection('vendas').doc(v.id).set({ avisosBrevo: { ...(v.avisosBrevo || {}), [chave]: { em: Date.now(), ...r } } }, { merge: true });
   }
   return { regua: enviados, falhas, ficaramParaDepois: restantes };
+}
+
+// ---------- Score NexumCell visível no app e no portal do cliente ----------
+const FAIXAS = [['Bronze', 0], ['Prata', 600], ['Ouro', 750], ['Diamante', 900]];
+export async function scoreRotina() {
+  const todas = (await db.collection('vendas').where('status', 'in', ['ATIVA', 'QUITADA', 'RETOMADA']).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const porCpf = {}; todas.forEach((v) => (porCpf[v.clienteCpf] = porCpf[v.clienteCpf] || []).push(v));
+  const max = Number(process.env.ROTINA_MAX) || 1000; let n = 0;
+  for (const vs of Object.values(porCpf)) {
+    const ativa = vs.find((v) => v.status === 'ATIVA' && v.aparelhoToken); if (!ativa) continue;
+    const N = nota(vs, ativa.cliente?.renda), faixa = [...FAIXAS].reverse().find(([, m]) => N.score >= m)[0], prox = FAIXAS.find(([, m]) => m > N.score);
+    const sc = { valor: N.score, faixa: N.atrasoAberto ? 'Em atraso' : faixa, proxima: prox ? { faixa: prox[0], falta: prox[1] - N.score } : null, em: hoje() };
+    if (ativa.score?.valor === sc.valor && ativa.score?.faixa === sc.faixa) continue;
+    if (n >= max) break;
+    await db.collection('aparelhos').doc(ativa.aparelhoToken).set({ score: sc }, { merge: true });
+    await db.collection('vendas').doc(ativa.id).set({ score: sc }, { merge: true }); n++;
+  }
+  return n;
 }
 
 // ---------- Limite pré-aprovado para recompra (bom pagador) ----------
@@ -180,7 +200,7 @@ export async function resumoDoDia(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } return r; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } return r; }
   const vendas = await vendasAtivas();
   return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)) };
 }
