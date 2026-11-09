@@ -1480,12 +1480,11 @@ async function passoTrava(){
   const v=await DB.get('vendas',S.w.vendaId), tk=v.aparelhoToken;
   if(v.aparelho?.semTrava) return passoEntregaSemTrava(v);
   if(!tk){ $('#wz').innerHTML='<div class="card empty"><b>Trava ainda não gerada</b>Confirme a entrada primeiro.</div>'; return; }
-  const json=payloadProvisionamento(tk), marca=v.aparelho.marca;
+  const json=payloadProvisionamento(tk,v.lojaId), marca=v.aparelho.marca;
   let qrHtml=''; try{ if(typeof qrcode==='function'){ const q=qrcode(0,'L'); q.addData(json,'Byte'); q.make(); qrHtml=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
   const tent=v.instalacao?.tentativas||1;
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Instalar a trava no ${esc(apNome(v))} ${tent>1?badge('tentativa '+tent,'amber'):''}</h2>
     <div class="warn mb"><b>A venda só é concluída quando a trava subir no aparelho.</b> Não entregue o celular antes da confirmação abaixo ficar verde.</div>
-    ${!S.cfg.wifiSsid?`<div class="msg mb small">📶 Dica: cadastre o Wi-Fi da loja em Configurações (Trava). Com o Wi-Fi dentro do QR, o aparelho (principalmente Realme e Oppo) conecta sozinho e baixa o app sem erro.</div>`:''}
     <div class="grid g2" style="align-items:start">
       <div>${videoMarca(marca)}</div>
       <div><div class="qr" style="margin:0 auto">${qrHtml||'<span class="small muted">QR indisponível sem internet.</span>'}</div>
@@ -1816,8 +1815,9 @@ async function imprimirContrato(id){
 // O link "releases/latest" do GitHub passa por 2 redirecionamentos; alguns aparelhos (Realme, Oppo…) não seguem
 // e dizem que "não baixou o app". Para esse link usamos a cópia direta publicada junto com o portal do Dono.
 function apkDireto(u){ u=String(u||'').trim(); if(/github\.com\/nexumrh\/trava\/releases\//i.test(u)) return 'https://nexumrh.github.io/dono/nexumcell-trava.apk'; return u; }
-function payloadProvisionamento(tk){
-  const c=S.cfg, p={
+function payloadProvisionamento(tk,lojaId){
+  // Wi-Fi: o da loja da venda (cada loja tem o seu); senão o geral das configurações
+  const lj=S.lojas.find(l=>l.id===lojaId)||{}, c=lj.wifiSsid?{...S.cfg,wifiSsid:lj.wifiSsid,wifiSenha:lj.wifiSenha||''}:S.cfg, p={
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME':ADMIN_COMPONENT,
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION':apkDireto(c.apkUrl),
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM':hexToB64url(c.apkChecksumHex),
@@ -1831,7 +1831,7 @@ function payloadProvisionamento(tk){
   return JSON.stringify(p);
 }
 async function mostrarQR(tk){
-  const ap=await DB.get('aparelhos',tk), c=S.cfg, json=payloadProvisionamento(tk);
+  const ap=await DB.get('aparelhos',tk), c=S.cfg, json=payloadProvisionamento(tk,ap?.lojaId);
   const faltas=[]; if(!c.apkUrl) faltas.push('link do APK'); if(!hexToB64url(c.apkChecksumHex)) faltas.push('checksum da assinatura do APK'); if(!fb) faltas.push('Firebase (modo demonstração)');
   let qrHtml='';
   try{ if(typeof qrcode==='function'){ const q=qrcode(0,'L'); q.addData(json,'Byte'); q.make(); qrHtml=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){ console.warn(e); }
@@ -5668,8 +5668,8 @@ function saudeHtml(s){
 /* ---- Repasse automático às lojas pelo Asaas ---- */
 const PIX_TIPOS=[['CNPJ','CNPJ'],['CPF','CPF'],['EMAIL','E-mail'],['TELEFONE','Telefone'],['ALEATORIA','Chave aleatória']];
 { const _el=editarLoja; editarLoja=async id=>{ await _el(id); if(!can('DONO','FINANCEIRO')) return; const l=id?S.lojas.find(x=>x.id===id)||{}:{};
-  const btn=document.querySelector('[data-act="salvarLoja"]'); btn?.closest('.row').insertAdjacentHTML('beforebegin',`<h3>Chave PIX para o repasse</h3><div class="grid g3"><label>Tipo<select id="lgPixTipo">${PIX_TIPOS.map(([k,t])=>`<option value="${k}" ${l.pixTipo===k?'selected':''}>${t}</option>`).join('')}</select></label><label style="grid-column:span 2">Chave PIX da loja<input id="lgPix" value="${esc(l.pixChave||'')}" placeholder="a chave que recebe o repasse"></label></div><p class="hint">Confira com o gerente: o repasse automático manda o dinheiro direto para esta chave.</p>`); }; }
-{ const _sl=salvarLoja; salvarLoja=async id=>{ const tp=$('#lgPixTipo')?.value, ch=$('#lgPix')?.value.trim(); await _sl(id); if(tp!=null&&id) await DB.set('lojas',id,{pixTipo:tp,pixChave:ch||''}).catch(e=>toast(e.message,'err')); if(tp!=null) S.lojas=await DB.list('lojas'); }; }
+  const btn=document.querySelector('[data-act="salvarLoja"]'); btn?.closest('.row').insertAdjacentHTML('beforebegin',`<h3>Chave PIX para o repasse</h3><div class="grid g3"><label>Tipo<select id="lgPixTipo">${PIX_TIPOS.map(([k,t])=>`<option value="${k}" ${l.pixTipo===k?'selected':''}>${t}</option>`).join('')}</select></label><label style="grid-column:span 2">Chave PIX da loja<input id="lgPix" value="${esc(l.pixChave||'')}" placeholder="a chave que recebe o repasse"></label></div><p class="hint">Confira com o gerente: o repasse automático manda o dinheiro direto para esta chave.</p><h3>Wi-Fi da loja (vai dentro do QR da trava)</h3><div class="grid g2"><label>Nome da rede (Wi-Fi)<input id="lgWifi" value="${esc(l.wifiSsid||'')}"></label><label>Senha do Wi-Fi<input id="lgWifiSenha" value="${esc(l.wifiSenha||'')}"></label></div>`); }; }
+{ const _sl=salvarLoja; salvarLoja=async id=>{ const tp=$('#lgPixTipo')?.value, ch=$('#lgPix')?.value.trim(), wf=$('#lgWifi')?.value||'', ws=$('#lgWifiSenha')?.value||''; await _sl(id); if(tp!=null&&id) await DB.set('lojas',id,{pixTipo:tp,pixChave:ch||'',wifiSsid:wf.trim(),wifiSenha:ws}).catch(e=>toast(e.message,'err')); if(tp!=null) S.lojas=await DB.list('lojas'); }; }
 async function repAsaas(btn){
   const ids=[...document.querySelectorAll('[data-rep]:checked')].map(c=>c.dataset.rep);
   if(!ids.length) return toast('Marque as vendas para repassar','err');
