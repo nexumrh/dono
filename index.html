@@ -1081,7 +1081,7 @@ async function validarSelfie(url,iaVida=null){
       if(m==='nao') return fim({aprovado:false,motivo:'O rosto não confere com a foto do documento.',mesma_pessoa:'não',confianca:iaVida.confianca});
       return fim({aprovado:true,motivo:iaVida.observacao||'Prova de vida aprovada e rosto real.',mesma_pessoa:m,confianca:iaVida.confianca}); }
     if(iaChave()){
-      const r=await iaVisao(PROMPT_FACE,[redimensionar(img,1024,0.85),w.fotos.frente.ia]);
+      const r=await iaVisao(PROMPT_FACE,[redimensionar(img,768,0.8),w.fotos.frente.ia],400);
       if(!r.rosto_detectado||r.quantidade_rostos!==1) return fim({aprovado:false,motivo:'O rosto não foi identificado com clareza. Tire de novo.'});
       if(r.foto_de_tela_ou_papel) return fim({aprovado:false,motivo:'A foto parece ser de uma tela ou papel. A biometria precisa ser do cliente presente.'});
       if(r.mesma_pessoa==='nao') return fim({aprovado:false,motivo:'O rosto não confere com a foto do documento.',mesma_pessoa:'não',confianca:r.confianca});
@@ -1089,7 +1089,7 @@ async function validarSelfie(url,iaVida=null){
     }
     if(!fb){ await new Promise(o=>setTimeout(o,900)); return fim({aprovado:true,simulado:true,motivo:'Rosto detectado.',mesma_pessoa:'sim',confianca:92}); }
     fim({aprovado:true,motivo:'Sem IA configurada: o analista confere a foto manualmente.',mesma_pessoa:'incerto'});
-  }catch(e){ fim({aprovado:true,motivo:'IA indisponível: o analista confere a foto manualmente.',mesma_pessoa:'incerto'}); }
+  }catch(e){ console.warn('IA rosto',e); fim({aprovado:true,motivo:'IA indisponível ('+String(e.message||e).slice(0,180)+') — o analista confere a foto manualmente.',mesma_pessoa:'incerto',falhaIA:true}); }
 }
 
 /* ---- 3. Contato e endereço ---- */
@@ -1267,7 +1267,7 @@ async function conferirImeiFoto(){
       else res={confere:true,msg:'IMEI confere com a tela do aparelho.',lidos};
     } else if(!fb){ await new Promise(o=>setTimeout(o,700)); res={confere:imeiOk(w.sel.imei||''),msg:imeiOk(w.sel.imei||'')?'IMEI confere com a tela (simulado).':'Digite um IMEI válido.',simulado:true}; }
     else res={confere:true,manual:true,msg:'Foto guardada — o analista confere.'};
-  }catch(e){ res={confere:true,manual:true,msg:'IA indisponível agora — foto guardada para o analista.'}; }
+  }catch(e){ res={confere:true,manual:true,msg:'IA indisponível agora ('+String(e.message||e).slice(0,160)+') — foto guardada para o analista.'}; }
   w.imeiIA=res; if($('#imeiFotoSt')) $('#imeiFotoSt').innerHTML=res.confere?`<b style="color:var(--ok)">✓ ${esc(res.msg)}</b>`:`<b style="color:var(--bad)">✕ ${esc(res.msg)}</b>`;
   return res;
 }
@@ -3021,7 +3021,7 @@ async function receberCompr(input){
       else { const ok=ia.e_comprovante_de_endereco&&ia.legivel&&!ia.foto_de_tela, nb=nomesBatem(ia.nome_titular,nome), cepOk=onlyDig(ia.cep)&&onlyDig(ia.cep)===onlyDig($('#nCep')?.value||'');
         r={ok,nome:ia.nome_titular,endereco:[ia.logradouro_e_numero,ia.bairro,ia.cidade].filter(Boolean).join(', '),cep:ia.cep,data:ia.data_emissao,msg:!ok?'Não parece um comprovante de endereço legível.':`${nb?'Em nome do cliente':'Em nome de outra pessoa ('+(ia.nome_titular||'?')+')'} · ${cepOk?'CEP confere':'CEP diferente do informado'}`,alerta:!nb||!cepOk}; }
     } else r={ok:true,simulado:!fb,msg:fb?'Sem IA: o analista confere a foto.':'Comprovante lido (simulado).'};
-  }catch(e){ r={ok:true,msg:'IA indisponível: o analista confere a foto.'}; }
+  }catch(e){ r={ok:true,msg:'IA indisponível ('+String(e.message||e).slice(0,160)+'): o analista confere a foto.'}; }
   w.compr[tipo]={foto,...r,status:'OK'}; passoContato();
 }
 function guardarContato(){ const w=S.w; if(!$('#cTel1')) return; w.contatoRasc={}; ['cTel1','cTel2','cEmail','nCep','nEnd','nBairro','nCidade','cProf','cRenda','cInd'].forEach(id=>{ const e=$('#'+id); if(e) w.contatoRasc[id]=e.value; }); }
