@@ -1164,19 +1164,8 @@ function imeiMsg(v){ v=onlyDig(v); if(!v) return ''; if(v.length<15) return badg
 function blocoImei(){
   const w=S.w, f=w.imeiFoto, ia=w.imeiIA, an=w.anatel||'';
   return `<div class="card mt imei-box"><h2>${svg('<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>')}Verificação do IMEI (antifraude)</h2>
-    <div class="grid g3">
+    <div class="grid">
       <div class="imei-pass"><b>1. Número do IMEI</b><span>O sistema confere os 15 dígitos e o dígito verificador. IMEI inventado é recusado.</span><div id="imeiCheck" class="mt">${imeiMsg(w.sel.imei)||'<span class="muted small">Digite o IMEI acima</span>'}</div></div>
-      <div class="imei-pass"><b>2. Foto da tela *#06#</b><span>No aparelho que vai ser entregue, disque <b>*#06#</b> e tire a foto da tela. ${iaChave()?'A IA confere se o IMEI digitado é o mesmo da tela.':'A foto fica guardada para o analista.'}</span>
-        ${f?`<img src="${f.ver}" class="imei-foto">`:''}
-        <div class="row mt"><label class="btn sm ${f?'':'gold'}">${svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}${f?'Tirar outra':'Tirar foto'}<input type="file" accept="image/*" capture="environment" data-imeifoto hidden></label></div>
-        <div id="imeiFotoSt" class="mt small">${ia?(ia.confere?`<b style="color:var(--ok)">✓ ${esc(ia.msg)}</b>`:`<b style="color:var(--bad)">✕ ${esc(ia.msg)}</b>`):''}</div></div>
-      <div class="imei-pass"><b>3. Consulta oficial (Anatel)</b><span>Consulte o IMEI no Celular Legal (roubo, furto e aparelho irregular) e marque o resultado.</span>
-        <div class="row mt"><a class="btn sm" target="_blank" rel="noopener" href="${ANATEL_URL}">Abrir consulta oficial</a><button class="btn sm" data-act="copiarTexto" data-t="${esc(w.sel.imei||'')}">Copiar IMEI</button></div>
-        <select id="nAnatel" class="mt"><option value="">Resultado da consulta…</option>
-          <option value="REGULAR" ${an==='REGULAR'?'selected':''}>Regular — sem restrição</option>
-          <option value="IMPEDIDO" ${an==='IMPEDIDO'?'selected':''}>Impedido por perda, roubo ou furto</option>
-          <option value="RESTRICAO" ${an==='RESTRICAO'?'selected':''}>Possui restrição de uso</option>
-          <option value="INVALIDO" ${an==='INVALIDO'?'selected':''}>IMEI informado é inválido</option></select></div>
     </div>
     <p class="hint">Depois da instalação, o app da trava lê o IMEI de verdade do aparelho. Se não for o mesmo do contrato, o aparelho é <b>bloqueado na hora</b>.</p></div>`;
 }
@@ -1255,22 +1244,16 @@ async function salvarAparelho(btn){
     if(estItem.catalogoId!==x.id) return toast(`No estoque, este IMEI é um ${estItem.marca} ${estItem.modelo} ${estItem.capacidade}, não o aparelho escolhido.`,'err');
   }
   if(imei2&&imei2===imei) return toast('IMEI 1 e IMEI 2 não podem ser iguais','err');
-  if(!w.imeiFoto) return toast('Tire a foto da tela *#06# do aparelho','err');
-  const an=$('#nAnatel').value; if(!an) return toast('Faça a consulta oficial (Anatel) e marque o resultado','err');
   if(entrada<r2(valorTotal*pct/100)) return toast(`A entrada mínima é ${pct}% (${brl(valorTotal*pct/100)})`,'err');
   if(entrada>=valorTotal) return toast('Entrada maior que o valor da compra','err');
   if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
   btn.disabled=true;
   const v0=await DB.get('vendas',w.vendaId);
-  if(an!=='REGULAR'){ const t={IMPEDIDO:'IMEI impedido por perda, roubo ou furto (Anatel).',RESTRICAO:'IMEI com restrição de uso (Anatel).',INVALIDO:'IMEI inválido na base da Anatel.'}[an]; return reprovarPorImei(v0,t); }
-  const conf=(w.imeiIA&&(w.imeiIA.lidos||w.imeiIA.simulado||w.imeiIA.manual))?w.imeiIA:await conferirImeiFoto();
-  if(conf&&!conf.confere){ btn.disabled=false; return toast(conf.msg,'err'); }
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
   const freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL';
   const juros=jurosVip(jurosFreq(x,freq),v0.vip), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaPlano(valorTotal,entrada,juros,n)+prot);
-  await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
-  const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
+  const verificacaoImei={digito:true,em:Date.now(),por:S.me.nome};
   await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
     valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,frequencia:freq,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:vencDe(venc,i,freq),valor:vp,pago:false}))});
@@ -1579,7 +1562,7 @@ async function verVenda(id){
         <dt>Telefones</dt><dd>${(c.telefones||[c.tel]).map(fmtFone).map(esc).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd>
         <dt>Profissão / renda</dt><dd>${esc(c.profissao||'—')} · ${brl(c.renda)}</dd><dt>Referência</dt><dd>${esc([c.refNome,c.refTel].filter(Boolean).join(' — ')||'—')}</dd></dl></div>
       <div><h3>Aparelho e plano</h3><dl class="kv"><dt>Aparelho</dt><dd>${esc(apNome(v))}</dd>
-        ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''} ${v.aparelho.verificacaoImei?badge('Anatel: '+(v.aparelho.verificacaoImei.anatel==='REGULAR'?'regular':v.aparelho.verificacaoImei.anatel)+' · foto *#06#: '+({CONFERE:'confere',MANUAL:'conferir',SIMULADO:'simulado'}[v.aparelho.verificacaoImei.ia]||'-'),v.aparelho.verificacaoImei.anatel==='REGULAR'?'green':'red'):''}</dd>`:''}
+        ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''} ${v.aparelho.verificacaoImei?.anatel?badge('Anatel: '+(v.aparelho.verificacaoImei.anatel==='REGULAR'?'regular':v.aparelho.verificacaoImei.anatel)+' · foto *#06#: '+({CONFERE:'confere',MANUAL:'conferir',SIMULADO:'simulado'}[v.aparelho.verificacaoImei.ia]||'-'),v.aparelho.verificacaoImei.anatel==='REGULAR'?'green':'red'):''}</dd>`:''}
         ${v.reprovadoPorImei?`<dt>Reprovada</dt><dd style="color:var(--bad)">${esc(v.motivoReprovacao)} · IMEI ${esc(v.aparelhoRecusado?.imei||'')}</dd>`:''}
         ${v.entradaPaga?`<dt>Entrada paga</dt><dd>${brl(v.entradaPaga.valor)} · ${esc(v.entradaPaga.forma)} · ${fmtDT(v.entradaPaga.em)}</dd>`:''}
         <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)}${can('DONO','FINANCEIRO')?` (juros ${v.juros}% sobre o financiado)`:''}</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
