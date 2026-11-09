@@ -792,7 +792,7 @@ const IA_VISAO=['qwen/qwen3.8-27b','qwen/qwen3.6-27b','meta-models/muse-spark-op
 async function iaChamar(modelo,prompt,imagens,semJson=false){
   return fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
-    body:JSON.stringify({model:modelo,temperature:0,...(semJson?{}:{response_format:{type:'json_object'}}),
+    body:JSON.stringify({model:modelo,temperature:0,max_tokens:2048,...(semJson?{}:{response_format:{type:'json_object'}}),
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
 }
 // procura na conta do Groq um modelo que leia imagens, quando o configurado não existe mais
@@ -816,8 +816,10 @@ async function iaVisao(prompt, imagens){
   }
   // alguns modelos não aceitam o "modo JSON": tenta de novo sem ele
   if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true); }
+  // limite por minuto do plano grátis: espera o tempo que o Groq pedir (até 20 s) e tenta mais uma vez
+  if(r.status===429){ const ra=Math.min(20,Math.max(2,parseFloat(r.headers.get('retry-after'))||8)); toast(`IA ocupada, tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens); }
   if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
-  if(r.status===429) throw new Error('A IA atingiu o limite de uso do plano grátis. Espere um minuto e tente de novo.');
+  if(r.status===429){ const det=await r.json().catch(()=>({})); throw new Error('A IA atingiu o limite do plano grátis do Groq'+(det.error?.message?' ('+String(det.error.message).slice(0,140)+')':'')+'. Espere um minuto e tente de novo.'); }
   if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
   const j=await r.json(), txt=String(j.choices?.[0]?.message?.content||'');
   try{ return JSON.parse(txt); }catch(e){ const m=txt.replace(/<think>[\s\S]*?<\/think>/g,'').match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('A IA respondeu fora do formato. Tente de novo.'); }
