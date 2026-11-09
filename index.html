@@ -4251,7 +4251,8 @@ async function sair(){ if(fb) await fb.au.signOut(fb.auth); S.me=null; closeModa
 async function fbInit(){
   const base=`https://www.gstatic.com/firebasejs/${FBV}/`;
   const [a,au,m]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
-  const app=a.initializeApp(FIREBASE_CONFIG);
+  // um app com nome por portal: cada portal guarda o próprio login (dá para ficar no Dono e no Vendedor ao mesmo tempo)
+  const app=a.initializeApp(FIREBASE_CONFIG,'nexumcell-'+PORTAL);
   fb={a,au,m,app,auth:au.getAuth(app),db:(()=>{ try{ return m.initializeFirestore(app,{localCache:m.persistentLocalCache({tabManager:m.persistentMultipleTabManager()})}); }catch(e){ return m.getFirestore(app); } })()};
   au.onAuthStateChanged(fb.auth, async u=>{
     if(!u){ mostrarLogin(); return; }
