@@ -482,6 +482,7 @@ function avaliar(ap, now=Date.now()){
   if(ap.quitado || ap.status==='QUITADO') return {travar:false, motivo:'Contrato quitado', final:true};
   if(ap.status==='CANCELADO') return {travar:false, motivo:'Contrato cancelado', final:true};
   if(ap.roubo && !ap.roubo.liberadoEm) return {travar:true, motivo:'Cliente comunicou '+String(ap.roubo.tipo||'roubo').toLowerCase()};
+  if(ap.checkin?.liberadoCodigoAte>now) return {travar:false, motivo:'Liberado com código da loja até '+fmtDT(ap.checkin.liberadoCodigoAte)};
   if(ap.modo==='TRAVAR') return {travar:true, motivo:'Bloqueio manual'};
   if(ap.modo==='LIBERAR') return {travar:false, motivo:'Liberado manualmente'};
   if(ap.liberadoAte && ap.liberadoAte>now) return {travar:false, motivo:'Liberação temporária até '+fmtDT(ap.liberadoAte)};
@@ -489,6 +490,7 @@ function avaliar(ap, now=Date.now()){
   const et=etapasDe(ap), h=isoDate(new Date(now));
   const ab=(ap.parcelas||[]).filter(p=>!p.pago).map(p=>diasEntre(p.venc,h)).filter(d=>d>0), maior=ab.length?Math.max(...ab):0;
   if(maior>=et.total) return {travar:true, nivel:3, motivo:`${ab.length} parcela(s) em atraso (${maior} dias)`};
+  if(ap.acaoTrocaChip==='travar'&&ap.checkin?.chip?.trocado&&ap.chipAceito!==ap.checkin.chip.id) return {travar:true, motivo:'Chip trocado — confira e libere'};
   if(maior>=et.parcial) return {travar:false, nivel:2, motivo:`Funções limitadas — ${maior} dias de atraso`};
   if(maior>=et.aviso) return {travar:false, nivel:1, motivo:`Aviso de atraso — ${maior} dia(s)`};
   return {travar:false, motivo:'Em dia'};
@@ -499,7 +501,10 @@ function etapasDe(ap){
   const t=(Number(ap.toleranciaDias)||0)+1; return {aviso:1,parcial:t,total:t};
 }
 function camposEtapas(cfg){ const t=Math.max(1,+cfg.etapaTotalDias||7), pa=Math.min(t,Math.max(1,+cfg.etapaParcialDias||3));
-  return {etapaAvisoDias:1,etapaParcialDias:pa,etapaTotalDias:t,toleranciaDias:t-1,confiancaMensal:cfg.confiancaMensal==='nao'?'nao':'sim',appsParcial:String(cfg.appsParcial||''),pontosPorParcela:+cfg.pontosPorParcela||0,pontosValor:+cfg.pontosValor||0}; }
+  return {etapaAvisoDias:1,etapaParcialDias:pa,etapaTotalDias:t,toleranciaDias:t-1,confiancaMensal:cfg.confiancaMensal==='nao'?'nao':'sim',appsParcial:String(cfg.appsParcial||''),pontosPorParcela:+cfg.pontosPorParcela||0,pontosValor:+cfg.pontosValor||0,
+    bloquearAviao:cfg.bloquearAviao==='nao'?'nao':'sim',bloquearVpn:cfg.bloquearVpn==='nao'?'nao':'sim',bloquearFontes:cfg.bloquearFontes==='nao'?'nao':'sim',bloquearUsb:cfg.bloquearUsb==='nao'?'nao':'sim',
+    acaoTrocaChip:cfg.acaoTrocaChip==='travar'?'travar':'avisar',codigoHoras:Math.min(240,Math.max(1,+cfg.codigoHoras||48)),
+    fcm:{appId:String(cfg.fcmAppId||'').trim(),senderId:String((typeof FIREBASE_CONFIG!=='undefined'&&FIREBASE_CONFIG?.messagingSenderId)||'')}}; }
 function apSituacao(ap){
   if(ap.quitado||ap.status==='QUITADO') return ['Quitado — trava removida','gray'];
   if(ap.status==='CANCELADO') return ['Cancelado — trava removida','gray'];
@@ -521,7 +526,7 @@ function demoInit(reset){ let d=null; if(!reset){ try{ d=JSON.parse(localStorage
 const dcol = c => demo[c] || (demo[c]={});
 const DB = {
   async get(c,id){ if(!fb){ const v=dcol(c)[id]; return v?{id,...clone(v)}:null; } const s=await fb.m.getDoc(fb.m.doc(fb.db,c,id)); return s.exists()?{id:s.id,...s.data()}:null; },
-  async set(c,id,data){ data=clone(data); delete data.id; if(!fb){ dcol(c)[id]=Object.assign(dcol(c)[id]||{},data); demoSave(); return; } await fb.m.setDoc(fb.m.doc(fb.db,c,id),data,{merge:true}); },
+  async set(c,id,data){ if(c==='aparelhos') avisarAparelhos([id],data); data=clone(data); delete data.id; if(!fb){ dcol(c)[id]=Object.assign(dcol(c)[id]||{},data); demoSave(); return; } await fb.m.setDoc(fb.m.doc(fb.db,c,id),data,{merge:true}); },
   async add(c,data){ const id=token(20); await DB.set(c,id,data); return id; },
   async list(c,filters=[]){
     if(!fb) return Object.entries(dcol(c)).map(([id,v])=>({id,...clone(v)})).filter(o=>filters.every(([f,op,v])=>op==='array-contains'?(o[f]||[]).includes(v):o[f]===v));
@@ -529,6 +534,7 @@ const DB = {
     const s=await fb.m.getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()}));
   },
   async batch(ops){
+    { const ids=ops.filter(o=>o.c==='aparelhos'&&!Object.keys(o.data||{}).every(k=>k==='chipInicial')).map(o=>o.id); if(ids.length) avisarAparelhos(ids,{}); }
     if(!fb){ ops.forEach(o=>{ const d=clone(o.data); delete d.id; dcol(o.c)[o.id]=Object.assign(dcol(o.c)[o.id]||{},d); }); demoSave(); return; }
     const b=fb.m.writeBatch(fb.db); ops.forEach(o=>{ const d=clone(o.data); delete d.id; b.set(fb.m.doc(fb.db,o.c,o.id),d,{merge:true}); }); await b.commit();
   },
@@ -1469,11 +1475,13 @@ async function avisoTravas(){
     const dias=S.cfg.ultimoBackup?Math.floor((Date.now()-S.cfg.ultimoBackup)/86400000):999;
     const bk=can('DONO')&&dias>=7?`<div class="aviso-trava" data-act="go" data-tab="config">${svg(IC.config)}<b>Faça a cópia de segurança da semana</b><span>${S.cfg.ultimoBackup?'Última há '+dias+' dias.':'Nenhuma cópia feita ainda.'} Clique para ir às configurações.</span></div>`:'';
     let vs=(await loadVendas()).filter(v=>v.status==='INSTALANDO');
-    if(!vs.length){ box.innerHTML=rb+ch+bk+bannerAvisos(); return; }
+    const ss=can('DONO','FINANCEIRO','SUPORTE')?aps.filter(a=>a.status==='ATIVO'&&!a.quitado&&a.checkin?.em&&Date.now()-a.checkin.em>86400000*diasSemSinal()):[];
+    const sn=ss.length?`<div class="aviso-trava" data-act="semSinal">${svg(IC.aparelhos)}<b>${ss.length} aparelho(s) sem sinal há mais de ${diasSemSinal()} dias</b><span>Trava desligada, celular parado ou revendido. Clique para ver.</span></div>`:'';
+    if(!vs.length){ box.innerHTML=rb+ch+sn+bk+bannerAvisos(); return; }
     const lista=await Promise.all(vs.map(async v=>{ const a=v.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken).catch(()=>null):null; const e=estadoInstalacao(a);
       const min=Math.floor((Date.now()-(v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now()))/60000); return {v,e,min}; }));
     const prob=lista.filter(x=>x.e.k!=='ESPERA'&&x.e.k!=='OK'||x.min>=MIN_ALERTA);
-    box.innerHTML=rb+ch+bk+bannerAvisos()+`<div class="aviso-trava ${prob.length?'bad':''}" data-act="verAvisoTrava">${svg(IC.aparelhos)}<b>${prob.length?`${prob.length} instalação(ões) de trava com problema`:`${lista.length} venda(s) aguardando a trava subir`}</b><span>Venda só conclui quando o aparelho confirmar. Clique para ver.</span></div>`;
+    box.innerHTML=rb+ch+sn+bk+bannerAvisos()+`<div class="aviso-trava ${prob.length?'bad':''}" data-act="verAvisoTrava">${svg(IC.aparelhos)}<b>${prob.length?`${prob.length} instalação(ões) de trava com problema`:`${lista.length} venda(s) aguardando a trava subir`}</b><span>Venda só conclui quando o aparelho confirmar. Clique para ver.</span></div>`;
     S._avisoTrava=lista;
   }catch(e){ box.innerHTML=''; }
 }
@@ -2478,7 +2486,7 @@ function verChips(){
     ${l.map(a=>`<div class="pend"><div class="t2"><b>Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)}</b><span>Na entrega: ${esc(a.chipInicial.operadora||'?')} · agora: ${esc(a.checkin.chip.operadora||'sem chip')} · ${relT(a.checkin.em)}</span></div>
       <button class="btn sm" data-act="chipCiente" data-id="${a.id}">Conferido com o cliente</button></div>`).join('')||'<p class="muted">Nada pendente.</p>'}`);
 }
-async function chipCiente(id){ const a=await DB.get('aparelhos',id); await DB.set('aparelhos',id,{chipVisto:a.checkin.chip.id,chipConferidoPor:S.me.nome,chipConferidoEm:Date.now()}); await log('Troca de chip conferida',a.vendaId,a.checkin.chip.operadora||''); closeModal(); render(); }
+async function chipCiente(id){ const a=await DB.get('aparelhos',id); await DB.set('aparelhos',id,{chipVisto:a.checkin.chip.id,chipAceito:a.checkin.chip.id,chipConferidoPor:S.me.nome,chipConferidoEm:Date.now()}); await log('Troca de chip conferida',a.vendaId,a.checkin.chip.operadora||''); closeModal(); render(); }
 
 /* ======================= CONTAGEM CEGA DO ESTOQUE ======================= */
 function contagemEstoque(){
@@ -3895,9 +3903,9 @@ PAGES.aparelhos = async () => {
   const aps=(await loadAparelhos()).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
   const q=(S.filtro.aq||'').toLowerCase(), f=S.filtro.ap||'todos';
   const sit=a=>apSituacao(a)[0];
-  const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*3};
+  const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal()};
   const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q));
-  const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline','Sem contato +3 dias'],['fim','Quitados/cancelados']];
+  const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['fim','Quitados/cancelados']];
   $('#view').innerHTML=`<div class="row mb"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px" value="${esc(S.filtro.aq||'')}"></div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
@@ -3921,6 +3929,7 @@ function apCard(a){
     ${ativo&&can('DONO','SUPORTE','FINANCEIRO','GERENTE')?`<button class="btn sm" data-act="ap24h" data-id="${a.id}">Liberar 24 h</button>`:''}
     ${ativo&&gerencia?`<button class="btn sm" data-act="apMsg" data-id="${a.id}">Mensagem</button>`:''}
     ${ativo&&!ck.em?`<button class="btn sm navy" data-act="apQR" data-id="${a.id}">QR de instalação</button>`:''}
+    ${ativo&&can('DONO','SUPORTE','FINANCEIRO','GERENTE')&&ck.em?`<button class="btn sm" data-act="apCodigo" data-id="${a.id}">Código sem internet</button>`:''}
     <button class="btn sm" data-act="apLog" data-id="${a.id}">Histórico</button>
   </div></div>`;
 }
@@ -4651,6 +4660,58 @@ Object.assign(ACT,{
   pagarComissao:d=>pagarComissao(d.id,d.v), salvarPagComissao:(d,b)=>salvarPagComissao(b), verComprovanteCom:d=>verComprovanteCom(d.id), confirmarComissao:d=>confirmarComissao(d.id), contestarComissao:d=>contestarComissao(d.id), comLoja:d=>comLoja(d.id),
 });
 document.addEventListener('change',e=>{ if(e.target.id==='cmMes'){ S.filtro.cmMes=e.target.value; render(); } });
+
+/* ======================= TRAVA: AVISO INSTANTÂNEO, CÓDIGO SEM INTERNET, PROTEÇÕES, SEM SINAL ======================= */
+const diasSemSinal = () => Math.max(1, +S.cfg?.alertaSemSinalDias || 5);
+/* Depois de travar/liberar/mudar regras, pede ao servidor um aviso instantâneo (FCM) para o app sincronizar na hora. */
+const _pushFila = new Set(); let _pushT = 0;
+function avisarAparelhos(ids, data){
+  try{
+    if(!fb || !S.me || can('VENDEDOR') || !servLigado()) return;
+    const ks=Object.keys(data||{}); if(ks.length && ks.every(k=>['chipInicial','codigoOffline'].includes(k))) return;
+    ids.forEach(i=>_pushFila.add(i)); clearTimeout(_pushT);
+    _pushT=setTimeout(async()=>{ const l=[..._pushFila]; _pushFila.clear();
+      for(let i=0;i<l.length;i+=15) await apiServ('push',{ids:l.slice(i,i+15)}).catch(e=>console.warn('push',e.message)); },1200);
+  }catch(e){}
+}
+/* Código de liberação sem internet: MESMA conta do app (Codigo.kt). HMAC-SHA256(segredo, "NXC|dia|n") → 6 dígitos. */
+async function codigoOffline(segredo, dia, n){
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(segredo),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const h=new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(`NXC|${dia}|${n}`)));
+  const v=((h[0]<<24)>>>0)+(h[1]<<16)+(h[2]<<8)+h[3];
+  return String(v%1000000).padStart(6,'0');
+}
+const diaBR = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
+async function apCodigo(id){
+  const a=await DB.get('aparelhos',id); if(!a) return;
+  let ch=await DB.get('chavesTrava',id).catch(()=>null);
+  if(!ch&&!fb) ch={k:'demo-'+id};
+  if(!ch?.k) return openModal(`<h2>Código sem internet</h2><p>Este aparelho ainda está com a versão antiga do app da trava. O código passa a funcionar depois que ele <b>atualizar sozinho</b> (acontece em até 6 horas, quando tiver internet).</p><p class="small muted">Enquanto isso, use “Liberar 24 h” ou “Liberar” — valem assim que o aparelho tiver internet.</p>`);
+  const dia=diaBR(), n=a.codigoOffline?.dia===dia?(+a.codigoOffline.n||0)+1:0;
+  if(n>=50) return toast('Limite de códigos de hoje para este aparelho. Tente amanhã ou libere pela internet.','err');
+  const cod=await codigoOffline(ch.k,dia,n), horas=+a.codigoHoras||+S.cfg.codigoHoras||48;
+  await DB.set('aparelhos',id,{codigoOffline:{dia,n,por:S.me.nome,em:Date.now()}});
+  await log('Código de liberação sem internet gerado',id,`nº ${a.vendaNumero} · ${a.clienteNome} · ${horas} h`);
+  openModal(`<h2>Código de liberação</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)}</p>
+    <div style="font-size:44px;font-weight:800;letter-spacing:10px;text-align:center;margin:18px 0" class="mono">${cod.slice(0,3)} ${cod.slice(3)}</div>
+    <p>Na tela de bloqueio, o cliente toca em <b>“Tenho um código da loja”</b> e digita o código. O aparelho fica liberado por <b>${horas} horas</b>, mesmo sem internet.</p>
+    <p class="small muted">Vale hoje e amanhã, uma vez só e só neste aparelho. Depois do prazo, se continuar em atraso, trava de novo. Passe o código só depois de receber o pagamento.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="copiarTexto" data-t="${cod}">Copiar</button></div>`);
+}
+{ const _c=PAGES.config; PAGES.config=async()=>{ await _c(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
+  const sel=(k,l,ops,pad)=>`<label>${l}<select data-cfg="${k}">${ops.map(([v,t])=>`<option value="${v}" ${(c[k]||pad)===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
+  const f=(k,l,t='text',x='')=>`<label>${l}<input data-cfg="${k}" type="${t}" value="${esc(c[k]??'')}" ${x}></label>`;
+  const sn=[['sim','Bloquear'],['nao','Permitir']];
+  const html=`<div class="card mt"><h2>Proteções da trava</h2><p class="small muted" style="margin-top:-6px">Valem para os aparelhos com o app da trava 1.2 ou mais novo (ele se atualiza sozinho). Depois de mudar, salve e toque em “Aplicar as regras atuais em todos os aparelhos”.</p>
+    <div class="grid g4">${sel('bloquearAviao','Modo avião',sn,'sim')}${sel('bloquearVpn','VPN',sn,'sim')}${sel('bloquearFontes','Instalar apps fora da Play Store',sn,'sim')}${sel('bloquearUsb','Passar arquivos pelo cabo USB',sn,'sim')}
+      ${sel('acaoTrocaChip','Quando trocarem o chip',[['avisar','Só avisar o painel'],['travar','Travar até a loja conferir']],'avisar')}
+      ${f('codigoHoras','Código sem internet libera por (horas)','number','min="1" max="240"')}${f('alertaSemSinalDias','Alerta de aparelho sem sinal após (dias)','number','min="1" max="60"')}</div>
+    <h3 class="mt">Aviso instantâneo (travar e liberar na hora)</h3>
+    <div class="grid g2">${f('fcmAppId','ID do app Android no Firebase (1:…:android:…)')}</div>
+    <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
+  const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
+}; }
+Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
 
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }

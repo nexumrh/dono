@@ -166,12 +166,24 @@ async function verifyIdToken(token) {
   return { ...c, uid: c.sub };
 }
 
+// ---------- Firebase Cloud Messaging (aviso instantâneo para o app da trava) ----------
+async function enviarFcm(msg) {
+  const m = { ...msg };
+  if (m.android && typeof m.android.ttl === 'number') m.android = { ...m.android, ttl: Math.round(m.android.ttl / 1000) + 's' };
+  const r = await fetch(`https://fcm.googleapis.com/v1/projects/${projeto()}/messages:send`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + (await tokenAcesso()), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: m }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error('FCM ' + r.status + ': ' + (j.error?.message || '')), { codigo: j.error?.details?.[0]?.errorCode || j.error?.status });
+  return j.name;
+}
+
 const admin = {
   apps: [],
   initializeApp() { admin.apps.push({}); return {}; },
   credential: { cert: (x) => x },
   firestore: () => firestore,
   auth: () => ({ verifyIdToken }),
+  messaging: () => ({ send: enviarFcm }),
 };
 export default admin;
 export const _interno = { paraFs, deFs, escrita, campos };

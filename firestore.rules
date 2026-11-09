@@ -210,6 +210,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- Segredo do código de liberação sem internet ----------
+    // O app da trava cria uma vez (login anônimo); só a equipe lê para gerar o código. Ninguém altera.
+    match /chavesTrava/{token} {
+      allow get: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                 || (hasRole(['GERENTE']) && get(/databases/$(database)/documents/aparelhos/$(token)).data.lojaId == me().lojaId);
+      allow list: if false;
+      allow create: if anon() && exists(/databases/$(database)/documents/aparelhos/$(token))
+                    && request.resource.data.keys().hasOnly(['k', 'em'])
+                    && request.resource.data.k is string && request.resource.data.k.size() >= 32 && request.resource.data.k.size() <= 128;
+      allow update, delete: if false;
+    }
+
     // ---------- Estoque por IMEI (ID do documento = IMEI 1) ----------
     match /estoque/{imei} {
       allow get: if staff();

@@ -91,6 +91,13 @@ export async function resumoDoDia(cfg) {
   const entradas = ativadas.reduce((s, v) => s + (+v.entradaPaga?.valor || 0), 0);
   const analise = todas.filter((v) => v.status === 'ANALISE').length;
   const amanha = todas.filter((v) => v.status === 'ATIVA' && (v.parcelas || []).some((p) => !p.pago && p.venc === new Date(Date.now() + 21 * 3600e3).toISOString().slice(0, 10)));
+  // aparelhos que pararam de dar sinal (trava desligada, celular parado, revendido…)
+  const semSinalDias = Math.max(1, Number(cfg.alertaSemSinalDias) || 5);
+  let semSinal = [];
+  try {
+    const aps = (await db.collection('aparelhos').where('status', '==', 'ATIVO').get()).docs.map((d) => d.data());
+    semSinal = aps.filter((a) => !a.quitado && a.checkin?.em && Date.now() - a.checkin.em > semSinalDias * 86400e3);
+  } catch (e) { console.warn('semSinal', e.message); }
   const porLoja = {}; ativadas.forEach((v) => { porLoja[v.lojaNome || 'Loja'] = (porLoja[v.lojaNome || 'Loja'] || 0) + 1; });
   const linhas = [
     `Vendas hoje: ${ativadas.length} ativada(s)${novas.length > ativadas.length ? ` + ${novas.length - ativadas.length} em andamento` : ''}${Object.keys(porLoja).length ? ' (' + Object.entries(porLoja).map(([l, n]) => `${l}: ${n}`).join(', ') + ')' : ''}`,
@@ -99,11 +106,12 @@ export async function resumoDoDia(cfg) {
     `Em atraso: ${atrasados.size} contrato(s) · ${brl(atrasoValor)}`,
     `Vencem amanhã: ${amanha.length} contrato(s)`,
     analise ? `Propostas esperando análise: ${analise}` : '',
+    semSinal.length ? `⚠️ Aparelhos sem sinal há mais de ${semSinalDias} dias: ${semSinal.length} (${semSinal.slice(0, 5).map((a) => 'nº ' + a.vendaNumero).join(', ')}${semSinal.length > 5 ? '…' : ''})` : '',
   ].filter(Boolean);
   const texto = linhas.join('\n'), titulo = `Resumo de ${dataBR(h)} — ${cfg.empresa || 'NexumCell'}`;
   const r = { texto, enviado: {} };
   await db.collection('notificacoes').doc('resumo-' + h).set({ tipo: 'RESUMO', para: 'DONO', titulo, texto, em: Date.now(), dia: h, lida: false,
-    numeros: { vendas: ativadas.length, entradas: r2(entradas), recebido: r2(recebido), parcelas: nParc, atrasados: atrasados.size, atrasoValor: r2(atrasoValor), analise } });
+    numeros: { vendas: ativadas.length, entradas: r2(entradas), recebido: r2(recebido), parcelas: nParc, atrasados: atrasados.size, atrasoValor: r2(atrasoValor), analise, semSinal: semSinal.length } });
   if (brevoLigado() && cfg.resumoEmail !== 'nao') {
     const para = [process.env.DONO_EMAIL, ...String(cfg.resumoEmailsExtras || '').split(/[,;\s]+/)].filter((x) => /@/.test(x || ''));
     try { await enviarEmail({ para, assunto: titulo, html: moldura(titulo, texto + '\n\nAbra o Painel do Dono para ver os detalhes.'), texto }); r.enviado.email = 'ok'; } catch (e) { r.enviado.email = e.message; }

@@ -89,6 +89,22 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
     }
     t.set(db.collection('logs').doc(), { em: Date.now(), acao: 'Pagamento automático (Asaas)', alvo: vendaId, det: `parcela ${n} · R$ ${valorPago} · ${forma}`, por: 'Asaas' });
   });
+  // libera o aparelho na hora (se estava travado por atraso)
+  const v = (await ref.get()).data();
+  if (v?.aparelhoToken) await pushAparelho(v.aparelhoToken);
+}
+
+// ---------- aviso instantâneo ao app da trava (Firebase Cloud Messaging) ----------
+// O app manda o token dele no check-in (checkin.push). Sem token (app antigo, sem Google Play
+// ou sem o ID do app Android configurado), o aparelho continua conferindo a cada 15 min.
+export async function pushAparelho(token) {
+  try {
+    if (!token) return false;
+    const a = (await db.collection('aparelhos').doc(String(token)).get()).data();
+    const t = a?.checkin?.push; if (!t) return false;
+    await admin.messaging().send({ token: t, data: { acao: 'sync', em: String(Date.now()) }, android: { priority: 'high', ttl: 3600 * 1000 } });
+    return true;
+  } catch (e) { console.warn('push', token, e.message); return false; }
 }
 
 // ---------- usados pelas novas rotas ----------
