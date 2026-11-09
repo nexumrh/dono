@@ -1128,7 +1128,7 @@ async function passoAparelho(){
     <div class="grid g4">
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
-      <label>Juros sobre o financiado${S.w.vip?.descontoJuros?` <span class="badge b-amber">VIP ${esc(S.w.vip.nivel)}</span>`:''}<input value="${jurosVip(jurosDo(item),S.w.vip)}%" readonly title="Definido pelo Dono — não pode ser alterado"></label>
+      ${S.w.vip?.descontoJuros?`<label>Cliente VIP<input value="VIP ${esc(S.w.vip.nivel)} — condição especial" readonly></label>`:''}
       ${item.semTrava?`<label>Número de série (opcional)<input id="nSerie" value="${esc(w.sel.serie||'')}"></label>`:''}
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
@@ -1214,7 +1214,7 @@ function simular(){
     <div><small>Entrada${us?' (usado + dinheiro)':''}</small><b>${brl(e)}</b>${us?`<span class="small" style="color:#A9B6D3">usado ${brl(us)} + ${brl(Math.max(0,e-us))}</span>`:''}</div><div><small>Financiado</small><b>${brl(fin)}</b></div>
     <div><small>${n} parcelas de</small><b>${brl(p)}</b></div><div><small>Total a prazo</small><b>${brl(p*n+e)}</b></div></div>
     ${e<min?`<p class="small" style="color:#FFB4B4;margin:8px 0 0">A entrada mínima é ${pct}% (${brl(min)}).</p>`:''}
-    <p class="small" style="color:#A9B6D3;margin:8px 0 0">Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
+    <p class="small" style="color:#A9B6D3;margin:8px 0 0">${can('DONO','FINANCEIRO')?`Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · `:''}Pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
   $('#nImeiOk').innerHTML=imeiMsg($('#nImei').value);
 }
 async function selItem(id){ const x=await DB.get('catalogo',id), vv=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w.vip=vv?.vip||null; S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosVip(jurosDo(x),vv?.vip),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
@@ -1565,7 +1565,7 @@ async function verVenda(id){
         ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''} ${v.aparelho.verificacaoImei?badge('Anatel: '+(v.aparelho.verificacaoImei.anatel==='REGULAR'?'regular':v.aparelho.verificacaoImei.anatel)+' · foto *#06#: '+({CONFERE:'confere',MANUAL:'conferir',SIMULADO:'simulado'}[v.aparelho.verificacaoImei.ia]||'-'),v.aparelho.verificacaoImei.anatel==='REGULAR'?'green':'red'):''}</dd>`:''}
         ${v.reprovadoPorImei?`<dt>Reprovada</dt><dd style="color:var(--bad)">${esc(v.motivoReprovacao)} · IMEI ${esc(v.aparelhoRecusado?.imei||'')}</dd>`:''}
         ${v.entradaPaga?`<dt>Entrada paga</dt><dd>${brl(v.entradaPaga.valor)} · ${esc(v.entradaPaga.forma)} · ${fmtDT(v.entradaPaga.em)}</dd>`:''}
-        <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)} (juros ${v.juros}% sobre o financiado)</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
+        <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)}${can('DONO','FINANCEIRO')?` (juros ${v.juros}% sobre o financiado)`:''}</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
         ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
