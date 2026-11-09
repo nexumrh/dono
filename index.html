@@ -1163,9 +1163,7 @@ async function passoAnalise(){
   const desenhar=v=>{
     if(!v||!$('#wz')) return;
     if(v.status==='ANALISE'){
-      $('#wz').innerHTML=`<div class="card analise-viva"><div class="loader"></div><h2 style="justify-content:center">Analisando o crédito…</h2>
-        <p class="muted">Proposta nº ${v.numero} · ${esc(v.clienteNome)} · CPF ${fmtCpf(v.clienteCpf)}<br>Aguarde nesta tela: o resultado aparece aqui assim que o Dono decidir.</p>
-        <p class="small muted" id="tempo">enviada há 0 s</p>
+      $('#wz').innerHTML=`<div class="card analise-viva"><div class="loader"></div><h2 style="justify-content:center">Analisando proposta…</h2>
         ${!fb?`<div class="row" style="justify-content:center"><button class="btn sm" data-act="simularDecisao" data-r="APROVADA">Simular aprovação</button><button class="btn sm" data-act="simularDecisao" data-r="REPROVADA">Simular reprovação</button></div><p class="hint">Modo demonstração — ou aprove pelo Painel do Dono em outra aba.</p>`:''}</div>`;
     } else if(['APROVADA','AGUARDANDO_ENTRADA','ATIVA','QUITADA'].includes(v.status)){
       unwatch&&unwatch(); unwatch=null;
