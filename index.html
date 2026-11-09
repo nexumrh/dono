@@ -4475,53 +4475,102 @@ async function salvarCadastroVendedor(btn){
 }
 
 /* ---------- LOJAS PARCEIRAS (Dono) ---------- */
+const SITUACAO_SAAS={TESTE:['Em teste','navy'],EM_DIA:['Em dia','green'],ATRASADA:['Atrasada','red'],CANCELADA:['Cancelada','gray']};
+// solicitações antigas (uma loja só) viram o formato novo
+const unidadesDe = s => Array.isArray(s.lojas)&&s.lojas.length?s.lojas:[{nome:s.fantasia,cidade:s.cidade,uf:s.uf,telefone:s.telefone,endereco:s.endereco,cep:s.cep,cnpj:'',status:'PENDENTE',gerente:{nome:s.respNome,cpf:s.respCpf,email:s.respEmail,telefone:s.respTelefone}}];
+const urlSite = () => new URL('site.html',(window.NEXUMCELL_URLS?.gerente||urlPortal('GERENTE'))).href;
 PAGES.lojas = async () => {
-  const [sol,cad,lojas,us]=await Promise.all([DB.list('solicitacoesLoja'),DB.list('cadastrosVendedor'),DB.list('lojas'),DB.list('users')]); S.lojas=lojas;
+  const [sol,cad,lojas,us,emps]=await Promise.all([DB.list('solicitacoesLoja'),DB.list('cadastrosVendedor'),DB.list('lojas'),DB.list('users'),DB.list('empresas').catch(()=>[])]); S.lojas=lojas;
   const pend=sol.filter(s=>s.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm), cpend=cad.filter(c=>c.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm);
-  const link=(window.NEXUMCELL_URLS?.gerente||urlPortal('GERENTE'))+'?credenciamento';
-  $('#topActions').innerHTML=`<button class="btn" data-act="copiarTexto" data-t="${esc(link)}">Copiar link de credenciamento</button>`;
-  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">As lojas pedem o credenciamento pelo link <span class="mono small">${esc(link)}</span>. Você aprova a loja (cria o acesso do gerente) e aprova cada vendedor que o gerente cadastra. O ID e a senha saem sempre daqui, por e-mail.</p>
-  <div class="card"><h2>Pedidos de credenciamento ${pend.length?badge(pend.length,'amber'):''}</h2><div class="tablewrap"><table><tr><th>Loja</th><th>CNPJ</th><th>Cidade</th><th>Responsável (gerente)</th><th>Enviado em</th><th></th></tr>
-    ${pend.map(s=>`<tr><td><b>${esc(s.fantasia)}</b><div class="small muted">${esc(s.razao)}</div></td><td class="mono">${esc(fmtCnpj(s.cnpj))}</td><td>${esc(s.cidade)}${s.uf?'/'+esc(s.uf):''}</td><td>${esc(s.respNome)}<div class="small muted">${esc(s.respEmail)} · ${esc(fmtFone(s.respTelefone))}</div></td><td>${fmtDT(s.criadoEm)}</td>
-      <td class="right"><button class="btn sm gold" data-act="aprovarLoja" data-id="${s.id}">Aprovar</button> <button class="btn sm" data-act="recusarLoja" data-id="${s.id}">Recusar</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum pedido novo</td></tr>'}</table></div></div>
+  const site=urlSite();
+  $('#topActions').innerHTML=`<button class="btn" data-act="copiarTexto" data-t="${esc(site)}">Copiar link do site</button> <a class="btn" href="${esc(site)}${DEMO?'?demo':''}" target="_blank" rel="noopener">Abrir o site de vendas</a> <button class="btn" data-act="planosSaas">Planos e mensalidade</button>`;
+  const grupos=[...emps.map(e=>({e,ls:lojas.filter(l=>l.empresaId===e.id)})),{e:null,ls:lojas.filter(l=>!l.empresaId||!emps.some(e=>e.id===l.empresaId))}].filter(g=>g.e||g.ls.length);
+  const linhaLoja=l=>{ const gs=us.filter(u=>u.lojaId===l.id&&u.role==='GERENTE'), vs=us.filter(u=>u.lojaId===l.id&&u.role==='VENDEDOR'&&u.ativo); return `<tr>
+      <td style="padding-left:22px"><b>${esc(l.nome)}</b>${l.filial?' '+badge('filial','gray'):''}<div class="small muted">${esc(l.cidade||'')}${l.uf?'/'+esc(l.uf):''}</div></td><td>${gs.map(g=>esc(g.nome)).join(', ')||'<span class="muted">—</span>'}</td><td>${vs.length}</td>
+      <td>${l.bloqueada?badge(l.bloqueioAuto?'Bloqueada (mensalidade)':'Bloqueada','red')+`<div class="small muted">${esc(l.motivoBloqueio||'')}</div>`:badge('Ativa','green')}</td>
+      <td class="right"><button class="btn sm" data-act="pessoasLoja" data-id="${l.id}">Pessoas</button> ${l.bloqueada?`<button class="btn sm gold" data-act="desbloquearLoja" data-id="${l.id}">Desbloquear</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${l.id}">Bloquear</button>`}</td></tr>`; };
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">As empresas se cadastram pelo <b>site de vendas</b> com a matriz e as filiais, cada uma com o seu gerente. Você aprova cada loja e o login do gerente sai daqui, por e-mail. Os vendedores o gerente cadastra e você aprova abaixo.</p>
+  <div class="card"><h2>Cadastros para aprovar ${pend.length?badge(pend.length,'amber'):''}</h2><div class="tablewrap"><table><tr><th>Empresa</th><th>CNPJ</th><th>Pedido</th><th>Plano</th><th>Responsável</th><th>Enviado</th><th></th></tr>
+    ${pend.map(s=>{ const u=unidadesDe(s); return `<tr><td><b>${esc(s.fantasia)}</b><div class="small muted">${esc(s.razao||'')}</div></td><td class="mono">${esc(fmtCnpj(s.cnpj))}</td>
+      <td>${s.tipo==='FILIAL'?badge('Nova filial','navy')+`<div class="small">${esc(u[0].nome)} · ${esc(u[0].cidade)}</div>`:`${u.length} loja(s)<div class="small muted">${u.map(x=>esc(x.nome)).join(', ')}</div>`}</td>
+      <td>${esc(s.planoNome||s.plano||'—')}${s.mensalidade?`<div class="small muted">${brl(s.mensalidade)}/mês</div>`:''}</td><td>${esc(s.respNome)}<div class="small muted">${esc(s.respEmail)}</div></td><td>${fmtDT(s.criadoEm)}</td>
+      <td class="right"><button class="btn sm gold" data-act="aprovarLoja" data-id="${s.id}">Analisar e aprovar</button> <button class="btn sm" data-act="recusarLoja" data-id="${s.id}">Recusar</button></td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nenhum cadastro novo</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Vendedores para aprovar ${cpend.length?badge(cpend.length,'amber'):''}</h2><div class="tablewrap"><table><tr><th>Vendedor</th><th>CPF</th><th>E-mail</th><th>Telefone</th><th>Loja · cadastrado por</th><th>Em</th><th></th></tr>
     ${cpend.map(c=>`<tr><td><b>${esc(c.nome)}</b></td><td class="mono">${esc(fmtCpf(c.cpf))}</td><td>${esc(c.email)}</td><td>${esc(fmtFone(c.telefone))}</td><td>${esc(lojaNome(c.lojaId))}<div class="small muted">${esc(c.gerenteNome||'')}</div></td><td>${fmtDT(c.criadoEm)}</td>
       <td class="right"><button class="btn sm gold" data-act="aprovarVendedor" data-id="${c.id}">Aprovar e enviar acesso</button> <button class="btn sm" data-act="recusarVendedor" data-id="${c.id}">Recusar</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum vendedor aguardando</td></tr>'}</table></div></div>
-  <div class="card mt"><h2>Lojas</h2><div class="tablewrap"><table><tr><th>Loja</th><th>CNPJ</th><th>Gerente</th><th>Vendedores ativos</th><th>Situação</th><th></th></tr>
-    ${lojas.sort((a,b)=>String(a.nome).localeCompare(b.nome)).map(l=>{ const gs=us.filter(u=>u.lojaId===l.id&&u.role==='GERENTE'), vs=us.filter(u=>u.lojaId===l.id&&u.role==='VENDEDOR'&&u.ativo); return `<tr>
-      <td><b>${esc(l.nome)}</b><div class="small muted">${esc(l.cidade||'')}</div></td><td class="mono">${esc(fmtCnpj(l.cnpj||''))||'—'}</td><td>${gs.map(g=>esc(g.nome)).join(', ')||'<span class="muted">—</span>'}</td><td>${vs.length}</td>
-      <td>${l.bloqueada?badge('Bloqueada','red')+`<div class="small muted">${esc(l.motivoBloqueio||'')}</div>`:badge('Ativa','green')}</td>
-      <td class="right"><button class="btn sm" data-act="pessoasLoja" data-id="${l.id}">Pessoas</button> ${l.bloqueada?`<button class="btn sm gold" data-act="desbloquearLoja" data-id="${l.id}">Desbloquear</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${l.id}">Bloquear loja</button>`}</td></tr>`; }).join('')||'<tr><td colspan="6" class="empty">Nenhuma loja</td></tr>'}</table></div>
-    <p class="hint">Bloquear a loja tira o acesso do gerente e de todos os vendedores dela na hora. Eles recebem um e-mail automático com o motivo e veem a mesma mensagem ao tentar entrar. Os contratos e a cobrança dos clientes continuam.</p></div>`;
+  <div class="card mt"><h2>Empresas e lojas</h2><div class="tablewrap"><table><tr><th>Loja</th><th>Gerente</th><th>Vendedores</th><th>Situação</th><th></th></tr>
+    ${grupos.map(({e,ls})=>`<tr style="background:var(--soft,#F4F6FB)"><td colspan="3">${e?`<b>${esc(e.fantasia)}</b> <span class="small muted mono">${esc(fmtCnpj(e.cnpj))}</span><div class="small">Plano ${esc(e.planoNome||e.plano||'—')} · ${ls.length} loja(s) · mensalidade ${brl(e.mensalidade||(+e.porLoja||0)*ls.length)}</div>`:'<b>Lojas sem empresa cadastrada</b>'}</td>
+      <td>${e?(e.asaasAssinatura?badge(...(SITUACAO_SAAS[e.situacao]||['Cobrança ativa','navy'])):badge('Sem cobrança','gray'))+(e.ultimoPagamento?`<div class="small muted">pago ${fmtDT(e.ultimoPagamento.em)}</div>`:''):''}</td>
+      <td class="right">${e?(e.asaasAssinatura?`<button class="btn sm" data-act="saasAcao" data-id="${e.id}" data-q="atualizar">Atualizar valor</button>`:`<button class="btn sm gold" data-act="saasAcao" data-id="${e.id}" data-q="assinar">Gerar cobrança mensal</button>`):''}</td></tr>${ls.sort((a,b)=>(a.filial?1:0)-(b.filial?1:0)||String(a.nome).localeCompare(b.nome)).map(linhaLoja).join('')}`).join('')||'<tr><td colspan="5" class="empty">Nenhuma loja</td></tr>'}</table></div>
+    <p class="hint">Bloquear tira o acesso do gerente e dos vendedores da loja na hora, com e-mail automático e a mesma mensagem na tela de login. Com a cobrança mensal ligada, a mensalidade atrasada há mais de ${+S.cfg.saasDiasBloqueio||5} dias bloqueia as lojas da empresa sozinha, e o pagamento desbloqueia. Os contratos e a cobrança dos clientes continuam.</p></div>`;
 };
 async function aprovarLoja(id){
-  const s=await DB.get('solicitacoesLoja',id); if(!s) return;
-  openModal(`<h2>Aprovar ${esc(s.fantasia)}</h2><div class="grid g2 small">
-    <div><b>Razão social</b><br>${esc(s.razao)}</div><div><b>CNPJ</b><br>${esc(fmtCnpj(s.cnpj))}</div><div><b>Endereço</b><br>${esc(s.endereco||'—')} · ${esc(s.cidade)}${s.uf?'/'+esc(s.uf):''}</div><div><b>Telefone da loja</b><br>${esc(fmtFone(s.telefone))}</div>
-    <div><b>Responsável (será o gerente)</b><br>${esc(s.respNome)} · CPF ${esc(fmtCpf(s.respCpf))}</div><div><b>Contato</b><br>${esc(s.respEmail)} · ${esc(fmtFone(s.respTelefone))}</div>
-    ${s.obs?`<div style="grid-column:1/-1"><b>Observações</b><br>${esc(s.obs)}</div>`:''}</div>
-    <div class="grid g2 mt"><label>Nome da loja no sistema<input id="alNome" value="${esc(s.fantasia)}"></label><label>Senha temporária do gerente<input id="alSenha" maxlength="6" inputmode="numeric" value="${senha6()}"></label></div>
-    <p class="hint">Cria a loja e o acesso do gerente, e manda o ID e a senha para ${esc(s.respEmail)}. Depois cadastre a localização da loja em Lojas e configurações.</p>
-    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="alOk">Aprovar e enviar acesso</button></div>`);
-  $('#alOk').onclick=async()=>{ const b=$('#alOk'); b.disabled=true;
+  const s=await DB.get('solicitacoesLoja',id); if(!s) return; const u=unidadesDe(s), filial=s.tipo==='FILIAL';
+  const empresaId=s.empresaId||('e_'+s.cnpj), ja=new Set((await DB.list('users')).map(x=>String(x.email||'').toLowerCase()));
+  openModal(`<h2>${filial?'Nova filial — ':''}${esc(s.fantasia)}</h2>
+    <div class="grid g3 small"><div><b>Razão social</b><br>${esc(s.razao||'—')}</div><div><b>CNPJ</b><br>${esc(fmtCnpj(s.cnpj))}</div><div><b>Plano</b><br>${esc(s.planoNome||s.plano||'—')}${s.porLoja?` · ${brl(s.porLoja)}/loja`:''}</div>
+      <div><b>Responsável</b><br>${esc(s.respNome)}${s.respCpf?` · CPF ${esc(fmtCpf(s.respCpf))}`:''}</div><div><b>Contato</b><br>${esc(s.respEmail)}${s.respTelefone?` · ${esc(fmtFone(s.respTelefone))}`:''}</div><div><b>Enviado</b><br>${fmtDT(s.criadoEm)} · ${esc(s.via||'')}</div>
+      ${s.obs?`<div style="grid-column:1/-1"><b>Observações</b><br>${esc(s.obs)}</div>`:''}</div>
+    <h3 class="mt">Lojas e gerentes</h3><p class="small muted" style="margin-top:-4px">Marque as lojas que você aprova. Cada gerente aprovado recebe o ID e a senha por e-mail.</p>
+    <div class="tablewrap"><table><tr><th></th><th>Loja</th><th>Gerente</th><th>Contato</th></tr>
+    ${u.map((l,i)=>`<tr><td><input type="checkbox" class="alU" data-i="${i}" ${l.status==='PENDENTE'||!l.status?'checked':'disabled'}></td><td><b>${esc(l.nome)}</b>${i||filial?'':' '+badge('matriz','navy')}<div class="small muted">${esc(l.endereco||'')} ${esc(l.cidade||'')}${l.uf?'/'+esc(l.uf):''}${l.cnpj?' · CNPJ '+esc(fmtCnpj(l.cnpj)):''}</div></td>
+      <td>${esc(l.gerente?.nome||'')}<div class="small muted mono">CPF ${esc(fmtCpf(l.gerente?.cpf||''))}${cpfOk(l.gerente?.cpf||'')?'':' '+badge('CPF inválido','red')}</div></td><td class="small">${esc(l.gerente?.email||'')}${ja.has(String(l.gerente?.email||'').toLowerCase())?' '+badge('já tem acesso','red'):''}<br>${esc(fmtFone(l.gerente?.telefone||''))}</td></tr>`).join('')}</table></div>
+    ${!filial&&servLigado()&&S.cfg.saasCobrar!=='nao'?`<label class="check mt"><input type="checkbox" id="alCob" checked> <span>Gerar a cobrança mensal no Asaas (${esc(s.planoNome||'')}, 1º vencimento em ${+(S.cfg.saasDiasTeste??7)||1} dias)</span></label>`:''}
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="alOk">Aprovar e enviar os logins</button></div>`,true);
+  $('#alOk').onclick=async()=>{ const b=$('#alOk'), sel=[...document.querySelectorAll('.alU:checked')].map(x=>+x.dataset.i); if(!sel.length) return toast('Marque ao menos uma loja','err');
+    const cobrar=$('#alCob')?.checked; b.disabled=true; b.innerHTML='<span class="spin"></span> Aprovando…';
+    const feitos=[], erros=[], lojasNovas=[...u];
     try{
-      const lojaId='l_'+token(10), nome=$('#alNome').value.trim()||s.fantasia;
-      await DB.set('lojas',lojaId,{nome,cidade:s.cidade,uf:s.uf||'',telefone:fmtFone(s.telefone),cnpj:s.cnpj,razao:s.razao,endereco:s.endereco||'',criadoEm:Date.now(),solicitacaoId:id});
-      S.lojas=await DB.list('lojas');
-      const a=await criarAcesso({nome:s.respNome,email:s.respEmail,tel:s.respTelefone,senha:$('#alSenha').value,role:'GERENTE',lojaId,extra:{cpf:s.respCpf}});
-      await DB.set('solicitacoesLoja',id,{status:'APROVADA',lojaId,gerenteUid:a.uid,aprovadoEm:Date.now(),aprovadoPor:S.me.nome});
-      await log('Loja aprovada',lojaId,`${nome} · CNPJ ${s.cnpj}`);
-      closeModal(); modalAcessoCriado(a); render();
-    }catch(e){ toast(e.code==='auth/email-already-in-use'?'O e-mail do responsável já tem acesso':e.message,'err'); b.disabled=false; }
+      if(!filial) await DB.set('empresas',empresaId,{cnpj:s.cnpj,razao:s.razao||'',fantasia:s.fantasia,telefone:s.telefone||'',cidade:s.cidade||u[0].cidade||'',uf:s.uf||'',respNome:s.respNome,respCpf:s.respCpf||'',respEmail:s.respEmail,respTelefone:s.respTelefone||'',
+        plano:s.plano||'',planoNome:s.planoNome||'',porLoja:+s.porLoja||0,situacao:'SEM_COBRANCA',criadoEm:Date.now(),solicitacaoId:id});
+      for(const i of sel){ const l=u[i];
+        try{
+          const lojaId='l_'+token(10);
+          await DB.set('lojas',lojaId,{nome:l.nome,cidade:l.cidade||'',uf:l.uf||'',telefone:fmtFone(l.telefone||''),cnpj:l.cnpj||'',endereco:l.endereco||'',cep:l.cep||'',empresaId,empresaNome:s.fantasia,filial:filial||i>0,criadoEm:Date.now(),solicitacaoId:id});
+          S.lojas=await DB.list('lojas');
+          const a=await criarAcesso({nome:l.gerente.nome,email:l.gerente.email,tel:l.gerente.telefone,senha:senha6(),role:'GERENTE',lojaId,extra:{cpf:l.gerente.cpf||'',empresaId}});
+          enviarAcessoEmail(a.email,a.assunto,a.corpo); lojasNovas[i]={...l,status:'APROVADO',lojaId,gerenteUid:a.uid}; feitos.push(`${l.nome}: ${a.nome} · ${a.codigo}`);
+        }catch(e){ erros.push(`${l.nome}: ${e.code==='auth/email-already-in-use'?'o e-mail do gerente já tem acesso':e.message}`); }
+      }
+      u.forEach((l,i)=>{ if(!sel.includes(i)&&(l.status||'PENDENTE')==='PENDENTE') lojasNovas[i]={...l,status:'RECUSADO'}; });
+      await DB.set('solicitacoesLoja',id,{status:feitos.length?'APROVADA':'PENDENTE',lojas:lojasNovas,empresaId,aprovadoEm:Date.now(),aprovadoPor:S.me.nome});
+      await log(filial?'Filial aprovada':'Empresa aprovada',empresaId,`${s.fantasia} · ${feitos.length} loja(s)`);
+      let cob='';
+      if(feitos.length&&servLigado()&&(filial||cobrar)){ try{ const r=await apiServ('saas',{acao:filial?'atualizar':'assinar',empresaId}); cob=r.semAssinatura||!r.valor?'':`Cobrança mensal: ${brl(r.valor)}${r.vencimento?` (1º vencimento ${fmtD(r.vencimento)})`:''}.`; }catch(e){ cob='Não consegui gerar a cobrança no Asaas: '+e.message+'. Use “Gerar cobrança mensal” depois.'; } }
+      closeModal();
+      openModal(`<h2>${feitos.length?'Aprovado ✅':'Nada aprovado'}</h2>${feitos.length?`<p>Logins criados e enviados por e-mail:</p><ul>${feitos.map(x=>`<li class="mono small">${esc(x)}</li>`).join('')}</ul>`:''}${erros.length?`<div class="warn">${erros.map(esc).join('<br>')}</div>`:''}${cob?`<p class="small">${esc(cob)}</p>`:''}`);
+      render();
+    }catch(e){ toast(e.message,'err'); b.disabled=false; b.textContent='Aprovar e enviar os logins'; }
   };
 }
 async function recusarLoja(id){
   const s=await DB.get('solicitacoesLoja',id); const motivo=prompt(`Motivo da recusa de ${s.fantasia} (vai no e-mail):`); if(motivo===null) return;
-  await DB.set('solicitacoesLoja',id,{status:'RECUSADA',resposta:motivo.trim(),respondidoEm:Date.now(),respondidoPor:S.me.nome});
-  await log('Credenciamento recusado',id,`${s.fantasia}: ${motivo}`);
-  const ok=await emailAuto(s.respEmail,`Credenciamento ${MARCA} — `+s.fantasia,`Olá, ${primeiroNome(s.respNome)}.\n\nAnalisamos o pedido de credenciamento da ${s.fantasia} e, por enquanto, não foi aprovado.${motivo.trim()?`\n\nMotivo: ${motivo.trim()}`:''}\n\nEquipe ${MARCA}`);
-  toast('Pedido recusado'+(ok?' e e-mail enviado':''),'ok'); render();
+  await DB.set('solicitacoesLoja',id,{status:'RECUSADA',resposta:motivo.trim(),lojas:unidadesDe(s).map(l=>({...l,status:'RECUSADO'})),respondidoEm:Date.now(),respondidoPor:S.me.nome});
+  await log(s.tipo==='FILIAL'?'Filial recusada':'Cadastro de empresa recusado',id,`${s.fantasia}: ${motivo}`);
+  const ok=await emailAuto(s.respEmail,`Cadastro ${MARCA} — `+s.fantasia,`Olá, ${primeiroNome(s.respNome)}.\n\nAnalisamos o ${s.tipo==='FILIAL'?'pedido da nova filial':'cadastro'} da ${s.fantasia} e, por enquanto, não foi aprovado.${motivo.trim()?`\n\nMotivo: ${motivo.trim()}`:''}\n\nEquipe ${MARCA}`);
+  toast('Cadastro recusado'+(ok?' e e-mail enviado':''),'ok'); render();
 }
+async function saasAcao(empresaId,q,btn){
+  if(!servLigado()) return toast('Ligue o servidor e o Asaas para cobrar a mensalidade','err');
+  if(!fb) return toast('Modo demonstração: a cobrança é criada no Asaas quando o sistema estiver ligado ao servidor.');
+  btn.disabled=true;
+  try{ const r=await apiServ('saas',{acao:q,empresaId}); toast(q==='assinar'?`Cobrança mensal criada: ${brl(r.valor)}${r.vencimento?' · 1º vencimento '+fmtD(r.vencimento):''}`:`Valor atualizado: ${brl(r.valor)}`,'ok'); render(); }
+  catch(e){ toast(e.message,'err'); btn.disabled=false; }
+}
+async function planosSaas(){
+  const c=S.cfg, P=Array.isArray(c.planosLojas)&&c.planosLojas.length?c.planosLojas:[{id:'START',nome:'Start',porLoja:199,itens:['Crediário com trava do aparelho','Análise de crédito pela NexumCell','Cobrança automática por PIX','Até 3 vendedores por loja']},{id:'PRO',nome:'Pro',porLoja:349,destaque:true,itens:['Tudo do Start','Vendedores ilimitados','Comissões com comprovante','Painel da TV e metas','Suporte prioritário no chat']},{id:'REDE',nome:'Rede',porLoja:299,minimoLojas:3,itens:['Tudo do Pro','A partir de 3 lojas','Relatórios da rede','Gerente de conta']}];
+  openModal(`<h2>Planos e mensalidade das lojas</h2><p class="small muted" style="margin-top:-6px">Aparecem no site de vendas. A mensalidade é o preço por loja × o número de lojas da empresa.</p>
+    ${P.map((p,i)=>`<div class="card mb" style="padding:12px"><div class="grid g4"><label>Nome<input id="pl_n${i}" value="${esc(p.nome)}"></label><label>Preço por loja (R$)<input id="pl_v${i}" type="number" step="0.01" value="${+p.porLoja||0}"></label><label>Mínimo de lojas<input id="pl_m${i}" type="number" min="0" value="${+p.minimoLojas||0}"></label><label>Destaque<select id="pl_d${i}"><option value="">Não</option><option value="1" ${p.destaque?'selected':''}>Sim</option></select></label></div>
+      <label class="mt">Itens (um por linha)<textarea id="pl_i${i}" rows="3">${esc((p.itens||[]).join('\n'))}</textarea></label></div>`).join('')}
+    <div class="grid g4"><label>Taxa de adesão (R$)<input id="sa_ad" type="number" step="0.01" value="${+c.saasAdesao||0}"></label><label>Dias até a 1ª mensalidade<input id="sa_dt" type="number" min="1" value="${+(c.saasDiasTeste??7)}"></label>
+      <label>Bloquear após atraso de (dias)<input id="sa_db" type="number" min="0" value="${+(c.saasDiasBloqueio??5)}"></label><label>Cobrar pelo Asaas<select id="sa_cb"><option value="sim">Sim</option><option value="nao" ${c.saasCobrar==='nao'?'selected':''}>Não (cobro por fora)</option></select></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="plOk">Salvar</button></div>`,true);
+  $('#plOk').onclick=async()=>{ const planos=P.map((p,i)=>({id:p.id,nome:$('#pl_n'+i).value.trim()||p.nome,porLoja:r2(+$('#pl_v'+i).value||0),minimoLojas:+$('#pl_m'+i).value||0,destaque:!!$('#pl_d'+i).value,itens:$('#pl_i'+i).value.split('\n').map(x=>x.trim()).filter(Boolean)}));
+    const d={planosLojas:planos,saasAdesao:r2(+$('#sa_ad').value||0),saasDiasTeste:Math.max(1,+$('#sa_dt').value||7),saasDiasBloqueio:Math.max(0,+$('#sa_db').value||0),saasCobrar:$('#sa_cb').value};
+    await DB.set('config','sistema',d); Object.assign(S.cfg,d); await log('Planos das lojas alterados','config','');
+    closeModal(); toast('Planos salvos. O site já mostra os novos valores.','ok'); };
+}
+Object.assign(ACT,{ saasAcao:(d,b)=>saasAcao(d.id,d.q,b), planosSaas:()=>planosSaas() });
 async function aprovarVendedor(id,btn){
   const c=await DB.get('cadastrosVendedor',id); if(!c) return; const l=await DB.get('lojas',c.lojaId);
   if(l?.bloqueada) return toast('A loja está bloqueada. Desbloqueie antes de aprovar.','err');
@@ -4676,6 +4725,7 @@ async function contestarComissao(id){
 /* ---------- Credenciamento público da loja: Portal do Gerente ?credenciamento ---------- */
 function telaCredenciamento(){
   if(PORTAL!=='gerente'||!/[?&]credenciamento\b/.test(location.search)) return false;
+  location.replace('site.html'+(DEMO?'?demo':'')+'#cadastro'); return true;
   document.title=`Credenciamento de loja — ${MARCA}`;
   $('#login').hidden=true; $('#app').hidden=true;
   const f=(id,l,t='text',x='')=>`<label>${l}<input id="${id}" type="${t}" ${x}></label>`;
@@ -4794,6 +4844,7 @@ async function verificarLicenca(){
   if(dias<=7&&PORTAL==='dono') document.body.insertAdjacentHTML('afterbegin',`<div style="background:#B45309;color:#fff;padding:8px 14px;text-align:center;font-size:14px;position:relative;z-index:50">A licença do sistema vence em ${fmtD(S.licenca.validoAte)} (${dias} dia(s)). Fale com a NexumCell para renovar.</div>`);
 }
 verificarLicenca();
+if(PORTAL==='gerente'){ const m=document.getElementById('lMsg'); m&&m.insertAdjacentHTML('afterend',`<p class="small" style="text-align:center;margin-top:14px">Quer vender no crediário com a ${esc(MARCA)}? <a href="site.html${DEMO?'?demo':''}">Cadastre sua loja e filiais</a></p>`); }
 // limite de lojas do plano
 { const _a=aprovarLoja; aprovarLoja=async function(id){ const lim=+S.licenca?.limiteLojas||0;
   if(lim>0){ const n=(await DB.list('lojas')).length; if(n>=lim) return toast(`Seu plano permite ${lim} loja(s). Fale com a NexumCell para aumentar.`,'err'); }

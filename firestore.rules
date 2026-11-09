@@ -56,6 +56,12 @@ service cloud.firestore {
       allow write: if hasRole(['DONO']);
     }
 
+    // ---------- Empresas parceiras (SaaS: matriz e filiais, plano e mensalidade) ----------
+    match /empresas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']);
+      allow write: if hasRole(['DONO']);
+    }
+
     // ---------- Credenciamento de loja (link público → servidor grava; só o Dono vê e aprova) ----------
     match /solicitacoesLoja/{id} {
       allow read, update: if hasRole(['DONO']);

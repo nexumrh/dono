@@ -13,9 +13,10 @@ import zapsignWebhook from '../api/zapsign-webhook.js';
 import preanalise from '../api/preanalise.js';
 import credenciamento from '../api/credenciamento.js';
 import push from '../api/push.js';
+import saas from '../api/saas.js';
 import { rotinas } from '../api/cron.js';
 
-const ROTAS = { pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push };
+const ROTAS = { pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };

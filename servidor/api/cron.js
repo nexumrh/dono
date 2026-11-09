@@ -5,6 +5,7 @@
 // Cloudflare: roda sozinho pelos "Cron Triggers" do wrangler.toml.
 // Vercel: vercel.json chama GET /api/cron?r=manha e ?r=noite com o cabeçalho Authorization: Bearer CRON_SECRET.
 import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv } from './_base.js';
+import { saasRotina } from './saas.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
@@ -128,7 +129,7 @@ export async function resumoDoDia(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'noite') return resumoDoDia(cfg);
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } return r; }
   const vendas = await vendasAtivas();
   return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)) };
 }
