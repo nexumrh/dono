@@ -400,9 +400,9 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','pedidos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','saas','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','trocas','repasses','comissoes','listanegra','escala','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
@@ -643,6 +643,7 @@ const IC = {
   listanegra:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   lojas:'<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
   comissoes:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .9-3 2s1 1.7 3 2 3 .9 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
+  saas:'<path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 0 0 4.5 12a3.5 3.5 0 0 0 .5 7z"/>',
   config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -677,6 +678,7 @@ const TABS = [
   {id:'repasses',label:'Repasses às lojas',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'lojas',label:'Lojas parceiras',roles:['DONO']},
   {id:'comissoes',label:'Comissões',roles:['DONO','GERENTE','VENDEDOR','FINANCEIRO']},
+  {id:'saas',label:'Clientes SaaS',roles:['DONO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -4331,13 +4333,14 @@ Object.assign(ACT,{
    do Portal do Gerente (?credenciamento). O gerente cadastra os vendedores, mas só o Dono aprova e só o Dono
    cria e manda o ID e a senha. O Dono pode bloquear a loja (e todos dela) ou uma pessoa, com mensagem automática.
    Comissões: quem paga é o gerente, com comprovante; o vendedor confirma que recebeu; o Dono acompanha. */
+const MARCA = (window.NEXUMCELL_LICENCA&&window.NEXUMCELL_LICENCA.cliente) || 'NexumCell';
 const STAFF_NEXUM = ['DONO','FINANCEIRO','SUPORTE'];
 const mesHoje = () => hoje().slice(0,7);
 const lojaNomeLogin = p => { try{ return p.lojaNome||''; }catch(e){ return ''; } };
 const fmtCnpj = c => { c=onlyDig(c); return c.length===14?c.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):c; };
 const senha6 = () => String(Math.floor(100000+Math.random()*900000));
-const msgBloqueio = (loja,motivo) => `O acesso ${loja?`da loja ${loja} `:''}ao sistema NexumCell foi suspenso pela NexumCell${motivo?`. Motivo: ${motivo}`:''}. Os contratos dos clientes continuam valendo e a cobrança segue normalmente. Para regularizar, fale com a NexumCell.`;
-if(PORTAL==='dono'){ const t=TABS.find(x=>x.id==='equipe'); if(t) t.label='Equipe NexumCell'; }
+const msgBloqueio = (loja,motivo) => `O acesso ${loja?`da loja ${loja} `:''}ao sistema ${MARCA} foi suspenso pela ${MARCA}${motivo?`. Motivo: ${motivo}`:''}. Os contratos dos clientes continuam valendo e a cobrança segue normalmente. Para regularizar, fale com a ${MARCA}.`;
+if(PORTAL==='dono'){ const t=TABS.find(x=>x.id==='equipe'); if(t) t.label=`Equipe ${MARCA}`; }
 
 /* Cria o login (Firebase Auth + users + logins). Só o Dono chama. Devolve o texto do e-mail com ID e senha. */
 async function criarAcesso({nome,email,tel,senha,role,lojaId='',extra={}}){
@@ -4356,8 +4359,8 @@ async function criarAcesso({nome,email,tel,senha,role,lojaId='',extra={}}){
   const loja=lojaId?await DB.get('lojas',lojaId):null;
   await DB.batch([{c:'users',id:uid,data:{nome,email,telefone:tel,codigo,role,lojaId,ativo:true,senhaTemporaria:true,criadoEm:Date.now(),criadoPor:S.me.nome,...(loja?.bloqueada?{lojaBloqueada:true,motivoBloqueio:loja.motivoBloqueio||''}:{}),...extra}},{c:'logins',id:codigo,data:{email,uid}}]);
   await log('Acesso criado',uid,`${nome} (${ROLES[role]}) ${codigo}`);
-  const url=urlPortal(role), assunto=`Seu acesso ao ${PORTAIS[PORTAL_DO_PERFIL[role]].nome} — NexumCell`;
-  const corpo=`Olá, ${primeiroNome(nome)}!\n\nSeu acesso à NexumCell foi criado${loja?` (${loja.nome})`:''}.\n\nPortal: ${url}\nSeu ID: ${codigo}\nSenha temporária: ${senha}\n\nEntre com o ID e a senha temporária. No primeiro acesso você vai criar a sua própria senha.\nSe esquecer a senha, toque em “Esqueci minha senha” na tela de login: o link para criar uma nova chega neste e-mail (${email}).\n\nO acesso é pessoal e intransferível.\n\nEquipe NexumCell`;
+  const url=urlPortal(role), assunto=`Seu acesso ao ${PORTAIS[PORTAL_DO_PERFIL[role]].nome} — ${MARCA}`;
+  const corpo=`Olá, ${primeiroNome(nome)}!\n\nSeu acesso à ${MARCA} foi criado${loja?` (${loja.nome})`:''}.\n\nPortal: ${url}\nSeu ID: ${codigo}\nSenha temporária: ${senha}\n\nEntre com o ID e a senha temporária. No primeiro acesso você vai criar a sua própria senha.\nSe esquecer a senha, toque em “Esqueci minha senha” na tela de login: o link para criar uma nova chega neste e-mail (${email}).\n\nO acesso é pessoal e intransferível.\n\nEquipe ${MARCA}`;
   return {uid,codigo,email,tel,nome,assunto,corpo};
 }
 function modalAcessoCriado(a){
@@ -4370,37 +4373,44 @@ async function emailAuto(para,assunto,texto,titulo){ if(!para||!servLigado()) re
 
 /* ---------- Equipe: no Dono só a equipe da NexumCell; no Gerente, o cadastro de vendedores ---------- */
 { const _e=PAGES.equipe; PAGES.equipe=async()=>{
-  if(can('DONO')){
-    const us=(await DB.list('users')).filter(u=>STAFF_NEXUM.includes(u.role)).sort((a,b)=>STAFF_NEXUM.indexOf(a.role)-STAFF_NEXUM.indexOf(b.role)||a.nome.localeCompare(b.nome));
-    $('#topActions').innerHTML=(fb?'':'<span class="demo-flag">Modo demonstração</span>')+'<button class="btn gold" data-act="novoUsuario">Adicionar pessoa da NexumCell</button>';
-    $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Só a equipe da NexumCell (financeiro e suporte técnico, que trabalha de casa pelo CRM). Gerentes e vendedores das lojas ficam em <b>Lojas parceiras</b>.</p>
+  if(can('DONO')&&PORTAL==='dono'){
+    const us=(await DB.list('users')).filter(u=>['FINANCEIRO','SUPORTE'].includes(u.role)).sort((a,b)=>STAFF_NEXUM.indexOf(a.role)-STAFF_NEXUM.indexOf(b.role)||a.nome.localeCompare(b.nome));
+    $('#topActions').innerHTML=(fb?'':'<span class="demo-flag">Modo demonstração</span>')+`<button class="btn gold" data-act="novoUsuario">Adicionar pessoa da ${MARCA}</button>`;
+    $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Só a equipe da ${MARCA} (financeiro e suporte técnico, que trabalha de casa pelo CRM). Gerentes e vendedores das lojas ficam em <b>Lojas parceiras</b>.</p>
     <div class="card tablewrap"><table><tr><th>Nome</th><th>ID</th><th>E-mail (login)</th><th>Telefone</th><th>Perfil</th><th>Situação</th><th></th></tr>
     ${us.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td class="mono">${esc(u.codigo||'—')}</td><td>${esc(u.email)}</td><td>${esc(fmtFone(u.telefone||''))}</td><td>${badge(ROLES[u.role]||u.role,'navy')}</td><td>${u.ativo?badge('Ativo','green'):badge('Inativo','gray')}</td>
       <td class="right">${u.id!==S.me.uid?`<button class="btn sm" data-act="toggleUser" data-id="${u.id}">${u.ativo?'Desativar':'Reativar'}</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Ninguém ainda</td></tr>'}</table></div>`;
     return;
   }
+  if(can('DONO')){ // Dono olhando o Portal do Gerente: só gerentes e vendedores das lojas, sem cadastrar
+    const us=(await DB.list('users')).filter(u=>['GERENTE','VENDEDOR'].includes(u.role)).sort((a,b)=>lojaNome(a.lojaId).localeCompare(lojaNome(b.lojaId))||a.nome.localeCompare(b.nome));
+    $('#topActions').innerHTML='';
+    $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Gerentes e vendedores das lojas parceiras. Aprovar, bloquear e mandar acesso é no Painel do Dono → Lojas parceiras.</p><div class="card tablewrap"><table><tr><th>Nome</th><th>ID</th><th>Perfil</th><th>Loja</th><th>Situação</th></tr>
+    ${us.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td class="mono">${esc(u.codigo||'')}</td><td>${esc(ROLES[u.role])}</td><td>${esc(lojaNome(u.lojaId))}</td><td>${u.lojaBloqueada?badge('Loja bloqueada','red'):u.ativo?badge('Ativo','green'):badge('Inativo','gray')}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Ninguém ainda</td></tr>'}</table></div>`;
+    return;
+  }
   await _e(); if(!can('GERENTE')) return;
   // o gerente não desbloqueia quem o Dono bloqueou
   const us=await DB.list('users',[['lojaId','==',S.me.lojaId]]);
-  document.querySelectorAll('#view [data-act="toggleUser"]').forEach(b=>{ const u=us.find(x=>x.id===b.dataset.id); if(u?.bloqueadoPeloDono) b.outerHTML=badge('Bloqueado pela NexumCell','red'); });
+  document.querySelectorAll('#view [data-act="toggleUser"]').forEach(b=>{ const u=us.find(x=>x.id===b.dataset.id); if(u?.bloqueadoPeloDono) b.outerHTML=badge(`Bloqueado pela ${MARCA}`,'red'); });
   $('#topActions').innerHTML=(fb?'':'<span class="demo-flag">Modo demonstração</span>')+'<button class="btn gold" data-act="novoUsuario">Cadastrar vendedor</button>';
   const cad=(await DB.list('cadastrosVendedor',[['lojaId','==',S.me.lojaId]])).sort((a,b)=>b.criadoEm-a.criadoEm);
   const st={PENDENTE:badge('Aguardando aprovação','amber'),APROVADO:badge('Aprovado — ID enviado por e-mail','green'),RECUSADO:badge('Recusado','red')};
-  $('#view').insertAdjacentHTML('afterbegin',`<div class="msg mb small">Você cadastra o vendedor; a <b>NexumCell aprova</b> e manda o ID e a senha direto para o e-mail dele.</div>`);
-  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt tablewrap"><h2>Cadastros enviados à NexumCell</h2><table><tr><th>Nome</th><th>CPF</th><th>E-mail</th><th>Telefone</th><th>Enviado em</th><th>Situação</th></tr>
+  $('#view').insertAdjacentHTML('afterbegin',`<div class="msg mb small">Você cadastra o vendedor; a <b>${MARCA} aprova</b> e manda o ID e a senha direto para o e-mail dele.</div>`);
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt tablewrap"><h2>Cadastros enviados à ${MARCA}</h2><table><tr><th>Nome</th><th>CPF</th><th>E-mail</th><th>Telefone</th><th>Enviado em</th><th>Situação</th></tr>
     ${cad.map(c=>`<tr><td><b>${esc(c.nome)}</b></td><td class="mono">${esc(fmtCpf(c.cpf))}</td><td>${esc(c.email)}</td><td>${esc(fmtFone(c.telefone))}</td><td>${fmtDT(c.criadoEm)}</td><td>${st[c.status]||esc(c.status)}${c.motivo?`<div class="small muted">${esc(c.motivo)}</div>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum cadastro enviado</td></tr>'}</table></div>`);
 }; }
 novoUsuario=function(){
   if(!can('DONO')){
-    openModal(`<h2>Cadastrar vendedor</h2><p class="muted" style="margin-top:-6px">O cadastro vai para a NexumCell aprovar. Depois de aprovado, o vendedor recebe o ID e a senha no e-mail.</p><div class="grid g2">
+    openModal(`<h2>Cadastrar vendedor</h2><p class="muted" style="margin-top:-6px">O cadastro vai para a ${MARCA} aprovar. Depois de aprovado, o vendedor recebe o ID e a senha no e-mail.</p><div class="grid g2">
       <label>Nome completo<input id="cvNome"></label><label>CPF<input id="cvCpf" inputmode="numeric"></label>
       <label>E-mail (será o login)<input id="cvEmail" type="email"></label><label>Telefone / WhatsApp<input id="cvTel" inputmode="tel"></label></div>
       <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarCadastroVendedor">Enviar para aprovação</button></div>`); return;
   }
-  openModal(`<h2>Adicionar pessoa da NexumCell</h2><div class="grid g2">
+  openModal(`<h2>Adicionar pessoa da ${MARCA}</h2><div class="grid g2">
     <label>Nome completo<input id="uNome"></label><label>E-mail (será o login)<input id="uEmail" type="email"></label><label>Telefone / WhatsApp<input id="uTel" inputmode="tel"></label>
     <label>Senha temporária (6 dígitos)<input id="uSenha" type="text" inputmode="numeric" maxlength="6" value="${senha6()}"></label>
-    <label>Perfil<select id="uRole">${['FINANCEIRO','SUPORTE','DONO'].map(r=>`<option value="${r}">${r==='SUPORTE'?'Suporte técnico (home office)':ROLES[r]}</option>`).join('')}</select></label></div>
+    <label>Perfil<select id="uRole">${['FINANCEIRO','SUPORTE'].map(r=>`<option value="${r}">${r==='SUPORTE'?'Suporte técnico (home office)':ROLES[r]}</option>`).join('')}</select></label></div>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarUsuario">Criar acesso e enviar por e-mail</button></div>`);
 };
 salvarUsuario=async function(btn){
@@ -4420,7 +4430,7 @@ async function salvarCadastroVendedor(btn){
     if(ja.some(c=>c.status==='PENDENTE'&&(c.cpf===cpf||c.email===email))){ btn.disabled=false; return toast('Este vendedor já está aguardando aprovação','err'); }
     await DB.add('cadastrosVendedor',{nome,cpf,email,telefone:tel,lojaId:S.me.lojaId,lojaNome:lojaNome(S.me.lojaId),gerenteUid:S.me.uid,gerenteNome:S.me.nome,status:'PENDENTE',criadoEm:Date.now()});
     await log('Vendedor cadastrado (aguardando o dono)',cpf,nome);
-    closeModal(); toast('Cadastro enviado. A NexumCell aprova e manda o acesso por e-mail.','ok'); render();
+    closeModal(); toast(`Cadastro enviado. A ${MARCA} aprova e manda o acesso por e-mail.`,'ok'); render();
   }catch(e){ toast('Erro: '+e.message,'err'); btn.disabled=false; }
 }
 
@@ -4469,7 +4479,7 @@ async function recusarLoja(id){
   const s=await DB.get('solicitacoesLoja',id); const motivo=prompt(`Motivo da recusa de ${s.fantasia} (vai no e-mail):`); if(motivo===null) return;
   await DB.set('solicitacoesLoja',id,{status:'RECUSADA',resposta:motivo.trim(),respondidoEm:Date.now(),respondidoPor:S.me.nome});
   await log('Credenciamento recusado',id,`${s.fantasia}: ${motivo}`);
-  const ok=await emailAuto(s.respEmail,'Credenciamento NexumCell — '+s.fantasia,`Olá, ${primeiroNome(s.respNome)}.\n\nAnalisamos o pedido de credenciamento da ${s.fantasia} e, por enquanto, não foi aprovado.${motivo.trim()?`\n\nMotivo: ${motivo.trim()}`:''}\n\nEquipe NexumCell`);
+  const ok=await emailAuto(s.respEmail,`Credenciamento ${MARCA} — `+s.fantasia,`Olá, ${primeiroNome(s.respNome)}.\n\nAnalisamos o pedido de credenciamento da ${s.fantasia} e, por enquanto, não foi aprovado.${motivo.trim()?`\n\nMotivo: ${motivo.trim()}`:''}\n\nEquipe ${MARCA}`);
   toast('Pedido recusado'+(ok?' e e-mail enviado':''),'ok'); render();
 }
 async function aprovarVendedor(id,btn){
@@ -4502,7 +4512,7 @@ async function bloquearLoja(id,btn){
   const us=await DB.list('users',[['lojaId','==',id]]);
   await DB.batch([{c:'lojas',id,data:{bloqueada:true,motivoBloqueio:motivo,bloqueadaEm:Date.now(),bloqueadaPor:S.me.nome}},...us.map(u=>({c:'users',id:u.id,data:{lojaBloqueada:true,motivoBloqueio:motivo,lojaNome:l.nome}}))]);
   await log('Loja bloqueada',id,`${l.nome}: ${motivo}`);
-  let n=0; for(const u of us){ if(await emailAuto(u.email,'Acesso suspenso — NexumCell',`Olá, ${primeiroNome(u.nome)}.\n\n${msgBloqueio(l.nome,motivo)}\n\nEquipe NexumCell`,'Acesso suspenso')) n++; }
+  let n=0; for(const u of us){ if(await emailAuto(u.email,`Acesso suspenso — ${MARCA}`,`Olá, ${primeiroNome(u.nome)}.\n\n${msgBloqueio(l.nome,motivo)}\n\nEquipe ${MARCA}`,'Acesso suspenso')) n++; }
   toast(`${l.nome} bloqueada. ${us.length} pessoa(s) sem acesso${n?`, ${n} e-mail(s) enviados`:''}.`,'ok'); render();
 }
 async function desbloquearLoja(id,btn){
@@ -4510,14 +4520,14 @@ async function desbloquearLoja(id,btn){
   const us=await DB.list('users',[['lojaId','==',id]]);
   await DB.batch([{c:'lojas',id,data:{bloqueada:false,motivoBloqueio:'',desbloqueadaEm:Date.now(),desbloqueadaPor:S.me.nome}},...us.map(u=>({c:'users',id:u.id,data:{lojaBloqueada:false,...(u.bloqueadoPeloDono?{}:{motivoBloqueio:''})}}))]);
   await log('Loja desbloqueada',id,l.nome);
-  for(const u of us.filter(u=>u.ativo)) await emailAuto(u.email,'Acesso liberado — NexumCell',`Olá, ${primeiroNome(u.nome)}.\n\nO acesso da loja ${l.nome} à NexumCell foi liberado. Você já pode entrar normalmente: ${urlPortal(u.role)}\n\nEquipe NexumCell`,'Acesso liberado');
+  for(const u of us.filter(u=>u.ativo)) await emailAuto(u.email,`Acesso liberado — ${MARCA}`,`Olá, ${primeiroNome(u.nome)}.\n\nO acesso da loja ${l.nome} à ${MARCA} foi liberado. Você já pode entrar normalmente: ${urlPortal(u.role)}\n\nEquipe ${MARCA}`,'Acesso liberado');
   toast(`${l.nome} desbloqueada`,'ok'); render();
 }
 async function bloquearPessoa(uid){
   const u=await DB.get('users',uid); const motivo=(prompt(`Bloquear ${u.nome}?\n\nMotivo (vai na mensagem automática):`)||'').trim(); if(!motivo) return toast('Informe o motivo','err');
   await DB.set('users',uid,{ativo:false,bloqueadoPeloDono:true,motivoBloqueio:motivo,bloqueadoEm:Date.now()});
   await log('Pessoa bloqueada pelo dono',uid,`${u.nome}: ${motivo}`);
-  await emailAuto(u.email,'Acesso suspenso — NexumCell',`Olá, ${primeiroNome(u.nome)}.\n\nSeu acesso ao sistema NexumCell foi suspenso pela NexumCell. Motivo: ${motivo}. Para regularizar, fale com a NexumCell.\n\nEquipe NexumCell`,'Acesso suspenso');
+  await emailAuto(u.email,`Acesso suspenso — ${MARCA}`,`Olá, ${primeiroNome(u.nome)}.\n\nSeu acesso ao sistema ${MARCA} foi suspenso pela ${MARCA}. Motivo: ${motivo}. Para regularizar, fale com a ${MARCA}.\n\nEquipe ${MARCA}`,'Acesso suspenso');
   toast(`${u.nome} bloqueado(a)`,'ok'); pessoasLoja(u.lojaId); render();
 }
 async function desbloquearPessoa(uid){
@@ -4542,14 +4552,14 @@ PAGES.comissoes = async () => {
     <div class="card mt tablewrap"><h2>Pagamentos que o gerente registrou</h2><table><tr><th>Mês</th><th>Valor</th><th>Forma</th><th>Data</th><th>Comprovante</th><th>Situação</th><th></th></tr>
     ${pg.sort((a,b)=>b.em-a.em).map(p=>`<tr><td>${esc(p.mes.slice(5)+'/'+p.mes.slice(0,4))}</td><td><b>${brl(p.valor)}</b></td><td>${esc(p.forma)}</td><td>${fmtD(p.dataPagamento)}</td><td>${linkCompr(p)}</td><td>${stPg(p)}</td>
       <td class="right">${!p.confirmado&&!p.contestado?`<button class="btn sm gold" data-act="confirmarComissao" data-id="${p.id}">Recebi</button> <button class="btn sm" data-act="contestarComissao" data-id="${p.id}">Não recebi</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento registrado</td></tr>'}</table></div>
-    <p class="hint">Confirme cada pagamento assim que o dinheiro cair. Se não recebeu, toque em “Não recebi”: a NexumCell é avisada.</p>`;
+    <p class="hint">Confirme cada pagamento assim que o dinheiro cair. Se não recebeu, toque em “Não recebi”: a ${MARCA} é avisada.</p>`;
     return;
   }
   if(can('GERENTE')){
     const [vendas,us,pg]=await Promise.all([loadVendas(),DB.list('users',[['lojaId','==',S.me.lojaId]]),DB.list('comissoesPagas',[['lojaId','==',S.me.lojaId]])]);
     const vs=us.filter(u=>u.role==='VENDEDOR');
     $('#topActions').innerHTML='<button class="btn gold" data-act="pagarComissao" data-id="">Registrar pagamento</button>';
-    $('#view').innerHTML=head+`<div class="msg mb small">Você paga a comissão dos seus vendedores e <b>registra aqui com o comprovante</b> (PIX, transferência ou recibo assinado). O vendedor confirma que recebeu e a NexumCell acompanha.</div>
+    $('#view').innerHTML=head+`<div class="msg mb small">Você paga a comissão dos seus vendedores e <b>registra aqui com o comprovante</b> (PIX, transferência ou recibo assinado). O vendedor confirma que recebeu e a ${MARCA} acompanha.</div>
     <div class="card tablewrap"><table><tr><th>Vendedor</th><th>Comissão (${pctDe(null)}% padrão)</th><th>Pago</th><th>Saldo</th><th></th></tr>
     ${vs.map(u=>{ const dev=comissaoVend(vendas,u.id,mes,u), pago=r2(pg.filter(p=>p.vendedorUid===u.id&&p.mes===mes).reduce((a,p)=>a+(+p.valor||0),0)), sal=r2(dev-pago); return `<tr><td><b>${esc(u.nome)}</b>${u.ativo?'':' '+badge('inativo','gray')}</td><td>${brl(dev)}</td><td>${brl(pago)}</td><td>${sal>0.009?`<b style="color:var(--bad)">${brl(sal)}</b>`:badge('em dia','green')}</td>
       <td class="right"><button class="btn sm gold" data-act="pagarComissao" data-id="${u.id}" data-v="${Math.max(0,sal)}">Pagar e anexar comprovante</button></td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum vendedor</td></tr>'}</table></div>
@@ -4606,7 +4616,7 @@ async function salvarPagComissao(btn){
     const comprovante=await arquivoComprovante($('#pcArq').files[0]); const u=await DB.get('users',uid);
     await DB.add('comissoesPagas',{lojaId:S.me.lojaId,lojaNome:lojaNome(S.me.lojaId),vendedorUid:uid,vendedorNome:u.nome,mes,valor,forma,dataPagamento:data,comprovante,gerenteUid:S.me.uid,gerenteNome:S.me.nome,em:Date.now(),confirmado:false,contestado:false});
     await log('Comissão paga pelo gerente',uid,`${u.nome} · ${mes} · ${brl(valor)} · ${forma}`);
-    await emailAuto(u.email,'Comissão registrada — confirme o recebimento',`Olá, ${primeiroNome(u.nome)}.\n\n${S.me.nome} registrou o pagamento da sua comissão de ${mes.slice(5)}/${mes.slice(0,4)}: ${brl(valor)} (${forma}, ${fmtD(data)}).\n\nEntre no portal e toque em “Recebi” (ou “Não recebi”): ${urlPortal('VENDEDOR')}\n\nEquipe NexumCell`);
+    await emailAuto(u.email,'Comissão registrada — confirme o recebimento',`Olá, ${primeiroNome(u.nome)}.\n\n${S.me.nome} registrou o pagamento da sua comissão de ${mes.slice(5)}/${mes.slice(0,4)}: ${brl(valor)} (${forma}, ${fmtD(data)}).\n\nEntre no portal e toque em “Recebi” (ou “Não recebi”): ${urlPortal('VENDEDOR')}\n\nEquipe ${MARCA}`);
     closeModal(); toast('Pagamento registrado. O vendedor vai confirmar.','ok'); render();
   }catch(e){ toast(e.message,'err'); btn.disabled=false; }
 }
@@ -4620,22 +4630,22 @@ async function confirmarComissao(id){ await DB.set('comissoesPagas',id,{confirma
 async function contestarComissao(id){
   const m=prompt('O que aconteceu? (ex.: não caiu o PIX, valor diferente)'); if(m===null) return;
   await DB.set('comissoesPagas',id,{contestado:true,motivoContestacao:m.trim().slice(0,300),contestadoEm:Date.now()}); await log('Vendedor contestou a comissão',id,m);
-  toast('Avisamos a NexumCell.','ok'); render();
+  toast(`Avisamos a ${MARCA}.`,'ok'); render();
 }
 
 /* ---------- Credenciamento público da loja: Portal do Gerente ?credenciamento ---------- */
 function telaCredenciamento(){
   if(PORTAL!=='gerente'||!/[?&]credenciamento\b/.test(location.search)) return false;
-  document.title='Credenciamento de loja — NexumCell';
+  document.title=`Credenciamento de loja — ${MARCA}`;
   $('#login').hidden=true; $('#app').hidden=true;
   const f=(id,l,t='text',x='')=>`<label>${l}<input id="${id}" type="${t}" ${x}></label>`;
   document.body.insertAdjacentHTML('beforeend',`<div id="credPg" style="max-width:780px;margin:0 auto;padding:28px 16px">
-    <div class="card"><h1 style="margin:0 0 4px">Seja uma loja parceira NexumCell</h1><p class="muted" style="margin-top:0">Venda celular no crediário com a trava da NexumCell. Preencha os dados da empresa: a NexumCell analisa e, se aprovado, o responsável recebe o ID e a senha do Portal do Gerente por e-mail.</p>
+    <div class="card"><h1 style="margin:0 0 4px">Seja uma loja parceira ${MARCA}</h1><p class="muted" style="margin-top:0">Venda celular no crediário com a trava da ${MARCA}. Preencha os dados da empresa: a ${MARCA} analisa e, se aprovado, o responsável recebe o ID e a senha do Portal do Gerente por e-mail.</p>
     <form id="fCred"><h2 class="mt">Empresa</h2><div class="grid g2">${f('crRazao','Razão social')}${f('crFantasia','Nome da loja (fantasia)')}${f('crCnpj','CNPJ','text','inputmode="numeric"')}${f('crTel','Telefone da loja','tel')}
       ${f('crEnd','Endereço')}${f('crCep','CEP','text','inputmode="numeric"')}${f('crCidade','Cidade')}${f('crUf','UF','text','maxlength="2"')}${f('crVend','Quantos vendedores','number','min="0" max="200"')}</div>
       <h2 class="mt">Responsável (será o gerente no sistema)</h2><div class="grid g2">${f('crResp','Nome completo')}${f('crCpf','CPF','text','inputmode="numeric"')}${f('crEmail','E-mail (o acesso chega aqui)','email')}${f('crRTel','WhatsApp','tel')}</div>
       <label class="mt">Observações<textarea id="crObs" rows="2"></textarea></label>
-      <label class="check mt"><input type="checkbox" id="crAceite"> <span>Declaro que os dados são verdadeiros e autorizo a NexumCell a analisá-los. Sei que a NexumCell pode suspender o acesso da loja em caso de irregularidade.</span></label>
+      <label class="check mt"><input type="checkbox" id="crAceite"> <span>Declaro que os dados são verdadeiros e autorizo a ${MARCA} a analisá-los. Sei que a ${MARCA} pode suspender o acesso da loja em caso de irregularidade.</span></label>
       <div id="crMsg" class="small mt"></div><div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="crBtn">Enviar pedido</button></div></form></div></div>`);
   $('#fCred').addEventListener('submit',async e=>{ e.preventDefault(); const msg=$('#crMsg'), btn=$('#crBtn'); msg.textContent='';
     const d={acao:'enviar',razao:$('#crRazao').value,fantasia:$('#crFantasia').value,cnpj:$('#crCnpj').value,telefone:$('#crTel').value,endereco:$('#crEnd').value,cep:$('#crCep').value,cidade:$('#crCidade').value,uf:$('#crUf').value,vendedores:+$('#crVend').value||0,
@@ -4648,7 +4658,7 @@ function telaCredenciamento(){
       const serv=String(window.NEXUMCELL_SERVIDOR||'').replace(/\/$/,'');
       if(DEMO||!serv.startsWith('https://')){ demoInit(false); fb=null; await DB.set('solicitacoesLoja','cnpj_'+onlyDig(d.cnpj),{...d,acao:undefined,cnpj:onlyDig(d.cnpj),respCpf:onlyDig(d.respCpf),telefone:onlyDig(d.telefone),respTelefone:onlyDig(d.respTelefone),respEmail:d.respEmail.trim().toLowerCase(),status:'PENDENTE',criadoEm:Date.now()}); }
       else { const r=await fetch(serv+'/api/credenciamento',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.erro||('Erro '+r.status)); }
-      $('#credPg').innerHTML=`<div class="card"><h1 style="margin-top:0">Pedido enviado ✅</h1><p>Recebemos o pedido da <b>${esc(d.fantasia)}</b>. A NexumCell vai analisar e, se aprovado, o ID e a senha do Portal do Gerente chegam em <b>${esc(d.respEmail)}</b>.</p><p class="muted">Depois de entrar, cadastre os seus vendedores em Equipe. A NexumCell aprova cada um e manda o acesso por e-mail.</p></div>`;
+      $('#credPg').innerHTML=`<div class="card"><h1 style="margin-top:0">Pedido enviado ✅</h1><p>Recebemos o pedido da <b>${esc(d.fantasia)}</b>. A ${MARCA} vai analisar e, se aprovado, o ID e a senha do Portal do Gerente chegam em <b>${esc(d.respEmail)}</b>.</p><p class="muted">Depois de entrar, cadastre os seus vendedores em Equipe. A ${MARCA} aprova cada um e manda o acesso por e-mail.</p></div>`;
     }catch(err){ msg.textContent=err.message; btn.disabled=false; }
   });
   return true;
@@ -4712,6 +4722,106 @@ async function apCodigo(id){
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
 Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
+
+/* ======================= SAAS: clientes (financeiras) que usam o sistema, cada um com o próprio Firebase =======================
+   Este é o modelo do Atlas: cada cliente tem Firebase, portais e servidor próprios (dados 100% separados).
+   O controle é central: a licença de cada cliente fica em licencas/{slug} no Firebase da NexumCell (master).
+   Os portais do cliente leem a licença ao abrir: vencida ou suspensa → o sistema para (a trava dos aparelhos não para). */
+const LIC = window.NEXUMCELL_LICENCA || null;
+const EH_MASTER = !(LIC && LIC.slug);
+{ const t=PORTAIS.dono.tabs, i=t.indexOf('saas'); if(!EH_MASTER&&i>=0) t.splice(i,1); }
+S.licenca = LIC ? {status:'ATIVO', validoAte:LIC.validoAte||'', limiteLojas:0} : null;
+function telaLicenca(motivo){
+  if(document.getElementById('licBloq')) return;
+  document.body.insertAdjacentHTML('beforeend',`<div class="lic" id="licBloq"><div><h1>${motivo==='SUSPENSO'?'Acesso suspenso':'Licença vencida'}</h1><p>${motivo==='SUSPENSO'?'O uso do sistema está suspenso.':'A licença do sistema venceu em '+fmtD(S.licenca.validoAte)+'.'} Fale com a NexumCell para regularizar.</p><p class="small" style="opacity:.8">Os aparelhos dos seus clientes continuam funcionando normalmente.</p></div></div>`);
+}
+async function verificarLicenca(){
+  if(EH_MASTER) return;
+  const chave='nxc_lic_'+LIC.slug; let l=null;
+  try{
+    const m=LIC.master||{}; if(!m.projectId) throw new Error('sem master');
+    const r=await fetch(`https://firestore.googleapis.com/v1/projects/${m.projectId}/databases/(default)/documents/licencas/${encodeURIComponent(LIC.slug)}${m.apiKey?'?key='+m.apiKey:''}`);
+    if(r.ok){ const f=(await r.json()).fields||{}, v=k=>{ const x=f[k]||{}; return x.stringValue??(x.integerValue!=null?+x.integerValue:x.doubleValue??null); };
+      l={status:v('status')||'ATIVO',validoAte:v('validoAte')||LIC.validoAte||'',limiteLojas:+v('limiteLojas')||0,plano:v('plano')||'',em:Date.now()};
+      try{ localStorage.setItem(chave,JSON.stringify(l)); }catch(e){} }
+    else if(r.status===404) l={status:'SUSPENSO',validoAte:'',limiteLojas:0};
+  }catch(e){ console.warn('licença',e.message); }
+  if(!l){ try{ l=JSON.parse(localStorage.getItem(chave)); }catch(e){} }
+  if(l) S.licenca=l;
+  if(S.licenca.status==='SUSPENSO') return telaLicenca('SUSPENSO');
+  if(S.licenca.validoAte && hoje()>S.licenca.validoAte) return telaLicenca('VENCIDA');
+  const dias=S.licenca.validoAte?diasEntre(hoje(),S.licenca.validoAte):99;
+  if(dias<=7&&PORTAL==='dono') document.body.insertAdjacentHTML('afterbegin',`<div style="background:#B45309;color:#fff;padding:8px 14px;text-align:center;font-size:14px;position:relative;z-index:50">A licença do sistema vence em ${fmtD(S.licenca.validoAte)} (${dias} dia(s)). Fale com a NexumCell para renovar.</div>`);
+}
+verificarLicenca();
+// limite de lojas do plano
+{ const _a=aprovarLoja; aprovarLoja=async function(id){ const lim=+S.licenca?.limiteLojas||0;
+  if(lim>0){ const n=(await DB.list('lojas')).length; if(n>=lim) return toast(`Seu plano permite ${lim} loja(s). Fale com a NexumCell para aumentar.`,'err'); }
+  return _a(id); }; }
+
+/* ---------- Painel SaaS (só no sistema master da NexumCell) ---------- */
+const PLANOS=[['BASICO','Básico'],['PRO','Profissional'],['ILIMITADO','Ilimitado']];
+const fmtLic = l => l.status==='SUSPENSO'?badge('Suspenso','red'):(l.validoAte&&hoje()>l.validoAte)?badge('Vencido','red'):diasEntre(hoje(),l.validoAte||'2999-12-31')<=7?badge('Vence logo','amber'):badge('Ativo','green');
+PAGES.saas = async () => {
+  if(!EH_MASTER){ $('#view').innerHTML='<div class="card empty">Disponível só no sistema da NexumCell.</div>'; return; }
+  const ls=(await DB.list('licencas')).sort((a,b)=>String(a.empresa).localeCompare(b.empresa));
+  const ativos=ls.filter(l=>l.status!=='SUSPENSO'&&(!l.validoAte||hoje()<=l.validoAte));
+  const mrr=r2(ativos.reduce((s,l)=>s+(+l.mensalidade||0),0)), venc=ativos.filter(l=>l.validoAte&&diasEntre(hoje(),l.validoAte)<=7);
+  $('#topActions').innerHTML='<button class="btn gold" data-act="editarLicenca" data-id="">Novo cliente</button>';
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Financeiras e lojas que usam o sistema. Cada cliente tem o próprio Firebase, portais e servidor (os dados não se misturam). Aqui você controla a licença: renovar, suspender e o limite de lojas — vale na hora, sem publicar nada de novo.</p>
+  <div class="grid g4"><div class="card kpi"><div class="small muted">Clientes ativos</div><div class="big">${ativos.length}</div></div><div class="card kpi"><div class="small muted">Receita mensal</div><div class="big">${brl(mrr)}</div></div><div class="card kpi"><div class="small muted">Vencem em 7 dias</div><div class="big">${venc.length}</div></div><div class="card kpi"><div class="small muted">Total</div><div class="big">${ls.length}</div></div></div>
+  <div class="card mt tablewrap"><table><tr><th>Cliente</th><th>Dono (login)</th><th>Plano</th><th>Lojas</th><th>Mensalidade</th><th>Válido até</th><th>Situação</th><th></th></tr>
+  ${ls.map(l=>`<tr><td><b>${esc(l.empresa)}</b><div class="small muted mono">${esc(l.id)}</div></td><td class="small">${esc(l.donoEmail)}${l.telefone?`<br>${esc(fmtFone(l.telefone))}`:''}</td><td>${esc((PLANOS.find(p=>p[0]===l.plano)||['',l.plano||'—'])[1])}</td><td>${+l.limiteLojas?'até '+l.limiteLojas:'sem limite'}</td><td>${brl(l.mensalidade)}</td><td>${l.validoAte?fmtD(l.validoAte):'—'}</td><td>${fmtLic(l)}</td>
+    <td class="right"><button class="btn sm" data-act="editarLicenca" data-id="${l.id}">Editar</button> <button class="btn sm gold" data-act="renovarLicenca" data-id="${l.id}">+30 dias</button> <button class="btn sm" data-act="suspenderLicenca" data-id="${l.id}">${l.status==='SUSPENSO'?'Reativar':'Suspender'}</button> <button class="btn sm" data-act="arquivoCliente" data-id="${l.id}">Arquivo de implantação</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum cliente ainda. Toque em “Novo cliente”.</td></tr>'}</table></div>
+  <div class="card mt"><h2>Como implantar um cliente novo</h2><ol class="small" style="line-height:1.7;margin:0;padding-left:18px">
+    <li>Cadastre o cliente aqui (Novo cliente) e baixe o <b>Arquivo de implantação</b>.</li>
+    <li>Na conta Google do cliente, crie um projeto no Firebase: ative Authentication (E-mail/senha e Anônimo) e o Firestore; copie o <i>firebaseConfig</i> do app Web para dentro do arquivo.</li>
+    <li>Gere os portais: <span class="mono">python3 src/build.py --cliente clientes/&lt;slug&gt;.json</span> e publique cada pasta num repositório GitHub do cliente (com o Pages ligado). Publique o <span class="mono">firestore.rules</span> no Firebase do cliente.</li>
+    <li>Servidor: crie o Worker do cliente no Cloudflare (mesmo passo a passo do GUIA-CLOUDFLARE, com a conta de serviço e as chaves do cliente).</li>
+    <li>O app da trava é o mesmo para todos: o QR de instalação de cada cliente já leva o Firebase dele.</li></ol></div>`;
+};
+async function editarLicenca(id){
+  const l=id?await DB.get('licencas',id):{status:'ATIVO',plano:'PRO',limiteLojas:0,mensalidade:0,validoAte:isoDate(new Date(Date.now()+30*86400000))};
+  const f=(k,lab,t='text',x='')=>`<label>${lab}<input id="lc_${k}" type="${t}" value="${esc(l[k]??'')}" ${x}></label>`;
+  openModal(`<h2>${id?'Editar cliente':'Novo cliente'}</h2><div class="grid g2">
+    ${f('empresa','Nome da empresa (aparece no sistema dele)')}<label>Identificador (sem espaço)<input id="lc_slug" value="${esc(id||'')}" ${id?'disabled':''} placeholder="ex.: cel-forte-cascavel"></label>
+    ${f('donoEmail','E-mail do dono (login dele)','email')}${f('telefone','WhatsApp do dono','tel')}${f('cnpj','CNPJ')}${f('cidade','Cidade')}
+    <label>Plano<select id="lc_plano">${PLANOS.map(([v,t])=>`<option value="${v}" ${l.plano===v?'selected':''}>${t}</option>`).join('')}</select></label>${f('limiteLojas','Máximo de lojas (0 = sem limite)','number','min="0"')}
+    ${f('mensalidade','Mensalidade (R$)','number','step="0.01" min="0"')}${f('validoAte','Licença válida até','date')}
+    ${f('urlBase','Endereço base dos portais (GitHub Pages)','url','placeholder="https://cliente.github.io/"')}${f('servidor','Endereço do servidor (Worker) do cliente','url','placeholder="https://xxx.workers.dev"')}</div>
+    <label class="mt">Observações<textarea id="lc_obs" rows="2">${esc(l.obs||'')}</textarea></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="lcOk">Salvar</button></div>`);
+  $('#lcOk').onclick=async()=>{
+    const slug=(id||$('#lc_slug').value).trim().toLowerCase();
+    if(!/^[a-z0-9][a-z0-9-]{2,40}$/.test(slug)) return toast('Identificador: só letras minúsculas, números e hífen (3 a 40)','err');
+    if(!id&&await DB.get('licencas',slug)) return toast('Já existe um cliente com esse identificador','err');
+    const g=k=>$('#lc_'+k).value.trim(), d={empresa:g('empresa'),donoEmail:g('donoEmail').toLowerCase(),telefone:onlyDig(g('telefone')),cnpj:onlyDig(g('cnpj')),cidade:g('cidade'),plano:$('#lc_plano').value,
+      limiteLojas:Math.max(0,+g('limiteLojas')||0),mensalidade:r2(+g('mensalidade')||0),validoAte:g('validoAte'),urlBase:g('urlBase'),servidor:g('servidor'),obs:$('#lc_obs').value.trim(),atualizadoEm:Date.now(),por:S.me.nome};
+    if(!d.empresa||!d.donoEmail.includes('@')||!d.validoAte) return toast('Preencha empresa, e-mail do dono e validade','err');
+    if(!id) Object.assign(d,{status:'ATIVO',criadoEm:Date.now()});
+    await DB.set('licencas',slug,d); await log(id?'Cliente SaaS alterado':'Cliente SaaS criado',slug,`${d.empresa} · até ${d.validoAte}`);
+    closeModal(); toast('Salvo','ok'); render();
+  };
+}
+async function renovarLicenca(id){
+  const l=await DB.get('licencas',id); const base=l.validoAte&&l.validoAte>hoje()?l.validoAte:hoje();
+  const nova=isoDate(new Date(new Date(base+'T12:00:00').getTime()+30*86400000));
+  if(!confirm(`Renovar ${l.empresa} até ${fmtD(nova)}?`)) return;
+  await DB.set('licencas',id,{validoAte:nova,status:'ATIVO',renovadoEm:Date.now(),por:S.me.nome}); await log('Licença renovada',id,`${l.empresa} até ${nova}`); render();
+}
+async function suspenderLicenca(id){
+  const l=await DB.get('licencas',id), sus=l.status!=='SUSPENSO';
+  if(!confirm(sus?`Suspender ${l.empresa}? O sistema dele para na próxima vez que abrir (os aparelhos dos clientes dele continuam funcionando).`:`Reativar ${l.empresa}?`)) return;
+  await DB.set('licencas',id,{status:sus?'SUSPENSO':'ATIVO',[sus?'suspensoEm':'reativadoEm']:Date.now(),por:S.me.nome}); await log(sus?'Cliente SaaS suspenso':'Cliente SaaS reativado',id,l.empresa); render();
+}
+async function arquivoCliente(id){
+  const l=await DB.get('licencas',id);
+  const j={slug:id,empresa:l.empresa,donoEmail:l.donoEmail,urlBase:l.urlBase||'https://SEU-GITHUB.github.io/',licencaAte:l.validoAte,servidor:l.servidor||'',
+    firebase:{apiKey:'COLE-AQUI',authDomain:'PROJETO.firebaseapp.com',projectId:'PROJETO',storageBucket:'PROJETO.firebasestorage.app',messagingSenderId:'000000000000',appId:'1:000000000000:web:0000000000000000'}};
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(j,null,2)],{type:'application/json'})); a.download=id+'.json'; a.click();
+  toast('Arquivo baixado: coloque o firebaseConfig do cliente e salve em clientes/'+id+'.json','ok');
+}
+Object.assign(ACT,{ editarLicenca:d=>editarLicenca(d.id), renovarLicenca:d=>renovarLicenca(d.id), suspenderLicenca:d=>suspenderLicenca(d.id), arquivoCliente:d=>arquivoCliente(d.id) });
 
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }

@@ -210,6 +210,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- Licenças dos clientes SaaS (só usado no Firebase da NexumCell) ----------
+    // Os portais de cada cliente leem a própria licença (sem login); só o Dono da NexumCell lista e altera.
+    match /licencas/{slug} {
+      allow get: if true;
+      allow list, write: if hasRole(['DONO']);
+    }
+
     // ---------- Segredo do código de liberação sem internet ----------
     // O app da trava cria uma vez (login anônimo); só a equipe lê para gerar o código. Ninguém altera.
     match /chavesTrava/{token} {
