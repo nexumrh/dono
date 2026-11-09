@@ -4,7 +4,7 @@
 // POST /api/avisos {"acao":"cliente","vendaId":"..","tipo":"lembrete|atraso|livre","texto":".."} → WhatsApp/SMS ao cliente
 // POST /api/avisos {"acao":"teste","telefone":"45999990000"}           → e-mail de teste ao dono (+ SMS/WhatsApp de teste)
 // POST /api/avisos {"acao":"rotina","qual":"manha|noite"}               → roda agora a rotina automática (só o Dono)
-import { db, cors, exigirEquipe, hoje, config } from './_base.js';
+import { db, cors, exigirEquipe, hoje, config, asaasConf, asaas } from './_base.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarSms, enviarWhatsapp, MODELOS } from './_brevo.js';
 import { rotinas, dadosAviso } from './cron.js';
 
@@ -15,12 +15,20 @@ export default async function handler(req, res) {
     const b = req.body || {}, E = process.env;
     if (b.acao === 'status') {
       await exigirEquipe(req);
+      const ac = await asaasConf();
       return res.status(200).json({
         brevo: brevoLigado(), email: !!(E.BREVO_API_KEY && E.BREVO_REMETENTE), sms: !!E.BREVO_API_KEY, whatsapp: !!(E.BREVO_API_KEY && E.BREVO_WHATSAPP_NUMERO),
         modelos: Object.fromEntries(Object.keys(MODELOS).map((k) => [k, !!MODELOS[k]()])),
-        asaas: !!E.ASAAS_API_KEY, asaasSandbox: String(E.ASAAS_URL || '').includes('sandbox'), notaFiscal: !!E.FOCUS_NFE_TOKEN, zapsign: !!E.ZAPSIGN_TOKEN, ia: !!E.GROQ_API_KEY,
+        asaas: !!ac.chave, asaasSandbox: ac.ambiente === 'sandbox', asaasOrigem: ac.origem, asaasWebhook: !!ac.webhookToken, notaFiscal: !!E.FOCUS_NFE_TOKEN, zapsign: !!E.ZAPSIGN_TOKEN, ia: !!E.GROQ_API_KEY,
         plataforma: globalThis.navigator?.userAgent === 'Cloudflare-Workers' ? 'Cloudflare' : 'Vercel',
       });
+    }
+    if (b.acao === 'testarAsaas') {
+      await exigirEquipe(req, ['DONO']);
+      const ac = await asaasConf();
+      if (!ac.chave) return res.status(200).json({ ok: false, erro: 'nenhuma chave do Asaas configurada' });
+      try { const c = await asaas('/myAccount/commercialInfo'); return res.status(200).json({ ok: true, ambiente: ac.ambiente, conta: c.name || c.companyName || c.email || '' }); }
+      catch (e) { return res.status(200).json({ ok: false, ambiente: ac.ambiente, erro: e.message }); }
     }
     if (b.acao === 'email') {
       const quem = await exigirEquipe(req, ['DONO', 'FINANCEIRO', 'GERENTE', 'SUPORTE']);

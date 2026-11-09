@@ -1,11 +1,11 @@
 // Webhook do Asaas. Configure no Asaas: Integrações > Webhooks > URL https://SEU-PROJETO.vercel.app/api/asaas-webhook
 // Eventos de cobrança (PAYMENT_RECEIVED, PAYMENT_CONFIRMED) e do PIX Automático. Token = ASAAS_WEBHOOK_TOKEN.
-import { db, asaas, baixarParcela, parcelaDaCobranca, config } from './_base.js';
+import { db, asaas, baixarParcela, parcelaDaCobranca, config, asaasConf } from './_base.js';
 import { brevoLigado, avisarCliente } from './_brevo.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  if (req.headers['asaas-access-token'] !== process.env.ASAAS_WEBHOOK_TOKEN) return res.status(401).json({ erro: 'token inválido' });
+  { const tk = (await asaasConf()).webhookToken; if (!tk || req.headers['asaas-access-token'] !== tk) return res.status(401).json({ erro: 'token inválido' }); }
   const { event, payment } = req.body || {};
   try {
     // ---- PIX Automático: autorização ativada / cancelada / instrução recusada ----

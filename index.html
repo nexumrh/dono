@@ -1508,8 +1508,8 @@ PAGES.vendas = async () => {
 function parcelasTabela(v,acoes=false){
   return `<div class="tablewrap"><table><tr><th>#</th><th>Vencimento</th><th class="right">Valor</th><th>Situação</th><th>Pagamento</th>${acoes?'<th></th>':''}</tr>
   ${(v.parcelas||[]).map((p,i)=>`<tr><td>${p.n}/${v.nParcelas}</td><td>${fmtD(p.venc)}</td><td class="right">${brl(p.valor)}${p.pagoParcial?`<br><span class="small muted">já pago ${brl(p.pagoParcial)}</span>`:''}</td><td>${pBadge(p)}</td>
-    <td class="small muted">${p.pago?`${fmtD(p.pagoEm)} · ${brl(p.valorPago)} · ${esc(p.forma||'')}`:''}</td>
-    ${acoes?`<td class="right">${!p.pago?`<button class="btn sm green" data-act="baixar" data-id="${v.id}" data-i="${i}">Dar baixa</button>`:(can('DONO')?`<button class="btn sm" data-act="estornar" data-id="${v.id}" data-i="${i}">Estornar</button>`:'')}</td>`:''}</tr>`).join('')}
+    <td class="small muted">${p.pago?`${fmtD(p.pagoEm)} · ${brl(p.valorPago)} · ${esc(p.forma||'')}`:''}${!p.pago&&p.asaasLink?`<a href="${esc(p.asaasLink)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">ver boleto</a>`:''}${!p.pago&&p.semCobranca?`<span style="color:var(--bad)">boleto cancelado${p.boletoCancelado?.por?' por '+esc(p.boletoCancelado.por):''}</span>`:''}</td>
+    ${acoes?`<td class="right">${!p.pago?`<button class="btn sm green" data-act="baixar" data-id="${v.id}" data-i="${i}">Dar baixa</button>${can('DONO','FINANCEIRO')&&asaasLigado()?(p.semCobranca?`<button class="btn sm" data-act="reativarBoleto" data-id="${v.id}" data-n="${p.n}">Gerar boleto de novo</button>`:p.asaasId?`<button class="btn sm red" data-act="cancelarBoleto" data-id="${v.id}" data-n="${p.n}">Cancelar boleto</button>`:''):''}`:(can('DONO')?`<button class="btn sm" data-act="estornar" data-id="${v.id}" data-i="${i}">Estornar</button>`:'')}</td>`:''}</tr>`).join('')}
   </table></div>`;
 }
 async function verVenda(id){
@@ -1560,7 +1560,25 @@ async function cancelarVenda(id){
   const motivo=prompt('Motivo do cancelamento (a trava será removida do aparelho):'); if(!motivo) return;
   const v=await DB.get('vendas',id); const ops=[{c:'vendas',id,data:{status:'CANCELADA',canceladoEm:Date.now(),canceladoPor:S.me.nome,motivoCancelamento:motivo}}];
   if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
-  await DB.batch(ops); await log('Venda cancelada',id,motivo); toast('Venda cancelada'); closeModal(); render();
+  await DB.batch(ops); await log('Venda cancelada',id,motivo);
+  if(v.asaas&&asaasLigado()&&can('DONO','FINANCEIRO')){ try{ const r=await apiLoja('cancelarCobrancas',{vendaId:id}); toast(`Venda cancelada e ${r.apagadas??'as'} cobrança(s) apagada(s) no Asaas`,'ok'); }catch(e){ toast('Venda cancelada, mas o Asaas não apagou as cobranças: '+e.message,'err'); } }
+  else toast('Venda cancelada');
+  closeModal(); render();
+}
+async function cancelarBoleto(id,n,btn){
+  const motivo=prompt(`Cancelar o boleto da parcela ${n} no Asaas?\nA parcela continua devida no contrato, mas o cliente não recebe mais essa cobrança.\n\nMotivo:`); if(motivo===null) return;
+  btn.disabled=true;
+  try{ await apiLoja('cancelarBoleto',{vendaId:id,n:+n,motivo});
+    if(DEMO){ const v=await DB.get('vendas',id); await DB.set('vendas',id,{parcelas:v.parcelas.map(p=>p.n===+n?{...p,asaasId:null,asaasLink:null,semCobranca:true,boletoCancelado:{em:Date.now(),por:S.me.nome,motivo}}:p)}); await log('Boleto cancelado no Asaas',id,`parcela ${n} (simulado)`); }
+    toast(`Boleto da parcela ${n} cancelado no Asaas`,'ok'); closeModal(); verVenda(id); }
+  catch(e){ toast('Asaas: '+e.message,'err'); btn.disabled=false; }
+}
+async function reativarBoleto(id,n,btn){
+  btn.disabled=true;
+  try{ await apiLoja('reativarBoleto',{vendaId:id,n:+n});
+    if(DEMO){ const v=await DB.get('vendas',id); await DB.set('vendas',id,{parcelas:v.parcelas.map(p=>p.n===+n?{...p,semCobranca:false,boletoCancelado:null,asaasId:'pay_demo'+Date.now(),asaasLink:'https://sandbox.asaas.com/i/demo'}:p)}); }
+    toast(`Boleto da parcela ${n} gerado de novo`,'ok'); closeModal(); verVenda(id); }
+  catch(e){ toast('Asaas: '+e.message,'err'); btn.disabled=false; }
 }
 
 /* ---------- ANÁLISE DE CRÉDITO ---------- */
@@ -3205,7 +3223,7 @@ async function statusServidor(){
   if(!servLigado()){ el.innerHTML='<div class="warn">Servidor ainda não configurado. Siga o <b>GUIA-CLOUDFLARE.md</b> e cole o endereço no campo “Endereço do servidor”.</div>'; return; }
   el.innerHTML='<span class="spin"></span> Conferindo o servidor…';
   try{ const s=await apiServ('avisos',{acao:'status'}), b=(ok,t)=>badge((ok?'✓ ':'✗ ')+t,ok?'green':'gray');
-    el.innerHTML=`<div class="row" style="gap:6px;flex-wrap:wrap">${badge('Servidor: '+(s.plataforma||'?')+(s.simulado?' (demonstração)':''),'navy')} ${b(s.asaas,'Asaas'+(s.asaasSandbox?' (sandbox)':''))} ${b(s.email,'E-mail Brevo')} ${b(s.sms,'SMS Brevo')} ${b(s.whatsapp,'WhatsApp Brevo')}
+    el.innerHTML=`<div class="row" style="gap:6px;flex-wrap:wrap">${badge('Servidor: '+(s.plataforma||'?')+(s.simulado?' (demonstração)':''),'navy')} ${b(s.asaas,'Asaas'+(s.asaasSandbox?' (sandbox)':' (PRODUÇÃO)')+(s.asaasOrigem==='painel'?' · chave do painel':''))} ${b(s.email,'E-mail Brevo')} ${b(s.sms,'SMS Brevo')} ${b(s.whatsapp,'WhatsApp Brevo')}
       ${Object.entries(s.modelos||{}).map(([k,v])=>b(v,'modelo '+k)).join(' ')} ${b(s.notaFiscal,'Nota fiscal')} ${b(s.zapsign,'ZapSign')} ${b(s.ia,'IA do assistente')}</div>`; }
   catch(e){ el.innerHTML=`<div class="warn">O servidor não respondeu: ${esc(e.message)}. Confira o endereço e os segredos (GUIA-CLOUDFLARE.md).</div>`; }
 }
@@ -3446,6 +3464,55 @@ async function editarComissao(uid){
     await DB.set('users',uid,{asaasWalletId:w,comissaoPct:p===''?null:+p}); await log('Comissão / conta Asaas alterada',uid,`${u.nome} · ${w?'wallet '+w.slice(0,8)+'…':'sem wallet'} · ${p===''?'padrão':p+'%'}`); closeModal(); render(); };
 }
 
+
+/* ======================= ASAAS: CHAVE NO PAINEL DO DONO (cofre que só o servidor lê) ======================= */
+function blocoAsaasChave(){
+  const i=S.cfg.asaasInfo||{}, serv=servidorPg();
+  return `<div class="card mt" id="cardAsaas"><h2>Asaas (cobranças)</h2>
+    <p class="small muted" style="margin-top:-6px">A chave fica num cofre que nenhum portal consegue ler, nem o seu: só o servidor usa. Para trocar, cole uma nova. Se deixar em branco, o servidor usa a chave colocada no Cloudflare.</p>
+    ${i.final?`<div class="msg mb">Chave salva: <b class="mono">…${esc(i.final)}</b> · ambiente <b>${i.ambiente==='producao'?'PRODUÇÃO (cobranças reais)':'Testes (sandbox)'}</b> · ${fmtDT(i.em)} por ${esc(i.por||'')}</div>`:''}
+    <div class="grid g2">
+      <label>Ambiente<select id="asAmb"><option value="sandbox" ${i.ambiente!=='producao'?'selected':''}>Testes (sandbox.asaas.com)</option><option value="producao" ${i.ambiente==='producao'?'selected':''}>Produção (asaas.com — cobranças reais)</option></select></label>
+      <label>Chave de API do Asaas<input id="asChave" type="password" autocomplete="off" placeholder="${i.final?'deixe vazio para manter a atual':'cole a chave ($aact_...)'}"></label>
+    </div>
+    <div class="row mt"><button class="btn gold" data-act="salvarChaveAsaas">Salvar no cofre</button><button class="btn" data-act="testarAsaas" ${servLigado()?'':'disabled'}>Testar a chave</button><button class="btn" data-act="novoTokenWebhook">Gerar token do webhook</button>
+      ${i.final?`<button class="btn sm red" data-act="apagarChaveAsaas">Apagar do cofre</button>`:''}</div>
+    <div id="asRes" class="mt"></div>
+    <p class="small muted mt">Webhook no Asaas (Integrações → Webhooks): URL <b class="mono">${esc((serv||'https://SEU-SERVIDOR')+'/api/asaas-webhook')}</b> · eventos Pagamento recebido, Pagamento confirmado e Pix Automático · token: o gerado no botão acima.</p></div>`;
+}
+async function salvarChaveAsaas(btn){
+  const chave=$('#asChave').value.trim(), amb=$('#asAmb').value, i=S.cfg.asaasInfo||{};
+  if(!chave&&!i.final) return toast('Cole a chave de API do Asaas','err');
+  if(chave&&!/^\$?aact_/.test(chave)&&!confirm('Essa chave não começa com $aact_. Salvar mesmo assim?')) return;
+  if(amb==='producao'&&i.ambiente!=='producao'&&!confirm('Ligar a PRODUÇÃO? A partir daí as cobranças e links do sistema são de verdade.')) return;
+  btn.disabled=true;
+  try{ await DB.set('segredos','asaas',{...(chave?{chave}:{}),ambiente:amb,em:Date.now(),por:S.me.nome});
+    const info={final:chave?chave.slice(-4):i.final,ambiente:amb,em:Date.now(),por:S.me.nome};
+    await DB.set('config','sistema',{asaasInfo:info}); S.cfg.asaasInfo=info;
+    await log('Chave/ambiente do Asaas alterados',amb,'final …'+info.final);
+    toast('Salvo no cofre. O servidor passa a usar em até 1 minuto.','ok'); render(); }
+  catch(e){ toast('Não salvou: '+e.message+' (republique as regras do Firestore)','err'); btn.disabled=false; }
+}
+async function novoTokenWebhook(){
+  const tk=token(32);
+  if(!confirm('Gerar um token novo para o webhook? Depois você precisa colar ele no webhook do Asaas, senão as baixas automáticas param.')) return;
+  await DB.set('segredos','asaas',{webhookToken:tk,em:Date.now(),por:S.me.nome});
+  await log('Token do webhook do Asaas trocado','asaas','');
+  $('#asRes').innerHTML=`<div class="warn">Copie agora (ele não aparece de novo) e cole no campo <b>Token de autenticação</b> do webhook no Asaas:<br><b class="mono" style="font-size:15px;user-select:all">${tk}</b> <button class="btn sm" data-act="copiarTexto" data-t="${tk}">Copiar</button></div>`;
+}
+async function testarAsaas(btn){
+  btn.disabled=true; $('#asRes').innerHTML='<span class="spin"></span> Testando…';
+  try{ const r=DEMO?{ok:true,ambiente:S.cfg.asaasInfo?.ambiente||'sandbox',conta:'Conta de demonstração'}:await apiServ('avisos',{acao:'testarAsaas'});
+    $('#asRes').innerHTML=r.ok?`<div class="msg" style="border-color:#BFE3CC">✅ Chave funcionando · ${r.ambiente==='producao'?'PRODUÇÃO':'Testes (sandbox)'}${r.conta?' · conta '+esc(r.conta):''}</div>`
+      :`<div class="warn">❌ ${esc(r.erro||'falhou')}${/invalid_environment|ambiente/.test(r.erro||'')?'<br>A chave é de um ambiente e o seletor está no outro: troque o Ambiente e salve de novo.':''}</div>`; }
+  catch(e){ $('#asRes').innerHTML=`<div class="warn">${esc(e.message)}</div>`; }
+  btn.disabled=false;
+}
+async function apagarChaveAsaas(){
+  if(!confirm('Apagar a chave do cofre? O servidor volta a usar a chave do Cloudflare (se houver).')) return;
+  await DB.set('segredos','asaas',{chave:'',em:Date.now(),por:S.me.nome}); await DB.set('config','sistema',{asaasInfo:null}); S.cfg.asaasInfo=null;
+  await log('Chave do Asaas apagada do cofre','asaas',''); render();
+}
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda,quebradas=0){
   let s=500-quebradas*60; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
@@ -4097,6 +4164,8 @@ bannerOffline();
 Object.assign(ACT,{
   emailContador:(d,b)=>emailContador(b), brevoCliente:(d,b)=>brevoCliente(d.id,d.t,b), testarBrevo:(d,b)=>testarBrevo(b), rodarRotina:(d,b)=>rodarRotina(d.q,b), statusServidor:()=>statusServidor(),
   abrirTroca:d=>abrirTroca(d.id), salvarTroca:(d,b)=>salvarTroca(d.id,b), executarTroca:(d,b)=>executarTroca(d.id,b), recusarTroca:d=>recusarTroca(d.id),
+  salvarChaveAsaas:(d,b)=>salvarChaveAsaas(b), testarAsaas:(d,b)=>testarAsaas(b), novoTokenWebhook:()=>novoTokenWebhook(), apagarChaveAsaas:()=>apagarChaveAsaas(),
+  cancelarBoleto:(d,b)=>cancelarBoleto(d.id,d.n,b), reativarBoleto:(d,b)=>reativarBoleto(d.id,d.n,b),
   emitirNF:(d,b)=>emitirNF(d.id,b), consultarNF:d=>consultarNF(d.id), cancelarNF:d=>cancelarNF(d.id),
   simZapsign:d=>simZapsign(d.id), pdfZapsign:(d,b)=>pdfZapsign(d.id,b), dossieProvas:d=>dossieProvas(d.id), editarComissao:d=>editarComissao(d.id),
 });
@@ -4132,6 +4201,7 @@ Object.assign(ACT,{
     <p class="small muted">Toda assinatura já ganha o carimbo do servidor (data, hora, IP e hash). A ZapSign é opcional (paga por documento) e dá o PDF assinado com trilha de auditoria.</p></div>
   <div class="row mt"><button class="btn sm" data-act="statusServidor">Conferir servidor</button><button class="btn sm" data-act="testarBrevo" ${servLigado()?'':'disabled'}>Testar Brevo</button><button class="btn sm" data-act="rodarRotina" data-q="manha" ${servLigado()?'':'disabled'}>Enviar os lembretes de hoje agora</button><button class="btn sm" data-act="rodarRotina" data-q="noite" ${servLigado()?'':'disabled'}>Gerar o resumo do dia agora</button></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
+  if(can('DONO')) $('#srvStatus')?.closest('.card')?.insertAdjacentHTML('afterend',blocoAsaasChave());
   statusServidor(); }; }
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });

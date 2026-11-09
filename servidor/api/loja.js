@@ -5,7 +5,7 @@
 // POST /api/loja {"acao":"cartao","valor":1299,"parcelas":10,...} → link de pagamento no cartão de crédito
 // POST /api/loja {"acao":"antecipar","vendaIds":[...]}           → simula antecipação das parcelas a vencer
 // POST /api/loja {"acao":"cancelarCobrancas","vendaId":"..."}    → apaga no Asaas as cobranças em aberto (devolução / cancelamento)
-import { db, asaas, cors, gerarCobrancas, clienteAsaas, exigirEquipe, r2, hoje } from './_base.js';
+import { db, asaas, cors, gerarCobrancas, clienteAsaas, exigirEquipe, r2, hoje, paraAparelho } from './_base.js';
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -63,6 +63,30 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json({ qtd, bruto: r2(bruto), liquido: r2(liquido), custo: r2(bruto - liquido), erros });
+    }
+    // cancelar o boleto/cobrança de UMA parcela no Asaas (a parcela continua devida no contrato, mas sem cobrança)
+    if (b.acao === 'cancelarBoleto' || b.acao === 'reativarBoleto') {
+      const quem = await exigirEquipe(req, ['DONO', 'FINANCEIRO']);
+      const ref = db.collection('vendas').doc(String(b.vendaId)), v = (await ref.get()).data();
+      if (!v) throw new Error('venda não encontrada');
+      const parcelas = (v.parcelas || []).map((p) => ({ ...p })), p = parcelas.find((x) => x.n === +b.n);
+      if (!p) throw new Error('parcela não encontrada');
+      if (p.pago) throw new Error('parcela já paga: use Estornar');
+      if (b.acao === 'cancelarBoleto') {
+        const id = p.asaasId;
+        if (id) { try { await asaas('/payments/' + id, { method: 'DELETE' }); } catch (e) { if (!/404|not.?found|removed|deleted/i.test(e.message)) throw e; } }
+        delete p.asaasId; delete p.asaasLink; delete p.asaasValor; delete p.asaasVenc;
+        p.semCobranca = true; p.boletoCancelado = { em: Date.now(), por: quem.nome, motivo: String(b.motivo || '').slice(0, 200), asaasId: id || '' };
+        await ref.update({ parcelas, asaas: { ...(v.asaas || {}), ids: (v.asaas?.ids || []).filter((x) => x !== id) } });
+        if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ parcelas: parcelas.map(paraAparelho) }, { merge: true });
+        await db.collection('logs').add({ em: Date.now(), acao: 'Boleto cancelado no Asaas', alvo: b.vendaId, det: `parcela ${p.n} · ${b.motivo || ''}`.slice(0, 200), por: quem.nome });
+        return res.status(200).json({ ok: true, cancelado: id || null });
+      }
+      delete p.semCobranca; delete p.boletoCancelado;
+      await ref.update({ parcelas });
+      const r = await gerarCobrancas(String(b.vendaId));
+      await db.collection('logs').add({ em: Date.now(), acao: 'Boleto gerado de novo no Asaas', alvo: b.vendaId, det: `parcela ${p.n}`, por: quem.nome });
+      return res.status(200).json(r);
     }
     if (b.acao === 'cancelarCobrancas') {
       const quem = await exigirEquipe(req, ['DONO', 'FINANCEIRO']);

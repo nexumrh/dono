@@ -14,6 +14,21 @@ export const db = admin.firestore();
 export const auth = admin.auth();
 export const ASAAS = () => process.env.ASAAS_URL || 'https://api.asaas.com/v3';
 
+// Chave do Asaas: o Dono pode colar no Painel (cofre segredos/asaas, que nenhum portal consegue ler; só o servidor).
+// Se estiver lá, vale ela (e o ambiente escolhido no Painel); senão, usa as variáveis do Cloudflare/Vercel.
+let _cofre = null;
+export async function asaasConf() {
+  if (!_cofre || _cofre.em < Date.now() - 60e3) {
+    let d = {};
+    try { d = (await db.collection('segredos').doc('asaas').get()).data() || {}; } catch (e) { d = {}; }
+    _cofre = { em: Date.now(), d };
+  }
+  const d = _cofre.d, chave = String(d.chave || '').trim();
+  if (chave) return { chave, url: d.ambiente === 'producao' ? 'https://api.asaas.com/v3' : 'https://api-sandbox.asaas.com/v3', webhookToken: d.webhookToken || process.env.ASAAS_WEBHOOK_TOKEN || '', origem: 'painel', ambiente: d.ambiente === 'producao' ? 'producao' : 'sandbox' };
+  return { chave: process.env.ASAAS_API_KEY || '', url: ASAAS(), webhookToken: process.env.ASAAS_WEBHOOK_TOKEN || '', origem: 'servidor', ambiente: ASAAS().includes('sandbox') ? 'sandbox' : 'producao' };
+}
+export const asaasLigadoSrv = async () => !!(await asaasConf()).chave;
+
 // Configurações do Painel do Dono (Firestore config/sistema), guardadas por 5 minutos
 let _cfg = null;
 export async function config() {
@@ -23,9 +38,11 @@ export async function config() {
 }
 
 export async function asaas(path, opts = {}) {
-  const r = await fetch(ASAAS() + path, {
+  const ac = await asaasConf();
+  if (!ac.chave) throw new Error('Asaas não configurado: cole a chave em Configurações → Asaas');
+  const r = await fetch(ac.url + path, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', access_token: process.env.ASAAS_API_KEY, 'User-Agent': 'nexumcell', ...(opts.headers || {}) },
+    headers: { 'Content-Type': 'application/json', access_token: ac.chave, 'User-Agent': 'nexumcell', ...(opts.headers || {}) },
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error('Asaas ' + r.status + ': ' + JSON.stringify(j.errors || j));
@@ -123,6 +140,8 @@ export async function gerarCobrancas(vendaId) {
       if (p.asaasValor !== p.valor || p.asaasVenc !== p.venc) { try { await asaas('/payments/' + p.asaasId, { method: 'POST', body: JSON.stringify({ value: p.valor, dueDate: venc }) }); p.asaasValor = p.valor; p.asaasVenc = p.venc; atualizadas++; } catch (e) {} }
       continue;
     }
+    // boleto cancelado pelo Dono/Financeiro: não recria até alguém pedir "gerar de novo"
+    if (p.semCobranca) continue;
     // 4) parcela nova: cria a cobrança (o Asaas aplica desconto, multa e juros e manda os lembretes)
     const corpo = {
       customer: cli.id, billingType: 'UNDEFINED', value: p.valor, dueDate: venc,

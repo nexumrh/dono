@@ -301,6 +301,13 @@ service cloud.firestore {
       allow update: if hasRole(['DONO']) || (hasRole(['FINANCEIRO', 'GERENTE', 'SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enviados']));
     }
 
+    // ---------- Cofre de chaves (Asaas): o Dono grava pelo painel, ninguém lê pelos portais (só o servidor) ----------
+    match /segredos/{id} {
+      allow read: if false;
+      allow create, update: if hasRole(['DONO']);
+      allow delete: if false;
+    }
+
     // ---------- Resumo diário do dono (gravado pelo servidor às 19h) ----------
     // resumo diário do dono (gravado pelo servidor às 19h)
     match /notificacoes/{id} {

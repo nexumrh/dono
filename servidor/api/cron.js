@@ -4,7 +4,7 @@
 //   noite (19h de Brasília): resumo do dia para o dono (notificação no portal + e-mail + WhatsApp/SMS)
 // Cloudflare: roda sozinho pelos "Cron Triggers" do wrangler.toml.
 // Vercel: vercel.json chama GET /api/cron?r=manha e ?r=noite com o cabeçalho Authorization: Bearer CRON_SECRET.
-import { db, asaas, hoje, r2, encargos, config } from './_base.js';
+import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv } from './_base.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
@@ -57,7 +57,7 @@ async function lembretes(cfg, vendas) {
 
 // ---------- 9h: robô de voz do Asaas para atraso longo ----------
 async function roboVoz(cfg, vendas) {
-  if (cfg.roboVoz !== 'sim' || !process.env.ASAAS_API_KEY) return { roboVoz: 'desligado' };
+  if (cfg.roboVoz !== 'sim' || !(await asaasLigadoSrv())) return { roboVoz: 'desligado' };
   const limite = Number(cfg.roboVozDias) || 15, max = Math.max(1, Math.round((Number(process.env.ROTINA_MAX) || 1000) / 4)); let ligados = 0, desligados = 0, erros = 0;
   for (const v of vendas) {
     if (ligados + desligados + erros >= max) break;
