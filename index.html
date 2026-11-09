@@ -853,9 +853,13 @@ async function iaVisao(prompt, imagens, maxTok=700){
   if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true,maxTok); }
   // limite por minuto do plano grátis: espera o tempo que o Groq pedir (até 20 s) e tenta mais uma vez
   if(r.status===429){ const outro=await iaOutroModelo(modelo); if(outro){ const r2=await iaChamar(outro,prompt,imagens,false,maxTok); if(r2.ok||r2.status!==429) r=r2; } }
-  for(let t=0;t<2&&r.status===429;t++){ const ra=Math.min(35,Math.max(3,parseFloat(r.headers.get('retry-after'))||12)); toast(`IA ocupada (limite do plano grátis), tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens,false,maxTok); }
+  // limite do DIA (tokens/requisições por dia) ou pedido maior que o limite por minuto: não adianta esperar
+  if(r.status===429||r.status===413){ const det=await r.clone().json().catch(()=>({})), m=String(det.error?.message||'');
+    if(r.status===413||/per day|TPD|RPD|Request too large/i.test(m)){ const t=(m.match(/try again in ([\dhms.]+)/i)||[])[1];
+      throw new Error(/Request too large/i.test(m)||r.status===413?'A foto ficou grande demais para o plano grátis da IA. Digite os dados olhando a foto.':`A IA atingiu o limite do DIA do plano grátis do Groq${t?' (libera em '+t.replace(/\.\d+s/,'s')+')':''}. Para ler documentos sem limite, ative o plano pago do Groq.`); } }
+  for(let t=0;t<1&&r.status===429;t++){ const ra=Math.min(15,Math.max(3,parseFloat(r.headers.get('retry-after'))||8)); toast(`IA ocupada (limite do plano grátis), tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens,false,maxTok); }
   if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
-  if(r.status===429){ const det=await r.json().catch(()=>({})); throw new Error('A IA atingiu o limite do plano grátis do Groq'+(det.error?.message?' ('+String(det.error.message).slice(0,140)+')':'')+'. Espere um minuto e tente de novo.'); }
+  if(r.status===429){ const det=await r.json().catch(()=>({})); throw new Error('A IA está ocupada: limite por minuto do plano grátis do Groq'+(det.error?.message?' ('+String(det.error.message).slice(0,160)+')':'')+'. Tente de novo em 1 minuto.'); }
   if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
   const j=await r.json(), txt=String(j.choices?.[0]?.message?.content||'');
   try{ return JSON.parse(txt); }catch(e){ const m=txt.replace(/<think>[\s\S]*?<\/think>/g,'').match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('A IA respondeu fora do formato. Tente de novo.'); }
@@ -971,7 +975,7 @@ async function passoDoc(){
     ${!iaChave()?`<div class="warn mt">${fb?'IA não configurada: o Dono precisa colar a chave do Groq em Lojas e configurações → Inteligência artificial. Até lá, os dados serão digitados.':'Modo demonstração: a leitura por IA é simulada com um cliente de exemplo.'}</div>`:''}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="lerDoc" ${w.fotos.frente&&(!precisaVerso||w.fotos.verso)?'':'disabled'}>${svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>')}Ler documento com IA</button></div>
   </div>
-  ${w.ia?.falhaIA?`<div class="msg mt">A IA está ocupada no momento (limite do plano do Groq). Digite os dados olhando a foto, ou <button class="btn sm" data-act="lerDoc">tente ler de novo</button>.</div>`:''}
+  ${w.ia?.falhaIA?`<div class="msg mt">${esc(w.ia.falhaIA)} Digite os dados olhando a foto, ou <button class="btn sm" data-act="lerDoc">tente ler de novo</button>.</div>`:''}
   ${w.dados?`<div class="card mt"><h2>Dados lidos do documento <span class="badge ${w.ia?.manual?'b-gray':w.ia?.simulado?'b-amber':'b-green'}">${w.ia?.manual?'digitar manualmente':w.ia?.simulado?'simulado':'lido por IA'}</span></h2>
     <div class="doc-conf" style="display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:16px;align-items:start">
     <div>${['frente','verso'].filter(l=>w.fotos[l]).map(l=>`<a href="${w.fotos[l].ver}" target="_blank" rel="noopener" title="Abrir a foto"><img src="${w.fotos[l].ver}" alt="${l}" style="width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px"></a>`).join('')}<p class="small muted" style="margin:0">Toque na foto para ampliar e conferir.</p></div>
@@ -989,7 +993,7 @@ async function receberFoto(input){
   try{
     const img=await carregarImg(await lerArquivo(f)), q=qualidadeFoto(img);
     if(!q.ok){ erro.textContent='Foto recusada: '+q.motivo; toast('Foto ilegível — tire outra','err'); return; }
-    S.w.fotos[lado]={ia:redimensionar(img,1400,0.82),ver:redimensionar(img,1000,0.72),nitidez:q.nitidez};
+    S.w.fotos[lado]={ia:redimensionar(img,1200,0.82),ver:redimensionar(img,1000,0.72),nitidez:q.nitidez};
     S.w.dados=null; S.w.ia=null; passoDoc();
   }catch(e){ erro.textContent=e.message; }
 }
@@ -997,7 +1001,7 @@ async function lerDoc(btn){
   const w=S.w; btn.disabled=true; btn.innerHTML='<span class="spin"></span> Lendo documento…';
   try{
     let r;
-    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])],850);
+    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])],700);
     else if(!fb){ await new Promise(o=>setTimeout(o,1200)); r={legivel:true,tipo:w.docTipo,documento_original:true,nome:'Roberto Carlos Teixeira',cpf:gerarCpf(),rg:'12.345.678-9',orgao_emissor:'SESP/PR',data_nascimento:'22/03/1991',data_emissao:'10/05/2015',nome_mae:'Maria Aparecida Teixeira',nome_pai:'José Carlos Teixeira',naturalidade:'Foz do Iguaçu/PR',sexo:'M',confianca:{nome:98,cpf:97,data_nascimento:95,rg:90,nome_mae:92},simulado:true}; }
     else r={legivel:true,manual:true};
     if(!r.legivel){ w.fotos={}; toast('Documento ilegível: '+(r.motivo||'tire as fotos de novo'),'err'); passoDoc(); setTimeout(()=>{ const e=$('#erro_frente'); if(e) e.textContent='A IA não conseguiu ler: '+(r.motivo||'foto ilegível')+'. Tire as fotos de novo.'; },50); return; }
@@ -1007,9 +1011,9 @@ async function lerDoc(btn){
     w.ia=r; w.dados=d; w.duvidas=duv; w.lidos={...w.dados}; passoDoc();
     if(duv.length) toast('Confira os campos marcados em amarelo com o documento.','err');
   }catch(e){
-    if(/limite|ocupada|429|não respondeu/i.test(e.message)){
+    if(/limite|ocupada|429|não respondeu|grande demais/i.test(e.message)){
       w.ia={legivel:true,manual:true,falhaIA:e.message}; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc();
-      toast('A IA está ocupada agora. Preencha os dados olhando a foto do documento (ou toque em “Ler documento com IA” de novo em 1 minuto).','err'); return; }
+      toast(e.message,'err'); return; }
     toast(e.message,'err'); btn.disabled=false; btn.textContent='Ler documento com IA'; }
 }
 async function docOk(){
