@@ -14,8 +14,10 @@ service cloud.firestore {
     function me()      { return get(userDoc()).data; }
     // E-mail do dono: entra em todos os portais com perfil de Dono
     function donoEmail() { return signed() && request.auth.token.email == 'wevellenerrera21@gmail.com'; }
-    function staff()   { return donoEmail() || (signed() && !anon() && exists(userDoc()) && me().ativo == true); }
-    function hasRole(rs) { return (donoEmail() && 'DONO' in rs) || (signed() && !anon() && exists(userDoc()) && me().ativo == true && me().role in rs); }
+    // loja bloqueada pelo Dono: gerente e vendedores dela perdem o acesso a tudo
+    function lojaOk()  { return me().get('lojaBloqueada', false) != true; }
+    function staff()   { return donoEmail() || (signed() && !anon() && exists(userDoc()) && me().ativo == true && lojaOk()); }
+    function hasRole(rs) { return (donoEmail() && 'DONO' in rs) || (signed() && !anon() && exists(userDoc()) && me().ativo == true && lojaOk() && me().role in rs); }
     function sistemaExiste() { return exists(/databases/$(database)/documents/config/sistema); }
 
     // ---------- Configuração ----------
@@ -29,14 +31,15 @@ service cloud.firestore {
     // ---------- Equipe ----------
     match /users/{uid} {
       allow read: if staff() || (signed() && request.auth.uid == uid);
-      allow create: if hasRole(['DONO'])
-                    || (hasRole(['GERENTE']) && request.resource.data.role == 'VENDEDOR'
-                        && request.resource.data.lojaId == me().lojaId);
+      // só o Dono cria acessos (o gerente só cadastra o vendedor em cadastrosVendedor)
+      allow create: if hasRole(['DONO']);
       allow update: if hasRole(['DONO'])
                     // a própria pessoa só marca que já trocou a senha temporária
                     || (signed() && request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senhaTemporaria', 'senhaTrocadaEm', 'treinamento']))
+                    // o gerente só ativa/desativa vendedor da loja dele, e não mexe em quem o Dono bloqueou
                     || (hasRole(['GERENTE']) && resource.data.role == 'VENDEDOR' && resource.data.lojaId == me().lojaId
-                        && request.resource.data.role == 'VENDEDOR' && request.resource.data.lojaId == me().lojaId);
+                        && resource.data.get('bloqueadoPeloDono', false) != true
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ativo']));
       allow delete: if hasRole(['DONO']);
     }
 
@@ -44,13 +47,45 @@ service cloud.firestore {
     match /logins/{codigo} {
       allow get: if true;
       allow list: if false;
-      allow create, update: if hasRole(['DONO']) || hasRole(['GERENTE']) || (donoEmail() && request.resource.data.uid == request.auth.uid);
+      allow create, update: if hasRole(['DONO']) || (donoEmail() && request.resource.data.uid == request.auth.uid);
       allow delete: if hasRole(['DONO']);
     }
 
     match /lojas/{id} {
       allow read: if staff();
       allow write: if hasRole(['DONO']);
+    }
+
+    // ---------- Credenciamento de loja (link público → servidor grava; só o Dono vê e aprova) ----------
+    match /solicitacoesLoja/{id} {
+      allow read, update: if hasRole(['DONO']);
+      allow create, delete: if false;
+    }
+
+    // ---------- Gerente cadastra o vendedor; o Dono aprova e cria o acesso ----------
+    match /cadastrosVendedor/{id} {
+      allow read: if hasRole(['DONO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId
+                    && request.resource.data.gerenteUid == request.auth.uid && request.resource.data.status == 'PENDENTE';
+      allow update: if hasRole(['DONO']);
+      allow delete: if false;
+    }
+
+    // ---------- Comissão: o gerente paga com comprovante, o vendedor confirma, o Dono acompanha ----------
+    match /comissoesPagas/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO'])
+                  || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
+                  || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid);
+      allow create: if hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId
+                    && request.resource.data.gerenteUid == request.auth.uid
+                    && request.resource.data.valor > 0 && request.resource.data.comprovante is string
+                    && request.resource.data.confirmado == false && request.resource.data.contestado == false
+                    && get(/databases/$(database)/documents/users/$(request.resource.data.vendedorUid)).data.lojaId == me().lojaId;
+      allow update: if hasRole(['DONO'])
+                    || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid
+                        && resource.data.confirmado == false && resource.data.contestado == false
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmado', 'confirmadoEm', 'contestado', 'motivoContestacao', 'contestadoEm']));
+      allow delete: if false;
     }
 
     match /clientes/{cpf} {
@@ -75,7 +110,7 @@ service cloud.firestore {
 
     // ---------- Vendas / propostas ----------
     function catalogoPreco(d) { return get(/databases/$(database)/documents/catalogo/$(d.aparelho.catalogoId)).data.preco; }
-    function entradaMin() { return get(/databases/$(database)/documents/config/sistema).data.entradaPct; }
+    function entradaMin() { return get(/databases/$(database)/documents/config/sistema).data.get('entradaPct', 30); }
     function semMexer(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos) == false; }
     function jurosComVip(base, desc) { return desc <= base ? base - desc : 0; }
     function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
@@ -114,10 +149,13 @@ service cloud.firestore {
                                ? (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('jurosQuinzenal', null) == null
                                    ? get(/databases/$(database)/documents/config/sistema).data.get('jurosQuinzenalPct', 35)
                                    : get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.jurosQuinzenal)
-                               : get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25)),
+                               : (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', null) == null
+                                   ? get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25)
+                                   : get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.juros),
                              resource.data.get('vip', {}) == null ? 0 : resource.data.get('vip', {}).get('descontoJuros', 0))
                         // usado na entrada: no máximo 50% do valor
-                        && request.resource.data.get('usado', {'valor': 0}).get('valor', 0) <= request.resource.data.valor * 0.5
+                        // (usado vem null quando não tem aparelho usado na entrada)
+                        && (request.resource.data.get('usado', null) == null ? 0 : request.resource.data.usado.get('valor', 0)) <= request.resource.data.valor * 0.5
                         // produto sem trava exige entrada maior
                         && request.resource.data.entrada >= request.resource.data.valor * (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
                               ? get(/databases/$(database)/documents/config/sistema).data.get('entradaSemTravaPct', 50) : entradaMin()) / 100)
@@ -130,12 +168,12 @@ service cloud.firestore {
                     // vendedor: entrada recebida → aguardando a trava subir
                     || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'INSTALANDO'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
-                        && request.resource.data.entradaPaga.valor + resource.data.get('usado', {'valor': 0}).get('valor', 0) >= resource.data.entrada)
+                        && request.resource.data.entradaPaga.valor + (resource.data.get('usado', null) == null ? 0 : resource.data.usado.get('valor', 0)) >= resource.data.entrada)
                     // vendedor: produto SEM TRAVA (cadastrado assim pelo dono) fica ativo direto ao receber a entrada
                     || (minhaVenda() && resource.data.status == 'AGUARDANDO_ENTRADA' && request.resource.data.status == 'ATIVA'
                         && get(/databases/$(database)/documents/catalogo/$(resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros'])
-                        && request.resource.data.entradaPaga.valor + resource.data.get('usado', {'valor': 0}).get('valor', 0) >= resource.data.entrada)
+                        && request.resource.data.entradaPaga.valor + (resource.data.get('usado', null) == null ? 0 : resource.data.usado.get('valor', 0)) >= resource.data.entrada)
                     // vendedor: registra tentativas/alertas da instalação
                     || (minhaVenda() && resource.data.status == 'INSTALANDO' && request.resource.data.status == 'INSTALANDO'
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['instalacao']))

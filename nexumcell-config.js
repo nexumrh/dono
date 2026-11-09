@@ -32,3 +32,6 @@ window.NEXUMCELL_URLS = {
   suporte:    "https://nexumrh.github.io/suporte/",
   cliente:    "https://nexumrh.github.io/cliente/"
 };
+
+/* 4) Endereço do servidor (Cloudflare Workers). Não é segredo: usado no link público de credenciamento de lojas. */
+window.NEXUMCELL_SERVIDOR = "https://nexumcell-servidor.wevellenerrera21.workers.dev";
