@@ -93,6 +93,8 @@ service cloud.firestore {
                     // gerente acompanha a loja, mas não aprova crédito
                     || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId
                         && request.resource.data.lojaId == resource.data.lojaId
+                        // o repasse é lançado só pela NEXUM (dono/financeiro); o gerente só confirma que recebeu
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['repasse'])
                         && !(resource.data.status == 'ANALISE' && request.resource.data.status != 'ANALISE' && request.resource.data.status != 'CANCELADA'))
                     // suporte só registra as confirmações por WhatsApp
                     || (hasRole(['SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmacaoDados', 'confirmacaoEntrada']))

@@ -400,13 +400,13 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','simulador','seminovos','estoque','trocas','listanegra','catalogo','escala','equipe','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','confirmacoes','vendas','cobranca','aparelhos','chamados','preanalises','fila','conciliacao','caixa','despesas','pedidos','aprovacoes','relatorios','tv','simulador','seminovos','estoque','trocas','repasses','listanegra','catalogo','escala','equipe','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','trocas','listanegra','escala','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','preanalises','vendas','fila','cobranca','caixa','despesas','aparelhos','pedidos','chamados','estoque','aprovacoes','relatorios','tv','seminovos','trocas','repasses','listanegra','escala','equipe'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','treinamento','chamados'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','listanegra'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','repasses','listanegra'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
   suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['aparelhos','pedidos','chamados','fila','confirmacoes','vendas','aprovacoes'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
@@ -614,6 +614,7 @@ const IC = {
   simulador:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 10h2M12 10h2M16 10h0M8 14h2M12 14h2M8 18h8"/>',
   conciliacao:'<path d="M3 10h18M5 6l7-3 7 3M6 10v8M10 10v8M14 10v8M18 10v8M3 21h18"/>',
   despesas:'<path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  repasses:'<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
   trocas:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   escala:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   preanalises:'<path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/>',
@@ -655,6 +656,7 @@ const TABS = [
   {id:'estoque',label:'Estoque por IMEI',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'listanegra',label:'Lista negra',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'trocas',label:'Trocas e devoluções',roles:['DONO','GERENTE','FINANCEIRO']},
+  {id:'repasses',label:'Repasses às lojas',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
 
@@ -785,12 +787,36 @@ PAGES.painel = async () => {
 const IA = window.NEXUMCELL_IA || {};
 const iaChave = () => (S.cfg.iaChave||IA.chave||'').trim();
 const iaModelo = () => S.cfg.iaModelo||IA.modelo||'meta-llama/llama-4-scout-17b-16e-instruct';
-async function iaVisao(prompt, imagens){
-  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
+// modelos de visão do Groq, do preferido para o reserva (o Groq às vezes aposenta um modelo)
+const IA_VISAO=['meta-llama/llama-4-scout-17b-16e-instruct','meta-llama/llama-4-maverick-17b-128e-instruct','qwen/qwen3.6-27b'];
+async function iaChamar(modelo,prompt,imagens){
+  return fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
-    body:JSON.stringify({model:iaModelo(),temperature:0,response_format:{type:'json_object'},
+    body:JSON.stringify({model:modelo,temperature:0,response_format:{type:'json_object'},
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
-  if(!r.ok) throw new Error('A IA não respondeu ('+r.status+'). Tente de novo.');
+}
+// procura na conta do Groq um modelo que leia imagens, quando o configurado não existe mais
+async function iaAcharModelo(){
+  const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+iaChave()}});
+  if(!r.ok) return null;
+  const ids=((await r.json()).data||[]).filter(m=>m.active!==false).map(m=>m.id);
+  return IA_VISAO.find(x=>ids.includes(x)) || ids.find(x=>/scout|maverick|vision|-vl|qwen3\.?6|gemma-?[34]|kimi/i.test(x)) || null;
+}
+async function iaVisao(prompt, imagens){
+  if(!iaChave()) throw new Error('A chave da IA não está configurada (Painel do Dono → Configurações → IA).');
+  let modelo=localStorage.getItem('nxc_ia_troca_'+iaModelo())||iaModelo();
+  let r=await iaChamar(modelo,prompt,imagens);
+  if(r.status===404||r.status===400){
+    const det=await r.clone().json().catch(()=>({}));
+    if(r.status===404||/model|decommission|not.?found|does not support|image/i.test(det.error?.message||'')){
+      const novo=await iaAcharModelo();
+      if(novo&&novo!==modelo){ modelo=novo; localStorage.setItem('nxc_ia_troca_'+iaModelo(),novo); r=await iaChamar(modelo,prompt,imagens);
+        if(r.ok&&can('DONO')) DB.set('config','sistema',{iaModelo:novo}).catch(()=>{}); }
+    }
+  }
+  if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
+  if(r.status===429) throw new Error('A IA atingiu o limite de uso do plano grátis. Espere um minuto e tente de novo.');
+  if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
   const j=await r.json(); return JSON.parse(j.choices[0].message.content);
 }
 const PROMPT_DOC=`Você é um verificador de documentos brasileiros. As imagens são a frente e (se houver) o verso de um documento de identidade (RG, CNH ou CIN).
@@ -3513,6 +3539,76 @@ async function apagarChaveAsaas(){
   await DB.set('segredos','asaas',{chave:'',em:Date.now(),por:S.me.nome}); await DB.set('config','sistema',{asaasInfo:null}); S.cfg.asaasInfo=null;
   await log('Chave do Asaas apagada do cofre','asaas',''); render();
 }
+/* ======================= REPASSES ÀS LOJAS (valor do aparelho − entrada, pago pela NEXUM ao gerente) ======================= */
+const repStatus = v => v.repasse?.status==='PAGO' ? 'PAGO' : 'PENDENTE';
+const repValor = v => r2(Math.max(0,(+v.valor||0)-(+v.entrada||0)));
+const repData = v => v.entradaPaga?.em||v.instaladoEm||v.assinadoEm||v.criadoEm||0;
+PAGES.repasses = async () => {
+  const todas=await loadVendas(), us=await DB.list('users').catch(()=>[]);
+  const gerentes=l=>us.filter(u=>u.role==='GERENTE'&&u.lojaId===l&&u.ativo!==false).map(u=>u.nome).join(', ')||'—';
+  const f=S.filtro.rep||(S.filtro.rep={st:'PENDENTE',loja:can('GERENTE')?S.me.lojaId:'',mes:''});
+  // repasse só existe para venda que chegou a ativar; venda cancelada depois do repasse pago = loja devolve
+  let l=todas.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)||(v.status==='CANCELADA'&&v.repasse?.status==='PAGO'&&!v.repasse?.devolvido));
+  if(f.loja) l=l.filter(v=>v.lojaId===f.loja);
+  if(f.mes) l=l.filter(v=>isoDate(new Date(repData(v))).slice(0,7)===f.mes);
+  const dev=l.filter(v=>v.status==='CANCELADA'), base=l.filter(v=>v.status!=='CANCELADA');
+  const pend=base.filter(v=>repStatus(v)==='PENDENTE'), pago=base.filter(v=>repStatus(v)==='PAGO');
+  const lista=(f.st==='PENDENTE'?pend:f.st==='PAGO'?pago:base).sort((a,b)=>repData(a)-repData(b));
+  const porLoja={}; base.forEach(v=>{ const k=v.lojaId||'-'; porLoja[k]=porLoja[k]||{nome:v.lojaNome||'Loja',pend:0,pago:0,n:0}; porLoja[k][repStatus(v)==='PAGO'?'pago':'pend']+=repValor(v); if(repStatus(v)==='PENDENTE') porLoja[k].n++; });
+  const dono=can('DONO','FINANCEIRO');
+  $('#view').innerHTML=`<div class="card mb small">💰 <b>Repasse</b> = preço do aparelho (com acessórios) <b>menos a entrada</b> que a loja já recebeu do cliente. Ex.: aparelho de R$ 1.200 com entrada de R$ 300 → a NEXUM repassa <b>R$ 900</b> para a loja. O repasse aparece quando a venda fica ativa.${dono?'':' Os pagamentos são lançados pela NEXUM; você confirma o recebimento aqui.'}</div>
+  <div class="kpis"><div class="kpi"><small>A repassar</small><b style="color:var(--bad)">${brl(pend.reduce((s,v)=>s+repValor(v),0))}</b><span>${pend.length} venda(s)</span></div>
+    <div class="kpi"><small>Já repassado</small><b style="color:var(--ok)">${brl(pago.reduce((s,v)=>s+repValor(v),0))}</b><span>${pago.length} venda(s)</span></div>
+    ${dev.length?`<div class="kpi"><small>Loja deve devolver</small><b style="color:var(--bad)">${brl(dev.reduce((s,v)=>s+(+v.repasse.valor||repValor(v)),0))}</b><span>${dev.length} venda(s) canceladas após o repasse</span></div>`:''}</div>
+  ${dono&&Object.keys(porLoja).length>1?`<div class="card tablewrap mb"><table><tr><th>Loja</th><th>Gerente</th><th class="right">A repassar</th><th class="right">Repassado</th></tr>${Object.entries(porLoja).map(([id,x])=>`<tr><td><b>${esc(x.nome)}</b></td><td>${esc(gerentes(id))}</td><td class="right">${brl(x.pend)} <span class="small muted">(${x.n})</span></td><td class="right">${brl(x.pago)}</td></tr>`).join('')}</table></div>`:''}
+  <div class="row mb" style="gap:8px;flex-wrap:wrap">
+    <div class="tabs" style="margin:0">${[['PENDENTE','A repassar'],['PAGO','Repassados'],['TODOS','Todos']].map(([k,t])=>`<button class="${f.st===k?'on':''}" data-act="repFiltro" data-k="st" data-v="${k}">${t}</button>`).join('')}</div>
+    ${dono?`<select id="repLoja"><option value="">Todas as lojas</option>${S.lojas.map(x=>`<option value="${x.id}" ${f.loja===x.id?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>`:''}
+    <input id="repMes" type="month" value="${esc(f.mes)}" title="Mês da venda">
+    <span style="flex:1"></span>
+    ${dono&&f.st!=='PAGO'?`<button class="btn gold" data-act="repPagar">Marcar selecionados como pagos</button>`:''}
+    <button class="btn" data-act="repRecibo">Relatório para imprimir</button><button class="btn" data-act="repCsv">Planilha (CSV)</button></div>
+  <div class="card tablewrap"><table><tr>${dono&&f.st!=='PAGO'?'<th><input type="checkbox" id="repTodos"></th>':''}<th>Venda</th><th>Contrato</th><th>Loja · gerente</th><th class="right">Aparelho</th><th class="right">Entrada</th><th class="right">Repasse</th><th>Situação</th><th></th></tr>
+  ${lista.map(v=>{ const r=v.repasse||{}; return `<tr>${dono&&f.st!=='PAGO'?`<td>${repStatus(v)==='PENDENTE'?`<input type="checkbox" data-rep="${v.id}">`:''}</td>`:''}
+    <td>${fmtD(isoDate(new Date(repData(v))))}<br><span class="small muted">${esc(v.vendedorNome||'')}</span></td>
+    <td><b>nº ${v.numero}</b> · ${esc(v.clienteNome)}<br><span class="small muted">${esc(apNome(v))}</span></td><td>${esc(v.lojaNome||'')}<br><span class="small muted">${esc(gerentes(v.lojaId))}</span></td>
+    <td class="right">${brl(v.valor)}</td><td class="right">${brl(v.entrada)}</td><td class="right"><b>${brl(repValor(v))}</b></td>
+    <td>${repStatus(v)==='PAGO'?`${badge('Pago','green')}<br><span class="small muted">${fmtD(r.pagoEm)} · ${esc(r.forma||'')}${r.obs?' · '+esc(r.obs):''}</span>${v.repasseConfirmado?`<br><span class="small" style="color:var(--ok)">✓ recebido por ${esc(v.repasseConfirmado.por)}</span>`:''}`:badge('A repassar','amber')}</td>
+    <td class="right">${repStatus(v)==='PAGO'&&can('GERENTE')&&!v.repasseConfirmado?`<button class="btn sm green" data-act="repConfirmar" data-id="${v.id}">Confirmar recebimento</button>`:''}${repStatus(v)==='PAGO'&&can('DONO')?`<button class="btn sm" data-act="repDesfazer" data-id="${v.id}">Desfazer</button>`:''}</td></tr>`; }).join('')||'<tr><td colspan="9" class="empty">Nenhum repasse aqui</td></tr>'}</table></div>
+  ${dev.length?`<div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Vendas canceladas depois do repasse (a loja devolve à NEXUM)</h2><table><tr><th>Contrato</th><th>Loja</th><th class="right">Valor repassado</th><th>Cancelada</th><th></th></tr>
+    ${dev.map(v=>`<tr><td>nº ${v.numero} · ${esc(v.clienteNome)}</td><td>${esc(v.lojaNome||'')}</td><td class="right">${brl(v.repasse.valor||repValor(v))}</td><td>${fmtDT(v.canceladoEm)}<br><span class="small muted">${esc(v.motivoCancelamento||'')}</span></td>
+    <td class="right">${dono?`<button class="btn sm" data-act="repDevolvido" data-id="${v.id}">Loja devolveu</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
+  $('#repLoja')?.addEventListener('change',e=>{ f.loja=e.target.value; render(); });
+  $('#repMes').addEventListener('change',e=>{ f.mes=e.target.value; render(); });
+  $('#repTodos')?.addEventListener('change',e=>document.querySelectorAll('[data-rep]').forEach(c=>c.checked=e.target.checked));
+  S._repLista=lista; S._repGer=gerentes;
+};
+async function repPagar(){
+  const ids=[...document.querySelectorAll('[data-rep]:checked')].map(c=>c.dataset.rep);
+  if(!ids.length) return toast('Marque as vendas que você já repassou','err');
+  const vs=S._repLista.filter(v=>ids.includes(v.id)), total=r2(vs.reduce((s,v)=>s+repValor(v),0)), lojas=[...new Set(vs.map(v=>v.lojaNome))];
+  openModal(`<h2>Registrar repasse</h2><p class="muted" style="margin-top:-6px">${vs.length} venda(s) · ${esc(lojas.join(', '))} · total <b>${brl(total)}</b></p>
+    <div class="grid g2"><label>Data do pagamento<input id="rpData" type="date" value="${hoje()}"></label><label>Como pagou<select id="rpForma"><option>PIX</option><option>Transferência (TED)</option><option>Dinheiro</option><option>Depósito</option></select></label></div>
+    <label class="mt">Observação / ID do comprovante<input id="rpObs" maxlength="120" placeholder="ex.: E2E do PIX, banco, quem recebeu"></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="rpOk">Confirmar ${brl(total)}</button></div>`);
+  $('#rpOk').onclick=async()=>{ const d=$('#rpData').value, fo=$('#rpForma').value, ob=$('#rpObs').value.trim(); if(!d) return toast('Informe a data','err');
+    $('#rpOk').disabled=true;
+    await DB.batch(vs.map(v=>({c:'vendas',id:v.id,data:{repasse:{status:'PAGO',valor:repValor(v),pagoEm:d,forma:fo,obs:ob,por:S.me.nome,em:Date.now()}}})));
+    await log('Repasse às lojas registrado',lojas.join(', '),`${vs.length} venda(s) · ${brl(total)} · ${fo}${ob?' · '+ob:''}`);
+    toast(`Repasse de ${brl(total)} registrado`,'ok'); closeModal(); render(); };
+}
+async function repDesfazer(id){ if(!confirm('Desfazer o registro deste repasse? A venda volta para "a repassar".')) return; const v=await DB.get('vendas',id); await DB.set('vendas',id,{repasse:null,repasseConfirmado:null}); await log('Repasse desfeito',id,brl(v.repasse?.valor||0)); render(); }
+async function repConfirmar(id){ await DB.set('vendas',id,{repasseConfirmado:{em:Date.now(),por:S.me.nome}}); await log('Repasse recebido (confirmado pela loja)',id,''); toast('Recebimento confirmado','ok'); render(); }
+async function repDevolvido(id){ const v=await DB.get('vendas',id); const ob=prompt('Como a loja devolveu? (ex.: PIX 10/11)'); if(ob===null) return; await DB.set('vendas',id,{repasse:{...v.repasse,devolvido:{em:Date.now(),por:S.me.nome,obs:ob}}}); await log('Repasse devolvido pela loja',id,ob); render(); }
+function repLinhas(){ return (S._repLista||[]).map(v=>({data:fmtD(isoDate(new Date(repData(v)))),numero:v.numero,cliente:v.clienteNome,aparelho:apNome(v),loja:v.lojaNome||'',gerente:S._repGer?S._repGer(v.lojaId):'',valor:+v.valor||0,entrada:+v.entrada||0,repasse:repValor(v),situacao:repStatus(v)==='PAGO'?'Pago em '+fmtD(v.repasse.pagoEm)+' ('+(v.repasse.forma||'')+')':'A repassar'})); }
+function repCsv(){ const L=repLinhas(), n=x=>String(x.toFixed(2)).replace('.',','), q=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
+  baixarArquivo('repasses-'+hoje()+'.csv','﻿'+['Data;Contrato;Cliente;Aparelho;Loja;Gerente;Valor do aparelho;Entrada;Repasse;Situação',...L.map(x=>[x.data,x.numero,q(x.cliente),q(x.aparelho),q(x.loja),q(x.gerente),n(x.valor),n(x.entrada),n(x.repasse),q(x.situacao)].join(';'))].join('\n'),'text/csv'); }
+function repRecibo(){ const L=repLinhas(), tot=r2(L.reduce((s,x)=>s+x.repasse,0)), f=S.filtro.rep||{};
+  janelaImpressao('Repasses',`<h1>RELATÓRIO DE REPASSES ÀS LOJAS</h1><div class="cab">${esc(S.cfg.empresa||'NEXUM')} · ${f.loja?esc((S.lojas.find(l=>l.id===f.loja)||{}).nome||''):'todas as lojas'} · ${f.mes?'mês '+esc(f.mes):'todo o período'} · ${{PENDENTE:'a repassar',PAGO:'repassados',TODOS:'todos'}[f.st]||''} · emitido em ${fmtDT(Date.now())}</div>
+    <table><tr><th>Data</th><th>Contrato</th><th>Cliente</th><th>Loja</th><th>Aparelho</th><th>Entrada</th><th>Repasse</th><th>Situação</th></tr>${L.map(x=>`<tr><td>${x.data}</td><td>${x.numero}</td><td>${esc(x.cliente)}</td><td>${esc(x.loja)}</td><td>${brl(x.valor)}</td><td>${brl(x.entrada)}</td><td><b>${brl(x.repasse)}</b></td><td>${esc(x.situacao)}</td></tr>`).join('')}
+    <tr><td colspan="6"><b>Total</b></td><td><b>${brl(tot)}</b></td><td></td></tr></table>
+    <p style="margin-top:40px">Declaro que recebi da ${esc(S.cfg.empresa||'NEXUM')} os valores acima referentes às vendas parceladas listadas.</p><p style="margin-top:50px">______________________________________<br>Gerente / responsável pela loja</p>`); }
+
 /* ======================= NOTA INTERNA DO CLIENTE ======================= */
 function notaCliente(hist,renda,quebradas=0){
   let s=500-quebradas*60; const motivos=[]; let atrasoAberto=0, emDia=0, atrasadas=0, quitados=0;
@@ -4164,6 +4260,7 @@ bannerOffline();
 Object.assign(ACT,{
   emailContador:(d,b)=>emailContador(b), brevoCliente:(d,b)=>brevoCliente(d.id,d.t,b), testarBrevo:(d,b)=>testarBrevo(b), rodarRotina:(d,b)=>rodarRotina(d.q,b), statusServidor:()=>statusServidor(),
   abrirTroca:d=>abrirTroca(d.id), salvarTroca:(d,b)=>salvarTroca(d.id,b), executarTroca:(d,b)=>executarTroca(d.id,b), recusarTroca:d=>recusarTroca(d.id),
+  repFiltro:d=>{ (S.filtro.rep=S.filtro.rep||{})[d.k]=d.v; render(); }, repPagar:()=>repPagar(), repDesfazer:d=>repDesfazer(d.id), repConfirmar:d=>repConfirmar(d.id), repDevolvido:d=>repDevolvido(d.id), repCsv:()=>repCsv(), repRecibo:()=>repRecibo(),
   salvarChaveAsaas:(d,b)=>salvarChaveAsaas(b), testarAsaas:(d,b)=>testarAsaas(b), novoTokenWebhook:()=>novoTokenWebhook(), apagarChaveAsaas:()=>apagarChaveAsaas(),
   cancelarBoleto:(d,b)=>cancelarBoleto(d.id,d.n,b), reativarBoleto:(d,b)=>reativarBoleto(d.id,d.n,b),
   emitirNF:(d,b)=>emitirNF(d.id,b), consultarNF:d=>consultarNF(d.id), cancelarNF:d=>cancelarNF(d.id),
