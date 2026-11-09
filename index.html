@@ -5530,15 +5530,16 @@ Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
 /* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
-const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+(DEMO?'&demo':'');
+const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
 function blocoInstalarLink(v,tk){
   const url=linkInstalar(tk); let qr='';
   try{ if(typeof qrcode==='function'){ const q=qrcode(0,'M'); q.addData(url,'Byte'); q.make(); qr=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
   return `<div class="warn mt small"><b>Proteção menor que a do QR.</b> Pelo link, o cliente consegue desativar a proteção nas Configurações. Se ele fizer isso, o aparelho trava na hora e o painel avisa, mas depois ele pode desinstalar o app. Use só quando o QR não funcionar, e de preferência para clientes com bom histórico.</div>
     <ol class="steps small mt"><li>Ligue o aparelho e configure normalmente (pode colocar a conta Google). Conecte no Wi-Fi.</li>
-      <li>Abra a câmera (ou o Google Lens) e leia o QR abaixo, ou abra o link no Chrome do aparelho.</li>
+      <li>Abra a câmera (ou o Google Lens) e leia o QR abaixo. Abre a página da instalação no Chrome.</li>
       <li>Toque em <b>Baixar o app</b> e permita “instalar apps desconhecidos” para o Chrome.</li>
-      <li>Depois toque em <b>Ativar</b> e siga os botões do app: administrador, sobrepor apps e bateria.</li>
+      <li>Toque em <b>Ativar</b>. Se não abrir, abra o app NexumCell, toque em <b>📷 Ler QR code da loja</b> e leia este mesmo QR.</li>
+      <li>Siga os botões do app: administrador, sobrepor apps e bateria.</li>
       <li>Espere aqui ficar verde. Só entregue o aparelho depois disso.</li></ol>
     <div class="row mt" style="gap:12px;align-items:center"><div class="qr" style="margin:0;width:170px">${qr}</div>
       <div style="flex:1;min-width:200px"><input readonly value="${esc(url)}" class="mono small" style="width:100%"><div class="row mt" style="gap:6px"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar link</button><button class="btn sm green" data-act="instLinkWa" data-id="${v.id}">Enviar por WhatsApp</button></div>
