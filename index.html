@@ -1473,6 +1473,7 @@ function estadoInstalacao(a){
   if(!ck?.em) return {k:'ESPERA'};
   const lista=[a.imei,a.imei2].filter(Boolean);
   if(ck.imeiConfere===false || (ck.imei && !lista.includes(ck.imei) && !lista.includes(ck.imei2))) return {k:'IMEI',msg:`O IMEI do aparelho (${ck.imei||'?'}) não é o do contrato. O aparelho foi bloqueado. Não entregue ao cliente e confira se pegou o aparelho certo.`};
+  if(ck.deviceOwner===false&&ck.modo==='link') return ck.adminAtivo?{k:'OK',link:true}:{k:'ESPERA'};
   if(ck.deviceOwner===false) return {k:'SEM_ADMIN',msg:'O app abriu, mas SEM permissão de administrador (não foi instalado pelo QR na primeira tela). A trava não funciona assim: restaure de fábrica e leia o QR de novo.'};
   return {k:'OK'};
 }
@@ -1491,7 +1492,8 @@ async function passoTrava(){
       <div><div class="qr" style="margin:0 auto">${qrHtml||'<span class="small muted">QR indisponível sem internet.</span>'}</div>
         <p class="small muted" style="text-align:center">Contrato nº ${v.numero} · IMEI <span class="mono">${esc(v.aparelho.imei)}</span></p>
         <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho confirmar a trava… <span id="instTempo"></span></div>
-        <div id="instAjuda"></div></div>
+        <div id="instAjuda"></div>
+        ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
     </div>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
       <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled title="Liberado quando a trava subir e a foto da entrega for tirada">Concluir venda</button></div>
@@ -5523,10 +5525,31 @@ Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus
 { const _c2=PAGES.config; PAGES.config=async()=>{ await _c2(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
   const f=(k,l,pad)=>`<label>${l}<input data-cfg="${k}" type="number" min="0" value="${esc(c[k]??pad)}"></label>`;
   const html=`<div class="card mt"><h2>Prazos e limites</h2><div class="grid g4">${f('vencMaxDias','1º vencimento até (dias depois da compra)',45)}${f('recolherDias','Sugerir recolher com atraso de (dias)',60)}${f('foraPaisDias','Alerta de aparelho fora do Brasil após (dias)',3)}${f('preAprovadoMax','Pré-aprovado: limite máximo (R$)',6000)}
-    ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}${f('retornoDias','Chamar de novo o reprovado após (dias)',30)}${f('assistentePct','Assistente: parcela ideal até (% da renda)',30)}</div>
+    ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}${f('retornoDias','Chamar de novo o reprovado após (dias)',30)}<label>Instalar a trava por link (sem QR)<select data-cfg="instalacaoLink"><option value="sim" ${c.instalacaoLink!=='nao'?'selected':''}>Permitido</option><option value="nao" ${c.instalacaoLink==='nao'?'selected':''}>Só pelo QR</option></select></label>${f('assistentePct','Assistente: parcela ideal até (% da renda)',30)}</div>
     <p class="small muted">Pré-aprovado: todo dia à noite, quem pagou 60% ou mais em dia (ou quitou) ganha limite para trocar de aparelho, válido por 90 dias. Aparece no app e no portal do cliente e acelera a análise.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
+/* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
+const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+(DEMO?'&demo':'');
+function blocoInstalarLink(v,tk){
+  const url=linkInstalar(tk); let qr='';
+  try{ if(typeof qrcode==='function'){ const q=qrcode(0,'M'); q.addData(url,'Byte'); q.make(); qr=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
+  return `<div class="warn mt small"><b>Proteção menor que a do QR.</b> Pelo link, o cliente consegue desativar a proteção nas Configurações. Se ele fizer isso, o aparelho trava na hora e o painel avisa, mas depois ele pode desinstalar o app. Use só quando o QR não funcionar, e de preferência para clientes com bom histórico.</div>
+    <ol class="steps small mt"><li>Ligue o aparelho e configure normalmente (pode colocar a conta Google). Conecte no Wi-Fi.</li>
+      <li>Abra a câmera (ou o Google Lens) e leia o QR abaixo, ou abra o link no Chrome do aparelho.</li>
+      <li>Toque em <b>Baixar o app</b> e permita “instalar apps desconhecidos” para o Chrome.</li>
+      <li>Depois toque em <b>Ativar</b> e siga os botões do app: administrador, sobrepor apps e bateria.</li>
+      <li>Espere aqui ficar verde. Só entregue o aparelho depois disso.</li></ol>
+    <div class="row mt" style="gap:12px;align-items:center"><div class="qr" style="margin:0;width:170px">${qr}</div>
+      <div style="flex:1;min-width:200px"><input readonly value="${esc(url)}" class="mono small" style="width:100%"><div class="row mt" style="gap:6px"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar link</button><button class="btn sm green" data-act="instLinkWa" data-id="${v.id}">Enviar por WhatsApp</button></div>
+      ${!S.cfg.apkUrl?'<p class="small" style="color:var(--bad)">Falta o link do APK em Configurações (Trava).</p>':''}</div></div>`;
+}
+{ const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
+  const l=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.modo==='link'&&x.checkin?.adminAtivo===false);
+  if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`); }catch(e){} }; }
+Object.assign(ACT,{ instLinkWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; const tel=(v.cliente?.telefones||[])[0]||'';
+  window.open(`https://wa.me/${tel?telWa(tel):''}?text=${encodeURIComponent('Link para instalar o app NexumCell no seu aparelho (abra no próprio celular novo): '+linkInstalar(v.aparelhoToken))}`,'_blank','noopener'); await log('Instalação da trava por link',v.id,'link enviado'); } });
+
 /* ======================= LOTE: venda a distância, assistente, retorno, saúde, seminovos online, repasse Asaas, vendedor de risco, implantação ======================= */
 VENDA_ST.REMOTA=['Aguardando o cliente','amber'];
 
@@ -5609,13 +5632,13 @@ function saudeHtml(s){
   const al=[s.root&&badge('ROOT detectado','red'),s.modoDesenvolvedor&&badge('Modo desenvolvedor ligado','amber'),['ruim','superaquecida','sobretensão'].includes(s.bateriaSaude)&&badge('Bateria '+s.bateriaSaude,'amber'),s.temperatura>45&&badge(`${s.temperatura} °C`,'amber'),s.armTotalGb&&s.armLivreGb/s.armTotalGb<0.05&&badge('Memória quase cheia','amber')].filter(Boolean);
   return `<div class="small mt" style="margin-top:6px">Saúde: armazenamento <b>${s.armLivreGb??'—'} GB livres de ${s.armTotalGb??'—'} GB</b> · bateria <b>${esc(s.bateriaSaude||'—')}</b>${s.temperatura?` (${s.temperatura} °C)`:''}${s.ligadoHa!=null?` · ligado há ${esc(String(s.ligadoHa))} h`:''} ${al.join(' ')}</div>`;
 }
-{ const _ac=apCard; apCard=a=>{ const h=_ac(a), s=saudeHtml(a.checkin?.saude); if(!s) return h; const k='</div><div class="row" style="justify-content:flex-end'; const i=h.indexOf(k); return i<0?h:h.slice(0,i)+s+h.slice(i); }; }
+{ const _ac=apCard; apCard=a=>{ const ck=a.checkin||{}, lk=ck.modo==='link'?(ck.adminAtivo?badge('Instalada por link','amber'):badge('Proteção DESATIVADA pelo cliente','red')):''; const h=_ac(a).replace('</b>','</b>'+lk), s=saudeHtml(ck.saude); if(!s) return h; const k='</div><div class="row" style="justify-content:flex-end'; const i=h.indexOf(k); return i<0?h:h.slice(0,i)+s+h.slice(i); }; }
 
 /* ---- Seminovos à venda no site do cliente ---- */
 { const _pv=publicarVitrine; let _snT; publicarVitrine=(...a)=>{ _pv(...a); if(!can('DONO')) return; clearTimeout(_snT); _snT=setTimeout(async()=>{ try{
   const on=S.cfg.seminovosOnline!=='nao';
   const sn=on?(await DB.list('seminovos')).filter(s=>s.status==='DISPONIVEL'&&s.precoVenda>0&&s.online!==false).map(s=>({id:s.id,marca:s.marca||'',modelo:s.modelo||'',capacidade:s.capacidade||'',estado:s.estado||'',preco:s.precoVenda,lojaId:s.lojaId||'',lojaNome:s.lojaNome||''})).slice(0,60):[];
-  await DB.set('publico','vitrine',{seminovos:sn,seminovosEm:Date.now()}); }catch(e){ console.warn('vitrine seminovos',e); } },2500); }; }
+  await DB.set('publico','vitrine',{seminovos:sn,seminovosEm:Date.now(),apkUrl:S.cfg.apkUrl||'',instalacaoLink:S.cfg.instalacaoLink!=='nao'}); }catch(e){ console.warn('vitrine seminovos',e); } },2500); }; }
 { const _ps=PAGES.seminovos; PAGES.seminovos=async()=>{ await _ps(); if(!$('#view')) return;
   $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb small">🌐 Os seminovos <b>disponíveis com preço</b> aparecem no site do cliente (pré-análise), com as parcelas. ${can('DONO')?`<label class="check" style="display:inline-flex;margin-left:8px"><input type="checkbox" id="snOnline" ${S.cfg.seminovosOnline!=='nao'?'checked':''}> Mostrar no site</label>`:'O site é atualizado quando o Dono abre esta tela.'}</div>`);
   $('#snOnline')?.addEventListener('change',async e=>{ S.cfg.seminovosOnline=e.target.checked?'sim':'nao'; await DB.set('config','sistema',{seminovosOnline:S.cfg.seminovosOnline}); publicarVitrine(); toast('Salvo','ok'); });
@@ -5688,7 +5711,7 @@ async function implantacao(lojas){
     const apL=aps?aps.filter(a=>a.lojaId===l.id||lv.some(v=>v.aparelhoToken===a.id)):null;
     const itens=[['Loja aprovada e ativa',!l.bloqueada],['Gerente entrou e trocou a senha',ger.some(u=>u.senhaTemporaria===false||u.senhaTrocadaEm)],['Pelo menos 1 vendedor ativo',ven.length>0],
       ['Vendedor fez o treinamento',ven.some(u=>u.treinamento?.aprovado)],['Chave PIX para o repasse',!!l.pixChave],['1ª venda feita',lv.some(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status))],
-      ['1ª trava instalada e ativa',apL?apL.some(a=>a.checkin?.deviceOwner):lv.some(v=>['ATIVA','QUITADA'].includes(v.status)&&v.aparelhoToken)],['Cobrança gerada para o cliente',apL?apL.some(a=>(a.parcelas||[]).some(p=>p.asaasId)):lv.some(v=>v.status==='ATIVA')]];
+      ['1ª trava instalada e ativa',apL?apL.some(a=>a.checkin?.deviceOwner||(a.checkin?.modo==='link'&&a.checkin?.adminAtivo)):lv.some(v=>['ATIVA','QUITADA'].includes(v.status)&&v.aparelhoToken)],['Cobrança gerada para o cliente',apL?apL.some(a=>(a.parcelas||[]).some(p=>p.asaasId)):lv.some(v=>v.status==='ATIVA')]];
     return {l,itens,ok:itens.filter(i=>i[1]).length}; });
 }
 const implHtml=x=>`<div class="row" style="gap:6px;flex-wrap:wrap">${x.itens.map(([t,ok])=>`<span class="badge ${ok?'b-green':'b-gray'}" title="${esc(t)}">${ok?'✓':'○'} ${esc(t)}</span>`).join('')}</div>`;

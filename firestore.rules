@@ -193,7 +193,11 @@ service cloud.firestore {
                     // venda só é concluída quando o PRÓPRIO APARELHO confirmou a trava (check-in com administrador e IMEI certo)
                     || (minhaVenda() && resource.data.status == 'INSTALANDO' && request.resource.data.status == 'ATIVA'
                         && semMexer(['analise', 'cliente', 'aparelho', 'valor', 'entrada', 'parcelas', 'nParcelas', 'valorParcela', 'juros', 'aparelhoToken'])
-                        && get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.deviceOwner == true
+                        // QR: Device Owner · link: administrador comum ativo (se o Dono permitir)
+                        && (get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.deviceOwner == true
+                            || (get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.get('modo', '') == 'link'
+                                && get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.get('adminAtivo', false) == true
+                                && get(/databases/$(database)/documents/config/sistema).data.get('instalacaoLink', 'sim') != 'nao'))
                         && get(/databases/$(database)/documents/aparelhos/$(resource.data.aparelhoToken)).data.checkin.get('imeiConfere', true) == true);
       allow delete: if false;
     }
