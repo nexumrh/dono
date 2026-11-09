@@ -1823,8 +1823,6 @@ function payloadProvisionamento(tk,lojaId){
     'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM':hexToB64url(c.apkChecksumHex),
     'android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED':true,
     'android.app.extra.PROVISIONING_SKIP_ENCRYPTION':true,
-    // baixa o app também pelo 4G/5G se o Wi-Fi não conectar (Android 9+)
-    'android.app.extra.PROVISIONING_USE_MOBILE_DATA':true,
     'android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE':{token:tk,apiKey:FIREBASE_CONFIG.apiKey||'DEMO',projectId:FIREBASE_CONFIG.projectId||'DEMO'}
   };
   if(c.wifiSsid){ p['android.app.extra.PROVISIONING_WIFI_SSID']=c.wifiSsid; p['android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE']=c.wifiSenha?'WPA':'NONE'; if(c.wifiSenha) p['android.app.extra.PROVISIONING_WIFI_PASSWORD']=c.wifiSenha; }
