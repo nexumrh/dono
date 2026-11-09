@@ -400,15 +400,15 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','saas','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','recolher','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','saas','ajuda','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
-  vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento'],
+  vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','repasses','listanegra'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','recolher','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','repasses','listanegra','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
-  suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['atendimentos','aparelhos','pedidos','chamados','fila','confirmacoes','vendas','aprovacoes'],
+  suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['atendimentos','aparelhos','recolher','pedidos','chamados','fila','confirmacoes','vendas','aprovacoes','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
 };
 const P = PORTAIS[PORTAL];
@@ -643,6 +643,8 @@ const IC = {
   listanegra:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   lojas:'<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
   comissoes:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .9-3 2s1 1.7 3 2 3 .9 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
+  recolher:'<path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  ajuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
   atendimentos:'<path d="M4 5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M17 9h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1v3l-4-3h-4a2 2 0 0 1-2-2v-1"/>',
   saas:'<path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.8A6 6 0 0 0 4.5 12a3.5 3.5 0 0 0 .5 7z"/>',
   config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
@@ -680,6 +682,8 @@ const TABS = [
   {id:'lojas',label:'Lojas parceiras',roles:['DONO']},
   {id:'comissoes',label:'Comissões',roles:['DONO','GERENTE','VENDEDOR','FINANCEIRO']},
   {id:'atendimentos',label:'Atendimentos',roles:['DONO','SUPORTE']},
+  {id:'recolher',label:'Recolhimento',roles:['DONO','FINANCEIRO','SUPORTE','GERENTE']},
+  {id:'ajuda',label:'Ajuda e status',roles:['DONO','FINANCEIRO','SUPORTE','GERENTE','VENDEDOR']},
   {id:'saas',label:'Clientes SaaS',roles:['DONO']},
   {id:'config',label:'Lojas e configurações',roles:['DONO']},
 ];
@@ -1010,6 +1014,7 @@ async function docOk(){
   if(vs.length){ toast(`Este CPF já tem uma proposta em andamento (nº ${vs[0].numero}).`,'err'); return; }
   const ln=await naListaNegra(d.cpf,[]);
   if(ln.length){ await log('Tentativa de venda para cliente da lista negra',d.cpf,`${d.nome} · ${ln.map(x=>x.motivo).join(', ')}`); bloqueadoLN(); return; }
+  try{ const pre=(await DB.get('clientes',d.cpf))?.preAprovado; if(pre&&pre.ate>=hoje()&&pre.valor>0){ w.preAprovado=pre; toast(`🎉 Cliente PRÉ-APROVADO até ${brl(pre.valor)} (bom pagador). A análise sai mais rápida.`,'ok'); } }catch(e){}
   irPasso(2);
 }
 
@@ -1131,6 +1136,7 @@ async function enviarAnalise(btn){
       {c:'vendas',id,data:venda},
       {c:'docs',id,data:{vendaId:id,cpf:d.cpf,docTipo:w.docTipo,frente:w.fotos.frente.ver,verso:w.fotos.verso?.ver||'',selfie:w.selfie,comprRenda:w.compr?.renda?.foto||'',comprEndereco:w.compr?.endereco?.foto||'',criadoEm:agora,vendedorUid:S.me.uid}}]);
     await log('Proposta enviada para análise',id,`Nº ${numero} — ${d.nome}`);
+    if(fb&&servLigado()) apiServ('motor',{vendaId:id}).catch(e=>console.warn('motor',e.message));
     w.vendaId=id; irPasso(4);
   }catch(e){ console.error(e); toast('Erro ao enviar: '+e.message,'err'); btn.disabled=false; }
 }
@@ -1192,12 +1198,13 @@ async function passoAparelho(){
       <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
       ${S.w.vip?.descontoJuros?`<label>Cliente VIP<input value="VIP ${esc(S.w.vip.nivel)} — condição especial" readonly></label>`:''}
       ${item.semTrava?`<label>Número de série (opcional)<input id="nSerie" value="${esc(w.sel.serie||'')}"></label>`:''}
-      <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
+      <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span><button type="button" class="btn sm" style="margin-left:auto;padding:2px 8px" data-act="lerImei" title="Ler o código de barras com a câmera">📷 Ler</button></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
       ${(()=>{ const pe=item.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):pct; return `<label>Entrada total (mín. ${pe}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pe/100)}" value="${w.sel.entrada||r2(item.preco*pe/100)}"></label>`; })()}
       ${quinzenalAtivo()&&!item.semTrava?`<label>Pagamento<select id="nFreq"><option value="MENSAL" ${freq==='MENSAL'?'selected':''}>Mensal</option><option value="QUINZENAL" ${freq==='QUINZENAL'?'selected':''}>Quinzenal (a cada 15 dias)</option></select></label>`:''}
       <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||(ops.includes(12)?12:ops[ops.length-1]))?'selected':''}>${n}x${freq==='QUINZENAL'?' quinzenais':''}</option>`).join('')}</select></label>
-      <label>1º vencimento<input id="nVenc" type="date" value="${w.sel.venc||(freq==='QUINZENAL'?addDays(hoje(),15):addMonths(hoje(),1))}"></label>
+      ${freq!=='QUINZENAL'?`<label>Dia do pagamento (salário do cliente)<select id="nDiaVenc"><option value="">Escolher…</option>${[1,5,10,15,20,25,28].map(d=>`<option value="${d}" ${+w.sel.diaVenc===d?'selected':''}>Todo dia ${d}</option>`).join('')}</select></label>`:''}
+      <label>1º vencimento<input id="nVenc" type="date" min="${addDays(hoje(),1)}" max="${addDays(hoje(),+S.cfg.vencMaxDias||45)}" value="${w.sel.venc||(freq==='QUINZENAL'?addDays(hoje(),15):addMonths(hoje(),1))}"></label>
       <label>Cor<input id="nCor" value="${esc(w.sel.cor||'')}"></label>
     </div>
     <div id="acessBox"></div>
@@ -1295,6 +1302,7 @@ async function salvarAparelho(btn){
   if(entrada<r2(valorTotal*pct/100)) return toast(`A entrada mínima é ${pct}% (${brl(valorTotal*pct/100)})`,'err');
   if(entrada>=valorTotal) return toast('Entrada maior que o valor da compra','err');
   if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
+  if(diasEntre(hoje(),venc)>(+S.cfg.vencMaxDias||45)) return toast(`O 1º vencimento pode ser no máximo ${+S.cfg.vencMaxDias||45} dias depois da compra`,'err');
   btn.disabled=true;
   const v0=await DB.get('vendas',w.vendaId);
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
@@ -1518,7 +1526,10 @@ async function avisoTravas(){
     const bk=can('DONO')&&dias>=7?`<div class="aviso-trava" data-act="go" data-tab="config">${svg(IC.config)}<b>Faça a cópia de segurança da semana</b><span>${S.cfg.ultimoBackup?'Última há '+dias+' dias.':'Nenhuma cópia feita ainda.'} Clique para ir às configurações.</span></div>`:'';
     let vs=(await loadVendas()).filter(v=>v.status==='INSTALANDO');
     const ss=can('DONO','FINANCEIRO','SUPORTE')?aps.filter(a=>a.status==='ATIVO'&&!a.quitado&&a.checkin?.em&&Date.now()-a.checkin.em>86400000*diasSemSinal()):[];
-    const sn=ss.length?`<div class="aviso-trava" data-act="semSinal">${svg(IC.aparelhos)}<b>${ss.length} aparelho(s) sem sinal há mais de ${diasSemSinal()} dias</b><span>Trava desligada, celular parado ou revendido. Clique para ver.</span></div>`:'';
+    const fx=can('DONO','FINANCEIRO','SUPORTE')?aps.filter(a=>a.status==='ATIVO'&&!a.quitado&&foraDoPais(a)):[]; marcarForaDoPais(aps);
+    const fdias=+S.cfg.foraPaisDias||3, fl=fx.filter(a=>a.foraDesde&&Date.now()-a.foraDesde>fdias*86400000);
+    const ex=fl.length?`<div class="aviso-trava" data-act="verExterior">${svg(IC.aparelhos)}<b>${fl.length} aparelho(s) fora do Brasil há mais de ${fdias} dias</b><span>${fl.slice(0,3).map(a=>esc(a.clienteNome)+' ('+foraDoPais(a)+')').join(', ')}. Clique para ver.</span></div>`:'';
+    const sn=ex+(ss.length?`<div class="aviso-trava" data-act="semSinal">${svg(IC.aparelhos)}<b>${ss.length} aparelho(s) sem sinal há mais de ${diasSemSinal()} dias</b><span>Trava desligada, celular parado ou revendido. Clique para ver.</span></div>`:'');
     if(!vs.length){ box.innerHTML=rb+ch+sn+bk+bannerAvisos(); return; }
     const lista=await Promise.all(vs.map(async v=>{ const a=v.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken).catch(()=>null):null; const e=estadoInstalacao(a);
       const min=Math.floor((Date.now()-(v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now()))/60000); return {v,e,min}; }));
@@ -1669,12 +1680,13 @@ async function reativarBoleto(id,n,btn){
 PAGES.analise = async () => {
   const lista=(await DB.list('vendas',[['status','==','ANALISE']])).sort((a,b)=>a.criadoEm-b.criadoEm);
   $('#view').innerHTML=`<div class="card tablewrap"><table><tr><th>Nº</th><th>Aguardando</th><th>Cliente</th><th>Renda</th><th>Verificação</th><th></th></tr>
-  ${lista.map(v=>{ const vf=v.verificacao||{}, alertas=[!vf.documentoOriginal&&'doc. suspeito',vf.editados?.length&&'dados editados',vf.face?.mesma_pessoa&&vf.face.mesma_pessoa!=='sim'&&'rosto '+vf.face.mesma_pessoa].filter(Boolean);
+  ${lista.map(v=>{ const vf=v.verificacao||{}, alertas=[(v.alertasFraude||[]).length&&'⚠ fraude entre lojas',!vf.documentoOriginal&&'doc. suspeito',vf.editados?.length&&'dados editados',vf.face?.mesma_pessoa&&vf.face.mesma_pessoa!=='sim'&&'rosto '+vf.face.mesma_pessoa].filter(Boolean);
    return `<tr class="click" data-act="analisar" data-id="${v.id}"><td class="mono">${v.numero}</td><td>${relT(v.criadoEm)}<br><span class="small muted">${esc(v.vendedorNome)} · ${esc(v.lojaNome)}</span></td>
    <td><b>${esc(v.clienteNome)}</b><br><span class="small muted">${fmtCpf(v.clienteCpf)}</span></td><td>${brl(v.cliente.renda)}</td>
-   <td>${alertas.length?alertas.map(a=>badge(a,'red')).join(' '):badge('OK','green')}</td>
+   <td>${alertas.length?alertas.map(a=>badge(a,'red')).join(' '):badge('OK','green')}${v.motor?' '+badge('Motor: '+{APROVAR:'aprovar',REPROVAR:'reprovar',MANUAL:'analisar'}[v.motor.resultado],{APROVAR:'green',REPROVAR:'red',MANUAL:'amber'}[v.motor.resultado]):''}</td>
    <td class="right"><button class="btn sm gold" data-act="analisar" data-id="${v.id}">Analisar</button></td></tr>`; }).join('')||'<tr><td colspan="6" class="empty">Nenhuma proposta aguardando análise</td></tr>'}</table></div>
-  <p class="hint">O vendedor acompanha esta análise ao vivo na tela dele.</p>`;
+  <p class="hint">O vendedor acompanha esta análise ao vivo na tela dele.${(S.cfg.motor?.modo||'sugerir')==='automatico'?' O motor de crédito aprova e reprova sozinho os casos claros; aqui ficam só os que precisam de você.':''}</p>`;
+  if(can('DONO')) $('#topActions').innerHTML='<button class="btn" data-act="regrasCredito">Regras de crédito</button>';
 };
 async function analisar(id){
   const v=await DB.get('vendas',id), c=v.cliente, vf=v.verificacao||{}, f=vf.face||{};
@@ -1687,6 +1699,7 @@ async function analisar(id){
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
+    ${blocoMotor(v)}<div id="fraudeBox"></div>
     <div id="lnFace"></div><div id="serasaBox">${asaasLigado()?(v.serasa?`<div class="msg mt">Serasa consultado ${relT(v.serasa.em)}${v.serasa.link?` · <a href="${esc(v.serasa.link)}" target="_blank" rel="noopener">abrir relatório</a>`:''}</div>`:`<button class="btn sm mt" data-act="consultarSerasa" data-id="${id}">Consultar CPF no Serasa (Asaas, pago por consulta)</button>`):''}</div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
     ${vipHtml(vip)}<div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
@@ -1709,12 +1722,13 @@ async function analisar(id){
     <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
   if(docs.selfie) compararFaceLN(docs.selfie,c.cpf);
   revisaoIA(v,docs);
+  fraudeEntreLojas(v).then(h=>{ const b=$('#fraudeBox'); if(b) b.innerHTML=h; }).catch(()=>{});
 }
 async function decidir(id,r){
   const ck={}; ['cpf','bio','doc'].forEach(k=>ck[k]=$('#ck_'+k).checked);
   if(r==='APROVADA' && !(ck.cpf&&ck.bio&&ck.doc)){ toast('Para aprovar, marque as três conferências.','err'); return; }
   if(r==='REPROVADA' && !$('#aObs').value.trim()){ toast('Escreva o motivo da reprovação (fica só para a equipe).','err'); return; }
-  const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck};
+  const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),motorSugeriu:(await DB.get('vendas',id))?.motor?.resultado||null,score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck};
   const vip=r==='APROVADA'?(S._vipAnalise?.id===id?S._vipAnalise.vip:await vipDaVenda(await DB.get('vendas',id))):null;
   await DB.set('vendas',id,{status:r,analise,vip:vip||null}); await log(r==='APROVADA'?'Crédito aprovado':'Crédito reprovado',id,analise.obs+(vip?` · cliente VIP ${vip.nivel}`:''));
   if(r==='REPROVADA'&&$('#aLN')?.checked){ const v=await DB.get('vendas',id); await adicionarLN(v,'Fraude na proposta: '+analise.obs); }
@@ -1732,7 +1746,7 @@ function contratoHTML(v){
   <h4>3. Atraso</h4><p>O atraso implica multa de ${cfg.multaPct}% e juros de mora de ${cfg.moraDiaPct}% ao dia sobre a parcela vencida.</p>
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
   <h4>5. Aplicativo de gestão e bloqueio do aparelho</h4><p>O COMPRADOR declara ter sido informado, de forma clara e prévia, e concorda que o aparelho terá instalado o aplicativo de gestão NexumCell, que: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) <b>restringe o uso do aparelho quando houver parcela vencida há mais de ${cfg.toleranciaDias} dia(s)</b>, ou quando o aparelho ficar mais de ${cfg.maxDiasOffline} dias sem conexão com a internet; (c) mantém, mesmo durante a restrição, a possibilidade de <b>chamadas de emergência</b> e de contato com a loja; (d) é liberado automaticamente assim que o pagamento é registrado; (e) é <b>removido definitivamente</b> após a quitação. O COMPRADOR se compromete a não remover, desativar ou burlar o aplicativo nem regravar o sistema do aparelho até a quitação.</p>
-  <h4>6. Dados pessoais (LGPD)</h4><p>Os dados do COMPRADOR, as imagens do documento e a biometria facial (coletadas para prevenção a fraude) e os dados do aparelho (IMEI, modelo, nível de bateria, data do último contato e estado da trava) são tratados exclusivamente para execução deste contrato, análise de crédito e cobrança (Lei 13.709/2018, art. 7º, V e X). O aplicativo não acessa fotos, mensagens, contatos nem localização. O COMPRADOR pode solicitar acesso e correção dos seus dados pelo telefone ${esc(cfg.telefoneSuporte||v.lojaNome)}.</p>
+  <h4>6. Dados pessoais (LGPD)</h4><p>Os dados do COMPRADOR, as imagens do documento e a biometria facial (coletadas para prevenção a fraude) e os dados do aparelho (IMEI, modelo, operadora e país do chip e da rede celular, nível de bateria, data do último contato e estado da trava) são tratados exclusivamente para execução deste contrato, análise de crédito e cobrança (Lei 13.709/2018, art. 7º, V e X). O aplicativo não acessa fotos, mensagens, contatos nem localização. O COMPRADOR pode solicitar acesso e correção dos seus dados pelo telefone ${esc(cfg.telefoneSuporte||v.lojaNome)}.</p>
   <h4>7. Garantia, troca e assistência</h4><p>Garantia legal (90 dias, CDC art. 26) e do fabricante. Por política da VENDEDORA, em até ${+cfg.trocaDias||7} dias da compra o COMPRADOR pode trocar o aparelho com defeito por outro igual ou devolvê-lo com caixa, acessórios e sem danos de uso, com o cancelamento deste contrato e a devolução do que pagou. O bloqueio por atraso não se confunde com defeito do produto.</p>
   <h4>8. Assinatura eletrônica</h4><p>As partes aceitam a assinatura eletrônica deste contrato como válida e equivalente à assinatura de próprio punho (MP 2.200-2/2001, art. 10, §2º, e Lei 14.063/2020). A identificação do COMPRADOR é feita pelo documento com foto, pela biometria facial e pelo registro de data, hora, endereço IP e código de integridade (hash) do documento assinado, que ficam guardados como prova.</p>
   <h4>9. Foro</h4><p>Fica eleito o foro do domicílio do COMPRADOR.</p>
@@ -1938,7 +1952,7 @@ async function cadEstoque(){
       <label>Aparelho (do catálogo)<select id="esItem">${cat.map(x=>`<option value="${x.id}">${esc(x.marca+' '+x.modelo+' '+x.capacidade)}</option>`).join('')}</select></label>
       <label>Cor<input id="esCor" placeholder="Preto"></label><label>Nota fiscal (opcional)<input id="esNF"></label>
       <label>Custo de cada aparelho (R$)<input id="esCusto" type="number" step="0.01" placeholder="quanto a loja pagou"></label></div>
-    <label class="mt">IMEIs — um aparelho por linha. Se for dual chip, coloque os dois IMEIs na mesma linha separados por espaço.<textarea id="esImeis" rows="6" class="mono" placeholder="356938035643817&#10;356938035643825 356938035643833"></textarea></label>
+    <button type="button" class="btn sm mt" data-act="lerImeiLista">📷 Ler IMEIs pela câmera (vários seguidos)</button><label class="mt">IMEIs — um aparelho por linha. Se for dual chip, coloque os dois IMEIs na mesma linha separados por espaço.<textarea id="esImeis" rows="6" class="mono" placeholder="356938035643817&#10;356938035643825 356938035643833"></textarea></label>
     <p class="small muted">Dica: disque *#06# em cada aparelho ou leia a etiqueta da caixa. O sistema recusa IMEI inválido ou repetido.</p>
     <div id="esMsg" class="small mt"></div>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarEstoque">Cadastrar</button></div>`, true);
@@ -2873,7 +2887,7 @@ PAGES.simulador = async () => {
       <div class="sb-ent">Entrada <b>${brl(e)}</b> <small>(mínimo ${pct}%)</small></div><div class="sb-ops">${ops.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaPlano(total,e,j,n))}</b></div>`).join('')}</div>
       ${opsQ.length?`<div class="sb-ent" style="margin-top:12px">Quinzenal <small>(a cada 15 dias)</small></div><div class="sb-ops">${opsQ.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaPlano(total,e,jq,n))}</b></div>`).join('')}</div>`:''}
       <p class="small">Pagando antes do vencimento, ${S.cfg.descontoAntecipadoPct||5}% de desconto em cada parcela.</p></div>
-      <div class="row mt">${asaasLigado()?'<button class="btn" data-act="linkCartao">Vender no cartão (link Asaas)</button>':''}<button class="btn" data-act="sbCheia">Mostrar em tela cheia</button><button class="btn" data-act="sbCopiar">Copiar para o WhatsApp</button><button class="btn gold" data-act="go" data-tab="nova">Fazer a proposta</button></div>`; };
+      <div class="row mt">${asaasLigado()?'<button class="btn" data-act="linkCartao">Vender no cartão (link Asaas)</button>':''}<button class="btn gold" data-act="sbLink">Enviar simulação pelo WhatsApp</button><button class="btn" data-act="sbCheia">Mostrar em tela cheia</button><button class="btn" data-act="sbCopiar">Copiar para o WhatsApp</button><button class="btn gold" data-act="go" data-tab="nova">Fazer a proposta</button></div>`; };
   $('#sbItem').addEventListener('change',()=>{ $('#sbEnt').value=''; calc(); }); $('#sbEnt').addEventListener('change',calc); document.querySelectorAll('[data-sbacs]').forEach(i=>i.addEventListener('change',e=>{ e.target.closest('.chip').classList.toggle('on',e.target.checked); $('#sbEnt').value=''; calc(); }));
   calc();
 };
@@ -3075,6 +3089,7 @@ async function salvarProdutoSemTrava(x,btn){
   if(entrada>=valorTotal) return toast('Entrada maior que o valor da compra','err');
   if(usado&&usado.valor>entrada) return toast('O valor do usado é maior que a entrada','err');
   if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
+  if(diasEntre(hoje(),venc)>(+S.cfg.vencMaxDias||45)) return toast(`O 1º vencimento pode ser no máximo ${+S.cfg.vencMaxDias||45} dias depois da compra`,'err');
   btn.disabled=true;
   const juros=jurosDo(x), fin=r2(valorTotal-entrada), vp=parcelaPlano(valorTotal,entrada,juros,n);
   await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei:'',imei2:'',serie:($('#nSerie')?.value||'').trim(),cor:w.sel.cor||'',semTrava:true},
@@ -3945,9 +3960,9 @@ PAGES.aparelhos = async () => {
   const aps=(await loadAparelhos()).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
   const q=(S.filtro.aq||'').toLowerCase(), f=S.filtro.ap||'todos';
   const sit=a=>apSituacao(a)[0];
-  const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal()};
+  const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal(), exterior:a=>!a.quitado&&a.status==='ATIVO'&&!!foraDoPais(a)};
   const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q));
-  const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['fim','Quitados/cancelados']];
+  const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['exterior','Fora do Brasil'],['fim','Quitados/cancelados']];
   $('#view').innerHTML=`<div class="row mb"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px" value="${esc(S.filtro.aq||'')}"></div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
@@ -3960,7 +3975,7 @@ function apCard(a){
   const ativo=a.status==='ATIVO'&&!a.quitado;
   const gerencia=can('DONO','SUPORTE','FINANCEIRO');
   return `<div class="card ap"><div>
-    <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}</div>
+    <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}${foraDoPais(a)?badge('🌎 '+foraDoPais(a)+(a.foraDesde?' há '+Math.max(0,Math.round((Date.now()-a.foraDesde)/86400000))+' dia(s)':''),'amber'):''}</div>
     <div class="small muted mt" style="margin-top:4px">IMEI <span class="mono">${esc(a.imei)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
     <div class="small mt" style="margin-top:6px">Regra: <b>${esc(av.motivo)}</b>${ck.em?` · último contato <b>${relT(ck.em)}</b> (bateria ${ck.bateria??'—'}%, Android ${esc(ck.android||'—')}, app ${esc(ck.versao||'—')})`:''}
       ${reportDiverge?`<br><span style="color:var(--amber)">O aparelho ainda está ${ck.travado?'travado':'liberado'} — muda no próximo contato.</span>`:''}${ck.imei&&imeiDiverge?`<br><span style="color:var(--red)">Aparelho informou IMEI ${esc(ck.imei)}.</span>`:''}</div>
@@ -4270,6 +4285,10 @@ const ACT = {
   termoQuitacao:async d=>termoQuitacao(await DB.get('vendas',d.id)), tvCheia:()=>{ const e=$('#tvBox'); (e.requestFullscreen||e.webkitRequestFullscreen||(()=>{})).call(e); },
   confirmarConc:(d,b)=>confirmarConc(b), novaCampanha:()=>novaCampanha(), campEnviada:d=>campEnviada(d.id), encerrarCampanha:async d=>{ await DB.set('campanhas',d.id,{ativa:false}); render(); },
   novaDespesa:()=>novaDespesa(), editarMinimo:()=>editarMinimo(), escSemana:d=>{ S.filtro.escSem=d.v; render(); }, salvarEscala:()=>salvarEscala(),
+  sbLink:()=>{ const x=S._simCat[+$('#sbItem').value]; if(!x) return; const e=+$('#sbEnt').value||0, tel=onlyDig(prompt('WhatsApp do cliente (com DDD). Deixe vazio para escolher o contato no WhatsApp:')||'');
+    const link=urlCliente()+`?pre&a=${encodeURIComponent(x.marca+' '+x.modelo+' '+x.capacidade)}&e=${e}&l=${encodeURIComponent(S.me.lojaId||'')}&v=${encodeURIComponent(S.me.uid)}&vn=${encodeURIComponent(primeiroNome(S.me.nome)+' · '+lojaNome(S.me.lojaId))}`;
+    const msg=`Olá! Aqui é ${primeiroNome(S.me.nome)}, da ${lojaNome(S.me.lojaId)||S.cfg.empresa}. Segue a simulação que você pediu:\n\n${S._simTxt||''}\n\nFaça sua pré-análise pelo celular (2 minutos) e já venha com a resposta:\n${link}`;
+    window.open(`https://wa.me/${tel?telWa(tel):''}?text=${encodeURIComponent(msg)}`,'_blank','noopener'); log('Simulação enviada pelo WhatsApp','',S._simDesc||''); },
   sbCheia:()=>{ const e=document.querySelector('.sim-balcao'); (e.requestFullscreen||e.webkitRequestFullscreen||(()=>{})).call(e); }, sbCopiar:()=>{ navigator.clipboard?.writeText(S._simTxt||''); toast('Copiado — cole no WhatsApp do cliente','ok'); },
   avisoMassa:()=>avisoMassa(), gerenciarRespostas:()=>gerenciarRespostas(), apagarResposta:async d=>{ await DB.set('respostas',d.id,{ativo:false}); gerenciarRespostas(); },
   formUsado:()=>formUsado(), corrigirQuiz:()=>corrigirQuiz(), relatorioMes:()=>relatorioMes(),
@@ -5263,8 +5282,235 @@ Object.assign(ACT,{ abrirAtendimento:d=>abrirAtendimento(d.id), atResponder:d=>a
 
 { const _om=openModal; openModal=function(...x){ const mb=$('#mbody'); if(mb) delete mb.dataset.at; return _om(...x); }; }
 
+/* ======================= MOTOR DE CRÉDITO (regras do Dono) E FRAUDE ENTRE LOJAS ======================= */
+const MOTOR_PADRAO={modo:'sugerir',idadeMin:18,idadeMax:75,rendaMin:1000,fatorRendaNovo:1,limiteMaxNovo:2500,scoreAprovar:600,scoreReprovar:300,exigirDocOriginal:true,exigirRosto:true,aceitarEditados:false,maxContratosAtivos:2,cidades:'',fraudeDias:7,fraudeReprova:false,serasaAuto:false};
+function blocoMotor(v){
+  const m=v.motor; if(!m) return '';
+  const cor={APROVAR:'green',REPROVAR:'red',MANUAL:'amber'}[m.resultado], tit={APROVAR:'Motor de crédito: APROVAR',REPROVAR:'Motor de crédito: REPROVAR',MANUAL:'Motor de crédito: precisa da sua análise'}[m.resultado];
+  return `<div class="msg mt" style="border-left:4px solid var(--${cor==='green'?'ok':cor==='red'?'bad':'warn'},#D97706)"><b>${tit}</b> · nota ${m.score} (${esc(m.faixa)}) · limite sugerido ${brl(m.limite)}
+    ${m.reprova?.length?`<div class="small" style="color:var(--bad)">✗ ${m.reprova.map(esc).join('<br>✗ ')}</div>`:''}${m.manual?.length?`<div class="small">⚠ ${m.manual.map(esc).join('<br>⚠ ')}</div>`:''}${m.ok?.length?`<div class="small muted">✓ ${m.ok.map(esc).join(' · ')}</div>`:''}</div>`;
+}
+async function fraudeEntreLojas(v){
+  const R={...MOTOR_PADRAO,...(S.cfg.motor||{})}, desde=Date.now()-(+R.fraudeDias||7)*86400000, c=v.cliente||{}, tels=new Set(c.telefones||[]), em=String(c.email||'').trim().toLowerCase();
+  const todas=(await DB.list('vendas').catch(()=>[])).filter(x=>x.id!==v.id&&x.criadoEm>=desde&&x.lojaId!==v.lojaId);
+  const al=todas.map(x=>{ const xc=x.cliente||{}, m=[]; if(x.clienteCpf===v.clienteCpf) m.push('mesmo CPF'); if((xc.telefones||[]).some(t=>tels.has(t))) m.push('mesmo telefone'+(x.clienteCpf!==v.clienteCpf?' com outro CPF':'')); if(em&&String(xc.email||'').trim().toLowerCase()===em&&x.clienteCpf!==v.clienteCpf) m.push('mesmo e-mail com outro CPF'); return m.length?{x,m}:null; }).filter(Boolean);
+  if(!al.length) return '';
+  return `<div class="ln-alerta mt">${svg(IC.listanegra)}<div><b>Possível fraude entre lojas (últimos ${R.fraudeDias} dias)</b>${al.map(({x,m})=>`<div>Nº ${x.numero} · ${esc(x.lojaNome||'')} · ${esc(VENDA_ST[x.status]?.[0]||x.status)} · ${relT(x.criadoEm)} — <b>${esc(m.join(', '))}</b>${x.clienteCpf!==v.clienteCpf?` (${esc(x.clienteNome)})`:''}</div>`).join('')}</div></div>`;
+}
+async function regrasCredito(){
+  const R={...MOTOR_PADRAO,...(S.cfg.motor||{})};
+  const n=(k,l,x='')=>`<label>${l}<input id="mt_${k}" type="number" value="${R[k]}" ${x}></label>`, sn=(k,l)=>`<label>${l}<select id="mt_${k}"><option value="1" ${R[k]?'selected':''}>Sim</option><option value="" ${R[k]?'':'selected'}>Não</option></select></label>`;
+  openModal(`<h2>Regras de crédito (motor)</h2><p class="small muted" style="margin-top:-6px">Rodam no servidor assim que o vendedor envia a proposta. Se uma regra de reprovação bater, reprova; se alguma regra pedir atenção, vai para a sua análise; se tudo passar, aprova.</p>
+    <label>Modo<select id="mt_modo"><option value="desligado" ${R.modo==='desligado'?'selected':''}>Desligado</option><option value="sugerir" ${R.modo==='sugerir'?'selected':''}>Só sugerir (você decide tudo)</option><option value="automatico" ${R.modo==='automatico'?'selected':''}>Automático (aprova e reprova os casos claros sozinho)</option></select></label>
+    <h3 class="mt">Reprova sozinho</h3><div class="grid g4">${n('idadeMin','Idade mínima')}${n('idadeMax','Idade máxima')}${n('rendaMin','Renda mínima (R$)')}${n('scoreReprovar','Nota interna abaixo de')}</div>
+    <p class="small muted">Também reprova: lista negra e parcela em atraso em outro contrato.</p>
+    <h3 class="mt">Aprova sozinho quando</h3><div class="grid g4">${n('scoreAprovar','Nota interna a partir de')}${n('fatorRendaNovo','Limite do cliente novo = renda ×','step="0.1"')}${n('limiteMaxNovo','Teto do cliente novo (R$)')}${n('maxContratosAtivos','Máx. de contratos em andamento')}</div>
+    <h3 class="mt">Manda para a sua análise quando</h3><div class="grid g4">${sn('exigirDocOriginal','Documento parece cópia')}${sn('exigirRosto','Rosto não confere 100%')}<label>Dados do documento editados<select id="mt_aceitarEditados"><option value="" ${R.aceitarEditados?'':'selected'}>Analisar</option><option value="1" ${R.aceitarEditados?'selected':''}>Aceitar</option></select></label>${n('fraudeDias','Fraude: procurar nos últimos (dias)')}</div>
+    <div class="grid g2 mt"><label>Cidades atendidas (separadas por vírgula; vazio = todas)<input id="mt_cidades" value="${esc(R.cidades)}" placeholder="Foz do Iguaçu, Santa Terezinha de Itaipu"></label><div class="grid g2">${sn('fraudeReprova','Fraude entre lojas reprova direto')}${sn('serasaAuto','Consultar Serasa (pago) do cliente novo')}</div></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="mtOk">Salvar regras</button></div>`,true);
+  $('#mtOk').onclick=async()=>{ const g=k=>$('#mt_'+k).value, m={modo:g('modo'),cidades:g('cidades').trim()};
+    ['idadeMin','idadeMax','rendaMin','scoreReprovar','scoreAprovar','fatorRendaNovo','limiteMaxNovo','maxContratosAtivos','fraudeDias'].forEach(k=>m[k]=+g(k)||0);
+    ['exigirDocOriginal','exigirRosto','aceitarEditados','fraudeReprova','serasaAuto'].forEach(k=>m[k]=!!g(k));
+    await DB.set('config','sistema',{motor:m}); S.cfg.motor=m; await log('Regras de crédito alteradas','config',m.modo); closeModal(); toast('Regras salvas','ok'); render(); };
+}
+Object.assign(ACT,{ regrasCredito:()=>regrasCredito() });
+
+/* ======================= RÉGUA DE COBRANÇA CONFIGURÁVEL ======================= */
+const REGUA_PADRAO=[
+  {dia:-3,canais:['app','email'],texto:'{loja}: {nome}, sua parcela de {valor} vence em {vencimento}. Pagando antes você ganha desconto: {link}'},
+  {dia:0,canais:['app','sms'],texto:'{loja}: {nome}, sua parcela de {valor} vence HOJE. Pague pelo PIX no app ou em {link}'},
+  {dia:1,canais:['app','sms'],texto:'{loja}: {nome}, sua parcela venceu ontem. Valor hoje {valor}. Pague agora e evite o bloqueio: {link}'},
+  {dia:3,canais:['app','sms','email'],texto:'{loja}: {nome}, sua parcela está atrasada há {dias} dias ({valor}). O aparelho será limitado em breve. Pague em {link}'},
+  {dia:7,canais:['app','whatsapp'],texto:'{loja}: {nome}, parcela atrasada há {dias} dias ({valor}). Para evitar o bloqueio total e a negativação, pague em {link} ou fale com a loja.'},
+  {dia:15,canais:['sms','email'],texto:'{loja}: {nome}, último aviso antes da negativação no Serasa. Débito de {valor}. Regularize em {link}'},
+];
+const CANAIS_R=[['app','Notificação no celular'],['sms','SMS'],['whatsapp','WhatsApp'],['email','E-mail']];
+function reguaEditor(){
+  const L=(Array.isArray(S.cfg.regua)&&S.cfg.regua.length?S.cfg.regua:REGUA_PADRAO).map(x=>({...x,canais:[...(x.canais||[])]}));
+  const desenhar=()=>{ $('#rgLista').innerHTML=L.sort((a,b)=>a.dia-b.dia).map((x,i)=>`<div class="card mb" style="padding:12px"><div class="row" style="align-items:flex-end;gap:10px;flex-wrap:wrap">
+      <label style="width:150px">Quando<select data-rg="${i}" data-c="dia">${[-7,-5,-3,-2,-1,0,1,2,3,5,7,10,15,20,30,45,60].map(d=>`<option value="${d}" ${+x.dia===d?'selected':''}>${d<0?`${-d} dia(s) antes`:d===0?'No vencimento':`${d} dia(s) de atraso`}</option>`).join('')}</select></label>
+      ${CANAIS_R.map(([k,t])=>`<label class="check" style="margin:0"><input type="checkbox" data-rg="${i}" data-c="canal" data-k="${k}" ${x.canais.includes(k)?'checked':''}> ${t}</label>`).join('')}
+      <button class="btn sm" style="margin-left:auto" data-rgdel="${i}">Remover</button></div>
+      <label class="mt">Mensagem<textarea data-rg="${i}" data-c="texto" rows="2">${esc(x.texto||'')}</textarea></label></div>`).join('')||'<p class="empty">Nenhum toque. Adicione abaixo.</p>'; };
+  openModal(`<h2>Régua de cobrança</h2><p class="small muted" style="margin-top:-6px">Cada toque é enviado uma vez por parcela, na rotina da manhã. Use na mensagem: <span class="mono">{nome} {valor} {vencimento} {dias} {link} {loja}</span>. SMS, WhatsApp e e-mail usam o Brevo; a notificação no celular usa o app da trava (precisa do aviso instantâneo ligado). Clientes com PIX Automático não recebem.</p>
+    <div id="rgLista"></div><div class="row"><button class="btn" id="rgAdd">+ Adicionar toque</button><button class="btn" id="rgPad">Voltar ao padrão</button></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" id="rgDesl">Desligar a régua (usar os lembretes simples)</button><button class="btn gold" id="rgOk">Salvar régua</button></div>`,true);
+  desenhar();
+  $('#rgLista').addEventListener('change',e=>{ const t=e.target, i=+t.dataset.rg; if(isNaN(i)) return; const x=L[i];
+    if(t.dataset.c==='dia'){ x.dia=+t.value; desenhar(); } else if(t.dataset.c==='canal'){ x.canais=t.checked?[...new Set([...x.canais,t.dataset.k])]:x.canais.filter(k=>k!==t.dataset.k); } else if(t.dataset.c==='texto') x.texto=t.value; });
+  $('#rgLista').addEventListener('input',e=>{ const t=e.target; if(t.dataset.c==='texto') L[+t.dataset.rg].texto=t.value; });
+  $('#rgLista').addEventListener('click',e=>{ const b=e.target.closest('[data-rgdel]'); if(b){ L.splice(+b.dataset.rgdel,1); desenhar(); } });
+  $('#rgAdd').onclick=()=>{ L.push({dia:2,canais:['app','sms'],texto:'{loja}: {nome}, sua parcela está atrasada há {dias} dias ({valor}). Pague em {link}'}); desenhar(); };
+  $('#rgPad').onclick=()=>{ L.splice(0,L.length,...REGUA_PADRAO.map(x=>({...x,canais:[...x.canais]}))); desenhar(); };
+  $('#rgDesl').onclick=async()=>{ await DB.set('config','sistema',{regua:[]}); S.cfg.regua=[]; closeModal(); toast('Régua desligada: voltam os lembretes simples','ok'); };
+  $('#rgOk').onclick=async()=>{ const ruim=L.find(x=>!x.canais.length||!String(x.texto||'').trim()); if(ruim) return toast('Cada toque precisa de ao menos um canal e de uma mensagem','err');
+    const dup=L.map(x=>x.dia).find((d,i,a)=>a.indexOf(d)!==i); if(dup!=null) return toast('Dois toques no mesmo dia: junte os canais num só','err');
+    const r=L.map(x=>({dia:+x.dia,canais:x.canais,texto:String(x.texto).trim().slice(0,600)})); await DB.set('config','sistema',{regua:r}); S.cfg.regua=r; await log('Régua de cobrança alterada','config',`${r.length} toque(s)`); closeModal(); toast('Régua salva','ok'); };
+}
+{ const _c=PAGES.cobranca; PAGES.cobranca=async()=>{ await _c(); if(can('DONO','FINANCEIRO')) $('#topActions').insertAdjacentHTML('beforeend',` <button class="btn" data-act="reguaEditor">Régua de cobrança${Array.isArray(S.cfg.regua)&&S.cfg.regua.length?` (${S.cfg.regua.length})`:''}</button>`); }; }
+Object.assign(ACT,{ reguaEditor:()=>reguaEditor() });
+
+/* ======================= LOJA: SIMULAÇÕES PELO WHATSAPP, IMEI PELA CÂMERA, ESTOQUE BAIXO ======================= */
+{ const _i=PAGES.inicio; if(_i) PAGES.inicio=async()=>{ await _i(); if(!can('VENDEDOR')) return;
+  const l=(await DB.list('preanalises',[['lojaId','==',S.me.lojaId]]).catch(()=>[])).filter(p=>p.vendedorUid===S.me.uid&&Date.now()-p.criadoEm<30*86400000).sort((a,b)=>b.criadoEm-a.criadoEm).slice(0,10);
+  if(!l.length) return; const st={PRE_APROVADO:['Pré-aprovado','green'],REPROVADO:['Não aprovado','red'],NOVA:['Aguardando','amber'],ANALISE:['Em análise','amber']};
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt tablewrap"><h2>Clientes que vieram pelo seu link de simulação</h2><table><tr><th>Cliente</th><th>Quer</th><th>Quando</th><th>Resposta</th><th></th></tr>
+    ${l.map(p=>`<tr><td><b>${esc(p.nome)}</b><div class="small muted">${esc(fmtFone(p.telefone))}</div></td><td>${esc(p.aparelho||'—')}${p.entrada?`<div class="small muted">entrada ${brl(p.entrada)}</div>`:''}</td><td>${relT(p.criadoEm)}</td><td>${badge(...(st[p.status]||[p.status,'gray']))}${p.agendamento?`<div class="small">vem ${fmtD(p.agendamento.data)} ${esc(p.agendamento.hora||'')}</div>`:''}</td>
+      <td class="right"><a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/${telWa(p.telefone)}?text=${encodeURIComponent(`Olá, ${primeiroNome(p.nome)}! Aqui é ${primeiroNome(S.me.nome)}, da ${lojaNome(S.me.lojaId)}. Vi sua pré-análise${p.status==='PRE_APROVADO'?': você foi PRÉ-APROVADO(A)! Quando pode vir à loja?':'. Posso te ajudar?'}`)}">WhatsApp</a></td></tr>`).join('')}</table></div>`);
+}; }
+
+/* ---- IMEI pela câmera (código de barras da caixa ou da tela *#06#) ---- */
+function imeiLuhn(s){ s=onlyDig(s); if(s.length!==15) return false; let t=0; for(let i=0;i<15;i++){ let d=+s[i]; if(i%2){ d*=2; if(d>9) d-=9; } t+=d; } return t%10===0; }
+async function lerImeiCamera(alvo1,alvo2){
+  if(!('BarcodeDetector' in window)) return toast('Este navegador não lê código de barras. Use o Chrome no Android ou digite o IMEI.','err');
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}}); }catch(e){ return toast('Libere o acesso à câmera para ler o código.','err'); }
+  openModal(`<h2>Ler o IMEI</h2><p class="small muted" style="margin-top:-6px">Aponte para o código de barras do IMEI na caixa (ou na tela do *#06#). Lê os dois IMEIs se aparecerem.</p>
+    <video id="imeiVid" playsinline muted style="width:100%;border-radius:10px;background:#000;max-height:60vh"></video><div id="imeiAchou" class="mt small"></div>`);
+  const vid=$('#imeiVid'); vid.srcObject=stream; await vid.play().catch(()=>{});
+  let fm=['code_128','code_39','ean_13','itf','qr_code','data_matrix']; try{ const sup=await BarcodeDetector.getSupportedFormats(); fm=fm.filter(f=>sup.includes(f)); }catch(e){}
+  const det=new BarcodeDetector({formats:fm.length?fm:undefined});
+  const achados=new Set(); let vivo=true;
+  const parar=()=>{ vivo=false; stream.getTracks().forEach(t=>t.stop()); };
+  const mo=new MutationObserver(()=>{ if($('#modal').hidden){ parar(); mo.disconnect(); } }); mo.observe($('#modal'),{attributes:true});
+  const loop=async()=>{ if(!vivo) return;
+    try{ (await det.detect(vid)).forEach(c=>{ (String(c.rawValue).match(/\d{15}/g)||[]).filter(imeiLuhn).forEach(x=>achados.add(x)); }); }catch(e){}
+    const l=[...achados]; $('#imeiAchou').innerHTML=l.length?`IMEI lido: <b class="mono">${l.join(' · ')}</b>`:'Procurando…';
+    if(l.length>=1){ $(alvo1).value=l[0]; $(alvo1).dispatchEvent(new Event('input',{bubbles:true})); if(alvo2&&l[1]&&$(alvo2)){ $(alvo2).value=l[1]; $(alvo2).dispatchEvent(new Event('input',{bubbles:true})); }
+      if(!alvo2||l.length>=2||Date.now()-t0>2500){ parar(); mo.disconnect(); closeModal(); toast('IMEI lido: '+l.join(' / '),'ok'); return; } }
+    requestAnimationFrame(()=>setTimeout(loop,180)); };
+  const t0=Date.now(); loop();
+}
+async function lerImeiLista(){
+  if(!('BarcodeDetector' in window)) return toast('Este navegador não lê código de barras. Use o Chrome no Android.','err');
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}}); }catch(e){ return toast('Libere o acesso à câmera.','err'); }
+  const ta=$('#esImeis'), salvo=ta.value; const det=new BarcodeDetector(); const lidos=new Set(salvo.split(/\s+/).filter(imeiLuhn));
+  const bx=document.createElement('div'); bx.style.cssText='position:fixed;inset:0;background:rgba(10,23,51,.92);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;color:#fff';
+  bx.innerHTML='<video playsinline muted style="width:min(560px,100%);border-radius:12px;background:#000"></video><p id="imL" style="margin:12px 0">Aponte para cada etiqueta de IMEI. Cada leitura entra na lista.</p><button class="btn gold">Concluir</button>';
+  document.body.appendChild(bx); const vid=bx.querySelector('video'); vid.srcObject=stream; await vid.play().catch(()=>{}); let vivo=true;
+  bx.querySelector('button').onclick=()=>{ vivo=false; stream.getTracks().forEach(t=>t.stop()); bx.remove(); };
+  const loop=async()=>{ if(!vivo) return; try{ (await det.detect(vid)).forEach(c=>(String(c.rawValue).match(/\d{15}/g)||[]).filter(imeiLuhn).forEach(x=>{ if(!lidos.has(x)){ lidos.add(x); ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+x; navigator.vibrate?.(80); } })); }catch(e){}
+    bx.querySelector('#imL').textContent=`${lidos.size} IMEI(s) na lista. Aponte para a próxima etiqueta.`; setTimeout(loop,250); };
+  loop();
+}
+Object.assign(ACT,{ lerImeiLista:()=>lerImeiLista() });
+Object.assign(ACT,{ lerImei:(d)=>lerImeiCamera(d.a||'#nImei',d.b===undefined?'#nImei2':(d.b||null)) });
+
+/* ======================= APARELHO FORA DO BRASIL E RECOLHIMENTO ======================= */
+const PAISES={br:'Brasil',py:'Paraguai',ar:'Argentina',uy:'Uruguai',bo:'Bolívia',cl:'Chile',pe:'Peru',co:'Colômbia',ve:'Venezuela',us:'Estados Unidos',pt:'Portugal',es:'Espanha'};
+function foraDoPais(a){ const c=a.checkin?.chip||{}, r=String(c.paisRede||'').toLowerCase(); if(!r||r==='br') return ''; return (PAISES[r]||r.toUpperCase())+(c.paisChip&&c.paisChip!=='br'?' (chip de lá)':''); }
+async function marcarForaDoPais(aps){
+  if(!fb||!can('DONO','FINANCEIRO','SUPORTE')) return;
+  for(const a of aps){ const f=!!foraDoPais(a)&&a.status==='ATIVO';
+    if(f&&!a.foraDesde) await DB.set('aparelhos',a.id,{foraDesde:a.checkin?.em||Date.now()}).catch(()=>{});
+    if(!f&&a.foraDesde) await DB.set('aparelhos',a.id,{foraDesde:0}).catch(()=>{}); }
+}
+/* ---- Recolhimento: do "para recolher" até a retomada ---- */
+const REC_ST={A_RECOLHER:['A recolher','amber'],EM_ROTA:['Em rota','navy'],NAO_ENCONTRADO:['Não encontrado','red'],RECOLHIDO:['Recolhido','green']};
+PAGES.recolher = async () => {
+  const vendas=await loadVendas(), h=hoje(), dmin=+S.cfg.recolherDias||60;
+  const atrasoDe=v=>Math.max(0,...(v.parcelas||[]).filter(p=>!p.pago&&p.venc<h).map(p=>diasEntre(p.venc,h)));
+  const marcadas=vendas.filter(v=>v.recolher&&v.recolher.status!=='RECOLHIDO'&&v.status==='ATIVA');
+  const sugestoes=vendas.filter(v=>v.status==='ATIVA'&&!v.recolher&&atrasoDe(v)>=dmin).sort((a,b)=>atrasoDe(b)-atrasoDe(a));
+  const end=v=>[v.cliente?.endereco,v.cliente?.bairro,v.cliente?.cidade,v.cliente?.uf].filter(Boolean).join(', ');
+  const saldo=v=>r2((v.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0));
+  const linha=(v,marc)=>`<tr><td>${marc?`<input type="checkbox" class="recSel" value="${v.id}">`:''}</td><td><b>${esc(v.clienteNome)}</b><div class="small muted">nº ${v.numero} · ${esc(apNome(v))} · ${esc(v.lojaNome||'')}</div></td>
+    <td class="small">${esc(end(v))}<div>${(v.cliente?.telefones||[]).map(t=>`<a href="https://wa.me/${telWa(t)}" target="_blank" rel="noopener">${esc(fmtFone(t))}</a>`).join(' · ')}</div></td>
+    <td>${atrasoDe(v)} dias<div class="small muted">deve ${brl(saldo(v))}</div></td>
+    <td>${marc?badge(...REC_ST[v.recolher.status])+`<div class="small muted">${esc(v.recolher.responsavel||'')}${(v.recolher.tentativas||[]).length?` · ${v.recolher.tentativas.length} tentativa(s)`:''}</div>`:badge('Sugestão','gray')}</td>
+    <td class="right">${marc?`<a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(end(v))}">Mapa</a> <button class="btn sm" data-act="recStatus" data-id="${v.id}" data-q="EM_ROTA">Em rota</button> <button class="btn sm" data-act="recStatus" data-id="${v.id}" data-q="NAO_ENCONTRADO">Não encontrado</button> <button class="btn sm gold" data-act="retomar" data-id="${v.id}">Recolhido → retomar</button>`
+      :`<button class="btn sm gold" data-act="recMarcar" data-id="${v.id}">Marcar para recolher</button>`}</td></tr>`;
+  $('#topActions').innerHTML='<button class="btn gold" data-act="recRota">Montar rota com os marcados</button>';
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Aparelhos para buscar com o cliente. Marque, monte a rota no Google Maps, registre as tentativas e, quando o aparelho voltar para a loja, faça a retomada (remove a trava e manda para seminovos). Usa só o endereço do cadastro.</p>
+    <div class="card tablewrap"><h2>Para recolher (${marcadas.length})</h2><table><tr><th></th><th>Cliente</th><th>Endereço e contato</th><th>Atraso</th><th>Situação</th><th></th></tr>${marcadas.map(v=>linha(v,true)).join('')||'<tr><td colspan="6" class="empty">Nenhum aparelho marcado</td></tr>'}</table></div>
+    <div class="card mt tablewrap"><h2>Sugestões: atraso de ${dmin} dias ou mais</h2><table><tr><th></th><th>Cliente</th><th>Endereço e contato</th><th>Atraso</th><th></th><th></th></tr>${sugestoes.slice(0,50).map(v=>linha(v,false)).join('')||'<tr><td colspan="6" class="empty">Nenhum</td></tr>'}</table></div>`;
+};
+async function recMarcar(id){
+  const resp=prompt('Quem vai buscar o aparelho? (nome)',S.me.nome); if(resp===null) return;
+  const v=await DB.get('vendas',id);
+  await DB.set('vendas',id,{recolher:{status:'A_RECOLHER',responsavel:resp.trim(),por:S.me.nome,em:Date.now(),tentativas:[]}});
+  await log('Aparelho marcado para recolher',id,resp); toast('Marcado para recolher','ok'); render();
+}
+async function recStatus(id,q){
+  const v=await DB.get('vendas',id), r={...(v.recolher||{})}; let obs='';
+  if(q==='NAO_ENCONTRADO'){ obs=prompt('O que aconteceu? (ex.: mudou de endereço, ninguém em casa)'); if(obs===null) return; r.tentativas=[...(r.tentativas||[]),{em:Date.now(),por:S.me.nome,obs:obs.trim()}]; }
+  r.status=q; r.atualizadoEm=Date.now(); await DB.set('vendas',id,{recolher:r}); await log('Recolhimento: '+REC_ST[q][0],id,obs); render();
+}
+function recRota(){
+  const ids=[...document.querySelectorAll('.recSel:checked')].map(x=>x.value); if(!ids.length) return toast('Marque os aparelhos da rota','err');
+  Promise.all(ids.map(i=>DB.get('vendas',i))).then(vs=>{ const ends=vs.map(v=>[v.cliente?.endereco,v.cliente?.bairro,v.cliente?.cidade,v.cliente?.uf].filter(Boolean).join(', ')).filter(Boolean);
+    const dest=ends.pop(), wp=ends.slice(0,9).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}${wp?`&waypoints=${encodeURIComponent(wp)}`:''}&travelmode=driving`,'_blank','noopener'); });
+}
+Object.assign(ACT,{ recMarcar:d=>recMarcar(d.id), recStatus:d=>recStatus(d.id,d.q), recRota:()=>recRota(), verExterior:()=>{ S.filtro.ap='exterior'; S.tab='aparelhos'; render(); } });
+
+/* ======================= CENTRAL DE AJUDA E STATUS DO SISTEMA ======================= */
+const AJUDA_PADRAO=[
+  {t:'Como fazer uma venda do começo ao fim',p:['VENDEDOR','GERENTE'],x:'1. Nova venda → fotografe o documento (frente e verso) e confira os campos em amarelo.\n2. Faça a selfie do cliente (biometria com prova de vida).\n3. Preencha contato, endereço e renda e envie para a análise.\n4. Aprovado: escolha o aparelho, leia o IMEI pela câmera (📷 Ler), a entrada e o dia de pagamento.\n5. Gere o contrato, o cliente assina na tela, receba a entrada.\n6. Instale a trava pelo QR code e confirme a entrega com a foto.'},
+  {t:'Como instalar a trava pelo QR code',p:['VENDEDOR','GERENTE','SUPORTE'],x:'1. O celular precisa estar restaurado de fábrica, sem conta Google.\n2. Na tela de boas-vindas, toque 6 vezes no mesmo lugar vazio: abre o leitor de QR.\n3. Leia o QR da venda e conecte no Wi-Fi.\n4. Aguarde: o celular baixa e instala o app sozinho. A tela da venda confirma.\nSe o leitor não abrir: confira se é Android 7 ou mais novo e se a restauração foi feita.'},
+  {t:'Enviar a simulação pelo WhatsApp',p:['VENDEDOR','GERENTE'],x:'Simulador de balcão → escolha o aparelho e a entrada → “Enviar simulação pelo WhatsApp”. O cliente recebe as parcelas e um link para a pré-análise; quem fizer pelo seu link aparece no seu Início.'},
+  {t:'Cliente pagou e o aparelho continua travado',p:['VENDEDOR','GERENTE','SUPORTE','DONO'],x:'Peça ao cliente para ligar o Wi-Fi ou os dados e tocar em “Já paguei — verificar agora” na tela de bloqueio. Se estiver sem internet, peça um código pelo chat (botão Aparelho bloqueado): o suporte gera o código de liberação.'},
+  {t:'Comissões: como pagar e confirmar',p:['VENDEDOR','GERENTE','DONO'],x:'O gerente paga a comissão e registra em Comissões com o comprovante (PIX, transferência ou recibo assinado). O vendedor toca em “Recebi” ou “Não recebi”. A NexumCell acompanha tudo.'},
+  {t:'Cadastrar vendedor novo',p:['GERENTE'],x:'Equipe → Cadastrar vendedor (nome, CPF, e-mail e WhatsApp). A NexumCell aprova e manda o ID e a senha para o e-mail do vendedor.'},
+  {t:'Estoque: cadastrar aparelhos pela câmera',p:['GERENTE','DONO','FINANCEIRO'],x:'Estoque por IMEI → Cadastrar aparelhos → “📷 Ler IMEIs pela câmera”. Aponte para cada etiqueta da caixa: cada leitura entra na lista. Na venda, o IMEI é baixado do estoque sozinho.'},
+  {t:'Régua de cobrança e motor de crédito',p:['DONO','FINANCEIRO'],x:'Parcelas e cobrança → Régua de cobrança: defina os avisos antes e depois do vencimento (app, SMS, WhatsApp, e-mail). Análise → Regras de crédito: o motor aprova e reprova sozinho os casos claros.'},
+  {t:'Recolher aparelho de cliente inadimplente',p:['DONO','FINANCEIRO','SUPORTE'],x:'Recolhimento → marque o aparelho, monte a rota com os marcados, registre as tentativas e, com o aparelho na loja, toque em “Recolhido → retomar”. A trava sai e o aparelho vai para seminovos.'},
+  {t:'Esqueci a senha',p:['VENDEDOR','GERENTE','SUPORTE','FINANCEIRO','DONO'],x:'Na tela de login, toque em “Esqueci minha senha”: o link para criar uma nova chega no seu e-mail.'},
+];
+async function statusSistema(){
+  const linhas=[]; const t0=performance.now();
+  try{ await DB.get('config','sistema'); linhas.push(['Banco de dados (Firebase)',true,`${Math.round(performance.now()-t0)} ms`]); }catch(e){ linhas.push(['Banco de dados (Firebase)',false,e.message]); }
+  const serv=servidorPg();
+  if(!fb) linhas.push(['Servidor (Cloudflare)',true,'modo demonstração']);
+  else if(!serv) linhas.push(['Servidor (Cloudflare)',false,'não configurado']);
+  else { const t1=performance.now(); try{ const r=await fetch(serv+'/api/credenciamento',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"acao":"planos"}'}); linhas.push(['Servidor (Cloudflare)',r.ok,r.ok?`${Math.round(performance.now()-t1)} ms`:'erro '+r.status]); }catch(e){ linhas.push(['Servidor (Cloudflare)',false,'sem resposta']); } }
+  if(fb&&serv&&can('DONO','FINANCEIRO','SUPORTE')){ try{ const s=await apiServ('avisos',{acao:'status'}); linhas.push(['Pagamentos (Asaas)',!!s.asaas,s.asaas?(s.asaasSandbox?'testes (sandbox)':'produção')+(s.asaasWebhook?' · webhook ok':' · sem webhook'):'sem chave']); linhas.push(['E-mail e SMS (Brevo)',!!s.brevo,s.brevo?'ligado':'sem chave']); }catch(e){} }
+  linhas.push(['Leitura por IA',!!iaChave(),iaChave()?'chave configurada':'sem chave: leitura manual']);
+  linhas.push(['Seu navegador',navigator.onLine,navigator.onLine?'conectado':'sem internet']);
+  return linhas;
+}
+PAGES.ajuda = async () => {
+  const meus=AJUDA_PADRAO.filter(a=>a.p.includes(S.me.role)||can('DONO'));
+  const extra=(await DB.list('ajuda').catch(()=>[])).filter(a=>a.ativo!==false&&(!a.perfis?.length||a.perfis.includes(S.me.role)||can('DONO')));
+  const todos=[...extra.map(a=>({t:a.titulo,x:a.texto,v:a.video,id:a.id})),...meus];
+  const q=String(S.filtro.ajq||'').toLowerCase();
+  const vis=todos.filter(a=>!q||(a.t+' '+a.x).toLowerCase().includes(q));
+  const yt=u=>{ const m=String(u||'').match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/); return m?m[1]:''; };
+  $('#topActions').innerHTML=can('DONO')?'<button class="btn" data-act="ajudaNovo">Novo artigo</button>':'';
+  $('#view').innerHTML=`<div class="grid g2" style="align-items:start"><div>
+      <input id="ajq" placeholder="Buscar na ajuda (ex.: trava, comissão, senha)" value="${esc(S.filtro.ajq||'')}" style="width:100%;margin-bottom:12px">
+      ${vis.map(a=>`<details class="card mb" style="padding:12px 16px"><summary style="font-weight:700;cursor:pointer">${esc(a.t)}${a.v?' 🎬':''}</summary><div style="white-space:pre-wrap;margin-top:8px">${esc(a.x)}</div>
+        ${yt(a.v)?`<div style="position:relative;padding-top:56%;margin-top:10px"><iframe src="https://www.youtube-nocookie.com/embed/${yt(a.v)}" style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:10px" allowfullscreen loading="lazy" title="${esc(a.t)}"></iframe></div>`:a.v?`<a href="${esc(a.v)}" target="_blank" rel="noopener">Ver vídeo</a>`:''}
+        ${a.id&&can('DONO')?`<div class="row mt"><button class="btn sm" data-act="ajudaNovo" data-id="${a.id}">Editar</button></div>`:''}</details>`).join('')||'<p class="empty">Nada encontrado. Tente outra palavra ou fale com o suporte.</p>'}
+      ${['VENDEDOR','GERENTE'].includes(S.me.role)?'<div class="card"><b>Não achou?</b> Abra o chat de atendimento no botão azul do canto da tela: o assistente responde na hora.</div>':''}
+    </div><div class="card"><h2>Status do sistema</h2><div id="stBox" class="small muted">Conferindo…</div><button class="btn sm mt" data-act="ajudaStatus">Conferir de novo</button>
+      <p class="small muted mt">Se algo estiver vermelho, tente de novo em alguns minutos. Continuando, avise o suporte pelo chat.</p></div></div>`;
+  $('#ajq').addEventListener('input',e=>{ S.filtro.ajq=e.target.value; clearTimeout(S._ajT); S._ajT=setTimeout(()=>{ const pos=e.target.selectionStart; render().then?.(()=>{ const i=$('#ajq'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }); },350); });
+  desenharStatus();
+};
+async function desenharStatus(){ const b=$('#stBox'); if(!b) return; b.innerHTML='Conferindo…'; const l=await statusSistema();
+  b.innerHTML=`<table style="width:100%">${l.map(([n,ok,d])=>`<tr><td>${ok?'🟢':'🔴'} <b>${esc(n)}</b></td><td class="right small muted">${esc(d)}</td></tr>`).join('')}</table><p class="small muted">Conferido ${new Date().toLocaleTimeString('pt-BR')}</p>`; }
+async function ajudaNovo(id){
+  const a=id?await DB.get('ajuda',id):{titulo:'',texto:'',video:'',perfis:[]};
+  openModal(`<h2>${id?'Editar':'Novo'} artigo de ajuda</h2><label>Título<input id="ajT" value="${esc(a.titulo)}"></label><label class="mt">Texto<textarea id="ajX" rows="8">${esc(a.texto)}</textarea></label>
+    <label class="mt">Vídeo (link do YouTube, opcional)<input id="ajV" value="${esc(a.video||'')}"></label>
+    <div class="mt">Quem vê: ${['VENDEDOR','GERENTE','SUPORTE','FINANCEIRO'].map(r=>`<label class="check" style="display:inline-flex;margin-right:12px"><input type="checkbox" class="ajP" value="${r}" ${(a.perfis||[]).includes(r)?'checked':''}> ${ROLES[r]}</label>`).join('')}<div class="small muted">Nenhum marcado = todos.</div></div>
+    <div class="row mt" style="justify-content:flex-end">${id?'<button class="btn" id="ajDel">Apagar</button>':''}<button class="btn gold" id="ajOk">Salvar</button></div>`,true);
+  $('#ajOk').onclick=async()=>{ const d={titulo:$('#ajT').value.trim(),texto:$('#ajX').value.trim(),video:$('#ajV').value.trim(),perfis:[...document.querySelectorAll('.ajP:checked')].map(x=>x.value),ativo:true,atualizadoEm:Date.now(),por:S.me.nome};
+    if(!d.titulo||!d.texto) return toast('Título e texto','err'); if(id) await DB.set('ajuda',id,d); else await DB.add('ajuda',d); closeModal(); render(); };
+  $('#ajDel')?.addEventListener('click',async()=>{ if(!confirm('Apagar este artigo?')) return; await DB.set('ajuda',id,{ativo:false}); closeModal(); render(); });
+}
+Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus() });
+
+{ const _c2=PAGES.config; PAGES.config=async()=>{ await _c2(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
+  const f=(k,l,pad)=>`<label>${l}<input data-cfg="${k}" type="number" min="0" value="${esc(c[k]??pad)}"></label>`;
+  const html=`<div class="card mt"><h2>Prazos e limites</h2><div class="grid g4">${f('vencMaxDias','1º vencimento até (dias depois da compra)',45)}${f('recolherDias','Sugerir recolher com atraso de (dias)',60)}${f('foraPaisDias','Alerta de aparelho fora do Brasil após (dias)',3)}${f('preAprovadoMax','Pré-aprovado: limite máximo (R$)',6000)}
+    ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}</div>
+    <p class="small muted">Pré-aprovado: todo dia à noite, quem pagou 60% ou mais em dia (ou quitou) ganha limite para trocar de aparelho, válido por 90 dias. Aparece no app e no portal do cliente e acelera a análise.</p></div>`;
+  const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
+}; }
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
+  if(e.target.id==='nDiaVenc'&&e.target.value){ const d=+e.target.value, h=new Date(hoje()+'T12:00:00'); let x=new Date(h.getFullYear(),h.getMonth(),d,12); while(diasEntre(hoje(),isoDate(x))<20) x=new Date(x.getFullYear(),x.getMonth()+1,d,12); $('#nVenc').value=isoDate(x); if(S.w?.sel) S.w.sel.diaVenc=d; }
   if(e.target.id==='nFreq') trocarFreq(e.target.value); if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 

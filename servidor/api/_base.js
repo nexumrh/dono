@@ -97,6 +97,16 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
 // ---------- aviso instantâneo ao app da trava (Firebase Cloud Messaging) ----------
 // O app manda o token dele no check-in (checkin.push). Sem token (app antigo, sem Google Play
 // ou sem o ID do app Android configurado), o aparelho continua conferindo a cada 15 min.
+/** Notificação visível no celular do cliente (régua de cobrança) + sincroniza a trava. */
+export async function pushNotificacao(token, titulo, texto) {
+  try {
+    if (!token) return false;
+    const a = (await db.collection('aparelhos').doc(String(token)).get()).data(); const t = a?.checkin?.push; if (!t) return false;
+    await admin.messaging().send({ token: t, notification: { title: titulo, body: String(texto).slice(0, 230) }, data: { acao: 'sync', em: String(Date.now()) }, android: { priority: 'high', ttl: 86400 * 1000 } });
+    return true;
+  } catch (e) { console.warn('push', token, e.message); return false; }
+}
+
 export async function pushAparelho(token) {
   try {
     if (!token) return false;
@@ -115,7 +125,7 @@ export async function exigirEquipe(req, perfis = ['DONO', 'FINANCEIRO', 'GERENTE
   const dono = (u.email || '').toLowerCase() === String(process.env.DONO_EMAIL || '').toLowerCase();
   const role = dono ? 'DONO' : me.exists ? me.data().role : '';
   if (!perfis.includes(role)) { const e = new Error('sem permissão'); e.status = 403; throw e; }
-  return { uid: u.uid, role, nome: dono ? 'Dono' : me.data()?.nome || '' };
+  return { uid: u.uid, role, nome: dono ? 'Dono' : me.data()?.nome || '', lojaId: me.data()?.lojaId || '' };
 }
 
 // Cliente no Asaas: procura pelo CPF, cria se não existir (com WhatsApp/SMS/e-mail de cobrança ligados)

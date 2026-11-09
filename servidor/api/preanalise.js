@@ -74,7 +74,8 @@ export default async function handler(req, res) {
       const dados = {
         nome, cpf, nasc, telefone: tel, cidade: txt(b.cidade, 60), renda: Math.max(0, Number(b.renda) || 0), profissao: txt(b.profissao, 60),
         aparelho: txt(b.aparelho, 120), entrada: Math.max(0, Number(b.entrada) || 0), lojaId: loja.id || '', lojaNome: loja.nome || '',
-        aceiteLgpd: true, status: 'NOVA', criadoEm: Date.now(), via: 'servidor',
+        aceiteLgpd: true, status: 'NOVA', criadoEm: Date.now(), via: b.vendedorUid ? 'link do vendedor' : 'servidor',
+        ...(b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {}),
       };
       const cfg = await config();
       if (cfg.preAutomatica !== 'nao') {

@@ -216,6 +216,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- Central de ajuda (artigos e vídeos) ----------
+    match /ajuda/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']);
+    }
+
     // ---------- Atendimento (chat do vendedor/gerente com o assistente e o suporte) ----------
     match /atendimentos/{id} {
       allow read: if hasRole(['DONO', 'SUPORTE']) || (staff() && resource.data.abertoPor == request.auth.uid);

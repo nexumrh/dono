@@ -4,7 +4,7 @@
 //   noite (19h de Brasília): resumo do dia para o dono (notificação no portal + e-mail + WhatsApp/SMS)
 // Cloudflare: roda sozinho pelos "Cron Triggers" do wrangler.toml.
 // Vercel: vercel.json chama GET /api/cron?r=manha e ?r=noite com o cabeçalho Authorization: Bearer CRON_SECRET.
-import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv } from './_base.js';
+import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv, pushNotificacao } from './_base.js';
 import { saasRotina } from './saas.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 
@@ -30,7 +30,58 @@ export function dadosAviso(v, cfg, tipo) {
 async function vendasAtivas() { return (await db.collection('vendas').where('status', '==', 'ATIVA').get()).docs.map((d) => ({ id: d.id, ...d.data() })); }
 
 // ---------- 9h: lembretes aos clientes ----------
+// ---------- Régua de cobrança configurável (Painel do Dono → Régua de cobrança) ----------
+// cfg.regua = [{ dia: -3, canais: ['sms','email','app'], texto: '...' }]  dia < 0 = antes do vencimento, 0 = no dia, > 0 = dias de atraso
+const preencher = (t, dd) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => ({ nome: dd.params.NOME, valor: dd.params.VALOR, vencimento: dd.params.VENCIMENTO, dias: dd.params.DIAS, link: dd.params.LINK, loja: dd.params.LOJA }[k.toLowerCase()] ?? m));
+async function regua(cfg, vendas) {
+  const passos = (cfg.regua || []).filter((x) => x && Number.isFinite(+x.dia) && (x.canais || []).length);
+  const max = Number(process.env.ROTINA_MAX) || 1000; let enviados = 0, falhas = 0, restantes = 0;
+  for (const v of vendas) {
+    if (v.pixAutomatico?.status === 'ATIVO') continue;
+    const abertas = (v.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)); if (!abertas.length) continue;
+    const atrasada = abertas.find((p) => p.venc < hoje()), p = atrasada || abertas[0], d = dias(p.venc, hoje());   // d: dias após o vencimento
+    const passo = passos.find((x) => +x.dia === d); if (!passo) continue;
+    const chave = `${p.n}:R${d}`; if (v.avisosBrevo?.[chave]) continue;
+    if (enviados + falhas >= max) { restantes++; continue; }
+    const dd = dadosAviso(v, cfg, d > 0 ? 'atraso' : 'lembrete'); const texto = passo.texto ? preencher(passo.texto, dd) : dd.texto; const r = {};
+    for (const c of passo.canais) {
+      try {
+        if (c === 'sms' || c === 'whatsapp') { if (!brevoLigado() || !dd.tel) throw new Error('sem Brevo ou telefone'); Object.assign(r, await avisarCliente(dd.tel, c === 'sms' ? 'sms' : 'whatsapp_ou_sms', { ...dd, texto })); }
+        if (c === 'email') { const em = v.cliente?.email; if (!brevoLigado() || !em) throw new Error('sem Brevo ou e-mail'); await enviarEmail({ para: em, assunto: d > 0 ? 'Parcela em atraso' : 'Lembrete de vencimento', titulo: d > 0 ? 'Parcela em atraso' : 'Sua parcela está chegando', texto }); r.email = 'ok'; }
+        if (c === 'app') { const ok = await pushNotificacao(v.aparelhoToken, d > 0 ? 'Parcela em atraso' : 'Lembrete de vencimento', texto); r.app = ok ? 'ok' : 'sem app'; }
+      } catch (e) { r[c] = e.message; }
+    }
+    Object.values(r).some((x) => x === 'ok') ? enviados++ : falhas++;
+    await db.collection('vendas').doc(v.id).set({ avisosBrevo: { ...(v.avisosBrevo || {}), [chave]: { em: Date.now(), ...r } } }, { merge: true });
+  }
+  return { regua: enviados, falhas, ficaramParaDepois: restantes };
+}
+
+// ---------- Limite pré-aprovado para recompra (bom pagador) ----------
+// Pagou 60%+ do contrato (ou quitou), nunca atrasou mais de 3 dias, sem acordo, sem atraso aberto → ganha limite por 90 dias.
+export async function preAprovados(cfg) {
+  const todas = (await db.collection('vendas').where('status', 'in', ['ATIVA', 'QUITADA']).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const porCpf = {}; todas.forEach((v) => (porCpf[v.clienteCpf] = porCpf[v.clienteCpf] || []).push(v));
+  const max = Number(process.env.ROTINA_MAX) || 1000; let n = 0;
+  for (const [cpf, vs] of Object.entries(porCpf)) {
+    if (n >= max) break;
+    const ok = vs.every((v) => { const ps = v.parcelas || [], pagas = ps.filter((p) => p.pago); const atrasoMax = Math.max(0, ...pagas.map((p) => (p.pagoEm ? dias(p.venc, String(p.pagoEm).slice(0, 10)) : 0)));
+      const aberto = ps.some((p) => !p.pago && p.venc < hoje()); return !aberto && atrasoMax <= 3 && !(v.acordos || []).length && (v.status === 'QUITADA' || pagas.length / (ps.length || 1) >= 0.6); });
+    if (!ok) continue;
+    const ult = vs.sort((a, b) => b.criadoEm - a.criadoEm)[0]; const renda = ult.cliente?.renda || 0;
+    const quitados = vs.filter((v) => v.status === 'QUITADA').length, mult = Number(cfg.preAprovadoMult) || (quitados ? 2.5 : 1.8);
+    const valor = Math.round(Math.min(renda * mult, Number(cfg.preAprovadoMax) || 6000) / 50) * 50; if (!(valor > 0)) continue;
+    const ate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10), atual = (await db.collection('clientes').doc(cpf).get()).data()?.preAprovado;
+    if (atual && atual.valor === valor && atual.ate >= hoje()) continue;
+    await db.collection('clientes').doc(cpf).set({ preAprovado: { valor, ate, em: Date.now(), vendaId: ult.id, loja: ult.lojaNome || '' } }, { merge: true });
+    if (ult.aparelhoToken && ult.status === 'ATIVA') await db.collection('aparelhos').doc(ult.aparelhoToken).set({ preAprovado: { valor, ate, em: Date.now(), loja: ult.lojaNome || '' } }, { merge: true });
+    n++;
+  }
+  return n;
+}
+
 async function lembretes(cfg, vendas) {
+  if (Array.isArray(cfg.regua) && cfg.regua.length) return regua(cfg, vendas);
   const canal = cfg.brevoCanal || 'nenhum';
   if (!brevoLigado() || canal === 'nenhum' || cfg.brevoLembretes !== 'sim') return { lembretes: 'desligado' };
   const antes = Number(cfg.lembreteDiasAntes ?? 2), atrasos = String(cfg.lembreteDiasAtraso || '1,3,7').split(',').map(Number).filter((x) => x > 0);
@@ -129,7 +180,7 @@ export async function resumoDoDia(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } return r; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } return r; }
   const vendas = await vendasAtivas();
   return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)) };
 }
