@@ -792,7 +792,7 @@ const IA_VISAO=['qwen/qwen3.8-27b','qwen/qwen3.6-27b','meta-models/muse-spark-op
 async function iaChamar(modelo,prompt,imagens,semJson=false){
   return fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
-    body:JSON.stringify({model:modelo,temperature:0,max_tokens:2048,...(semJson?{}:{response_format:{type:'json_object'}}),
+    body:JSON.stringify({model:modelo,temperature:0,max_tokens:700,...(/qwen3\.?8/i.test(modelo)?{reasoning_effort:'none'}:{}),...(semJson?{}:{response_format:{type:'json_object'}}),
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
 }
 // procura na conta do Groq um modelo que leia imagens, quando o configurado não existe mais
@@ -817,7 +817,7 @@ async function iaVisao(prompt, imagens){
   // alguns modelos não aceitam o "modo JSON": tenta de novo sem ele
   if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true); }
   // limite por minuto do plano grátis: espera o tempo que o Groq pedir (até 20 s) e tenta mais uma vez
-  if(r.status===429){ const ra=Math.min(20,Math.max(2,parseFloat(r.headers.get('retry-after'))||8)); toast(`IA ocupada, tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens); }
+  for(let t=0;t<2&&r.status===429;t++){ const ra=Math.min(35,Math.max(3,parseFloat(r.headers.get('retry-after'))||12)); toast(`IA ocupada (limite do plano grátis), tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens); }
   if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
   if(r.status===429){ const det=await r.json().catch(()=>({})); throw new Error('A IA atingiu o limite do plano grátis do Groq'+(det.error?.message?' ('+String(det.error.message).slice(0,140)+')':'')+'. Espere um minuto e tente de novo.'); }
   if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
@@ -988,13 +988,16 @@ async function bioCapturarSimples(){
   pararCamera(); await validarSelfie(c.toDataURL('image/jpeg',0.9));
 }
 async function bioArquivo(input){ const f=input.files[0]; if(!f) return; S.w.vida={ok:null,metodo:'ARQUIVO'}; if(Date.now()-f.lastModified>120000){ $('#bioErro').textContent='Use uma foto tirada agora, não da galeria.'; return; } await validarSelfie(await lerArquivo(f)); }
-async function validarSelfie(url){
+async function validarSelfie(url,iaVida=null){
   const w=S.w, img=await carregarImg(url), q=qualidadeFoto(img);
   w.selfie=redimensionar(img,720,0.75); w.face={motivo:'Validando…'}; passoBio();
   const fim=f=>{ w.face=f; passoBio(); };
   if(!q.ok && !/desfocada/.test(q.motivo)) return fim({aprovado:false,motivo:q.motivo});
   try{
     if('FaceDetector' in window){ const n=(await new FaceDetector({maxDetectedFaces:3}).detect(img)).length; if(n!==1) return fim({aprovado:false,motivo:n?'Mais de um rosto na foto.':'Nenhum rosto encontrado. Enquadre o rosto no oval.'}); }
+    if(iaVida){ const m=iaVida.mesma_pessoa_do_documento||'incerto';
+      if(m==='nao') return fim({aprovado:false,motivo:'O rosto não confere com a foto do documento.',mesma_pessoa:'não',confianca:iaVida.confianca});
+      return fim({aprovado:true,motivo:iaVida.observacao||'Prova de vida aprovada e rosto real.',mesma_pessoa:m,confianca:iaVida.confianca}); }
     if(iaChave()){
       const r=await iaVisao(PROMPT_FACE,[redimensionar(img,1024,0.85),w.fotos.frente.ia]);
       if(!r.rosto_detectado||r.quantidade_rostos!==1) return fim({aprovado:false,motivo:'O rosto não foi identificado com clareza. Tire de novo.'});
@@ -2909,7 +2912,7 @@ async function bioCapturarVida(){
       if(!w.vida.ok){ w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: '+(ia.foto_de_tela_ou_papel?'parece foto de tela ou papel.':ia.mascara_ou_boneco?'parece máscara ou boneco.':!ia.movimento_real?'não houve movimento real.':'os quadros não são da mesma pessoa.')}; return passoBio(); }
     }catch(e){ w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2)),obs:'IA indisponível'}; }
   } else w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2))};
-  await validarSelfie(urls[0]);
+  await validarSelfie(urls[0],w.vida?.metodo==='IA'?w.vida.ia:null);
 }
 
 /* ======================= COMPROVANTES DE RENDA E ENDEREÇO (foto + IA) ======================= */
