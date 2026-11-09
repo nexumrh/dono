@@ -1496,10 +1496,8 @@ async function passoTrava(){
         ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
     </div>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
-      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled title="Liberado quando a trava subir e a foto da entrega for tirada">Concluir venda</button></div>
-    <div id="entregaBox" class="mt" hidden><div class="warn"><b>Foto da entrega (obrigatória):</b> tire uma foto do cliente segurando o aparelho com a tela do NexumCell aberta. Ela protege a loja se o cliente disser que não recebeu o aparelho.</div>
-      <div class="grid g2 mt">${CHECK_ENTREGA.map(([k,t,ob])=>`<label class="check"><input type="checkbox" data-ck="${k}"> <span>${t}${ob?' *':''}</span></label>`).join('')}</div>
-      <div class="row mt"><label class="btn gold">${svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}Tirar foto da entrega<input type="file" accept="image/*" capture="environment" data-entrega="${v.id}" hidden></label><span id="entregaMsg" class="small muted"></span></div></div></div>`;
+      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled title="Liberado quando a trava subir">Concluir venda</button></div>
+`;
   if(!(S.cfg.videos||{})[marca]) animarGuia(marca);
   const t0=v.instalacao?.ultimaTentativa||v.instalacao?.inicio||v.entradaPaga?.em||Date.now();
   const ajuda=(titulo,cor)=>`<div class="${cor==='bad'?'err-box':'warn'} mt"><b>${titulo}</b>
@@ -1522,7 +1520,7 @@ async function passoTrava(){
     if(vv.status==='INSTALANDO'){ sincronizarAsaas(v.id); nfAuto(v.id); }
     if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
     el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
-    $('#instAjuda').innerHTML=''; const eb=$('#entregaBox'); if(eb) eb.hidden=false; if(S.w.entregaOk){ const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir e iniciar nova venda'; } } });
+    $('#instAjuda').innerHTML=''; const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir venda'; } });
 }
 async function refazerInstalacao(id){
   const v=await DB.get('vendas',id); const n=(v.instalacao?.tentativas||1)+1;
@@ -3121,11 +3119,8 @@ async function salvarProdutoSemTrava(x,btn){
 async function passoEntregaSemTrava(v){
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Entrega do ${esc(apNome(v))}</h2>
     <div class="msg mb">Este produto não tem trava. A venda já está ativa e as parcelas aparecem no portal do cliente.</div>
-    <div id="entregaBox"><div class="warn"><b>Foto da entrega (obrigatória):</b> tire uma foto do cliente com o produto.</div>
-      <div class="grid g2 mt">${CHECK_ENTREGA.filter(([k])=>k!=='liga').map(([k,t,ob])=>`<label class="check"><input type="checkbox" data-ck="${k}"> <span>${t}${ob?' *':''}</span></label>`).join('')}</div>
-      <div class="row mt"><label class="btn gold">Tirar foto da entrega<input type="file" accept="image/*" capture="environment" data-entrega="${v.id}" hidden></label><span id="entregaMsg" class="small muted"></span></div></div>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
-      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled>Concluir venda</button></div><div id="instStatus" class="inst-status ok" hidden></div></div>`;
+      <button class="btn gold lg" id="btnConcluir" data-act="novaProposta">Concluir venda</button></div><div id="instStatus" class="inst-status ok" hidden></div></div>`;
 }
 
 /* ======================= TREINAMENTO DO VENDEDOR ======================= */
