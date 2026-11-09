@@ -2880,11 +2880,11 @@ const CHECK_ENTREGA=[['liga','Aparelho liga e funciona (tela, câmera, som, chip
 
 
 /* ======================= PROVA DE VIDA NA BIOMETRIA ======================= */
-const PROMPT_VIDA=`As 3 primeiras imagens são quadros seguidos da câmera frontal durante uma prova de vida: 1) olhando para a câmera, 2) virando o rosto para o lado, 3) sorrindo. A 4ª imagem é a foto do documento de identidade.
+const PROMPT_VIDA=`A primeira imagem tem 3 quadros lado a lado, tirados em sequência pela câmera frontal durante uma prova de vida: da esquerda para a direita, 1) olhando para a câmera, 2) virando o rosto para o lado, 3) sorrindo. A segunda imagem é a foto do documento de identidade.
 Responda SOMENTE com JSON: {"mesma_pessoa_nos_quadros":true,"movimento_real":true,"foto_de_tela_ou_papel":false,"mascara_ou_boneco":false,"mesma_pessoa_do_documento":"sim|nao|incerto","confianca":0,"observacao":""}
 "movimento_real" = o rosto realmente mudou de posição/expressão entre os quadros (não é a mesma imagem parada). "foto_de_tela_ou_papel" = há sinais de que a câmera filmou uma tela, uma foto impressa ou um documento (bordas, reflexos, moiré, pixels).`;
 function quadro(v){ const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0); return c; }
-function diferenca(a,b){ const W=64,H=48, g=c=>{ const t=document.createElement('canvas'); t.width=W; t.height=H; t.getContext('2d').drawImage(c,W*0.2,0,W*0.6,H,0,0,W,H); const d=t.getContext('2d').getImageData(0,0,W,H).data; const o=[]; for(let i=0;i<d.length;i+=4) o.push((d[i]+d[i+1]+d[i+2])/3); return o; };
+function diferenca(a,b){ const W=64,H=48, g=c=>{ const t=document.createElement('canvas'); t.width=W; t.height=H; t.getContext('2d').drawImage(c,c.width*0.25,c.height*0.1,c.width*0.5,c.height*0.8,0,0,W,H); const d=t.getContext('2d').getImageData(0,0,W,H).data; const o=[]; for(let i=0;i<d.length;i+=4) o.push((d[i]+d[i+1]+d[i+2])/3); return o; };
   const x=g(a), y=g(b); let s=0; for(let i=0;i<x.length;i++) s+=Math.abs(x[i]-y[i]); return s/x.length; }
 async function provaDeVida(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Câmera ainda não está pronta','err'); return null; }
@@ -2893,7 +2893,7 @@ async function provaDeVida(){
   for(const p of passos){ ov.textContent=p; await new Promise(o=>setTimeout(o,1700)); quadros.push(quadro(v)); }
   ov.remove();
   const d1=diferenca(quadros[0],quadros[1]), d2=diferenca(quadros[0],quadros[2]);
-  return {quadros,d1,d2,mexeu:Math.max(d1,d2)>6};
+  return {quadros,d1,d2,mexeu:Math.max(d1,d2)>4};
 }
 async function bioCapturarVida(){
   const btn=document.querySelector('[data-act="bioCapturar"]'); if(btn) btn.disabled=true;
@@ -2902,7 +2902,9 @@ async function bioCapturarVida(){
   if(!r.mexeu){ w.vida={ok:false,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2))}; w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: o rosto não se mexeu. Pode ser uma foto. Siga as instruções na tela.'}; return passoBio(); }
   const urls=r.quadros.map(c=>c.toDataURL('image/jpeg',0.85));
   if(iaChave()){
-    try{ const ia=await iaVisao(PROMPT_VIDA,[...urls.map(u=>u),w.fotos.frente.ia]);
+    // os 3 quadros vão numa imagem só (o modelo de IA aceita no máximo 3 imagens por pedido)
+    const mosaico=(()=>{ const h=360, cs=r.quadros, ws=cs.map(c=>Math.round(c.width*h/c.height)), m=document.createElement('canvas'); m.width=ws.reduce((x,y)=>x+y,0); m.height=h; const x=m.getContext('2d'); let px=0; cs.forEach((c,i)=>{ x.drawImage(c,px,0,ws[i],h); px+=ws[i]; }); return m.toDataURL('image/jpeg',0.82); })();
+    try{ const ia=await iaVisao(PROMPT_VIDA,[mosaico,w.fotos.frente.ia]);
       w.vida={ok:!!(ia.mesma_pessoa_nos_quadros&&ia.movimento_real&&!ia.foto_de_tela_ou_papel&&!ia.mascara_ou_boneco),metodo:'IA',ia};
       if(!w.vida.ok){ w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: '+(ia.foto_de_tela_ou_papel?'parece foto de tela ou papel.':ia.mascara_ou_boneco?'parece máscara ou boneco.':!ia.movimento_real?'não houve movimento real.':'os quadros não são da mesma pessoa.')}; return passoBio(); }
     }catch(e){ w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(Math.max(r.d1,r.d2)),obs:'IA indisponível'}; }
