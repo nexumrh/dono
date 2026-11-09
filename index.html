@@ -1491,6 +1491,7 @@ async function passoTrava(){
         <p class="small muted" style="text-align:center">Contrato nº ${v.numero} · IMEI <span class="mono">${esc(v.aparelho.imei)}</span></p>
         <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho confirmar a trava… <span id="instTempo"></span></div>
         <div id="instAjuda"></div>
+        <details class="mt" id="instPc"><summary class="btn sm" style="display:inline-flex">Instalar pelo computador (cabo USB)</summary>${blocoInstalarPc(v,tk)}</details>
         ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
     </div>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
@@ -5545,6 +5546,51 @@ async function devolverCancelados(){
 }
 { const _pe=PAGES.estoque; PAGES.estoque=async()=>{ const n=await devolverCancelados(); await _pe(); if(n) toast(n+' aparelho(s) de venda cancelada voltaram ao estoque','ok'); }; }
 { const _pp2=PAGES.painel; PAGES.painel=async()=>{ await _pp2(); if(!S._devCanc&&can('DONO','GERENTE')){ S._devCanc=1; devolverCancelados(); } }; }
+
+/* ---- Instalação da trava pelo computador (ADB): proteção completa, igual ao QR ---- */
+function blocoInstalarPc(v,tk){
+  return `<ol class="steps small mt">
+    <li>Restaure o celular de fábrica. Na configuração, <b>pule o Wi-Fi e NÃO coloque conta Google</b>.</li>
+    <li>No celular: Configurações → Sobre o telefone → toque 7 vezes em <b>Número da versão</b> (ou "Versão"). Volte em Opções do desenvolvedor e ligue a <b>Depuração USB</b>.</li>
+    <li>No computador (Windows), baixe o instalador abaixo e dê dois cliques nele.</li>
+    <li>Ligue o celular no cabo USB e toque em <b>Permitir</b> na pergunta de depuração.</li>
+    <li>Espere aqui ficar verde. Depois pode configurar o Wi-Fi e a conta Google normalmente.</li></ol>
+    <div class="row mt"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">⬇ Baixar instalador para o computador</button></div>
+    <p class="hint">Na primeira vez o instalador baixa sozinho as ferramentas do Google (ADB). Precisa de internet no computador.</p>`;
+}
+function scriptInstPc(v){
+  const k=FIREBASE_CONFIG.apiKey||'DEMO', p=FIREBASE_CONFIG.projectId||'DEMO', tk=v.aparelhoToken;
+  const apk=apkDireto(S.cfg.apkUrl)||'https://nexumrh.github.io/dono/nexumcell-trava.apk';
+  const link=`nexumcell://ativar?t=${tk}&k=${k}&p=${p}`;
+  return [
+'@echo off','chcp 65001 >nul',`title NexumCell - instalar a trava (contrato ${v.numero})`,'cd /d "%~dp0"','set "ADB=adb"',
+'if exist "%~dp0platform-tools\\adb.exe" set "ADB=%~dp0platform-tools\\adb.exe"',
+'"%ADB%" version >nul 2>&1 && goto temadb',
+'echo Baixando as ferramentas do Google (ADB)...',
+'curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-windows.zip',
+'powershell -NoProfile -Command "Expand-Archive -Force platform-tools.zip ."',
+'set "ADB=%~dp0platform-tools\\adb.exe"',
+':temadb',
+'echo.','echo Ligue o celular no cabo USB e toque em PERMITIR na pergunta de depuracao USB...',
+'"%ADB%" wait-for-device',
+'echo Baixando o app NexumCell...',
+`curl -L -o nexumcell-trava.apk ${apk}`,
+'echo Instalando o app...',
+'"%ADB%" install -r nexumcell-trava.apk',
+'if errorlevel 1 goto erroinst',
+'echo Ativando a protecao (dono do aparelho)...',
+'"%ADB%" shell dpm set-device-owner br.com.nexumcell.trava/.AdminReceiver',
+'if errorlevel 1 goto erroowner',
+'echo Ligando ao contrato...',
+`"%ADB%" shell am start -a android.intent.action.VIEW -d "'${link}'" br.com.nexumcell.trava`,
+'echo.',`echo PRONTO! Contrato ${v.numero} ligado. Confira no sistema se a instalacao ficou verde.`,'echo Pode desligar o cabo e configurar o Wi-Fi e a conta Google.','pause','exit /b 0',
+':erroinst','echo.','echo ERRO ao instalar o app. Confira o cabo e se a depuracao USB foi permitida, e rode de novo.','pause','exit /b 1',
+':erroowner','echo.','echo ERRO ao ativar a protecao. O celular precisa estar ZERADO e SEM conta Google.','echo Remova as contas (Configuracoes - Contas) ou restaure de fabrica e rode de novo.','pause','exit /b 1'
+  ].join('\r\n')+'\r\n';
+}
+Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id); if(!v?.aparelhoToken) return toast('Trava ainda não gerada','err');
+  const b=new Blob([scriptInstPc(v)],{type:'application/octet-stream'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`instalar-trava-contrato-${v.numero}.bat`; document.body.appendChild(a); a.click(); a.remove();
+  await log('Instalador da trava (computador) baixado',v.id,''); toast('Instalador baixado. Abra o arquivo no computador.','ok'); } });
 
 /* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
 const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
