@@ -215,6 +215,9 @@ service cloud.firestore {
       allow read: if hasRole(['DONO', 'SUPORTE']) || (staff() && resource.data.abertoPor == request.auth.uid);
       allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'BOT';
       allow update: if hasRole(['DONO', 'SUPORTE'])
+                    // pesquisa de satisfação depois de concluído (uma vez)
+                    || (staff() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'CONCLUIDO' && !('pesquisa' in resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pesquisa', 'atualizadoEm', 'naoLidoUser']))
                     || (staff() && resource.data.abertoPor == request.auth.uid && resource.data.status != 'CONCLUIDO'
                         && request.resource.data.abertoPor == resource.data.abertoPor
                         && request.resource.data.status in ['BOT', 'HUMANO', 'CONCLUIDO']

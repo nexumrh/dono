@@ -815,10 +815,10 @@ const iaChave = () => (S.cfg.iaChave||IA.chave||'').trim();
 const iaModelo = () => S.cfg.iaModelo||IA.modelo||'qwen/qwen3.8-27b';
 // modelos de visão do Groq, do preferido para o reserva (o Groq às vezes aposenta um modelo)
 const IA_VISAO=['qwen/qwen3.8-27b','qwen/qwen3.6-27b','meta-models/muse-spark-open','meta-llama/llama-4-scout-17b-16e-instruct'];
-async function iaChamar(modelo,prompt,imagens,semJson=false){
+async function iaChamar(modelo,prompt,imagens,semJson=false,maxTok=700){
   return fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+iaChave()},
-    body:JSON.stringify({model:modelo,temperature:0,max_tokens:700,...(/qwen3\.?8/i.test(modelo)?{reasoning_effort:'none'}:{}),...(semJson?{}:{response_format:{type:'json_object'}}),
+    body:JSON.stringify({model:modelo,temperature:0,max_tokens:maxTok,...(/qwen3\.?8/i.test(modelo)?{reasoning_effort:'none'}:{}),...(semJson?{}:{response_format:{type:'json_object'}}),
       messages:[{role:'user',content:[{type:'text',text:prompt},...imagens.map(u=>({type:'image_url',image_url:{url:u}}))]}]})});
 }
 // procura na conta do Groq um modelo que leia imagens, quando o configurado não existe mais
@@ -828,33 +828,65 @@ async function iaAcharModelo(){
   const ids=((await r.json()).data||[]).filter(m=>m.active!==false).map(m=>m.id);
   return IA_VISAO.find(x=>ids.includes(x)) || ids.find(x=>/qwen3\.?[6-9]|muse|vision|-vl|gemma-?[34]|kimi|scout|maverick/i.test(x)) || null;
 }
-async function iaVisao(prompt, imagens){
+async function iaVisao(prompt, imagens, maxTok=700){
   if(!iaChave()) throw new Error('A chave da IA não está configurada (Painel do Dono → Configurações → IA).');
   let modelo=localStorage.getItem('nxc_ia_troca_'+iaModelo())||iaModelo();
-  let r=await iaChamar(modelo,prompt,imagens);
+  let r=await iaChamar(modelo,prompt,imagens,false,maxTok);
   if(r.status===404||r.status===400){
     const det=await r.clone().json().catch(()=>({}));
     if(r.status===404||/model|decommission|not.?found|does not support|image/i.test(det.error?.message||'')){
       const novo=await iaAcharModelo();
-      if(novo&&novo!==modelo){ modelo=novo; localStorage.setItem('nxc_ia_troca_'+iaModelo(),novo); r=await iaChamar(modelo,prompt,imagens);
+      if(novo&&novo!==modelo){ modelo=novo; localStorage.setItem('nxc_ia_troca_'+iaModelo(),novo); r=await iaChamar(modelo,prompt,imagens,false,maxTok);
         if(r.ok&&can('DONO')) DB.set('config','sistema',{iaModelo:novo}).catch(()=>{}); }
     }
   }
   // alguns modelos não aceitam o "modo JSON": tenta de novo sem ele
-  if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true); }
+  if(r.status===400){ const det=await r.clone().json().catch(()=>({})); if(/response_format|json/i.test(det.error?.message||'')) r=await iaChamar(modelo,prompt,imagens,true,maxTok); }
   // limite por minuto do plano grátis: espera o tempo que o Groq pedir (até 20 s) e tenta mais uma vez
-  for(let t=0;t<2&&r.status===429;t++){ const ra=Math.min(35,Math.max(3,parseFloat(r.headers.get('retry-after'))||12)); toast(`IA ocupada (limite do plano grátis), tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens); }
+  for(let t=0;t<2&&r.status===429;t++){ const ra=Math.min(35,Math.max(3,parseFloat(r.headers.get('retry-after'))||12)); toast(`IA ocupada (limite do plano grátis), tentando de novo em ${Math.round(ra)} s…`); await new Promise(o=>setTimeout(o,ra*1000)); r=await iaChamar(modelo,prompt,imagens,false,maxTok); }
   if(r.status===401) throw new Error('A chave da IA foi recusada (401). Confira a chave em Configurações → IA.');
   if(r.status===429){ const det=await r.json().catch(()=>({})); throw new Error('A IA atingiu o limite do plano grátis do Groq'+(det.error?.message?' ('+String(det.error.message).slice(0,140)+')':'')+'. Espere um minuto e tente de novo.'); }
   if(!r.ok){ const det=await r.json().catch(()=>({})); throw new Error('A IA não respondeu ('+r.status+(det.error?.message?': '+String(det.error.message).slice(0,120):'')+'). Tente de novo.'); }
   const j=await r.json(), txt=String(j.choices?.[0]?.message?.content||'');
   try{ return JSON.parse(txt); }catch(e){ const m=txt.replace(/<think>[\s\S]*?<\/think>/g,'').match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('A IA respondeu fora do formato. Tente de novo.'); }
 }
-const PROMPT_DOC=`Você é um verificador de documentos brasileiros. As imagens são a frente e (se houver) o verso de um documento de identidade (RG, CNH ou CIN).
-Responda SOMENTE com JSON neste formato:
-{"legivel":true,"motivo":"","tipo":"RG|CNH|CIN|OUTRO","documento_original":true,"nome":"","cpf":"somente números","rg":"","orgao_emissor":"","data_nascimento":"AAAA-MM-DD","nome_mae":"","nome_pai":"","naturalidade":"","validade":"AAAA-MM-DD ou vazio"}
-Regras: se nome, CPF ou data de nascimento não puderem ser lidos com certeza, use "legivel":false e explique em "motivo".
-"documento_original" é false se parecer foto de tela, xerox ou impressão. Nunca invente dados.`;
+const PROMPT_DOC=`Você transcreve documentos de identidade brasileiros (RG antigo, nova Carteira de Identidade Nacional – CIN, ou CNH). As imagens são a frente e, se houver, o verso do MESMO documento.
+Onde ficam os dados:
+- RG antigo: a frente tem foto e assinatura; o VERSO tem "REGISTRO GERAL" (número do RG), "DATA DE EXPEDIÇÃO", "NOME", "FILIAÇÃO" (pai e mãe, um embaixo do outro), "NATURALIDADE", "DATA DE NASCIMENTO" e às vezes "CPF". O órgão vem no rodapé (ex.: SESP/PR, SSP/SP, DETRAN/RJ).
+- CIN (nova identidade): o número do CPF é o número do documento; tem NOME, SEXO, NACIONALIDADE, DATA DE NASCIMENTO, FILIAÇÃO, NATURALIDADE, VALIDADE, ÓRGÃO EXPEDIDOR e DATA DE EMISSÃO.
+- CNH: NOME, "DOC. IDENTIDADE / ÓRG. EMISSOR / UF" (RG, órgão e UF juntos), CPF, DATA NASCIMENTO, FILIAÇÃO (pai e mãe), Nº REGISTRO (11 dígitos), VALIDADE, CAT. HAB., DATA EMISSÃO, LOCAL.
+Regras:
+1. Copie EXATAMENTE o que está impresso, letra por letra e número por número. Não corrija, não complete e não invente. Se um campo não existir ou estiver ilegível, deixe "".
+2. CPF: só os 11 números. Confira duas vezes cada dígito (cuidado com 1/7, 3/8, 5/6, 0/8).
+3. Datas no formato DD/MM/AAAA, exatamente como impressas. Não confunda data de nascimento com data de expedição/emissão/validade.
+4. Nome completo, sem abreviar. Mãe e pai separados (na filiação o primeiro nome costuma ser o pai e o segundo a mãe, mas confira).
+5. "confianca": para cada campo lido, de 0 a 100. Use menos de 80 quando houver qualquer dúvida em algum caractere.
+6. "documento_original": false se parecer foto de tela, xerox, impressão ou montagem.
+Responda SOMENTE com JSON:
+{"legivel":true,"motivo":"","tipo":"RG|CNH|CIN|OUTRO","documento_original":true,"nome":"","cpf":"","rg":"","orgao_emissor":"","uf_emissor":"","data_nascimento":"DD/MM/AAAA","data_emissao":"DD/MM/AAAA","validade":"DD/MM/AAAA","nome_mae":"","nome_pai":"","naturalidade":"","sexo":"M|F|","nacionalidade":"","numero_cnh":"","categoria_cnh":"","confianca":{"nome":0,"cpf":0,"data_nascimento":0,"rg":0,"nome_mae":0}}
+Se nome, CPF ou data de nascimento não puderem ser lidos, use "legivel":false e explique em "motivo".`;
+const PROMPT_CPF=`Leia SOMENTE o número do CPF impresso neste documento brasileiro (11 dígitos, às vezes no formato 000.000.000-00). Confira cada dígito com atenção. A leitura anterior deu "{cpf}", que é inválido (o dígito verificador não bate): leia de novo.
+Responda SOMENTE com JSON: {"cpf":"somente os 11 números ou vazio se não der para ler"}`;
+/* Arruma o que a IA devolveu: datas, nomes, CPF (com segunda leitura se o dígito não bater) e marca o que conferir */
+const isoDeBR = x => { x=String(x||'').trim(); let m=x.match(/^(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})$/); if(m) return `${m[3]}-${m[2]}-${m[1]}`; m=x.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?x:''; };
+const dataOk = (x,min,max) => { if(!x) return false; const d=new Date(x+'T12:00:00'); return !isNaN(d) && x===isoDate(d) && x>=min && x<=max; };
+const nomeProprio = n => String(n||'').replace(/\s+/g,' ').trim().toLowerCase().replace(/(^|\s)(\S)/g,(a,b,c)=>b+c.toUpperCase()).replace(/\s(Da|De|Do|Das|Dos|E)(?=\s)/g,m=>m.toLowerCase()).replace(/([\/\-]\s?)([a-z]{2})$/i,(m,x,uf)=>x+uf.toUpperCase());
+async function normalizarDoc(r){
+  const hj=hoje(), conf=r.confianca||{}, duv=new Set();
+  let cpf=onlyDig(r.cpf);
+  if(cpf.length===11&&!cpfOk(cpf)&&iaChave()){ try{ const r2=await iaVisao(PROMPT_CPF.replace('{cpf}',cpf),[S.w.fotos.frente.ia,...(S.w.fotos.verso?[S.w.fotos.verso.ia]:[])],120); const c2=onlyDig(r2.cpf); if(cpfOk(c2)) cpf=c2; }catch(e){} }
+  if(!cpfOk(cpf)) duv.add('cpf');
+  const nasc=isoDeBR(r.data_nascimento); if(!dataOk(nasc,'1900-01-01',isoDate(new Date(Date.now()-16*31557600000)))) duv.add('nasc');
+  const emissao=isoDeBR(r.data_emissao), validade=isoDeBR(r.validade);
+  if(validade&&validade<hj) duv.add('validadeDoc');
+  const d={nome:nomeProprio(r.nome),cpf,nasc,rg:String(r.rg||'').trim(),orgao:[String(r.orgao_emissor||'').trim().toUpperCase(),String(r.uf_emissor||'').trim().toUpperCase()].filter(Boolean).join('/').replace(/\/(\w\w)\/\1$/,'/$1'),
+    mae:nomeProprio(r.nome_mae),pai:nomeProprio(r.nome_pai),naturalidade:nomeProprio(r.naturalidade),sexo:(String(r.sexo||'').toUpperCase().match(/^[MF]/)||[''])[0],
+    emissao:dataOk(emissao,'1950-01-01',hj)?emissao:'',validadeDoc:validade,cnh:onlyDig(r.numero_cnh),categoriaCnh:String(r.categoria_cnh||'').toUpperCase().replace(/[^A-E]/g,'')};
+  if(d.nome.split(' ').length<2) duv.add('nome'); if(!d.mae) duv.add('mae');
+  const mapa={nome:'nome',cpf:'cpf',data_nascimento:'nasc',rg:'rg',nome_mae:'mae'};
+  Object.entries(mapa).forEach(([k,c])=>{ if(conf[k]!=null&&+conf[k]<80) duv.add(c); });
+  return {d,duv:[...duv]};
+}
 const PROMPT_IMEI=`A imagem deve ser a tela de um celular mostrando o resultado do código *#06# (lista de IMEI) ou a etiqueta de IMEI da caixa do aparelho.
 Responda SOMENTE com JSON: {"legivel":true,"tela_imei":true,"imeis":["somente os números de 15 dígitos que aparecem"],"marca_modelo":"se aparecer","observacao":""}
 Nunca invente números: se não conseguir ler com certeza, use "legivel":false.`;
@@ -930,14 +962,14 @@ async function passoDoc(){
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="lerDoc" ${w.fotos.frente&&(!precisaVerso||w.fotos.verso)?'':'disabled'}>${svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>')}Ler documento com IA</button></div>
   </div>
   ${w.dados?`<div class="card mt"><h2>Dados lidos do documento <span class="badge ${w.ia?.manual?'b-gray':w.ia?.simulado?'b-amber':'b-green'}">${w.ia?.manual?'digitar manualmente':w.ia?.simulado?'simulado':'lido por IA'}</span></h2>
-    <div class="grid g3">
-      <label>Nome completo<input data-dado="nome" value="${esc(d.nome)}"></label>
-      <label>CPF<input data-dado="cpf" value="${esc(fmtCpf(d.cpf))}" inputmode="numeric"></label>
-      <label>Data de nascimento<input data-dado="nasc" type="date" value="${esc(d.nasc)}"></label>
-      <label>RG / registro<input data-dado="rg" value="${esc(d.rg)}"></label>
-      <label>Órgão emissor<input data-dado="orgao" value="${esc(d.orgao)}"></label>
-      <label>Nome da mãe<input data-dado="mae" value="${esc(d.mae)}"></label>
-    </div><p class="hint">Confira com o documento. Campos alterados à mão ficam marcados para o analista.</p>
+    <div class="doc-conf" style="display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:16px;align-items:start">
+    <div>${['frente','verso'].filter(l=>w.fotos[l]).map(l=>`<a href="${w.fotos[l].ver}" target="_blank" rel="noopener" title="Abrir a foto"><img src="${w.fotos[l].ver}" alt="${l}" style="width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px"></a>`).join('')}<p class="small muted" style="margin:0">Toque na foto para ampliar e conferir.</p></div>
+    <div class="grid g3">${(()=>{ const du=new Set(w.duvidas||[]), f=(k,l,v,x='')=>`<label>${l}${du.has(k)?' <span class="badge b-amber">conferir</span>':''}<input data-dado="${k}" value="${esc(v||'')}" ${x} ${du.has(k)?'style="border-color:#D97706;background:#FFFBEB"':''}></label>`;
+      return f('nome','Nome completo',d.nome)+f('cpf','CPF',fmtCpf(d.cpf||''),'inputmode="numeric"')+f('nasc','Data de nascimento',d.nasc,'type="date"')+f('sexo','Sexo (M/F)',d.sexo,'maxlength="1"')
+        +f('rg','RG / registro',d.rg)+f('orgao','Órgão emissor / UF',d.orgao)+f('emissao','Data de emissão',d.emissao,'type="date"')+f('validadeDoc','Validade',d.validadeDoc,'type="date"')
+        +f('mae','Nome da mãe',d.mae)+f('pai','Nome do pai',d.pai)+f('naturalidade','Naturalidade',d.naturalidade)
+        +(w.docTipo==='CNH'||d.cnh?f('cnh','Nº da CNH (registro)',d.cnh,'inputmode="numeric"')+f('categoriaCnh','Categoria',d.categoriaCnh):''); })()}</div></div>
+    <p class="hint">Confira cada campo com a foto do documento. Os campos em amarelo a IA leu com dúvida ou não passaram na conferência (ex.: CPF com dígito errado). Campos alterados à mão ficam marcados para o analista.</p>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="docOk">Continuar para biometria ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
 }
 async function receberFoto(input){
@@ -954,20 +986,24 @@ async function lerDoc(btn){
   const w=S.w; btn.disabled=true; btn.innerHTML='<span class="spin"></span> Lendo documento…';
   try{
     let r;
-    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])]);
-    else if(!fb){ await new Promise(o=>setTimeout(o,1200)); r={legivel:true,tipo:w.docTipo,documento_original:true,nome:'Roberto Carlos Teixeira',cpf:gerarCpf(),rg:'12.345.678-9',orgao_emissor:'SESP/PR',data_nascimento:'1991-03-22',nome_mae:'Maria Aparecida Teixeira',simulado:true}; }
+    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])],1100);
+    else if(!fb){ await new Promise(o=>setTimeout(o,1200)); r={legivel:true,tipo:w.docTipo,documento_original:true,nome:'Roberto Carlos Teixeira',cpf:gerarCpf(),rg:'12.345.678-9',orgao_emissor:'SESP/PR',data_nascimento:'22/03/1991',data_emissao:'10/05/2015',nome_mae:'Maria Aparecida Teixeira',nome_pai:'José Carlos Teixeira',naturalidade:'Foz do Iguaçu/PR',sexo:'M',confianca:{nome:98,cpf:97,data_nascimento:95,rg:90,nome_mae:92},simulado:true}; }
     else r={legivel:true,manual:true};
     if(!r.legivel){ w.fotos={}; toast('Documento ilegível: '+(r.motivo||'tire as fotos de novo'),'err'); passoDoc(); setTimeout(()=>{ const e=$('#erro_frente'); if(e) e.textContent='A IA não conseguiu ler: '+(r.motivo||'foto ilegível')+'. Tire as fotos de novo.'; },50); return; }
     if(r.documento_original===false) toast('Atenção: o documento parece foto de tela ou cópia. Isso será informado ao analista.','err');
-    w.ia=r; w.dados={nome:r.nome||'',cpf:onlyDig(r.cpf),nasc:r.data_nascimento||'',rg:r.rg||'',orgao:r.orgao_emissor||'',mae:r.nome_mae||''};
-    w.lidos={...w.dados}; passoDoc();
+    if(r.manual){ w.ia=r; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc(); return; }
+    const {d,duv}=await normalizarDoc(r);
+    w.ia=r; w.dados=d; w.duvidas=duv; w.lidos={...w.dados}; passoDoc();
+    if(duv.length) toast('Confira os campos marcados em amarelo com o documento.','err');
   }catch(e){ toast(e.message,'err'); btn.disabled=false; btn.textContent='Ler documento com IA'; }
 }
 async function docOk(){
-  const w=S.w; document.querySelectorAll('[data-dado]').forEach(i=>w.dados[i.dataset.dado]=i.dataset.dado==='cpf'?onlyDig(i.value):i.value.trim());
+  const w=S.w; document.querySelectorAll('[data-dado]').forEach(i=>w.dados[i.dataset.dado]=i.dataset.dado==='cpf'?onlyDig(i.value):['nome','mae','pai','naturalidade'].includes(i.dataset.dado)?nomeProprio(i.value):i.value.trim());
   const d=w.dados;
   if(!cpfOk(d.cpf)){ toast('CPF inválido — confira com o documento','err'); return; }
   if(d.nome.split(/\s+/).length<2||!d.nasc){ toast('Confira nome completo e data de nascimento','err'); return; }
+  if(!d.mae||d.mae.split(/\s+/).length<2){ toast('Informe o nome completo da mãe (está no documento)','err'); return; }
+  if(d.validadeDoc&&d.validadeDoc<hoje()&&!confirm('O documento está VENCIDO ('+fmtD(d.validadeDoc)+'). Continuar mesmo assim? Isso vai para o analista.')) return;
   const idade=(Date.now()-new Date(d.nasc))/31557600000; if(idade<18){ toast('Cliente menor de 18 anos não pode contratar crédito','err'); return; }
   w.editados=Object.keys(d).filter(k=>w.lidos&&!w.ia?.manual&&String(w.lidos[k]||'')!==String(d[k]||''));
   const vs=(await DB.list('vendas',[['clienteCpf','==',d.cpf]]).catch(()=>[])).filter(v=>['ANALISE','APROVADA','AGUARDANDO_ENTRADA'].includes(v.status));
@@ -1085,7 +1121,7 @@ async function enviarAnalise(btn){
       if(outros.length){ err.textContent=`O telefone ${fmtFone(t)} já está cadastrado para outro cliente.`; btn.disabled=false; return; }
     }
     const w=S.w, d=w.dados, numero=await DB.nextNum(), id='v'+numero+'_'+token(5), agora=Date.now();
-    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
+    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
       verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
@@ -4835,7 +4871,12 @@ const AT_ST={BOT:'Com o assistente',HUMANO:'Com o atendente',CONCLUIDO:'Concluí
 const CH={id:null,doc:null,unsub:null,tela:'inicio',dig:false};
 const atHora=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const atMsg=(de,t,botoes)=>({de,t:String(t).slice(0,3000),em:Date.now(),por:de==='user'?S.me.nome:de==='atendente'?S.me.nome:'',...(botoes?{botoes}:{})});
-const MENU_AT=[{id:'faturas',t:'💳 Faturas'},{id:'bloqueado',t:'🔒 Aparelho bloqueado'},{id:'cadastro',t:'📝 Alterações cadastrais'},{id:'suporte',t:'💬 Suporte'}];
+const MENU_AT=[{id:'faturas',t:'💳 Faturas'},{id:'bloqueado',t:'🔒 Aparelho bloqueado'},{id:'cadastro',t:'📝 Alterações cadastrais'},{id:'suporte',t:'💬 Suporte'},
+  {id:'proposta',t:'📊 Situação da proposta'},{id:'quitacao',t:'🧾 Valor para quitar'},{id:'contrato',t:'📄 2ª via do contrato'},{id:'trava',t:'📲 Instalar a trava'},
+  {id:'acordo',t:'🤝 Renegociar / acordo'},{id:'cancelar',t:'❌ Cancelar venda'},{id:'comissao',t:'💰 Minha comissão'},{id:'erro',t:'⚠️ Erro no sistema'}];
+const AT_CAT={faturas:'Faturas',bloqueado:'Aparelho bloqueado',cadastro:'Alterações cadastrais',proposta:'Situação da proposta',quitacao:'Quitação',contrato:'2ª via do contrato',acordo:'Renegociação',cancelar:'Cancelamento de venda'};
+const BUSCA_AT=Object.keys(AT_CAT);
+const horarioAtendimento=()=>{ const ini=+(S.cfg.atendHoraIni??8), fim=+(S.cfg.atendHoraFim??20), h=+new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',hour12:false}).format(new Date()), dom=new Date().getDay()===0&&S.cfg.atendDomingo!=='sim'; return {ini,fim,aberto:!dom&&h>=ini&&h<fim}; };
 const FRASE_HUMANO='Sua solicitação precisa de detalhamentos mais precisos, então vou chamar um atendente.';
 
 async function novoProtocolo(){
@@ -4902,7 +4943,10 @@ async function atRender(){
     h+=`<div class="m ${m.de}"><div class="bb">${m.de==='atendente'?`<b style="display:block;font-size:12px;color:#9A5F0C">Atendente${m.por?' · '+esc(m.por):''}</b>`:''}${esc(m.t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</div></div><div class="hr">${atHora(m.em)}</div>`;
     if(i===d.msgs.length-1&&m.botoes&&d.status==='BOT'&&!CH.dig) h+=`<div class="ops">${m.botoes.map(b=>`<button data-atb="${esc(b.id)}">${esc(b.t)}</button>`).join('')}</div>`; });
   if(CH.dig) h+=`<div class="m bot"><div class="bb dig"><i></i><i></i><i></i></div></div>`;
-  if(d.status==='CONCLUIDO') h+=`<div class="dia">Atendimento concluído.</div><button class="ini" data-atc="novo">Iniciar novo chat</button>`;
+  if(d.status==='CONCLUIDO'){ h+=`<div class="dia">Atendimento concluído.</div>`;
+    h+=d.pesquisa?`<div class="dia">Sua avaliação: ${'★'.repeat(d.pesquisa.nota)}${'☆'.repeat(5-d.pesquisa.nota)} · obrigado!</div>`
+      :`<div class="m bot"><div class="bb"><b>Pesquisa de satisfação</b>\nComo você avalia este atendimento?</div></div><div class="ops" style="justify-content:center">${[1,2,3,4,5].map(n=>`<button data-atb="nota:${n}" title="${n} de 5">${'★'.repeat(n)}</button>`).join('')}</div>`;
+    h+=`<button class="ini" data-atc="novo">Iniciar novo chat</button>`; }
   c.innerHTML=h; c.scrollTop=c.scrollHeight;
   $('#atIn').classList.toggle('off',d.status==='CONCLUIDO'||CH.dig);
   if(d.naoLidoUser) DB.set('atendimentos',d.id,{naoLidoUser:false}).catch(()=>{});
@@ -4931,18 +4975,26 @@ async function atEnviar(){
   const sem=t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
   if(/(falar|chamar|quero).{0,15}(atendente|humano|pessoa|suporte)/.test(sem)) return atHumano('Pediu para falar com um atendente.');
   const f=d.fluxo||{};
-  if(['faturas','bloqueado','cadastro'].includes(f.passo)) return atBuscar(f.passo,t);
+  if(BUSCA_AT.includes(f.passo)) return atBuscar(f.passo,t);
+  if(f.passo==='motivo') return atMotivo(t);
   if(f.passo==='cad_valor') return atCadastroValor(t);
   return atIA(t);
 }
 async function atBotao(id,rotulo){
-  const d=CH.doc; if(!d||d.status!=='BOT') return;
+  const d=CH.doc; if(!d) return;
+  if(id.startsWith('nota:')) return atNota(+id.slice(5));
+  if(d.status!=='BOT') return;
   await atUser(rotulo.replace(/^\W+\s*/,''));
   if(id==='menu') return atBot('Certo! Sobre o que você quer falar?',MENU_AT,{fluxo:{}});
-  if(['faturas','bloqueado','cadastro'].includes(id)) return atBot('Informe o **CPF do cliente** ou o **número do contrato**.',VOLTAR,{categoria:{faturas:'Faturas',bloqueado:'Aparelho bloqueado',cadastro:'Alterações cadastrais'}[id],fluxo:{passo:id}});
+  if(BUSCA_AT.includes(id)) return atBot('Informe o **CPF do cliente** ou o **número do contrato**.',VOLTAR,{categoria:AT_CAT[id],fluxo:{passo:id}});
+  if(id==='trava') return atBot('Para instalar a trava:\n1. O celular precisa estar restaurado de fábrica (sem conta Google).\n2. Na tela de boas-vindas, toque 6 vezes no mesmo lugar vazio da tela: abre o leitor de QR.\n3. Leia o QR code que aparece na venda (passo “Trava”).\n4. Conecte no Wi-Fi e aguarde: o celular baixa e instala o app sozinho.\n5. A tela da venda confirma quando a trava estiver ativa.\n\nSe o leitor não abrir: confira se o celular foi mesmo restaurado e se é Android 7 ou mais novo.',[{id:'resolvido',t:'✅ Resolveu'},{id:'trava_erro',t:'Deu erro'},...VOLTAR],{categoria:'Instalação da trava',fluxo:{passo:'trava'}});
+  if(id==='trava_erro') return atBot('Qual erro apareceu? Escreva a mensagem que aparece na tela (ou descreva). Se puder, diga a marca e o modelo do celular.',VOLTAR,{fluxo:{passo:'ia',ia:1}});
+  if(id==='comissao') return atComissao();
+  if(id==='erro') return atBot('Descreva o erro: em qual tela aconteceu, o que você tocou e a mensagem que apareceu.',VOLTAR,{categoria:'Erro no sistema',fluxo:{passo:'ia',ia:1}});
+  if(id.startsWith('nota:')) return atNota(+id.slice(5));
   if(id==='suporte') return atBot('Pode escrever a sua dúvida (ex.: “como instalo a trava?”, “o QR code não abre”, “como faço uma venda?”).',VOLTAR,{categoria:'Suporte',fluxo:{passo:'ia',ia:0}});
   if(id.startsWith('ct:')){ const [,acao,vid]=id.split(':'); return atContrato(acao,vid); }
-  if(id==='resolvido') return atSalvar({status:'CONCLUIDO',msgs:[...d.msgs,atMsg('bot','Que bom que deu certo! Atendimento encerrado. Se precisar, é só abrir um novo chat. 👋')]});
+  if(id==='resolvido') return atSalvar({status:'CONCLUIDO',concluidoEm:Date.now(),msgs:[...d.msgs,atMsg('bot','Que bom que deu certo! Atendimento encerrado. Se precisar, é só abrir um novo chat. 👋')]});
   if(id==='atendente') return atHumano('Pediu um atendente depois das respostas do assistente.');
   if(id==='enviar_cliente') return atEnviarCliente();
   if(id.startsWith('lib:')) return atPedirLiberacao(id.slice(4));
@@ -4963,6 +5015,11 @@ async function atContrato(passo,vid){
   await atSalvar({contrato:{vendaId:v.id,numero:v.numero,cliente:v.clienteNome,cpf:v.clienteCpf,aparelhoToken:v.aparelhoToken||'',tel:(v.cliente?.telefones||[])[0]||onlyDig(v.cliente?.tel||'')}});
   if(passo==='faturas') return atFaturas(v);
   if(passo==='bloqueado') return atBloqueado(v);
+  if(passo==='proposta') return atProposta(v);
+  if(passo==='quitacao'){ if(v.status!=='ATIVA') return atBot(`O contrato nº ${v.numero} não está ativo (${v.status}).`,VOLTAR); const q=calcQuitacao(v);
+    return atBot(`Contrato nº ${v.numero} · ${v.clienteNome}\nValor para quitar hoje: **${brl(q.total)}**${q.desconto>0?` (já com ${brl(q.desconto)} de desconto dos juros futuros)`:''}\nParcelas em aberto: ${q.linhas.length}.\n\nO cliente pode quitar pelo PIX no app ${MARCA} → “Quitar o contrato”. Pagando, a trava sai sozinha.`,[{id:'enviar_cliente',t:'📲 Enviar ao cliente'},{id:'resolvido',t:'✅ Resolvido'},...VOLTAR]); }
+  if(passo==='contrato') return atBot(`O contrato nº ${v.numero}${v.assinadoEm?` foi assinado em ${fmtDT(v.assinadoEm)}`:' ainda não foi assinado'}.\n\nO cliente baixa a 2ª via no app ${MARCA} ou no portal: ${urlCliente()} (entra com o CPF).\nNa loja: Vendas → abrir o contrato nº ${v.numero} → Imprimir contrato.`,[{id:'resolvido',t:'✅ Resolvido'},...VOLTAR]);
+  if(passo==='acordo'||passo==='cancelar') return atBot(passo==='acordo'?`Contrato nº ${v.numero} · ${v.clienteNome}. Conte o que o cliente propõe (ex.: “pagar R$ 200 hoje e o resto em 3x”).`:`Contrato nº ${v.numero} · ${v.clienteNome}. Qual o motivo do cancelamento? (O cancelamento só vale até 7 dias da compra e com o aparelho devolvido.)`,VOLTAR,{fluxo:{passo:'motivo',tipo:passo}});
   if(passo==='cadastro') return atBot(`Contrato nº ${v.numero} · ${v.clienteNome}. O que precisa mudar?`,[{id:'cad:Telefone',t:'📱 Telefone'},{id:'cad:Endereço',t:'🏠 Endereço'},{id:'cad:E-mail',t:'✉️ E-mail'},{id:'cad:Outro dado',t:'Outro dado'},...VOLTAR],{fluxo:{passo:'cad_campo'}});
 }
 function textoFaturas(v){
@@ -4995,6 +5052,30 @@ async function atPedirLiberacao(tipo){
   return atHumano(`${nomes[tipo]||'Liberação'} · contrato nº ${c.numero||'?'} · ${c.cliente||''}`,{tipo:'LIBERACAO',subtipo:tipo},
     tipo==='pagou'?'\n\nEnvie aqui a foto ou o código do comprovante, se tiver.':'');
 }
+async function atProposta(v){
+  const st={ANALISE:'em **análise de crédito**. A resposta sai em poucos minutos no horário de atendimento.',APROVADA:'**aprovada**. Próximo passo: escolher o aparelho e gerar o contrato.',AGUARDANDO_ENTRADA:'aprovada, **aguardando a entrada**.',
+    REPROVADA:'**reprovada**'+(v.motivoReprovacao?`: ${v.motivoReprovacao}`:'.')+' O cliente pode tentar de novo em 30 dias.',ATIVA:'**ativa** (contrato assinado e trava instalada).',QUITADA:'**quitada**. ✅',CANCELADA:'**cancelada**.',RASCUNHO:'em rascunho (não foi enviada).'};
+  return atBot(`Proposta nº ${v.numero} · ${v.clienteNome}: ${st[v.status]||v.status}`,[{id:'resolvido',t:'✅ Resolvido'},...(v.status==='ANALISE'?[{id:'atendente',t:'Está demorando'}]:[]),...VOLTAR]);
+}
+async function atMotivo(t){
+  const f=CH.doc.fluxo||{}, c=CH.doc.contrato||{};
+  return atHumano(`${f.tipo==='acordo'?'Renegociação':'Cancelamento'} · contrato nº ${c.numero} · ${c.cliente}: ${t}`,{tipo:f.tipo==='acordo'?'ACORDO':'CANCELAMENTO'});
+}
+async function atComissao(){
+  const mes=mesHoje(), vendas=await loadVendas().catch(()=>[]);
+  let txt;
+  if(S.me.role==='VENDEDOR'){ const dev=comissaoVend(vendas,S.me.uid,mes,S.me), pg=await DB.list('comissoesPagas',[['vendedorUid','==',S.me.uid]]).catch(()=>[]), pago=r2(pg.filter(p=>p.mes===mes).reduce((a,p)=>a+(+p.valor||0),0)), pend=pg.filter(p=>!p.confirmado&&!p.contestado).length;
+    txt=`Sua comissão de ${mes.slice(5)}/${mes.slice(0,4)}: **${brl(dev)}**\nPago pelo gerente: ${brl(pago)}\nFalta receber: ${brl(Math.max(0,r2(dev-pago)))}${pend?`\n\n⚠️ ${pend} pagamento(s) esperando você confirmar em Comissões.`:''}`; }
+  else { const us=(await DB.list('users',[['lojaId','==',S.me.lojaId]]).catch(()=>[])).filter(u=>u.role==='VENDEDOR'), pg=await DB.list('comissoesPagas',[['lojaId','==',S.me.lojaId]]).catch(()=>[]);
+    const dev=r2(us.reduce((a,u)=>a+comissaoVend(vendas,u.id,mes,u),0)), pago=r2(pg.filter(p=>p.mes===mes).reduce((a,p)=>a+(+p.valor||0),0));
+    txt=`Comissões da loja em ${mes.slice(5)}/${mes.slice(0,4)}: **${brl(dev)}**\nVocê já pagou: ${brl(pago)}\nSaldo a pagar: ${brl(Math.max(0,r2(dev-pago)))}\n\nRegistre cada pagamento com comprovante em Comissões.`; }
+  return atBot(txt,[{id:'resolvido',t:'✅ Resolvido'},...VOLTAR],{categoria:'Comissão'});
+}
+async function atNota(n){
+  const d=CH.doc; if(!d||d.pesquisa) return;
+  await DB.set('atendimentos',d.id,{pesquisa:{nota:n,em:Date.now()},atualizadoEm:Date.now()}); d.pesquisa={nota:n,em:Date.now()};
+  toast('Obrigado pela avaliação!','ok'); atRender();
+}
 async function atCadastroValor(t){
   const f=CH.doc.fluxo||{}, c=CH.doc.contrato||{};
   return atHumano(`Alteração cadastral · contrato nº ${c.numero} · ${c.cliente}: ${f.campo} → ${t}`,{tipo:'CADASTRO',campo:f.campo,valor:t});
@@ -5002,7 +5083,7 @@ async function atCadastroValor(t){
 async function atHumano(resumo,pedido={},extra=''){
   const d=CH.doc;
   await atSalvar({status:'HUMANO',naoLidoSuporte:true,encaminhadoEm:Date.now(),pedido:{...pedido,resumo},
-    msgs:[...(d.msgs||[]),atMsg('bot',`${FRASE_HUMANO}\n\nSeu protocolo é **${d.protocolo}**. Um atendente responde por aqui, mesmo se você fechar e abrir o chat.${extra}`)]});
+    msgs:[...(d.msgs||[]),atMsg('bot',`${FRASE_HUMANO}\n\nSeu protocolo é **${d.protocolo}**. Um atendente responde por aqui, mesmo se você fechar e abrir o chat.${(()=>{ const h=horarioAtendimento(); return h.aberto?'':`\n\n🕗 Agora estamos fora do horário de atendimento (${h.ini}h às ${h.fim}h${S.cfg.atendDomingo==='sim'?'':', de segunda a sábado'}). Sua solicitação fica na fila e é respondida assim que abrirmos.`; })()}${extra}`)]});
 }
 
 /* ---- IA: assistente de autoajuda (Groq). Só chama humano em último caso. ---- */
@@ -5045,16 +5126,43 @@ const RESP_PADRAO=[
   ['Cadastro: documento','{nome}, para alterar nome ou CPF do contrato nº {contrato} preciso da foto do documento do cliente. Pode enviar por aqui?'],
   ['Trava: passo a passo QR','{nome}, para instalar a trava: 1) restaure o celular de fábrica; 2) na tela de boas-vindas toque 6 vezes no espaço vazio; 3) leia o QR da venda e conecte no Wi-Fi; 4) aguarde a confirmação na tela da venda.'],
   ['Encerramento','Posso ajudar em mais alguma coisa, {nome}? Se não, vou encerrar o protocolo {protocolo}. Obrigado pelo contato!'],
+  ['Encerramento com pesquisa','{nome}, estou encerrando o protocolo {protocolo}. Vai aparecer uma pesquisa rápida aqui no chat: sua nota ajuda a melhorar o atendimento. Obrigado!'],
+  ['Estou verificando','{nome}, estou verificando o contrato nº {contrato} no sistema. Em até 10 minutos te dou um retorno por aqui.'],
+  ['Aguardando retorno','{nome}, ficou alguma dúvida? Se não tiver retorno em 24 horas, o protocolo {protocolo} será encerrado automaticamente.'],
+  ['Liberação negada (atraso)','{nome}, o contrato nº {contrato} tem parcelas em atraso e não consigo liberar sem o pagamento. Assim que o cliente pagar pelo PIX do app, o aparelho libera sozinho em minutos.'],
+  ['Liberação manual feita','{nome}, liberei o aparelho do contrato nº {contrato} manualmente. Lembre: a trava volta a funcionar se houver novo atraso.'],
+  ['Comprovante recebido','Recebi o comprovante, {nome}. Vou conferir com o banco e já te aviso por aqui.'],
+  ['Comprovante divergente','{nome}, o comprovante enviado não bate com o contrato nº {contrato} (valor, data ou recebedor). Pode conferir com o cliente e mandar de novo?'],
+  ['Acordo aprovado','{nome}, o acordo do contrato nº {contrato} foi aprovado. As novas parcelas já aparecem no app do cliente. A trava fica liberada enquanto o acordo estiver em dia.'],
+  ['Acordo recusado','{nome}, não foi possível aprovar a proposta de acordo do contrato nº {contrato}. A melhor opção hoje é o pagamento das parcelas em atraso pelo PIX do app.'],
+  ['Cancelamento: condições','{nome}, o cancelamento do contrato nº {contrato} só é possível em até 7 dias da compra, com o aparelho devolvido sem uso e na caixa. Está dentro dessas condições?'],
+  ['Cancelamento feito','{nome}, o contrato nº {contrato} foi cancelado e a trava será removida. O valor da entrada é devolvido pela loja ao cliente.'],
+  ['Proposta em análise','{nome}, a proposta nº {contrato} está na análise de crédito. A resposta sai em poucos minutos no horário de atendimento.'],
+  ['Proposta reprovada','{nome}, a proposta nº {contrato} foi reprovada pela política de crédito. O cliente pode tentar de novo em 30 dias.'],
+  ['QR não abre','{nome}, se o leitor de QR não abrir: confira se o celular foi restaurado de fábrica, se é Android 7 ou mais novo e toque 6 vezes no MESMO lugar vazio da tela de boas-vindas.'],
+  ['Erro: atualizar a página','{nome}, faça o seguinte: feche o portal, abra de novo e aperte Ctrl+F5 (no celular, puxe a tela para baixo). Se o erro continuar, mande um print aqui.'],
+  ['Erro: print','{nome}, para eu entender melhor, pode mandar um print da tela com o erro e dizer em qual passo aconteceu?'],
+  ['Cadastro: comprovante de endereço','{nome}, para alterar o endereço do cliente do contrato nº {contrato} preciso de uma foto do comprovante de endereço recente (até 90 dias).'],
+  ['Fora do horário','Olá, {nome}! Nosso atendimento funciona de segunda a sábado, das 8h às 20h. Sua solicitação (protocolo {protocolo}) já está na fila e será respondida assim que abrirmos.'],
 ];
 function preencherResp(t,a,extra={}){ const c=a.contrato||{}; return t.replace(/\{nome\}/g,primeiroNome(a.nome||'')).replace(/\{protocolo\}/g,a.protocolo||'').replace(/\{contrato\}/g,c.numero||'—').replace(/\{cliente\}/g,c.cliente||'—').replace(/\{atendente\}/g,primeiroNome(S.me.nome)).replace(/\{marca\}/g,MARCA).replace(/\{codigo\}/g,extra.codigo||'{codigo}'); }
 PAGES.atendimentos = async () => {
   const l=(await DB.list('atendimentos')).sort((a,b)=>(b.naoLidoSuporte?1:0)-(a.naoLidoSuporte?1:0)||b.atualizadoEm-a.atualizadoEm);
   const f=S.filtro.at||'HUMANO', g={HUMANO:l.filter(a=>a.status==='HUMANO'),BOT:l.filter(a=>a.status==='BOT'),CONCLUIDO:l.filter(a=>a.status==='CONCLUIDO')};
   $('#topActions').innerHTML=can('DONO','SUPORTE')?'<button class="btn" data-act="gerenciarRespostas">Respostas automáticas</button>':'';
-  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Chats dos vendedores e gerentes. O assistente resolve a maioria; aqui chegam só os que precisam de um atendente (liberação de aparelho, alteração cadastral e casos que a IA não resolveu).</p>
+  const av=l.filter(a=>a.pesquisa?.nota), media=av.length?(av.reduce((s,a)=>s+a.pesquisa.nota,0)/av.length):0, sat=av.length?Math.round(av.filter(a=>a.pesquisa.nota>=4).length*100/av.length):0;
+  const conc=l.filter(a=>a.status==='CONCLUIDO'), bot=conc.filter(a=>!a.encaminhadoEm).length, tr=l.filter(a=>a.encaminhadoEm&&a.msgs?.some(m=>m.de==='atendente'));
+  const tmr=tr.length?Math.round(tr.reduce((s,a)=>{ const r=a.msgs.find(m=>m.de==='atendente'&&m.em>=a.encaminhadoEm); return s+(r?(r.em-a.encaminhadoEm):0); },0)/tr.length/60000):0;
+  const porAt={}; av.filter(a=>a.atendente).forEach(a=>{ const x=porAt[a.atendente]||(porAt[a.atendente]={n:0,s:0}); x.n++; x.s+=a.pesquisa.nota; });
+  const kpis=`<div class="grid g4 mb"><div class="card kpi"><div class="small muted">Nota média</div><div class="big">${media?media.toFixed(1)+' ★':'—'}</div><div class="small muted">${av.length} avaliação(ões)</div></div>
+    <div class="card kpi"><div class="small muted">Satisfeitos (4 e 5 ★)</div><div class="big">${av.length?sat+'%':'—'}</div></div>
+    <div class="card kpi"><div class="small muted">Resolvidos pelo assistente</div><div class="big">${conc.length?Math.round(bot*100/conc.length)+'%':'—'}</div><div class="small muted">${bot} de ${conc.length} concluídos</div></div>
+    <div class="card kpi"><div class="small muted">1ª resposta do atendente</div><div class="big">${tr.length?tmr+' min':'—'}</div><div class="small muted">tempo médio</div></div></div>
+    ${Object.keys(porAt).length?`<p class="small muted">Por atendente: ${Object.entries(porAt).map(([n,x])=>`${esc(n)} ${(x.s/x.n).toFixed(1)}★ (${x.n})`).join(' · ')}</p>`:''}`;
+  $('#view').innerHTML=kpis+`<p class="muted" style="margin-top:-4px">Chats dos vendedores e gerentes. O assistente resolve a maioria; aqui chegam só os que precisam de um atendente (liberação de aparelho, alteração cadastral e casos que a IA não resolveu).</p>
   <div class="tabs">${[['HUMANO','Aguardando atendente'],['BOT','Com o assistente'],['CONCLUIDO','Concluídos']].map(([k,t])=>`<button data-act="filtro" data-k="at" data-v="${k}" class="${f===k?'on':''}">${t} (${g[k].length})</button>`).join('')}</div>
   <div class="card tablewrap"><table><tr><th>Protocolo</th><th>Quem</th><th>Assunto</th><th>Contrato</th><th>Atualizado</th><th></th></tr>
-  ${g[f].map(a=>`<tr><td class="mono"><b>${esc(a.protocolo)}</b>${a.naoLidoSuporte?' '+badge('nova mensagem','red'):''}</td><td>${esc(a.nome)}<div class="small muted">${esc(ROLES[a.role]||'')} · ${esc(a.lojaNome||'')}</div></td><td>${esc(a.categoria||'—')}<div class="small muted">${esc(a.pedido?.resumo||'')}</div></td><td>${a.contrato?`nº ${a.contrato.numero} · ${esc(a.contrato.cliente||'')}`:'—'}</td><td>${relT(a.atualizadoEm)}</td>
+  ${g[f].map(a=>`<tr><td class="mono"><b>${esc(a.protocolo)}</b>${a.naoLidoSuporte?' '+badge('nova mensagem','red'):''}</td><td>${esc(a.nome)}<div class="small muted">${esc(ROLES[a.role]||'')} · ${esc(a.lojaNome||'')}</div></td><td>${esc(a.categoria||'—')}<div class="small muted">${esc(a.pedido?.resumo||'')}</div></td><td>${a.contrato?`nº ${a.contrato.numero} · ${esc(a.contrato.cliente||'')}`:'—'}</td><td>${relT(a.atualizadoEm)}${a.pesquisa?`<div class="small">${'★'.repeat(a.pesquisa.nota)}</div>`:''}</td>
     <td class="right"><button class="btn sm ${a.status==='HUMANO'?'gold':''}" data-act="abrirAtendimento" data-id="${a.id}">Abrir</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nada por aqui</td></tr>'}</table></div>`;
 };
 let _atWatch=null;
