@@ -425,7 +425,7 @@ const ADMIN_COMPONENT = APP_PKG + '/.AdminReceiver';
 const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'Financeiro', SUPORTE:'Suporte'};
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
-  empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', entradaMinPct:20,
+  empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', quinzenalAtivo:'nao', jurosQuinzenalPct:35, parcelasOpcoesQuinzenal:'8,12,16,20,24', entradaMinPct:20,
   toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, preAutomatica:'sim', preRendaPct:30, preLimiteMin:300, preLimiteMax:0, brevoCanal:'nenhum', brevoLembretes:'nao', lembreteDiasAntes:2, lembreteDiasAtraso:'1,3,7', brevoRecibo:'nao', roboVoz:'nao', roboVozDias:15, resumoEmail:'sim', resumoCanal:'nao', splitComissao:'nao', vipOuroJuros:5, vipPrataJuros:2, vipOuroParcelas:6, trocaDias:7, nfAutomatica:'nao', nfNcm:'85171300', nfNcmAcessorio:'85177900', nfCfop:'5102', nfCsosn:'102', nfOrigem:'0', nfPisCst:'07', assinaturaZapsign:'nao', etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
   apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', exigirLocalLoja:'sim', exigirEstoque:'sim', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
@@ -454,6 +454,16 @@ function token(n=28){ const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
 /* Juros do NexumCell: acréscimo único (%) sobre o valor financiado, dividido nas parcelas */
 const jurosDo = x => (x&&x.juros!=null&&x.juros!=='')?Number(x.juros):(Number(S.cfg.jurosFinanciamentoPct)||0);
 const parcelaFlat = (fin,jPct,n) => n>0 ? r2(fin*(1+jPct/100)/n) : 0;
+/* Plano NexumCell: o juros incide sobre o PREÇO DO APARELHO. Total a prazo = preço × (1 + juros%);
+   as parcelas pagam o total menos a entrada. Ex.: R$ 1.200 com 90% → total R$ 2.280; entrada R$ 360 → 12x de R$ 160. */
+const totalPrazo = (preco,j) => r2((+preco||0)*(1+(+j||0)/100));
+const parcelaPlano = (preco,entrada,j,n) => n>0 ? r2(Math.max(0,totalPrazo(preco,j)-(+entrada||0))/n) : 0;
+/* Pagamento mensal ou quinzenal (o Dono liga o quinzenal e define juros e prazos dele) */
+const quinzenalAtivo = () => S.cfg.quinzenalAtivo==='sim';
+const jurosQDo = x => (x&&x.jurosQuinzenal!=null&&x.jurosQuinzenal!=='')?Number(x.jurosQuinzenal):(Number(S.cfg.jurosQuinzenalPct)||35);
+const jurosFreq = (x,freq) => freq==='QUINZENAL' ? jurosQDo(x) : jurosDo(x);
+const opsFreq = freq => String(freq==='QUINZENAL'?(S.cfg.parcelasOpcoesQuinzenal||'8,12,16,20,24'):(S.cfg.parcelasOpcoes||'6,10,12')).split(',').map(x=>+String(x).trim()).filter(Boolean);
+const vencDe = (primeiro,i,freq) => freq==='QUINZENAL' ? addDays(primeiro,15*i) : addMonths(primeiro,i);
 function pmt(pv,i,n){ if(n<=0) return 0; if(!i) return pv/n; return pv*i/(1-Math.pow(1+i,-n)); }
 const badge = (t,c) => `<span class="badge b-${c}">${esc(t)}</span>`;
 const vBadge = s => badge(...(VENDA_ST[s]||[s,'gray']));
@@ -554,7 +564,7 @@ function seedDemo(){
    .forEach(([marca,modelo,capacidade,preco])=>d.catalogo[slugCat(marca,modelo,capacidade)]={marca,modelo,capacidade,preco,ativo:true});
   const cfg=d.config.sistema; let num=0;
   const mk=(o)=>{
-    num++; const id='v'+num, fin=o.valor-o.entrada, vp=parcelaFlat(fin,cfg.jurosFinanciamentoPct,o.n);
+    num++; const id='v'+num, fin=o.valor-o.entrada, vp=parcelaPlano(o.valor,o.entrada,cfg.jurosFinanciamentoPct,o.n);
     const parcelas=Array.from({length:o.n},(_,i)=>({n:i+1,venc:addMonths(o.primeiro,i),valor:vp,pago:i<o.pagas,...(i<o.pagas?{pagoEm:addMonths(o.primeiro,i),valorPago:vp,forma:'PIX',por:'Fernanda Financeiro'}:{})}));
     const cli={cpf:o.cpf,nome:o.nome,tel:o.tel,telefones:[onlyDig(o.tel),'4598'+o.cpf.slice(0,7)],nasc:'1995-04-12',email:'',cep:'85851-000',endereco:'Rua Exemplo, 100',bairro:'Centro',cidade:'Foz do Iguaçu',uf:'PR',renda:2400,profissao:'Autônomo(a)',refNome:'Referência',refTel:'(45) 99999-1234'};
     d.clientes[o.cpf]={...cli,criadoEm:now};
@@ -1117,7 +1127,7 @@ async function passoAparelho(){
   const modelos=[...new Set(doMarca.map(x=>x.modelo))];
   const item=cat.find(x=>x.id===w.sel.itemId);
   const lim=v.analise?.limite||0, pct=Number(S.cfg.entradaPct)||30;
-  const cfg=S.cfg, ops=String(cfg.parcelasOpcoes).split(',').map(s=>+s.trim()).filter(Boolean);
+  const cfg=S.cfg, freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL', ops=opsFreq(freq);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">5</span>Escolha o aparelho</h2>
     <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||(exigeEst?'<div class="empty" style="width:100%"><b>Nenhum aparelho no estoque desta loja</b>O gerente precisa cadastrar os aparelhos (com IMEI) em “Estoque por IMEI”.</div>':'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>')}</div>
     <div class="modelos">${modelos.map(mo=>{ const caps=doMarca.filter(x=>x.modelo===mo).sort((a,b)=>a.preco-b.preco);
@@ -1133,8 +1143,9 @@ async function passoAparelho(){
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 2 (se for dual chip) <span id="nImei2Ok"></span></span><input id="nImei2" inputmode="numeric" maxlength="15" value="${esc(w.sel.imei2||'')}"></label>
       ${(()=>{ const pe=item.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):pct; return `<label>Entrada total (mín. ${pe}%)<input id="nEntrada" type="number" step="0.01" min="${r2(item.preco*pe/100)}" value="${w.sel.entrada||r2(item.preco*pe/100)}"></label>`; })()}
-      <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||12)?'selected':''}>${n}x</option>`).join('')}</select></label>
-      <label>1º vencimento<input id="nVenc" type="date" value="${w.sel.venc||addMonths(hoje(),1)}"></label>
+      ${quinzenalAtivo()&&!item.semTrava?`<label>Pagamento<select id="nFreq"><option value="MENSAL" ${freq==='MENSAL'?'selected':''}>Mensal</option><option value="QUINZENAL" ${freq==='QUINZENAL'?'selected':''}>Quinzenal (a cada 15 dias)</option></select></label>`:''}
+      <label>Parcelas<select id="nParc">${ops.map(n=>`<option value="${n}" ${n===(w.sel.n||(ops.includes(12)?12:ops[ops.length-1]))?'selected':''}>${n}x${freq==='QUINZENAL'?' quinzenais':''}</option>`).join('')}</select></label>
+      <label>1º vencimento<input id="nVenc" type="date" value="${w.sel.venc||(freq==='QUINZENAL'?addDays(hoje(),15):addMonths(hoje(),1))}"></label>
       <label>Cor<input id="nCor" value="${esc(w.sel.cor||'')}"></label>
     </div>
     <div id="acessBox"></div>
@@ -1209,15 +1220,16 @@ function simular(){
   if($('#nImei2Ok')) $('#nImei2Ok').innerHTML=imeiMsg($('#nImei2').value);
   const preco=S.w.sel.preco+(S.w.sel.acessValor||0), pct=S.w.sel.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):(Number(S.cfg.entradaPct)||30), min=r2(preco*pct/100);
   let e=+$('#nEntrada').value||0; const n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null);
-  const fin=Math.max(0,preco-e), prot=S.w.sel.protecao&&!S.w.sel.semTrava?(Number(S.cfg.protecaoMensal)||0):0, p=r2(parcelaFlat(fin,jp,n)+prot), us=S.w.sel.usado?.valor||0;
+  const fin=Math.max(0,preco-e), prot=S.w.sel.protecao&&!S.w.sel.semTrava?(Number(S.cfg.protecaoMensal)||0):0, p=r2(parcelaPlano(preco,e,jp,n)+prot), us=S.w.sel.usado?.valor||0;
   $('#nSim').innerHTML=`<div class="row">
     <div><small>Entrada${us?' (usado + dinheiro)':''}</small><b>${brl(e)}</b>${us?`<span class="small" style="color:#A9B6D3">usado ${brl(us)} + ${brl(Math.max(0,e-us))}</span>`:''}</div><div><small>Financiado</small><b>${brl(fin)}</b></div>
-    <div><small>${n} parcelas de</small><b>${brl(p)}</b></div><div><small>Total a prazo</small><b>${brl(p*n+e)}</b></div></div>
+    <div><small>${n} parcelas ${S.w.sel.freq==='QUINZENAL'&&quinzenalAtivo()?'quinzenais ':''}de</small><b>${brl(p)}</b></div><div><small>Total a prazo</small><b>${brl(p*n+e)}</b></div></div>
     ${e<min?`<p class="small" style="color:#FFB4B4;margin:8px 0 0">A entrada mínima é ${pct}% (${brl(min)}).</p>`:''}
-    <p class="small" style="color:#A9B6D3;margin:8px 0 0">${can('DONO','FINANCEIRO')?`Juros de ${jp}% sobre o valor financiado (${brl(fin*jp/100)}) · `:''}Pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
+    <p class="small" style="color:#A9B6D3;margin:8px 0 0">${can('DONO','FINANCEIRO')?`Juros de ${jp}% sobre o preço do aparelho (${brl(preco*jp/100)}) · `:''}Pagando antes do vencimento o cliente ganha ${S.cfg.descontoAntecipadoPct||5}% de desconto na parcela.</p>`;
   $('#nImeiOk').innerHTML=imeiMsg($('#nImei').value);
 }
-async function selItem(id){ const x=await DB.get('catalogo',id), vv=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w.vip=vv?.vip||null; S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosVip(jurosDo(x),vv?.vip),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
+async function trocarFreq(freq){ guardarCampos(); const x=await DB.get('catalogo',S.w.sel.itemId); S.w.sel.freq=freq; S.w.sel.n=null; S.w.sel.venc=null; S.w.sel.juros=jurosVip(jurosFreq(x,freq),S.w.vip); passoAparelho(); }
+async function selItem(id){ const x=await DB.get('catalogo',id), vv=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w.vip=vv?.vip||null; S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosVip(jurosFreq(x,quinzenalAtivo()?(S.w.sel.freq||'MENSAL'):'MENSAL'),vv?.vip),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
 async function salvarAparelho(btn){
   const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=Number(S.cfg.entradaPct)||30;
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
@@ -1251,12 +1263,13 @@ async function salvarAparelho(btn){
   if(conf&&!conf.confere){ btn.disabled=false; return toast(conf.msg,'err'); }
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
-  const juros=jurosVip(jurosDo(x),v0.vip), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaFlat(fin,juros,n)+prot);
+  const freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL';
+  const juros=jurosVip(jurosFreq(x,freq),v0.vip), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaPlano(valorTotal,entrada,juros,n)+prot);
   await DB.add('docs',{tipo:'IMEI',vendaId:w.vendaId,imei,imei2,foto:w.imeiFoto.ver,criadoEm:Date.now(),vendedorUid:S.me.uid});
   const verificacaoImei={digito:true,foto:true,ia:conf?.manual?'MANUAL':conf?.simulado?'SIMULADO':'CONFERE',lidosNaFoto:conf?.lidos||[],anatel:an,em:Date.now(),por:S.me.nome};
   await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
-    valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
-    parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
+    valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,frequencia:freq,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
+    parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:vencDe(venc,i,freq),valor:vp,pago:false}))});
   await log('Aparelho escolhido',w.vendaId,`${x.marca} ${x.modelo} ${x.capacidade} · IMEI ${imei}`);
   irPasso(6);
 }
@@ -1507,7 +1520,7 @@ PAGES.inicio = async () => {
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
     ${S._metaVend!=null?`<div class="kpi"><small>Meta do mês</small><b>${S._metaVend?Math.round(doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100)+'%':'—'}</b><div class="barra"><i style="width:${S._metaVend?Math.min(100,doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100):0}%"></i></div><span>${S._metaVend?brl(doMes.reduce((s,v)=>s+v.valor,0))+' de '+brl(S._metaVend):'meta não definida'}</span></div>`:''}
     <div class="kpi"><small>Comissão do mês</small><b style="color:var(--ok)">${brl(comissaoDe(vendas,mes))}</b><span>${S.cfg.comissaoPct||0}% das parcelas pagas</span></div>
-    <div class="kpi"><small>Em análise</small><b>${analise.length}</b><span>aguardando o Dono</span></div>
+    <div class="kpi"><small>Em análise</small><b>${analise.length}</b><span>aguardando aprovação</span></div>
     <div class="kpi"><small>Aprovadas</small><b style="color:${aprovadas.length?'var(--pri)':''}">${aprovadas.length}</b><span>escolher aparelho / assinar</span></div>
     <div class="kpi"><small>Entrada / trava</small><b style="color:${entrada.length+instalar.length?'var(--warn)':''}">${entrada.length+instalar.length}</b><span>receber entrada ou instalar</span></div>
   </div>
@@ -1678,7 +1691,7 @@ function contratoHTML(v){
   <p><b>VENDEDORA:</b> ${emp}, loja ${esc(v.lojaNome)}.<br><b>COMPRADOR(A):</b> ${esc(c.nome)}, CPF ${fmtCpf(c.cpf)}, nascido(a) em ${fmtD(c.nasc)}, residente em ${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}, telefone ${esc(c.tel)}.</p>
   <h4>1. Objeto</h4><p>Aparelho celular ${esc(v.aparelho.marca)} ${esc(v.aparelho.modelo)} ${esc(v.aparelho.armazenamento||'')}, IMEI ${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''}, novo, entregue nesta data em perfeito funcionamento${(v.acessorios||[]).length?`, acompanhado dos acessórios: ${v.acessorios.map(a=>esc(a.nome)+' ('+brl(a.preco)+')').join(', ')}`:''}.</p>
   ${v.usado?`<p>Parte da entrada (${brl(v.usado.valor)}) foi paga com o aparelho usado ${esc(v.usado.marca+' '+v.usado.modelo)}, IMEI ${esc(v.usado.imei)}, que passa a ser de propriedade da VENDEDORA, declarando o(a) COMPRADOR(A) que o aparelho é de sua propriedade e não tem restrição.</p>`:''}${v.protecao?`<p>Inclui a Proteção NexumCell (${brl(v.protecao.mensal)} por parcela): ${esc(v.protecao.cobertura)}.</p>`:''}${v.aparelho?.semTrava?'<p>Este produto não possui sistema de bloqueio; as cláusulas de bloqueio do aparelho não se aplicam.</p>':''}
-  <h4>2. Preço e pagamento</h4><p>Preço à vista: ${brl(v.valor)}. Entrada: ${brl(v.entrada)}. Saldo de ${brl(v.financiado)} pago em ${v.nParcelas} parcelas mensais de ${brl(v.valorParcela)}, com acréscimo de juros de ${v.juros}% sobre o valor financiado (já incluído nas parcelas), vencendo a primeira em ${fmtD(v.primeiroVenc)} e as demais no mesmo dia dos meses seguintes. Valor total a prazo: ${brl(v.total+v.entrada)}. Custo efetivo informado ao comprador antes da assinatura.</p>
+  <h4>2. Preço e pagamento</h4><p>Preço à vista: ${brl(v.valor)}. Entrada: ${brl(v.entrada)}. ${v.juros!=null?`Valor total a prazo, com acréscimo de juros de ${v.juros}% sobre o preço do aparelho: ${brl(totalPrazo(v.valor,v.juros))}. `:''}Saldo de ${brl(r2((v.valorParcela||0)*(v.nParcelas||0)))} pago em ${v.nParcelas} parcelas ${v.frequencia==='QUINZENAL'?'quinzenais':'mensais'} de ${brl(v.valorParcela)}, vencendo a primeira em ${fmtD(v.primeiroVenc)} e as demais ${v.frequencia==='QUINZENAL'?'a cada 15 dias':'no mesmo dia dos meses seguintes'}. Valor total a prazo: ${brl(v.total+v.entrada)}. Custo efetivo informado ao comprador antes da assinatura.</p>
   <h4>3. Atraso</h4><p>O atraso implica multa de ${cfg.multaPct}% e juros de mora de ${cfg.moraDiaPct}% ao dia sobre a parcela vencida.</p>
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
   <h4>5. Aplicativo de gestão e bloqueio do aparelho</h4><p>O COMPRADOR declara ter sido informado, de forma clara e prévia, e concorda que o aparelho terá instalado o aplicativo de gestão NexumCell, que: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) <b>restringe o uso do aparelho quando houver parcela vencida há mais de ${cfg.toleranciaDias} dia(s)</b>, ou quando o aparelho ficar mais de ${cfg.maxDiasOffline} dias sem conexão com a internet; (c) mantém, mesmo durante a restrição, a possibilidade de <b>chamadas de emergência</b> e de contato com a loja; (d) é liberado automaticamente assim que o pagamento é registrado; (e) é <b>removido definitivamente</b> após a quitação. O COMPRADOR se compromete a não remover, desativar ou burlar o aplicativo nem regravar o sistema do aparelho até a quitação.</p>
@@ -2816,11 +2829,12 @@ PAGES.simulador = async () => {
   const calc=()=>{ const x=cat[+$('#sbItem').value]; if(!x) return; const ac=[...document.querySelectorAll('[data-sbacs]:checked')].map(i=>acs[+i.dataset.sbacs]);
     const total=r2(x.preco+ac.reduce((s,a)=>s+a.preco,0)), pct=Number(S.cfg.entradaPct)||30, min=r2(total*pct/100);
     let e=+$('#sbEnt').value||0; if(e<min){ e=min; $('#sbEnt').value=min; } const fin=total-e, j=jurosDo(x);
-    const ops=String(S.cfg.parcelasOpcoes||'6,10,12').split(',').map(Number).filter(Boolean);
+    const ops=opsFreq('MENSAL'), opsQ=quinzenalAtivo()?opsFreq('QUINZENAL'):[], jq=jurosQDo(x);
     S._simTotal=total; S._simDesc=`${x.marca} ${x.modelo} ${x.capacidade}${ac.length?' + '+ac.map(a=>a.nome).join(', '):''}`;
-    S._simTxt=`${x.marca} ${x.modelo} ${x.capacidade}${ac.length?' + '+ac.map(a=>a.nome).join(', '):''}\nEntrada: ${brl(e)}\n`+ops.map(n=>`${n}x de ${brl(parcelaFlat(fin,j,n))}`).join('\n')+`\nPagando antes do vencimento: ${S.cfg.descontoAntecipadoPct||5}% de desconto.`;
+    S._simTxt=`${x.marca} ${x.modelo} ${x.capacidade}${ac.length?' + '+ac.map(a=>a.nome).join(', '):''}\nEntrada: ${brl(e)}\n`+ops.map(n=>`${n}x de ${brl(parcelaPlano(total,e,j,n))}`).join('\n')+(opsQ.length?'\nQuinzenal:\n'+opsQ.map(n=>`${n}x de ${brl(parcelaPlano(total,e,jq,n))} (a cada 15 dias)`).join('\n'):'')+`\nPagando antes do vencimento: ${S.cfg.descontoAntecipadoPct||5}% de desconto.`;
     $('#sbRes').innerHTML=`<div class="sim-balcao"><div class="sb-ap">${esc(x.marca+' '+x.modelo+' '+x.capacidade)}${ac.length?`<small> + ${ac.map(a=>esc(a.nome)).join(', ')}</small>`:''}</div>
-      <div class="sb-ent">Entrada <b>${brl(e)}</b> <small>(mínimo ${pct}%)</small></div><div class="sb-ops">${ops.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaFlat(fin,j,n))}</b></div>`).join('')}</div>
+      <div class="sb-ent">Entrada <b>${brl(e)}</b> <small>(mínimo ${pct}%)</small></div><div class="sb-ops">${ops.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaPlano(total,e,j,n))}</b></div>`).join('')}</div>
+      ${opsQ.length?`<div class="sb-ent" style="margin-top:12px">Quinzenal <small>(a cada 15 dias)</small></div><div class="sb-ops">${opsQ.map(n=>`<div><small>${n}x de</small><b>${brl(parcelaPlano(total,e,jq,n))}</b></div>`).join('')}</div>`:''}
       <p class="small">Pagando antes do vencimento, ${S.cfg.descontoAntecipadoPct||5}% de desconto em cada parcela.</p></div>
       <div class="row mt">${asaasLigado()?'<button class="btn" data-act="linkCartao">Vender no cartão (link Asaas)</button>':''}<button class="btn" data-act="sbCheia">Mostrar em tela cheia</button><button class="btn" data-act="sbCopiar">Copiar para o WhatsApp</button><button class="btn gold" data-act="go" data-tab="nova">Fazer a proposta</button></div>`; };
   $('#sbItem').addEventListener('change',()=>{ $('#sbEnt').value=''; calc(); }); $('#sbEnt').addEventListener('change',calc); document.querySelectorAll('[data-sbacs]').forEach(i=>i.addEventListener('change',e=>{ e.target.closest('.chip').classList.toggle('on',e.target.checked); $('#sbEnt').value=''; calc(); }));
@@ -3025,7 +3039,7 @@ async function salvarProdutoSemTrava(x,btn){
   if(usado&&usado.valor>entrada) return toast('O valor do usado é maior que a entrada','err');
   if(!venc||diasEntre(hoje(),venc)<1) return toast('O 1º vencimento precisa ser uma data futura','err');
   btn.disabled=true;
-  const juros=jurosDo(x), fin=r2(valorTotal-entrada), vp=parcelaFlat(fin,juros,n);
+  const juros=jurosDo(x), fin=r2(valorTotal-entrada), vp=parcelaPlano(valorTotal,entrada,juros,n);
   await DB.set('vendas',w.vendaId,{aparelho:{catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei:'',imei2:'',serie:($('#nSerie')?.value||'').trim(),cor:w.sel.cor||'',semTrava:true},
     valor:valorTotal,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:0,usado,entrada,financiado:fin,nParcelas:n,juros,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:addMonths(venc,i),valor:vp,pago:false}))});
@@ -4076,12 +4090,12 @@ PAGES.catalogo = async () => {
   const lista=linhas.filter(x=>!q||x.modelo.toLowerCase().includes(q));
   const liberados=m=>cat.filter(x=>x.marca===m&&x.ativo!==false&&x.preco>0).length;
   $('#topActions').innerHTML='<button class="btn" data-act="editarItem" data-id="">Adicionar outro modelo</button>';
-  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender, coloque o valor à vista e os juros sobre o valor financiado (em branco = padrão de ${jurosDo(null)}%, definido em Lojas e configurações). Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">Libere os aparelhos que a loja tem para vender, coloque o valor à vista e os juros sobre o preço do aparelho (em branco = padrão de ${jurosDo(null)}%${quinzenalAtivo()?` mensal e ${jurosQDo(null)}% quinzenal`:''}, definido em Lojas e configurações). Total a prazo = preço × (1 + juros). Só os liberados aparecem para o vendedor, e ele <b>não consegue alterar o valor</b>. Entrada mínima: ${pct}%.</p>
   <div class="chips">${[...MARCAS,...[...new Set(cat.map(x=>x.marca))].filter(m=>!MARCAS.includes(m))].map(m=>`<button class="chip ${m===marca?'on':''}" data-act="filtro" data-k="catMarca" data-v="${esc(m)}">${esc(m)}${liberados(m)?` · ${liberados(m)}`:''}</button>`).join('')}</div>
   <div class="row mb"><input id="catQ" placeholder="Buscar modelo de ${esc(marca)}" style="max-width:320px" value="${esc(S.filtro.catQ||'')}">
     <span class="sp"></span><label style="flex-direction:row;align-items:center;gap:8px;font-weight:600">Margem sobre o mercado<input id="catMargem" type="number" step="1" value="${S.filtro.catMargem||0}" style="width:80px;min-height:34px;padding:6px 8px"> %</label>
     <button class="btn sm gold" data-act="catSugerir">Sugerir valores de mercado</button><button class="btn sm" data-act="catTodos" data-v="1">Liberar todos com valor</button><button class="btn sm" data-act="catTodos" data-v="0">Bloquear todos de ${esc(marca)}</button></div>
-  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th>Mercado (ref.)</th><th style="width:150px">Valor à vista (R$)</th><th style="width:110px">Juros (%)</th><th class="right">Entrada ${pct}% · financiado c/ juros</th></tr>
+  <div class="card tablewrap"><table><tr><th style="width:90px">Liberado</th><th>Modelo</th><th>Memória</th><th>Mercado (ref.)</th><th style="width:150px">Valor à vista (R$)</th><th style="width:110px">Juros (%)</th>${quinzenalAtivo()?'<th style="width:110px">Juros quinzenal (%)</th>':''}<th class="right">Total c/ juros · entrada ${pct}%</th></tr>
   ${lista.map(x=>{ const on=x.ativo!==false&&x.preco>0&&porId[x.id]; return `<tr>
     <td><label class="sw"><input type="checkbox" data-cat="${x.id}" ${on?'checked':''}><span></span></label></td>
     <td><b>${esc(x.modelo)}</b></td><td>${esc(x.capacidade)}</td>
@@ -4089,17 +4103,19 @@ PAGES.catalogo = async () => {
       <a class="small" target="_blank" rel="noopener" href="https://www.buscape.com.br/search?q=${encodeURIComponent((x.marca==='Redmi'?'Xiaomi ':x.marca+' ')+x.modelo+' '+x.capacidade)}">conferir</a></td>
     <td><input type="number" min="0" step="0.01" data-preco="${x.id}" data-marca="${esc(x.marca)}" data-modelo="${esc(x.modelo)}" data-cap="${esc(x.capacidade)}" value="${x.preco||''}" placeholder="0,00" style="min-height:34px;padding:6px 10px"></td>
     <td><input type="number" min="0" step="0.1" data-juros="${x.id}" value="${x.juros!=null?x.juros:''}" placeholder="${jurosDo(null)}" style="min-height:34px;padding:6px 10px"></td>
-    <td class="right small" data-ex="${x.id}">${exCat(x.preco,x.juros)}</td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nenhum modelo encontrado</td></tr>'}
+    ${quinzenalAtivo()?`<td><input type="number" min="0" step="0.1" data-jq="${x.id}" value="${x.jurosQuinzenal!=null?x.jurosQuinzenal:''}" placeholder="${jurosQDo(null)}" style="min-height:34px;padding:6px 10px"></td>`:''}
+    <td class="right small" data-ex="${x.id}">${exCat(x.preco,x.juros)}</td></tr>`; }).join('')||'<tr><td colspan="8" class="empty">Nenhum modelo encontrado</td></tr>'}
   </table></div>
   <p class="hint">Valores de mercado são uma referência aproximada do preço à vista no varejo brasileiro (nov/2026) e mudam toda semana. Use “conferir” para ver o preço de hoje antes de liberar.</p>`;
   $('#catQ').addEventListener('input',e=>{ S.filtro.catQ=e.target.value; clearTimeout(S._cq); S._cq=setTimeout(()=>PAGES.catalogo().then(()=>{ const el=$('#catQ'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),250); });
 };
-function exCat(preco,juros){ preco=+preco||0; if(!preco) return '<span class="muted">—</span>'; const pct=Number(S.cfg.entradaPct)||30, j=(juros!=null&&juros!=='')?+juros:jurosDo(null), fin=preco*(1-pct/100); return `${brl(preco*pct/100)} · <b>${brl(fin*(1+j/100))}</b><br><span class="muted">ex.: 12x ${brl(fin*(1+j/100)/12)}</span>`; }
+function exCat(preco,juros){ preco=+preco||0; if(!preco) return '<span class="muted">—</span>'; const pct=Number(S.cfg.entradaPct)||30, j=(juros!=null&&juros!=='')?+juros:jurosDo(null), e=preco*pct/100; return `total ${brl(totalPrazo(preco,j))} · entrada ${brl(e)}<br><span class="muted">ex.: 12x ${brl(parcelaPlano(preco,e,j,12))}</span>`; }
 async function catSalvar(id,ativo){
   const inp=document.querySelector(`[data-preco="${id}"]`), preco=r2(+inp.value||0);
   if(ativo&&!(preco>0)){ toast('Coloque o valor antes de liberar','err'); const ck=document.querySelector(`[data-cat="${id}"]`); if(ck) ck.checked=false; inp.focus(); return; }
   const jv=document.querySelector(`[data-juros="${id}"]`)?.value, juros=jv===''||jv==null?jurosDo(null):r2(+jv);
-  await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,juros,ativo,atualizadoEm:Date.now(),por:S.me.nome});
+  const jqEl=document.querySelector(`[data-jq="${id}"]`), jq=jqEl?(jqEl.value===''?null:r2(+jqEl.value)):undefined;
+  await DB.set('catalogo',id,{marca:inp.dataset.marca,modelo:inp.dataset.modelo,capacidade:inp.dataset.cap,preco,juros,...(jq!==undefined?{jurosQuinzenal:jq}:{}),ativo,atualizadoEm:Date.now(),por:S.me.nome});
   await log(ativo?'Aparelho liberado':'Aparelho bloqueado',id,`${inp.dataset.modelo} ${inp.dataset.cap} = ${brl(preco)}`);
   toast(ativo?`${inp.dataset.modelo} ${inp.dataset.cap} liberado por ${brl(preco)}`:`${inp.dataset.modelo} ${inp.dataset.cap} não aparece mais para o vendedor`,'ok');
 }
@@ -4129,8 +4145,10 @@ PAGES.config = async () => {
     <div class="tablewrap mt"><table><tr><th>Loja</th><th>Cidade</th><th>Telefone (aparece na tela de bloqueio)</th><th>Localização</th><th></th></tr>
     ${S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${esc(l.cidade)}</td><td>${esc(l.telefone)}</td><td>${l.lat!=null&&l.lng!=null?badge('raio '+(l.raio||150)+' m','green'):badge('sem localização','amber')}</td><td class="right"><button class="btn sm" data-act="editarLoja" data-id="${l.id}">Editar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Cadastre a primeira loja</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresa e crédito</h2><div class="grid g4">
-    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('comissaoPct','Comissão do vendedor sobre parcelas pagas (%)','number','step="0.1"')}${f('jurosFinanciamentoPct','Juros padrão sobre o financiado (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
-    ${f('parcelasOpcoes','Opções de parcelas (ex.: 3,6,9,12)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}<label>Venda só dentro da loja<select data-cfg="exigirLocalLoja"><option value="sim" ${c.exigirLocalLoja!=='nao'?'selected':''}>Sim (pela localização do vendedor)</option><option value="nao" ${c.exigirLocalLoja==='nao'?'selected':''}>Não</option></select></label><label>Vender só aparelho do estoque<select data-cfg="exigirEstoque"><option value="sim" ${c.exigirEstoque!=='nao'?'selected':''}>Sim (IMEI cadastrado pelo gerente)</option><option value="nao" ${c.exigirEstoque==='nao'?'selected':''}>Não</option></select></label>${f('servidorPagamentos','Endereço do servidor (Cloudflare ou Vercel), ex.: https://nexumcell-servidor.SEU-NOME.workers.dev')}
+    ${f('empresa','Nome da empresa')}${f('cnpj','CNPJ')}${f('comissaoPct','Comissão do vendedor sobre parcelas pagas (%)','number','step="0.1"')}${f('jurosFinanciamentoPct','Juros padrão mensal sobre o preço do aparelho (%)','number','step="0.1"')}${f('entradaPct','Entrada mínima (%)','number','min="30"')}${f('descontoAntecipadoPct','Desconto por pagar antes do vencimento (%)','number','step="0.1"')}${f('cidadePix','Cidade do recebedor PIX')}
+    ${f('parcelasOpcoes','Opções de parcelas mensais (ex.: 3,6,9,12)')}
+    <label>Pagamento quinzenal<select data-cfg="quinzenalAtivo"><option value="nao" ${c.quinzenalAtivo!=='sim'?'selected':''}>Desligado</option><option value="sim" ${c.quinzenalAtivo==='sim'?'selected':''}>Ligado (o vendedor escolhe mensal ou quinzenal)</option></select></label>
+    ${f('jurosQuinzenalPct','Juros do quinzenal (% sobre o aparelho)','number','step="0.1"')}${f('parcelasOpcoesQuinzenal','Opções de parcelas quinzenais (ex.: 8,12,16,24)')}${f('multaPct','Multa por atraso (%)','number','step="0.01"')}${f('moraDiaPct','Juros de mora ao dia (%)','number','step="0.001"')}${f('chavePix','Chave PIX (aparece na trava)')}<label>Venda só dentro da loja<select data-cfg="exigirLocalLoja"><option value="sim" ${c.exigirLocalLoja!=='nao'?'selected':''}>Sim (pela localização do vendedor)</option><option value="nao" ${c.exigirLocalLoja==='nao'?'selected':''}>Não</option></select></label><label>Vender só aparelho do estoque<select data-cfg="exigirEstoque"><option value="sim" ${c.exigirEstoque!=='nao'?'selected':''}>Sim (IMEI cadastrado pelo gerente)</option><option value="nao" ${c.exigirEstoque==='nao'?'selected':''}>Não</option></select></label>${f('servidorPagamentos','Endereço do servidor (Cloudflare ou Vercel), ex.: https://nexumcell-servidor.SEU-NOME.workers.dev')}
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
@@ -4312,7 +4330,9 @@ Object.assign(ACT,{
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
   if(can('DONO')) $('#srvStatus')?.closest('.card')?.insertAdjacentHTML('afterend',blocoAsaasChave());
   statusServidor(); }; }
-document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); } if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
+document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
+  if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
+  if(e.target.id==='nFreq') trocarFreq(e.target.value); if('imeifoto' in e.target.dataset) receberImeiFoto(e.target); if(e.target.dataset.entrega) receberEntrega(e.target); if(e.target.dataset.acess) toggleAcess(e.target.dataset.acess,e.target.checked); if(e.target.dataset.compr) receberCompr(e.target); if(e.target.id==='nProtecao'){ S.w.sel.protecao=e.target.checked; simular(); } if(e.target.id==='simEnt'||e.target.id==='simJur'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='caixaLoja'||e.target.id==='caixaData'){ S.filtro[e.target.id]=e.target.value; render(); } if(e.target.id==='nAnatel'){ S.w.anatel=e.target.value; }  if(e.target.dataset.cat) catSalvar(e.target.dataset.cat,e.target.checked); if(e.target.dataset.preco){ const ck=document.querySelector(`[data-cat="${e.target.dataset.preco}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.preco,true); }  if(e.target.dataset.foto) receberFoto(e.target); if('selfie' in e.target.dataset) bioArquivo(e.target); if(e.target.id==='nParc') simular(); });
 document.addEventListener('focusout',e=>{ if(e.target.id==='nCep') buscarCep(); });
 
 /* ======================= LOGIN ======================= */

@@ -33,12 +33,13 @@ export async function decidir(p, vit, cfg) {
   const parcelaMax = r2((p.renda * pct) / 100);
   const ap = (vit.aparelhos || []).find((a) => `${a.marca} ${a.modelo} ${a.capacidade}` === p.aparelho);
   const juros = Number(ap?.juros ?? vit.jurosPadrao ?? cfg.jurosFinanciamentoPct ?? 25);
-  let limite = r2(((parcelaMax * n) / (1 + juros / 100)) / (1 - entPct / 100));
+  // total a prazo = preço × (1 + juros); parcelas = total − entrada → preço máximo = parcelas / (1 + juros − entrada%)
+  let limite = r2((parcelaMax * n) / (1 + juros / 100 - entPct / 100));
   if (maxLim > 0) limite = Math.min(limite, maxLim);
   const quitou = hist.some((v) => v.status === 'QUITADA');
   if (ap) {
     const entMin = r2((ap.preco * entPct) / 100), ent = Math.max(p.entrada || 0, entMin);
-    const parcela = r2(((ap.preco - ent) * (1 + juros / 100)) / n);
+    const parcela = r2((ap.preco * (1 + juros / 100) - ent) / n);
     if (parcela <= parcelaMax && (!maxLim || ap.preco <= maxLim))
       return { status: 'PRE_APROVADO', resposta: `Pré-aprovado! ${p.aparelho}: entrada de ${brl(ent)} + ${n}x de ${brl(parcela)}.${(p.entrada || 0) < entMin ? ` (A entrada mínima é ${brl(entMin)}.)` : ''}${quitou ? ' Obrigado por voltar!' : ''} Agende abaixo e traga RG ou CNH.`, auto: { parcela, entrada: ent, n, limite, parcelaMax } };
   }

@@ -106,8 +106,16 @@ service cloud.firestore {
                         && request.resource.data.get('acessoriosValor', 0) >= 0
                         && request.resource.data.get('acessoriosValor', 0) <= catalogoPreco(request.resource.data) * 0.5
                         // juros do catálogo (ou padrão), menos o desconto do programa VIP gravado na aprovação do crédito
-                        && request.resource.data.juros == jurosComVip(get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25)),
-                                                                      resource.data.get('vip', {}) == null ? 0 : resource.data.get('vip', {}).get('descontoJuros', 0))
+                        // quinzenal só se o Dono ligou; juros do quinzenal vem do catálogo ou do padrão quinzenal
+                        && (request.resource.data.get('frequencia', 'MENSAL') == 'MENSAL'
+                            || (request.resource.data.get('frequencia', 'MENSAL') == 'QUINZENAL' && get(/databases/$(database)/documents/config/sistema).data.get('quinzenalAtivo', 'nao') == 'sim'))
+                        && request.resource.data.juros == jurosComVip(
+                             request.resource.data.get('frequencia', 'MENSAL') == 'QUINZENAL'
+                               ? (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('jurosQuinzenal', null) == null
+                                   ? get(/databases/$(database)/documents/config/sistema).data.get('jurosQuinzenalPct', 35)
+                                   : get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.jurosQuinzenal)
+                               : get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('juros', get(/databases/$(database)/documents/config/sistema).data.get('jurosFinanciamentoPct', 25)),
+                             resource.data.get('vip', {}) == null ? 0 : resource.data.get('vip', {}).get('descontoJuros', 0))
                         // usado na entrada: no máximo 50% do valor
                         && request.resource.data.get('usado', {'valor': 0}).get('valor', 0) <= request.resource.data.valor * 0.5
                         // produto sem trava exige entrada maior
