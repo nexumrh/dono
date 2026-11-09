@@ -121,13 +121,20 @@ service cloud.firestore {
     function jurosComVip(base, desc) { return desc <= base ? base - desc : 0; }
     function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
 
+    // retorno do reprovado: o vendedor anota que chamou o cliente de novo
+    match /retornos/{id} {
+      allow read: if staff();
+      allow create, update: if staff() && request.resource.data.vendedorUid == request.auth.uid;
+    }
     match /vendas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                   || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
                   || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid);
       // proposta nasce em análise, sem aparelho e sem valores
       allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR'])
-                    && request.resource.data.status == 'ANALISE'
+                    && (request.resource.data.status == 'ANALISE'
+                        // venda a distância: nasce aguardando o cliente mandar documento e selfie pelo link
+                        || (request.resource.data.status == 'REMOTA' && request.resource.data.remota.token is string && request.resource.data.remota.token.size() >= 20))
                     && request.resource.data.vendedorUid == request.auth.uid
                     && request.resource.data.aparelho == null && request.resource.data.valor == 0;
       allow update: if hasRole(['DONO', 'FINANCEIRO'])

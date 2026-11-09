@@ -7,7 +7,7 @@ import { avaliarVenda } from './motor.js';
 const dig = (s) => String(s || '').replace(/\D/g, '');
 const txt = (s, n) => String(s ?? '').replace(/[<>]/g, '').trim().slice(0, n);
 const erro = (m, s = 400) => Object.assign(new Error(m), { status: s });
-const img = (x) => { x = String(x || ''); if (!/^data:image\/(jpeg|png|webp);base64,/.test(x)) return ''; if (x.length > 700000) throw erro('Foto grande demais. Tente de novo.'); return x; };
+const img = (x) => { x = String(x || ''); if (!/^data:image\/(jpeg|png|webp);base64,/.test(x)) return ''; if (x.length > 320000) throw erro('Foto grande demais. Tente de novo.'); return x; };
 function cpfOk(c) { c = dig(c); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false; for (const t of [9, 10]) { let s = 0; for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i); if ((s * 10) % 11 % 10 !== +c[t]) return false; } return true; }
 
 async function acharVenda(token) {
@@ -33,16 +33,26 @@ export default async function handler(req, res) {
       if (txt(d.mae, 120).split(' ').length < 2) throw erro('Informe o nome completo da mãe.');
       const tel = dig(d.telefone); if (tel.length < 10) throw erro('WhatsApp com DDD.');
       if (!(+d.renda > 0)) throw erro('Informe a renda mensal.');
+      for (const k of ['cpf_' + cpf, 'tel_' + tel]) { const ln = await db.collection('listanegra').doc(k).get(); if (ln.exists) throw erro('Não foi possível seguir com a proposta. Procure a loja.', 403); }
       if (b.aceite !== true) throw erro('Aceite os termos para continuar.');
       const frente = img(b.frente), verso = img(b.verso), selfie = img(b.selfie);
       if (!frente || !selfie) throw erro('Envie a foto da frente do documento e a selfie.');
-      const docs = {};
-      for (const [k, x] of Object.entries({ frente, verso, selfie })) { if (!x) continue; const r = await db.collection('docs').add({ tipo: k.toUpperCase(), vendaId: id, ver: x, criadoEm: Date.now(), via: 'remota', vendedorUid: v.vendedorUid }); docs[k] = r.id; }
-      const cliente = { ...(v.cliente || {}), cpf, nome: txt(d.nome, 120), nasc: d.nasc, rg: txt(d.rg, 30), mae: txt(d.mae, 120), email: txt(d.email, 120).toLowerCase(), telefones: [tel, dig(d.telefone2)].filter((x) => x.length >= 10),
-        cep: dig(d.cep).slice(0, 8), endereco: txt(d.endereco, 160), bairro: txt(d.bairro, 80), cidade: txt(d.cidade, 60), uf: txt(d.uf, 2).toUpperCase(), renda: +d.renda, profissao: txt(d.profissao, 80), lgpdAceiteEm: Date.now(), remoto: true };
-      await db.collection('vendas').doc(id).set({ status: 'ANALISE', clienteCpf: cpf, clienteNome: cliente.nome, cliente, docs: { ...(v.docs || {}), ...docs },
-        verificacao: { remota: true, documentoOriginal: null, face: null, editados: [], obs: 'Enviado pelo cliente a distância: confira as fotos com atenção.' },
-        remota: { ...v.remota, enviadoEm: Date.now(), ip: req.headers['cf-connecting-ip'] || '' }, enviadoAnaliseEm: Date.now() }, { merge: true });
+      const agora = Date.now(), tel2 = dig(d.telefone2);
+      const fone = (t) => t.length === 11 ? `(${t.slice(0, 2)}) ${t.slice(2, 7)}-${t.slice(7)}` : `(${t.slice(0, 2)}) ${t.slice(2, 6)}-${t.slice(6)}`;
+      const cliente = { ...(v.cliente || {}), cpf, nome: txt(d.nome, 120), nasc: d.nasc, rg: txt(d.rg, 30), orgao: txt(d.orgao, 20), mae: txt(d.mae, 120), docTipo: txt(d.docTipo, 5) || 'RG',
+        tel: fone(tel), telefones: [tel, tel2].filter((x) => x.length >= 10), email: txt(d.email, 120).toLowerCase(),
+        cep: dig(d.cep).slice(0, 8), endereco: txt(d.endereco, 160), bairro: txt(d.bairro, 80), cidade: txt(d.cidade, 60), uf: txt(d.uf, 2).toUpperCase(), renda: +d.renda, profissao: txt(d.profissao, 80), lgpdAceiteEm: agora, remoto: true };
+      // telefone já usado por outro cliente
+      for (const t of cliente.telefones) {
+        const o = (await db.collection('clientes').where('telefones', 'array-contains', t).get()).docs.filter((x) => x.id !== cpf);
+        if (o.length) throw erro('Este telefone já está cadastrado para outra pessoa. Use o seu número.');
+      }
+      await db.collection('docs').doc(id).set({ vendaId: id, cpf, docTipo: cliente.docTipo, frente, verso, selfie, criadoEm: agora, vendedorUid: v.vendedorUid, via: 'remota' });
+      await db.collection('clientes').doc(cpf).set({ ...cliente, atualizadoEm: agora }, { merge: true });
+      await db.collection('vendas').doc(id).set({ status: 'ANALISE', clienteCpf: cpf, clienteNome: cliente.nome, cliente,
+        verificacao: { remota: true, docTipo: cliente.docTipo, iaLeitura: false, documentoOriginal: true, editados: [], face: null, obs: 'Enviado pelo cliente a distância: confira documento e selfie com atenção.' },
+        confirmacaoDados: { status: 'PENDENTE', prazo: agora + 3 * 86400000 },
+        remota: { ...v.remota, enviadoEm: agora, ip: req.headers['cf-connecting-ip'] || '' } }, { merge: true });
       await db.collection('logs').add({ em: Date.now(), acao: 'Cliente enviou a proposta a distância', alvo: id, det: `nº ${v.numero} · ${cliente.nome}`, por: 'Cliente' });
       try { await avaliarVenda(id); } catch (e) { console.warn('motor', e.message); }
       return res.status(200).json({ ok: true, numero: v.numero });

@@ -1179,6 +1179,10 @@ async function passoAnalise(){
         <h2 style="justify-content:center;font-size:24px">Este cliente é inelegível para uma proposta de crédito no momento.</h2>
         <p class="muted">Proposta nº ${v.numero} · ${esc(v.clienteNome)}</p>
         <button class="btn lg" data-act="novaProposta">Voltar ao início</button></div>`;
+    } else if(v.status==='REMOTA'){
+      $('#wz').innerHTML=`<div class="card analise-viva"><div class="loader"></div><h2 style="justify-content:center">Aguardando o cliente enviar os documentos…</h2>
+        <p class="muted">Proposta nº ${v.numero} · link enviado ${relT(v.remota?.criadoEm||v.criadoEm)}<br>Quando o cliente mandar documento e selfie pelo celular, a análise começa sozinha e aparece aqui.</p>
+        <div class="row" style="justify-content:center"><button class="btn" data-act="remotaReenviar" data-id="${v.id}">Reenviar link pelo WhatsApp</button><button class="btn" data-act="copiarTexto" data-t="${esc(linkRemoto(v))}">Copiar link</button></div></div>`;
     } else $('#wz').innerHTML=`<div class="card empty"><b>Proposta ${esc(VENDA_ST[v.status]?.[0]||v.status)}</b></div>`;
   };
   unwatch&&unwatch();
@@ -5519,10 +5523,196 @@ Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus
 { const _c2=PAGES.config; PAGES.config=async()=>{ await _c2(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
   const f=(k,l,pad)=>`<label>${l}<input data-cfg="${k}" type="number" min="0" value="${esc(c[k]??pad)}"></label>`;
   const html=`<div class="card mt"><h2>Prazos e limites</h2><div class="grid g4">${f('vencMaxDias','1º vencimento até (dias depois da compra)',45)}${f('recolherDias','Sugerir recolher com atraso de (dias)',60)}${f('foraPaisDias','Alerta de aparelho fora do Brasil após (dias)',3)}${f('preAprovadoMax','Pré-aprovado: limite máximo (R$)',6000)}
-    ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}</div>
+    ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}${f('retornoDias','Chamar de novo o reprovado após (dias)',30)}${f('assistentePct','Assistente: parcela ideal até (% da renda)',30)}</div>
     <p class="small muted">Pré-aprovado: todo dia à noite, quem pagou 60% ou mais em dia (ou quitou) ganha limite para trocar de aparelho, válido por 90 dias. Aparece no app e no portal do cliente e acelera a análise.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
+/* ======================= LOTE: venda a distância, assistente, retorno, saúde, seminovos online, repasse Asaas, vendedor de risco, implantação ======================= */
+VENDA_ST.REMOTA=['Aguardando o cliente','amber'];
+
+/* ---- Venda a distância: o cliente manda documento e selfie pelo celular dele ---- */
+const linkRemoto=v=>urlCliente()+'?remoto='+encodeURIComponent(v.remota?.token||'')+(DEMO?'&demo':'');
+function enviarLinkRemoto(v,tel){
+  const msg=`Olá! Aqui é ${primeiroNome(S.me.nome)}, da ${lojaNome(v.lojaId)||S.cfg.empresa||'loja'}. Para fazer sua análise de crédito sem sair de casa, abra o link abaixo pelo celular, envie a foto do seu documento e uma selfie (leva 3 minutos):\n\n${linkRemoto(v)}\n\nO link vale por 7 dias.`;
+  window.open(`https://wa.me/${tel?telWa(tel):''}?text=${encodeURIComponent(msg)}`,'_blank','noopener');
+}
+async function vendaRemota(btn){
+  const tel=onlyDig(prompt('WhatsApp do cliente (com DDD). Deixe vazio para escolher o contato no WhatsApp:')||'');
+  if(tel&&tel.length<10) return toast('WhatsApp com DDD','err');
+  btn&&(btn.disabled=true);
+  try{
+    const numero=await DB.nextNum(), id='v'+numero+'_'+token(5), lojaId=S.me.lojaId||S.lojas[0]?.id||'';
+    const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
+      cliente:{telefones:tel?[tel]:[]},clienteCpf:'',clienteNome:tel?'Cliente '+fmtFone(tel):'Cliente a distância',aparelho:null,valor:0,entrada:0,
+      remota:{token:token(24),criadoEm:Date.now(),tel}};
+    await DB.set('vendas',id,v); await log('Venda a distância: link enviado ao cliente',id,`nº ${numero}`);
+    enviarLinkRemoto(v,tel);
+    toast('Link criado. Quando o cliente enviar, a proposta vai sozinha para análise.','ok');
+    novoFluxo(); S.w.vendaId=id; irPasso(4);
+  }catch(e){ console.error(e); toast('Não foi possível criar o link: '+e.message,'err'); btn&&(btn.disabled=false); }
+}
+{ const _pd=passoDoc; passoDoc=async(...a)=>{ await _pd(...a);
+  if(!$('#wz')||S.w.dados) return;
+  $('#wz').insertAdjacentHTML('afterbegin',`<div class="card mb" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-left:4px solid var(--gold,#C9A227)">
+    <div style="flex:1;min-width:220px"><b>Cliente não está na loja?</b><br><span class="small muted">Mande um link pelo WhatsApp: ele envia o documento, a selfie e os dados pelo celular dele e a proposta cai direto na análise.</span></div>
+    <button class="btn" data-act="vendaRemota">📲 Venda a distância</button></div>`); }; }
+{ const _ct=continuar; continuar=async id=>{ const v=await DB.get('vendas',id); if(v?.status==='REMOTA'){ novoFluxo(); S.w.vendaId=id; S.w.passo=4; closeModal(); S.tab='nova'; render(); return; } return _ct(id); }; }
+
+/* ---- Assistente na venda: a parcela cabe no bolso do cliente? ---- */
+const ASSIST_PCT=()=>Math.min(60,Math.max(10,+S.cfg.assistentePct||30));
+function assistenteHtml(renda,preco,entrada,j,n,ops,minEnt,cat){
+  if(!(renda>0)) return '';
+  const teto=r2(renda*ASSIST_PCT()/100), p=parcelaPlano(preco,entrada,j,n), pct=Math.round(p/renda*100), nMax=Math.max(...ops);
+  const dicas=[];
+  if(p<=teto) dicas.push(`✅ A parcela de <b>${brl(p)}</b> é ${pct}% da renda (${brl(renda)}). Cabe no orçamento.`);
+  else{
+    dicas.push(`⚠️ A parcela de <b>${brl(p)}</b> é ${pct}% da renda. O ideal é até ${ASSIST_PCT()}% (${brl(teto)}). Risco maior de atraso.`);
+    const nOk=ops.filter(x=>x>n&&parcelaPlano(preco,entrada,j,x)<=teto)[0];
+    if(nOk) dicas.push(`💡 Em <b>${nOk}x</b> a parcela fica ${brl(parcelaPlano(preco,entrada,j,nOk))}.`);
+    let lo=entrada, hi=preco; if(parcelaPlano(preco,hi,j,nMax)<=teto){ for(let i=0;i<30;i++){ const m=(lo+hi)/2; if(parcelaPlano(preco,m,j,nMax)<=teto) hi=m; else lo=m; } const e=Math.ceil(hi/10)*10; if(e<preco) dicas.push(`💡 Com entrada de <b>${brl(e)}</b> em ${nMax}x a parcela fica ${brl(parcelaPlano(preco,e,j,nMax))}.`); }
+    const alt=(cat||[]).filter(x=>x.preco<preco).map(x=>{ const e=r2(x.preco*minEnt); return {x,p:parcelaPlano(x.preco,e,jurosDo(x),nMax)}; }).filter(o=>o.p<=teto).sort((a,b)=>b.x.preco-a.x.preco).slice(0,3);
+    if(alt.length) dicas.push(`💡 Aparelhos que cabem: ${alt.map(o=>`<b>${esc(o.x.marca+' '+o.x.modelo+' '+(o.x.capacidade||''))}</b> (${nMax}x ${brl(o.p)})`).join(' · ')}`);
+  }
+  return `<div class="card mt" id="assist" style="border-left:4px solid ${p<=teto?'var(--ok)':'#D97706'}"><h3 style="margin:0 0 6px">Assistente da venda</h3>${dicas.map(d=>`<p class="small" style="margin:4px 0">${d}</p>`).join('')}</div>`;
+}
+{ const _pa=passoAparelho; passoAparelho=async(...a)=>{ const v=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w._renda=+v?.cliente?.renda||0; S.w._cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false&&x.preco>0&&!x.semTrava); return _pa(...a); }; }
+{ const _sm=simular; simular=(...a)=>{ _sm(...a); const it=S.w?.sel?.itemId; if(!it||!$('#nSim')) return; $('#assist')?.remove();
+  try{ const preco=S.w.sel.preco+(S.w.sel.acessValor||0), e=+$('#nEntrada').value||0, n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null), freq=S.w.sel.freq==='QUINZENAL'&&quinzenalAtivo()?'QUINZENAL':'MENSAL';
+    if(S.w.sel.semTrava||freq==='QUINZENAL') return;
+    $('#nSim').insertAdjacentHTML('afterend',assistenteHtml(S.w._renda,preco,e,jp,n,opsFreq('MENSAL'),(Number(S.cfg.entradaPct)||30)/100,S.w._cat)); }catch(err){ console.warn('assistente',err); } }; }
+{ const _sb=PAGES.simulador; PAGES.simulador=async()=>{ await _sb(); const ent=$('#sbEnt'); if(!ent) return;
+  ent.closest('.grid').lastElementChild.outerHTML='<label>Renda do cliente (opcional)<input id="sbRenda" type="number" step="0.01" placeholder="para o assistente"></label>';
+  const upd=()=>{ if(!$('#sbItem')||!$('#sbRes')) return; $('#assist')?.remove(); const x=S._simCat[+$('#sbItem').value], r=+$('#sbRenda').value||0; if(!x||!r) return; const e=+$('#sbEnt').value||0, ops=opsFreq('MENSAL'), n=Math.max(...ops);
+    $('#sbRes').insertAdjacentHTML('beforeend',assistenteHtml(r,S._simTotal||x.preco,e,jurosDo(x),n,ops,(Number(S.cfg.entradaPct)||30)/100,S._simCat)); };
+  ['sbRenda','sbEnt','sbItem'].forEach(k=>$('#'+k).addEventListener('change',()=>setTimeout(upd,0))); $('#sbRenda').addEventListener('input',upd); }; }
+
+/* ---- Retorno do reprovado: chamar de novo depois de X dias ---- */
+async function blocoRetorno(vendas){
+  const dias=+S.cfg.retornoDias||30, lim=Date.now()-dias*86400000;
+  const feitos=new Set((await DB.list('retornos',[['vendedorUid','==',S.me.uid]]).catch(()=>[])).map(r=>r.id));
+  const vs=vendas.filter(v=>v.status==='REPROVADA'&&v.vendedorUid===S.me.uid&&(v.analise?.em||v.criadoEm)<lim&&(v.analise?.em||v.criadoEm)>lim-60*86400000&&!feitos.has(v.id)&&(v.cliente?.telefones||[]).length)
+    .sort((a,b)=>(a.analise?.em||a.criadoEm)-(b.analise?.em||b.criadoEm)).slice(0,8);
+  if(!vs.length) return '';
+  return `<div class="card mt"><h2>Chamar de novo <span class="badge b-blue">${vs.length}</span></h2><p class="small muted" style="margin-top:-6px">Clientes reprovados há mais de ${dias} dias. A situação pode ter mudado: convide para uma nova análise.</p>
+    ${vs.map(v=>`<div class="pend"><div class="t2"><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · reprovado ${relT(v.analise?.em||v.criadoEm)}</span></div>
+      <div class="row" style="gap:6px"><button class="btn sm green" data-act="retornoWa" data-id="${v.id}">WhatsApp</button><button class="btn sm" data-act="retornoMarcar" data-id="${v.id}" data-r="FEITO">Feito</button><button class="btn sm" data-act="retornoMarcar" data-id="${v.id}" data-r="NAO_QUER">Não quer</button></div></div>`).join('')}</div>`;
+}
+{ const _ir=PAGES.inicio; PAGES.inicio=async()=>{ await _ir(); if(!can('VENDEDOR')||!$('#view')) return;
+  try{ const vs=await loadVendas(), h=await blocoRetorno(vs);
+    const rem=vs.filter(v=>v.status==='REMOTA'&&v.vendedorUid===S.me.uid&&Date.now()-(v.remota?.criadoEm||0)<7*86400000);
+    const hr=rem.length?`<div class="card mt"><h2>Vendas a distância aguardando o cliente <span class="badge b-amber">${rem.length}</span></h2>${rem.map(v=>`<div class="pend"><div class="t2"><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · link enviado ${relT(v.remota.criadoEm)}</span></div><div class="row" style="gap:6px"><button class="btn sm" data-act="remotaReenviar" data-id="${v.id}">Reenviar link</button><button class="btn sm" data-act="continuar" data-id="${v.id}">Acompanhar</button></div></div>`).join('')}</div>`:'';
+    $('#view').insertAdjacentHTML('beforeend',hr+h); }catch(e){ console.warn('retorno',e); } }; }
+
+/* ---- Saúde do aparelho no painel ---- */
+function saudeHtml(s){
+  if(!s) return '';
+  const al=[s.root&&badge('ROOT detectado','red'),s.modoDesenvolvedor&&badge('Modo desenvolvedor ligado','amber'),['ruim','superaquecida','sobretensão'].includes(s.bateriaSaude)&&badge('Bateria '+s.bateriaSaude,'amber'),s.temperatura>45&&badge(`${s.temperatura} °C`,'amber'),s.armTotalGb&&s.armLivreGb/s.armTotalGb<0.05&&badge('Memória quase cheia','amber')].filter(Boolean);
+  return `<div class="small mt" style="margin-top:6px">Saúde: armazenamento <b>${s.armLivreGb??'—'} GB livres de ${s.armTotalGb??'—'} GB</b> · bateria <b>${esc(s.bateriaSaude||'—')}</b>${s.temperatura?` (${s.temperatura} °C)`:''}${s.ligadoHa!=null?` · ligado há ${esc(String(s.ligadoHa))} h`:''} ${al.join(' ')}</div>`;
+}
+{ const _ac=apCard; apCard=a=>{ const h=_ac(a), s=saudeHtml(a.checkin?.saude); if(!s) return h; const k='</div><div class="row" style="justify-content:flex-end'; const i=h.indexOf(k); return i<0?h:h.slice(0,i)+s+h.slice(i); }; }
+
+/* ---- Seminovos à venda no site do cliente ---- */
+{ const _pv=publicarVitrine; let _snT; publicarVitrine=(...a)=>{ _pv(...a); if(!can('DONO')) return; clearTimeout(_snT); _snT=setTimeout(async()=>{ try{
+  const on=S.cfg.seminovosOnline!=='nao';
+  const sn=on?(await DB.list('seminovos')).filter(s=>s.status==='DISPONIVEL'&&s.precoVenda>0&&s.online!==false).map(s=>({id:s.id,marca:s.marca||'',modelo:s.modelo||'',capacidade:s.capacidade||'',estado:s.estado||'',preco:s.precoVenda,lojaId:s.lojaId||'',lojaNome:s.lojaNome||''})).slice(0,60):[];
+  await DB.set('publico','vitrine',{seminovos:sn,seminovosEm:Date.now()}); }catch(e){ console.warn('vitrine seminovos',e); } },2500); }; }
+{ const _ps=PAGES.seminovos; PAGES.seminovos=async()=>{ await _ps(); if(!$('#view')) return;
+  $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb small">🌐 Os seminovos <b>disponíveis com preço</b> aparecem no site do cliente (pré-análise), com as parcelas. ${can('DONO')?`<label class="check" style="display:inline-flex;margin-left:8px"><input type="checkbox" id="snOnline" ${S.cfg.seminovosOnline!=='nao'?'checked':''}> Mostrar no site</label>`:'O site é atualizado quando o Dono abre esta tela.'}</div>`);
+  $('#snOnline')?.addEventListener('change',async e=>{ S.cfg.seminovosOnline=e.target.checked?'sim':'nao'; await DB.set('config','sistema',{seminovosOnline:S.cfg.seminovosOnline}); publicarVitrine(); toast('Salvo','ok'); });
+  publicarVitrine(); }; }
+{ const _sv=snVender; snVender=async(...a)=>{ const r=await _sv(...a); publicarVitrine(); return r; }; }
+
+/* ---- Repasse automático às lojas pelo Asaas ---- */
+const PIX_TIPOS=[['CNPJ','CNPJ'],['CPF','CPF'],['EMAIL','E-mail'],['TELEFONE','Telefone'],['ALEATORIA','Chave aleatória']];
+{ const _el=editarLoja; editarLoja=async id=>{ await _el(id); if(!can('DONO','FINANCEIRO')) return; const l=id?S.lojas.find(x=>x.id===id)||{}:{};
+  const btn=document.querySelector('[data-act="salvarLoja"]'); btn?.closest('.row').insertAdjacentHTML('beforebegin',`<h3>Chave PIX para o repasse</h3><div class="grid g3"><label>Tipo<select id="lgPixTipo">${PIX_TIPOS.map(([k,t])=>`<option value="${k}" ${l.pixTipo===k?'selected':''}>${t}</option>`).join('')}</select></label><label style="grid-column:span 2">Chave PIX da loja<input id="lgPix" value="${esc(l.pixChave||'')}" placeholder="a chave que recebe o repasse"></label></div><p class="hint">Confira com o gerente: o repasse automático manda o dinheiro direto para esta chave.</p>`); }; }
+{ const _sl=salvarLoja; salvarLoja=async id=>{ const tp=$('#lgPixTipo')?.value, ch=$('#lgPix')?.value.trim(); await _sl(id); if(tp!=null&&id) await DB.set('lojas',id,{pixTipo:tp,pixChave:ch||''}).catch(e=>toast(e.message,'err')); if(tp!=null) S.lojas=await DB.list('lojas'); }; }
+async function repAsaas(btn){
+  const ids=[...document.querySelectorAll('[data-rep]:checked')].map(c=>c.dataset.rep);
+  if(!ids.length) return toast('Marque as vendas para repassar','err');
+  if(ids.length>10) return toast('No máximo 10 por vez','err');
+  const vs=S._repLista.filter(v=>ids.includes(v.id)), total=r2(vs.reduce((s,v)=>s+repValor(v),0));
+  const sem=[...new Set(vs.filter(v=>!S.lojas.find(l=>l.id===v.lojaId)?.pixChave).map(v=>v.lojaNome))];
+  if(sem.length) return toast('Sem chave PIX cadastrada: '+sem.join(', ')+'. Cadastre em Lojas e configurações.','err');
+  if(!confirm(`Transferir ${brl(total)} por PIX (Asaas) para ${vs.length} venda(s)? O dinheiro sai da sua conta Asaas agora.`)) return;
+  btn.disabled=true;
+  try{ const r=await apiServ('repasse',{vendaIds:ids}), ok=r.resultados.filter(x=>x.ok||x.ja), er=r.resultados.filter(x=>x.erro);
+    toast(`${ok.length} repasse(s) enviado(s)${er.length?` · ${er.length} com erro: ${er[0].erro}`:''}`,er.length?'err':'ok'); render();
+  }catch(e){ toast('Asaas: '+e.message,'err'); btn.disabled=false; }
+}
+{ const _pr=PAGES.repasses; PAGES.repasses=async()=>{ await _pr(); if(!can('DONO','FINANCEIRO')||!$('#view')) return;
+  const bt=document.querySelector('[data-act="repPagar"]'); if(bt&&asaasLigado()) bt.insertAdjacentHTML('beforebegin','<button class="btn green" data-act="repAsaas">Pagar selecionados pelo Asaas (PIX)</button>');
+  const semPix=S.lojas.filter(l=>!l.pixChave).length;
+  $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb small" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">⚡ <b>Repasse automático</b>: todas as noites o sistema manda por PIX (Asaas) o repasse das vendas ativas para a chave PIX de cada loja.
+    ${can('DONO')?`<label class="check" style="display:inline-flex"><input type="checkbox" id="repAuto" ${S.cfg.repasseAuto==='sim'?'checked':''} ${asaasLigado()?'':'disabled'}> Ligado</label>`:badge(S.cfg.repasseAuto==='sim'?'ligado':'desligado',S.cfg.repasseAuto==='sim'?'green':'gray')}
+    ${!asaasLigado()?'<span class="muted">(configure o Asaas primeiro)</span>':''}${semPix?` <span style="color:var(--bad)">${semPix} loja(s) sem chave PIX</span>`:''}</div>`);
+  $('#repAuto')?.addEventListener('change',async e=>{ if(e.target.checked&&!confirm('Ligar o repasse automático? O sistema vai transferir dinheiro da conta Asaas para as lojas sem pedir confirmação.')){ e.target.checked=false; return; }
+    S.cfg.repasseAuto=e.target.checked?'sim':'nao'; await DB.set('config','sistema',{repasseAuto:S.cfg.repasseAuto}); await log('Repasse automático '+(e.target.checked?'ligado':'desligado'),'',''); toast('Salvo','ok'); });
+  document.querySelectorAll('[data-rep]').forEach(c=>{ const v=S._repLista.find(x=>x.id===c.dataset.rep); if(v?.repasse?.erroAuto) c.closest('tr').querySelector('td:last-child')?.insertAdjacentHTML('afterbegin',`<span class="small" style="color:var(--bad)" title="${esc(v.repasse.erroAuto)}">falhou no Asaas</span> `); }); }; }
+
+/* ---- Alerta de vendedor de risco ---- */
+async function vendedoresRisco(){
+  const desde=Date.now()-180*86400000, hj=hoje();
+  const [vs,aps,us]=await Promise.all([loadVendas(),DB.list('aparelhos').catch(()=>[]),DB.list('users').catch(()=>[])]);
+  const apPor=Object.fromEntries(aps.map(a=>[a.id,a])), por={};
+  vs.filter(v=>v.criadoEm>=desde&&v.vendedorUid).forEach(v=>{ const k=v.vendedorUid, x=por[k]=por[k]||{uid:k,nome:v.vendedorNome,loja:v.lojaNome,prop:0,rep:0,vend:0,fpd:0,inad:0};
+    if(v.status==='REMOTA') return; x.prop++; if(v.status==='REPROVADA') x.rep++;
+    const ap=apPor[v.aparelhoToken]; if(!['ATIVA','QUITADA','RETOMADA'].includes(v.status)) return; x.vend++;
+    const ps=(ap?.parcelas||[]).slice().sort((a,b)=>a.venc<b.venc?-1:1), p1=ps[0];
+    if(p1&&!p1.pago&&diasEntre(p1.venc,hj)>15) x.fpd++;
+    if(v.status==='RETOMADA'||ps.some(p=>!p.pago&&diasEntre(p.venc,hj)>30)) x.inad++; });
+  const l=Object.values(por).filter(x=>x.prop>=3);
+  // compara com a média dos OUTROS vendedores (sem dados suficientes: referência do mercado)
+  const media=(x,f,b,pad)=>{ const o=l.filter(y=>y!==x), n=o.reduce((s,y)=>s+y[b],0); return n>=10?o.reduce((s,y)=>s+y[f],0)/n:pad; };
+  return l.map(x=>{ const m={fpd:media(x,'fpd','vend',0.08),inad:media(x,'inad','vend',0.12),rep:media(x,'rep','prop',0.3)}, t={fpd:x.vend?x.fpd/x.vend:0,inad:x.vend?x.inad/x.vend:0,rep:x.prop?x.rep/x.prop:0}, mot=[];
+    if(x.vend>=3&&t.fpd>=0.15&&t.fpd>=m.fpd*2) mot.push(`1ª parcela não paga: ${Math.round(t.fpd*100)}% (média ${Math.round(m.fpd*100)}%)`);
+    if(x.vend>=3&&t.inad>=0.2&&t.inad>=m.inad*1.8) mot.push(`inadimplência: ${Math.round(t.inad*100)}% (média ${Math.round(m.inad*100)}%)`);
+    if(x.prop>=5&&t.rep>=0.5&&t.rep>=m.rep*1.8) mot.push(`reprovação: ${Math.round(t.rep*100)}% (média ${Math.round(m.rep*100)}%)`);
+    const u=us.find(y=>y.id===x.uid); return {...x,mot,ativo:u?.ativo!==false,role:u?.role}; }).filter(x=>x.mot.length&&x.role!=='DONO');
+}
+{ const _pp=PAGES.painel; PAGES.painel=async()=>{ await _pp(); if(!can('DONO')||!$('#view')) return;
+  if(!S._vitSn){ S._vitSn=1; publicarVitrine(); }
+  try{ const r=await vendedoresRisco(); if(!r.length) return;
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb" style="border-left:4px solid var(--bad)"><h2>⚠ Vendedores de risco (últimos 6 meses)</h2><p class="small muted" style="margin-top:-6px">Índices muito acima da média das lojas podem indicar venda forçada, cliente laranja ou fraude. Confira as vendas antes de agir.</p>
+    <div class="tablewrap"><table><tr><th>Vendedor</th><th>Loja</th><th>Vendas</th><th>Alerta</th><th></th></tr>${r.map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>${esc(x.loja||'')}</td><td>${x.vend} de ${x.prop} propostas</td><td>${x.mot.map(m=>badge(m,'red')).join(' ')}</td>
+      <td class="right">${x.ativo?`<button class="btn sm red" data-act="bloquearVendedor" data-id="${x.uid}" data-n="${esc(x.nome)}">Bloquear acesso</button>`:badge('bloqueado','gray')}</td></tr>`).join('')}</table></div></div>`); }catch(e){ console.warn('risco',e); } }; }
+async function bloquearVendedor(d){
+  if(!confirm(`Bloquear o acesso de ${d.n}? Ele não consegue mais entrar nem vender até você liberar em Equipe.`)) return;
+  await DB.set('users',d.id,{ativo:false,bloqueadoPeloDono:true,bloqueadoEm:Date.now(),motivoBloqueio:'Vendedor de risco (índices acima da média)'}); await log('Vendedor bloqueado por risco',d.id,d.n); toast('Acesso bloqueado','ok'); render();
+}
+
+/* ---- Checklist de implantação da loja ---- */
+async function implantacao(lojas){
+  const [us,vs,aps]=await Promise.all([DB.list('users').catch(()=>[]),loadVendas().catch(()=>[]),can('DONO')?DB.list('aparelhos').catch(()=>[]):Promise.resolve(null)]);
+  return lojas.map(l=>{ const ger=us.filter(u=>u.role==='GERENTE'&&u.lojaId===l.id), ven=us.filter(u=>u.role==='VENDEDOR'&&u.lojaId===l.id&&u.ativo!==false), lv=vs.filter(v=>v.lojaId===l.id);
+    const apL=aps?aps.filter(a=>a.lojaId===l.id||lv.some(v=>v.aparelhoToken===a.id)):null;
+    const itens=[['Loja aprovada e ativa',!l.bloqueada],['Gerente entrou e trocou a senha',ger.some(u=>u.senhaTemporaria===false||u.senhaTrocadaEm)],['Pelo menos 1 vendedor ativo',ven.length>0],
+      ['Vendedor fez o treinamento',ven.some(u=>u.treinamento?.aprovado)],['Chave PIX para o repasse',!!l.pixChave],['1ª venda feita',lv.some(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status))],
+      ['1ª trava instalada e ativa',apL?apL.some(a=>a.checkin?.deviceOwner):lv.some(v=>['ATIVA','QUITADA'].includes(v.status)&&v.aparelhoToken)],['Cobrança gerada para o cliente',apL?apL.some(a=>(a.parcelas||[]).some(p=>p.asaasId)):lv.some(v=>v.status==='ATIVA')]];
+    return {l,itens,ok:itens.filter(i=>i[1]).length}; });
+}
+const implHtml=x=>`<div class="row" style="gap:6px;flex-wrap:wrap">${x.itens.map(([t,ok])=>`<span class="badge ${ok?'b-green':'b-gray'}" title="${esc(t)}">${ok?'✓':'○'} ${esc(t)}</span>`).join('')}</div>`;
+{ const _pl=PAGES.lojas; PAGES.lojas=async()=>{ await _pl(); if(!can('DONO')||!$('#view')) return;
+  try{ const r=(await implantacao(S.lojas)).filter(x=>x.ok<x.itens.length); if(!r.length) return;
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>Implantação das lojas <span class="badge b-amber">${r.length} em andamento</span></h2><p class="small muted" style="margin-top:-6px">O que falta para cada loja começar a vender com segurança.</p>
+    ${r.sort((a,b)=>a.ok-b.ok).map(x=>`<div style="padding:10px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between"><b>${esc(x.l.nome)}</b><span class="small muted">${x.ok} de ${x.itens.length} · ${Math.round(x.ok/x.itens.length*100)}%</span></div><div class="barra" style="margin:6px 0"><i style="width:${Math.round(x.ok/x.itens.length*100)}%"></i></div>${implHtml(x)}</div>`).join('')}</div>`); }catch(e){ console.warn('implantação',e); } }; }
+{ const _pg=PAGES.painel; PAGES.painel=async()=>{ await _pg(); if(!can('GERENTE')||!$('#view')) return;
+  try{ const l=S.lojas.find(x=>x.id===S.me.lojaId); if(!l) return; const [x]=await implantacao([l]); if(x.ok>=x.itens.length) return;
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb" style="border-left:4px solid var(--gold,#C9A227)"><h2>Implantação da loja — ${x.ok} de ${x.itens.length}</h2><div class="barra" style="margin:0 0 8px"><i style="width:${Math.round(x.ok/x.itens.length*100)}%"></i></div>${implHtml(x)}
+      <p class="small muted" style="margin-bottom:0">Complete os itens para liberar todas as funções. Dúvidas? Use o chat de atendimento.</p></div>`); }catch(e){ console.warn('implantação',e); } }; }
+
+Object.assign(ACT,{
+  vendaRemota:(d,b)=>vendaRemota(b),
+  remotaReenviar:async d=>{ const v=await DB.get('vendas',d.id); if(v) enviarLinkRemoto(v,v.remota?.tel||''); },
+  retornoWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; const tel=(v.cliente?.telefones||[])[0];
+    const link=urlCliente()+`?pre&l=${encodeURIComponent(v.lojaId||'')}&v=${encodeURIComponent(S.me.uid)}&vn=${encodeURIComponent(primeiroNome(S.me.nome)+' · '+lojaNome(v.lojaId))}`;
+    window.open(`https://wa.me/${telWa(tel)}?text=${encodeURIComponent(`Olá, ${primeiroNome(v.clienteNome)}! Aqui é ${primeiroNome(S.me.nome)}, da ${lojaNome(v.lojaId)||S.cfg.empresa}. Já faz um tempo da sua análise de crédito e as condições podem ter mudado. Quer tentar de novo? É rapidinho pelo celular:\n${link}`)}`,'_blank','noopener');
+    await DB.set('retornos',d.id,{vendedorUid:S.me.uid,status:'CONTATADO',em:Date.now()}).catch(()=>{}); render(); },
+  retornoMarcar:async d=>{ await DB.set('retornos',d.id,{vendedorUid:S.me.uid,status:d.r,em:Date.now()}); toast('Anotado','ok'); render(); },
+  repAsaas:(d,b)=>repAsaas(b),
+  bloquearVendedor:d=>bloquearVendedor(d),
+});
+
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
   if(e.target.id==='nDiaVenc'&&e.target.value){ const d=+e.target.value, h=new Date(hoje()+'T12:00:00'); let x=new Date(h.getFullYear(),h.getMonth(),d,12); while(diasEntre(hoje(),isoDate(x))<20) x=new Date(x.getFullYear(),x.getMonth()+1,d,12); $('#nVenc').value=isoDate(x); if(S.w?.sel) S.w.sel.diaVenc=d; }

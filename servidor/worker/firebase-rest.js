@@ -61,6 +61,8 @@ function deFs(v) {
   return null;
 }
 const caminhoCampo = (k) => (/^[A-Za-z_][A-Za-z_0-9]*$/.test(k) ? k : '`' + k.replace(/[`\\]/g, (c) => '\\' + c) + '`');
+// em consultas, "a.b" é campo aninhado (cada parte entre crases se precisar)
+const caminhoConsulta = (k) => String(k).split('.').map(caminhoCampo).join('.');
 const autoId = () => { const a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', b = crypto.getRandomValues(new Uint8Array(20)); return [...b].map((x) => a[x % 62]).join(''); };
 
 // ---------- cliente REST ----------
@@ -103,10 +105,10 @@ class Consulta {
   async get() {
     const partes = this.col.split('/'), colId = partes.pop(), pai = partes.length ? `${raiz()}/${partes.join('/')}` : raiz();
     const OPS = { '==': 'EQUAL', '!=': 'NOT_EQUAL', '<': 'LESS_THAN', '<=': 'LESS_THAN_OR_EQUAL', '>': 'GREATER_THAN', '>=': 'GREATER_THAN_OR_EQUAL', 'array-contains': 'ARRAY_CONTAINS', in: 'IN' };
-    const f = this.filtros.map(([c, op, v]) => ({ fieldFilter: { field: { fieldPath: caminhoCampo(c) }, op: OPS[op], value: paraFs(v) } }));
+    const f = this.filtros.map(([c, op, v]) => ({ fieldFilter: { field: { fieldPath: caminhoConsulta(c) }, op: OPS[op], value: paraFs(v) } }));
     const q = { from: [{ collectionId: colId }] };
     if (f.length === 1) q.where = f[0]; else if (f.length > 1) q.where = { compositeFilter: { op: 'AND', filters: f } };
-    if (this.ordem) q.orderBy = [{ field: { fieldPath: caminhoCampo(this.ordem[0]) }, direction: this.ordem[1] === 'desc' ? 'DESCENDING' : 'ASCENDING' }];
+    if (this.ordem) q.orderBy = [{ field: { fieldPath: caminhoConsulta(this.ordem[0]) }, direction: this.ordem[1] === 'desc' ? 'DESCENDING' : 'ASCENDING' }];
     if (this.lim) q.limit = this.lim;
     const r = await rest(pai.replace(base(), '') + ':runQuery', { method: 'POST', body: JSON.stringify({ structuredQuery: q }) });
     const docs = (Array.isArray(r) ? r : []).filter((x) => x.document).map((x) => { const id = x.document.name.split('/').pop(); const s = snap(id, x.document); s.ref = new DocRef(this.col, id); return s; });
