@@ -7,6 +7,19 @@
 // POST /api/loja {"acao":"cancelarCobrancas","vendaId":"..."}    → apaga no Asaas as cobranças em aberto (devolução / cancelamento)
 import { db, asaas, cors, gerarCobrancas, clienteAsaas, exigirEquipe, r2, hoje, paraAparelho } from './_base.js';
 
+/** Pede a negativação (Serasa via Asaas) de uma parcela vencida. Usado pelo botão e pela rotina automática. */
+export async function pedirNegativacao(v2, p, por) {
+  const c = v2.cliente || {}, num = (String(c.endereco || '').match(/,\s*(\d+)/) || [])[1] || 'S/N';
+  const r = await asaas('/paymentDunnings', { method: 'POST', body: JSON.stringify({
+    payment: p.asaasId, type: 'CREDIT_BUREAU', description: `Compra a prazo de aparelho celular — contrato ${v2.numero}`,
+    customerName: v2.clienteNome, customerCpfCnpj: String(v2.clienteCpf).replace(/\D/g, ''),
+    customerPrimaryPhone: String((c.telefones || [])[0] || '').replace(/\D/g, ''), customerSecondaryPhone: String((c.telefones || [])[1] || '').replace(/\D/g, ''),
+    customerPostalCode: String(c.cep || '').replace(/\D/g, ''), customerAddress: c.endereco || '', customerAddressNumber: num, customerProvince: c.bairro || '',
+  }) });
+  await db.collection('vendas').doc(v2.id).set({ negativacao: { id: r.id, status: r.status || 'PENDING', parcela: p.n, em: Date.now(), por } }, { merge: true });
+  return r;
+}
+
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).end();
@@ -26,17 +39,10 @@ export default async function handler(req, res) {
       const v = (await db.collection('vendas').doc(String(b.vendaId)).get()).data();
       if (!v) throw new Error('venda não encontrada');
       if ((v.parcelas || []).every((p) => !p.asaasId)) await gerarCobrancas(String(b.vendaId));
-      const v2 = (await db.collection('vendas').doc(String(b.vendaId)).get()).data();
+      const v2 = { id: String(b.vendaId), ...(await db.collection('vendas').doc(String(b.vendaId)).get()).data() };
       const p = (v2.parcelas || []).find((x) => x.n === +b.n) || (v2.parcelas || []).find((x) => !x.pago && x.venc < hoje());
       if (!p?.asaasId) throw new Error('parcela sem cobrança no Asaas');
-      const c = v2.cliente || {}, num = (String(c.endereco || '').match(/,\s*(\d+)/) || [])[1] || 'S/N';
-      const r = await asaas('/paymentDunnings', { method: 'POST', body: JSON.stringify({
-        payment: p.asaasId, type: 'CREDIT_BUREAU', description: `Compra a prazo de aparelho celular — contrato ${v2.numero}`,
-        customerName: v2.clienteNome, customerCpfCnpj: String(v2.clienteCpf).replace(/\D/g, ''),
-        customerPrimaryPhone: String((c.telefones || [])[0] || '').replace(/\D/g, ''), customerSecondaryPhone: String((c.telefones || [])[1] || '').replace(/\D/g, ''),
-        customerPostalCode: String(c.cep || '').replace(/\D/g, ''), customerAddress: c.endereco || '', customerAddressNumber: num, customerProvince: c.bairro || '',
-      }) });
-      await db.collection('vendas').doc(String(b.vendaId)).set({ negativacao: { id: r.id, status: r.status || 'PENDING', parcela: p.n, em: Date.now(), por: quem.nome } }, { merge: true });
+      const r = await pedirNegativacao(v2, p, quem.nome);
       return res.status(200).json({ id: r.id, status: r.status });
     }
     if (b.acao === 'cartao') {
