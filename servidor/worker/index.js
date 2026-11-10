@@ -17,9 +17,10 @@ import saas from '../api/saas.js';
 import motor from '../api/motor.js';
 import repasse from '../api/repasse.js';
 import remota from '../api/remota.js';
+import { codigo, acordo } from '../api/seguranca.js';
 import { rotinas } from '../api/cron.js';
 
-const ROTAS = { pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota };
+const ROTAS = { codigo, acordo, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };
