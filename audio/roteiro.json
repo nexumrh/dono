@@ -1,0 +1,70 @@
+[
+ {
+  "id": "venda-0",
+  "texto": "Oi! Eu sou a Ana, instrutora do NexumCell. Neste vídeo, vou te mostrar como fazer uma venda do começo ao fim. São oito passos, bem rapidinhos, e nenhum deles pode ser pulado. Vamos lá?"
+ },
+ {
+  "id": "venda-1",
+  "texto": "Primeiro, fotografe o documento original, na mão do cliente. Depois faça a biometria com o cliente na loja: ele olha para a câmera, vira o rosto e sorri. Nunca use foto de foto ou foto de tela."
+ },
+ {
+  "id": "venda-2",
+  "texto": "Cadastre dois telefones do próprio cliente, diferentes. Nunca coloque o seu telefone ou de alguém da equipe. O financeiro confirma os dados pelo WhatsApp."
+ },
+ {
+  "id": "venda-3",
+  "texto": "Envie para a análise e espere na tela. O resultado aparece sozinho em poucos minutos."
+ },
+ {
+  "id": "venda-4",
+  "texto": "Com a proposta aprovada, escolha o aparelho do estoque, a entrada e as parcelas. O assistente mostra se a parcela cabe no bolso do cliente. O preço vem do sistema e não pode ser mudado."
+ },
+ {
+  "id": "venda-5",
+  "texto": "O cliente assina o contrato na tela. Explique com calma as parcelas e o bloqueio em caso de atraso. Depois receba a entrada."
+ },
+ {
+  "id": "venda-6",
+  "texto": "Por último, instale a trava. O aparelho só pode ser entregue quando o sistema mostrar a tela verde: trava instalada e confirmada. Pronto, venda concluída!"
+ },
+ {
+  "id": "trava-pc-0",
+  "texto": "Oi, aqui é a Ana de novo! Às vezes o QR code da primeira tela não funciona, e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Sem problema: nesse caso, a gente instala pelo computador, com o cabo USB. E a proteção fica completa, igualzinha à do QR."
+ },
+ {
+  "id": "trava-pc-1",
+  "texto": "Você precisa de um computador com Windows e internet, um cabo USB de dados, de preferência o da caixa, e o celular zerado, sem conta Google."
+ },
+ {
+  "id": "trava-pc-2",
+  "texto": "No celular, vá em Configurações, Sistema, Opções de redefinição, e apague tudo. Na configuração inicial, pule o Wi-Fi e não entre com conta Google."
+ },
+ {
+  "id": "trava-pc-3",
+  "texto": "Depois vá em Configurações, Sobre o telefone, e toque sete vezes no Número da versão, até aparecer: você agora é um desenvolvedor. No Realme fica em Versão. No Samsung, em Informações do software."
+ },
+ {
+  "id": "trava-pc-4",
+  "texto": "Volte e entre em Opções do desenvolvedor. Ligue a Depuração USB. No Xiaomi, ligue também Instalar via USB."
+ },
+ {
+  "id": "trava-pc-5",
+  "texto": "No computador, na tela da trava da venda, abra Instalar pelo computador e clique em Baixar instalador. O arquivo serve só para aquela venda. Dê dois cliques nele. Se o Windows avisar, clique em Mais informações e em Executar assim mesmo."
+ },
+ {
+  "id": "trava-pc-6",
+  "texto": "Ligue o celular no cabo. Vai aparecer: permitir depuração USB? Marque sempre permitir deste computador e toque em Permitir."
+ },
+ {
+  "id": "trava-pc-7",
+  "texto": "Espere a janela mostrar PRONTO, contrato ligado. Não tire o cabo antes disso."
+ },
+ {
+  "id": "trava-pc-8",
+  "texto": "Tire o cabo, conecte o celular no Wi-Fi e abra o app NexumCell uma vez. Espere a tela da venda ficar verde. Por fim, desligue a depuração USB e entregue o aparelho ao cliente. Se der erro, veja a tabela de erros no guia ou chame o suporte."
+ },
+ {
+  "id": "fim",
+  "texto": "Parabéns! Você concluiu o treinamento. Até a próxima!"
+ }
+]
