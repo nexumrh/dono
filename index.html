@@ -525,8 +525,8 @@ function demoSave(){ try{ localStorage.setItem(DEMO_KEY, JSON.stringify(demo)); 
 function demoInit(reset){ let d=null; if(!reset){ try{ d=JSON.parse(localStorage.getItem(DEMO_KEY)); }catch(e){} } demo=d||seedDemo(); demoSave(); }
 const dcol = c => demo[c] || (demo[c]={});
 const DB = {
-  async get(c,id){ if(!fb){ const v=dcol(c)[id]; return v?{id,...clone(v)}:null; } const s=await fb.m.getDoc(fb.m.doc(fb.db,c,id)); return s.exists()?{id:s.id,...s.data()}:null; },
-  async set(c,id,data){ if(c==='aparelhos') avisarAparelhos([id],data); data=clone(data); delete data.id; if(!fb){ dcol(c)[id]=Object.assign(dcol(c)[id]||{},data); demoSave(); return; } await fb.m.setDoc(fb.m.doc(fb.db,c,id),data,{merge:true}); },
+  async get(c,id){ if(!fb){ const v=dcol(c)[id]; return v?{id,...clone(v)}:null; } let s; try{ s=await fb.m.getDoc(fb.m.doc(fb.db,c,id)); }catch(e){ e.alvo='ler '+c; throw e; } return s.exists()?{id:s.id,...s.data()}:null; },
+  async set(c,id,data){ if(c==='aparelhos') avisarAparelhos([id],data); data=clone(data); delete data.id; if(!fb){ dcol(c)[id]=Object.assign(dcol(c)[id]||{},data); demoSave(); return; } try{ await fb.m.setDoc(fb.m.doc(fb.db,c,id),data,{merge:true}); }catch(e){ e.alvo='gravar '+c+' · '+Object.keys(data).slice(0,6).join(','); throw e; } },
   async add(c,data){ const id=token(20); await DB.set(c,id,data); return id; },
   async list(c,filters=[]){
     if(!fb) return Object.entries(dcol(c)).map(([id,v])=>({id,...clone(v)})).filter(o=>filters.every(([f,op,v])=>op==='array-contains'?(o[f]||[]).includes(v):o[f]===v));
@@ -3137,15 +3137,15 @@ const TREINO=[
  ['Documento e biometria','Só vale documento original, na mão do cliente. A biometria é feita na hora, com o cliente na loja: ele olha, vira o rosto e sorri. Nunca use foto de foto ou foto de tela.'],
  ['Telefones e confirmação','Os dois telefones precisam ser do próprio cliente, diferentes e nunca da equipe. O financeiro confirma os dados por WhatsApp em até 3 dias.'],
  ['Preço e entrada','O preço e os juros vêm do sistema e não podem ser mudados. A entrada mínima é a definida pelo dono. Usado na entrada só com checklist completo e fotos.'],
- ['IMEI e estoque','Só se vende aparelho que está no estoque da loja. O IMEI é conferido pelo *#06# com foto, e o número precisa ser consultado no Celular Legal (Anatel).'],
- ['Trava e entrega','O aparelho só sai da loja depois que a trava sobe e o painel fica verde. Antes de entregar: checklist e foto do cliente com o aparelho.'],
+ ['IMEI e estoque','Só se vende aparelho que está no estoque da loja. Leia o IMEI pela câmera ou digite com atenção: o sistema confere se o número é válido.'],
+ ['Trava e entrega','O aparelho só sai da loja depois que a trava sobe e o painel fica verde. Se o QR não funcionar, instale pelo computador com o cabo USB.'],
  ['Postura com o cliente','Explique com calma as parcelas, o desconto de pagar antes e o bloqueio em caso de atraso. Nunca prometa o que não está no contrato.']];
 const QUIZ=[
  ['O cliente quer levar o aparelho e pagar a entrada amanhã. O que fazer?',['Entregar, ele parece confiável','Só entregar depois da entrada paga e da trava instalada','Entregar e travar depois'],1],
  ['O cliente mandou por WhatsApp a foto do RG. Pode usar?',['Sim','Não, o documento precisa ser fotografado na loja','Só se for nítida'],1],
  ['Qual telefone NÃO pode ser cadastrado?',['O celular do cliente','O telefone de um parente do cliente','O seu telefone ou de alguém da equipe'],2],
  ['O cliente pediu desconto no preço do aparelho. Você:',['Muda o preço no sistema','Explica que o preço é fixo e oferece o desconto de pagar antes do vencimento','Dá o desconto na entrada sem avisar'],1],
- ['O IMEI digitado não confere com a tela *#06#. O que fazer?',['Seguir assim mesmo','Conferir de novo; se não bater, não vender aquele aparelho','Digitar outro IMEI do estoque'],1],
+ ['O IMEI digitado não confere com o da caixa do aparelho. O que fazer?',['Seguir assim mesmo','Conferir de novo; se não bater, não vender aquele aparelho','Digitar outro IMEI do estoque'],1],
  ['A trava não subiu depois de 15 minutos. Você:',['Entrega o aparelho e pede para o cliente voltar','Não entrega, refaz a instalação e avisa o suporte se continuar','Cancela a venda sem avisar'],1],
  ['Quando a biometria é aceita?',['Com o cliente na loja, fazendo a prova de vida na câmera','Com foto da galeria','Com a foto do documento'],0],
  ['O usado do cliente ainda está com a conta Google. Você:',['Aceita e remove depois','Pede para ele remover na sua frente antes de avaliar','Recusa qualquer usado'],1]];
@@ -4346,7 +4346,7 @@ document.addEventListener('click',e=>{
   if(el.tagName==='A'&&el.getAttribute('href')==='#') e.preventDefault();
   if(el.tagName==='TR'&&e.target.closest('button,a')) return;
   const fn=ACT[el.dataset.act]; if(!fn) return;
-  Promise.resolve(fn(el.dataset,el)).catch(err=>{ console.error(err); toast('Erro: '+(err.message||err),'err'); });
+  Promise.resolve(fn(el.dataset,el)).catch(err=>{ console.error(err); toast('Erro: '+(err.message||err)+(err.alvo?` (${err.alvo})`:'')+` [${el.dataset.act}]`,'err'); });
 });
 $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
 document.addEventListener('click',e=>{ const im=e.target.closest('.docs-grid img'); if(im){ const w=window.open(''); if(w){ w.document.write(`<body style="margin:0;background:#000"><img src="${im.src}" style="width:100%">`); } } });
