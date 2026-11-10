@@ -4,7 +4,7 @@ import asyncio, json, os, hashlib
 import edge_tts
 
 PASTA = os.path.dirname(os.path.abspath(__file__))
-VOZ = os.environ.get('VOZ', 'pt-BR-FranciscaNeural')
+VOZ = os.environ.get('VOZ', 'pt-BR-ThalitaMultilingualNeural')
 roteiro = json.load(open(os.path.join(PASTA, 'roteiro.json'), encoding='utf-8'))
 vpath = os.path.join(PASTA, 'versao.json')
 versao = json.load(open(vpath, encoding='utf-8')) if os.path.exists(vpath) else {}
