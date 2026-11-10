@@ -326,9 +326,16 @@ details summary{cursor:pointer}
 .tv-fundo{position:fixed;inset:0;z-index:9998;background:rgba(5,12,30,.88);display:flex;align-items:center;justify-content:center;padding:14px}
 .tv-caixa{width:min(980px,100%);background:#0A1733;border-radius:18px;overflow:hidden;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .tv-topo{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#0E1F47}.tv-x{background:none;border:0;color:#fff;font-size:20px;cursor:pointer}
-.tv-palco{display:flex;gap:18px;align-items:center;padding:22px;min-height:340px;background:radial-gradient(circle at 70% 30%,#1B3577,#0A1733)}
-.tv-robo{flex:0 0 120px;transition:transform .3s}.tv-robo.fala{animation:tvPula 1.2s ease-in-out infinite}.tv-robo.fala #tvBoca{animation:tvBoca .25s ease-in-out infinite alternate}
-@keyframes tvBoca{from{height:3px;y:67px}to{height:12px;y:63px}}@keyframes tvPula{50%{transform:translateY(-6px)}}
+.tv-palco{display:flex;gap:26px;align-items:center;padding:26px 28px;min-height:360px;background:linear-gradient(135deg,#0A1733 0%,#13306E 60%,#1B3F8C 100%)}
+.tv-apres{flex:0 0 210px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.tv-robo{width:200px;height:200px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 40%,#E9EEF8,#B8C6E3);border:4px solid #C9A227;display:flex;align-items:flex-end;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.tv-robo svg{transform-origin:50% 100%;animation:tvRespira 4s ease-in-out infinite}.tv-robo.fala svg{animation:tvFala 2.4s ease-in-out infinite}
+.tv-olhos{animation:tvPisca2 4.5s infinite;transform-origin:100px 104px}@keyframes tvPisca2{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.1)}}
+.tv-boca-aberta{opacity:0}.tv-robo.fala .tv-boca-aberta{animation:tvBoca .22s ease-in-out infinite alternate}@keyframes tvBoca{from{opacity:0}to{opacity:1}}
+@keyframes tvRespira{50%{transform:translateY(1.5px) scale(1.005)}}@keyframes tvFala{25%{transform:rotate(-1deg)}75%{transform:rotate(1deg) translateY(-1px)}}
+.tv-nome{text-align:center;line-height:1.2}.tv-nome b{display:block;color:#fff;font-size:16px}.tv-nome span{color:#C9A227;font-size:12px;letter-spacing:.5px}
+.tv-topo small{display:block;color:#C9A227;font-size:10px;letter-spacing:2px}.tv-etapa{display:inline-block;background:rgba(201,162,39,.15);color:#F3D98B;border:1px solid rgba(201,162,39,.4);border-radius:20px;padding:3px 12px;font-size:12px;margin-bottom:8px}
+.tv-dica{background:#FFF7DD;color:#5B4500;font-size:13px;padding:8px 18px}
 .tv-cena{flex:1;display:flex;justify-content:center}.tv-cena-in{text-align:center;animation:tvEntra .5s ease;max-width:560px;width:100%}.tv-cena-in h3{color:#F3D98B;margin:0 0 12px;font-size:22px}
 @keyframes tvEntra{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .tv-grande{font-size:64px;margin:6px 0}.tv-cena-in p{color:#C9D4EE;font-size:16px}
@@ -347,7 +354,7 @@ details summary{cursor:pointer}
 .tv-barra{height:5px;background:#1B2B55}.tv-barra i{display:block;height:100%;width:0;background:#C9A227;transition:width .4s}
 .tv-ctrl{display:flex;gap:8px;align-items:center;padding:10px 16px}.tv-ctrl button{background:#1B2B55;border:0;color:#fff;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer}.tv-ctrl span{margin-left:auto;color:#9FB0D6;font-size:13px}
 .tv-card{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px}.tv-thumb{width:56px;height:56px;border-radius:12px;background:#0A1733;color:#F3D98B;display:flex;align-items:center;justify-content:center;font-size:22px}
-@media(max-width:640px){.tv-palco{flex-direction:column;min-height:0}.tv-robo{flex:0 0 auto;transform:scale(.7)}}
+@media(max-width:640px){.tv-palco{flex-direction:column;min-height:0;padding:16px}.tv-apres{flex:0 0 auto}.tv-robo{width:130px;height:130px}.tv-robo svg{width:124px;height:142px}}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
@@ -5867,7 +5874,7 @@ const telaPc=conteudo=>`<div class="tv-pc"><div class="tv-pc-barra"><i></i><i></
 const toque=(n=7)=>`<div class="tv-toque">👆<b>${n}x</b></div>`;
 const CURSOS=[
  {id:'venda',titulo:'Como fazer uma venda',min:4,roles:['VENDEDOR','GERENTE','DONO'],cenas:[
-  {t:'Bem-vindo ao NexumCell',v:`<div class="tv-grande">📱💳</div><p>Venda de celular parcelado com proteção do aparelho</p>`,f:'Olá! Eu sou o robô do NexumCell. Neste vídeo você vai aprender a fazer uma venda do começo ao fim. São oito passos, e nenhum pode ser pulado.'},
+  {t:'Bem-vindo ao NexumCell',v:`<div class="tv-grande">📱💳</div><p>Venda de celular parcelado com proteção do aparelho</p>`,f:'Oi! Eu sou a Ana, instrutora do NexumCell. Neste vídeo, vou te mostrar como fazer uma venda do começo ao fim. São oito passos, bem rapidinhos, e nenhum deles pode ser pulado. Vamos lá?'},
   {t:'1 e 2. Documento e biometria',v:telaCel('<div class="tv-doc">🪪</div><div class="tv-ok">Documento original</div><div class="tv-doc">🙂</div><div class="tv-ok">Prova de vida</div>'),f:'Primeiro, fotografe o documento original, na mão do cliente. Depois faça a biometria com o cliente na loja: ele olha para a câmera, vira o rosto e sorri. Nunca use foto de foto ou foto de tela.'},
   {t:'3. Contato do cliente',v:telaCel(linhaCfg('📞 Celular do cliente')+linhaCfg('📞 Telefone de recado')+'<div class="tv-erro">✖ Nunca o telefone da equipe</div>'),f:'Cadastre dois telefones do próprio cliente, diferentes. Nunca coloque o seu telefone ou de alguém da equipe. O financeiro confirma os dados pelo WhatsApp.'},
   {t:'4. Análise de crédito',v:`<div class="tv-loader"></div><p><b>Analisando proposta…</b></p>`,f:'Envie para a análise e espere na tela. O resultado aparece sozinho em poucos minutos.'},
@@ -5875,7 +5882,7 @@ const CURSOS=[
   {t:'6 e 7. Contrato e entrada',v:telaCel('<div class="tv-doc">✍️</div><div class="tv-ok">Contrato assinado</div><div class="tv-doc">💰</div><div class="tv-ok">Entrada recebida</div>'),f:'O cliente assina o contrato na tela. Explique com calma as parcelas e o bloqueio em caso de atraso. Depois receba a entrada.'},
   {t:'8. Trava instalada',v:`<div class="tv-grande">🔒✅</div><p>O aparelho só sai da loja com a tela <b style="color:#16A34A">verde</b></p>`,f:'Por último, instale a trava. O aparelho só pode ser entregue quando o sistema mostrar a tela verde: trava instalada e confirmada. Pronto, venda concluída!'}]},
  {id:'trava-pc',titulo:'Instalar a trava pelo computador',min:5,roles:['VENDEDOR','GERENTE','DONO'],cenas:[
-  {t:'Quando usar',v:`<div class="tv-grande">💻🔌📱</div><p>Quando o QR code não funcionar</p>`,f:'Às vezes o QR code da primeira tela não funciona e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Nesse caso, instale pelo computador, com o cabo USB. A proteção fica completa, igual à do QR.'},
+  {t:'Quando usar',v:`<div class="tv-grande">💻🔌📱</div><p>Quando o QR code não funcionar</p>`,f:'Oi, aqui é a Ana de novo! Às vezes o QR code da primeira tela não funciona, e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Sem problema: nesse caso, a gente instala pelo computador, com o cabo USB. E a proteção fica completa, igualzinha à do QR.'},
   {t:'O que você precisa',v:`<ul class="tv-lista"><li>💻 Computador com Windows 10 ou 11</li><li>🔌 Cabo USB de dados</li><li>📱 Celular zerado, sem conta Google</li></ul>`,f:'Você precisa de um computador com Windows e internet, um cabo USB de dados, de preferência o da caixa, e o celular zerado, sem conta Google.'},
   {t:'1. Zere o celular',v:telaCel(linhaCfg('Sistema')+linhaCfg('Opções de redefinição')+linhaCfg('Apagar tudo',true)),f:'No celular, vá em Configurações, Sistema, Opções de redefinição, e apague tudo. Na configuração inicial, pule o Wi-Fi e não entre com conta Google.'},
   {t:'2. Opções do desenvolvedor',v:telaCel(linhaCfg('Sobre o telefone')+linhaCfg('Número da versão',true)+toque(7)),f:'Depois vá em Configurações, Sobre o telefone, e toque sete vezes no Número da versão, até aparecer: você agora é um desenvolvedor. No Realme fica em Versão. No Samsung, em Informações do software.'},
@@ -5889,37 +5896,53 @@ const CURSOS=[
         ['Quando pode tirar o cabo?',['Logo depois de abrir o instalador','Quando aparecer PRONTO na janela','Quando o celular reiniciar'],1]]}];
 
 let _tv=null;
-function vozPt(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/pt[-_]BR/i.test(v.lang)&&/female|mulher|Francisca|Luciana|Google/i.test(v.name))||vs.find(v=>/pt[-_]BR/i.test(v.lang))||vs.find(v=>/^pt/i.test(v.lang)); }
+function vozPt(){ const vs=speechSynthesis.getVoices().filter(v=>/pt[-_]BR/i.test(v.lang)), r=re=>vs.find(v=>re.test(v.name));
+  // vozes neurais (mais humanas) primeiro: Microsoft Edge (Francisca, Thalita) e Google; depois qualquer voz feminina
+  return r(/Francisca.*(Natural|Online)/i)||r(/Thalita.*(Natural|Online)/i)||r(/(Natural|Online).*(Francisca|Thalita|Leila|Manuela|Yara|Elza|Brenda|Giovanna|Leticia)/i)||r(/Google/i)||r(/Francisca|Thalita|Luciana|Maria|Vit[oó]ria|female|mulher/i)||vs[0]||speechSynthesis.getVoices().find(v=>/^pt/i.test(v.lang)); }
+const vozNatural=()=>{ const v=vozPt(); return !!v&&/Natural|Online|Google/i.test(v.name); };
 function abrirCurso(id){
   const c=CURSOS.find(x=>x.id===id); if(!c) return;
   fecharCurso(); _tv={c,i:0,tocando:true,mudo:false};
   document.body.insertAdjacentHTML('beforeend',`<div id="tvPlayer" class="tv-fundo"><div class="tv-caixa">
-    <div class="tv-topo"><b>${esc(c.titulo)}</b><button class="tv-x" id="tvX" aria-label="Fechar">✕</button></div>
-    <div class="tv-palco"><div class="tv-robo" id="tvRobo">${roboSvg()}</div><div class="tv-cena" id="tvCena"></div></div>
+    <div class="tv-topo"><div><small>TREINAMENTO NEXUMCELL</small><b>${esc(c.titulo)}</b></div><button class="tv-x" id="tvX" aria-label="Fechar">✕</button></div>
+    <div class="tv-palco"><div class="tv-apres"><div class="tv-robo" id="tvRobo">${roboSvg()}</div><div class="tv-nome"><b>Ana</b><span>Instrutora NexumCell</span></div></div><div class="tv-cena" id="tvCena"></div></div>
+    <div class="tv-dica" id="tvDica" hidden>🎧 Para ouvir a voz mais natural, abra este treinamento no <b>Microsoft Edge</b> ou no <b>Google Chrome</b>.</div>
     <div class="tv-legenda" id="tvLeg"></div>
     <div class="tv-barra"><i id="tvProg"></i></div>
     <div class="tv-ctrl"><button id="tvAnt">⏮</button><button id="tvPlay">⏸</button><button id="tvProx">⏭</button><button id="tvMudo">🔊</button><span id="tvCont"></span></div></div></div>`);
   $('#tvX').onclick=fecharCurso; $('#tvAnt').onclick=()=>irCena(_tv.i-1); $('#tvProx').onclick=()=>irCena(_tv.i+1);
   $('#tvPlay').onclick=()=>{ _tv.tocando=!_tv.tocando; $('#tvPlay').textContent=_tv.tocando?'⏸':'▶'; if(_tv.tocando) irCena(_tv.i); else { speechSynthesis.cancel(); clearTimeout(_tv.tm); falando(false); } };
   $('#tvMudo').onclick=()=>{ _tv.mudo=!_tv.mudo; $('#tvMudo').textContent=_tv.mudo?'🔇':'🔊'; irCena(_tv.i); };
+  setTimeout(()=>{ if($('#tvDica')) $('#tvDica').hidden=vozNatural(); },900);
   if(speechSynthesis.getVoices().length) irCena(0); else { speechSynthesis.onvoiceschanged=()=>{ speechSynthesis.onvoiceschanged=null; if(_tv&&_tv.i===0) irCena(0); }; setTimeout(()=>{ if(_tv&&!_tv.iniciou) irCena(0); },600); }
 }
-function roboSvg(){ return `<svg viewBox="0 0 120 140" width="120" height="140"><line x1="60" y1="6" x2="60" y2="22" stroke="#C9A227" stroke-width="4"/><circle cx="60" cy="6" r="6" fill="#C9A227"/>
-  <rect x="18" y="22" width="84" height="70" rx="20" fill="#1E3A8A"/><rect x="28" y="34" width="64" height="44" rx="12" fill="#0A1733"/>
-  <circle class="tv-olho" cx="46" cy="52" r="7" fill="#4D8DFF"/><circle class="tv-olho" cx="74" cy="52" r="7" fill="#4D8DFF"/>
-  <rect id="tvBoca" x="48" y="66" width="24" height="5" rx="2.5" fill="#F3D98B"/>
-  <rect x="34" y="96" width="52" height="36" rx="10" fill="#1E3A8A"/><circle cx="60" cy="114" r="7" fill="#C9A227"/></svg>`; }
+function roboSvg(){ return `<svg viewBox="0 0 200 230" width="190" height="218" aria-label="Ana, apresentadora">
+  <defs><linearGradient id="tvPele" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E9B996"/><stop offset="1" stop-color="#D79E78"/></linearGradient>
+  <linearGradient id="tvCab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B2416"/><stop offset="1" stop-color="#24150C"/></linearGradient></defs>
+  <path d="M42 120 C30 60 60 22 100 22 C140 22 170 60 158 120 L162 168 L38 168 Z" fill="url(#tvCab)"/>
+  <path d="M30 230 C30 190 55 172 100 172 C145 172 170 190 170 230 Z" fill="#0E1F47"/>
+  <path d="M80 172 L100 206 L120 172 Z" fill="#F4F6FB"/><path d="M72 174 L100 230 L64 230 Z" fill="#162C63"/><path d="M128 174 L100 230 L136 230 Z" fill="#162C63"/>
+  <circle cx="132" cy="196" r="5" fill="#C9A227"/>
+  <rect x="88" y="142" width="24" height="34" rx="10" fill="#D79E78"/>
+  <ellipse cx="100" cy="104" rx="42" ry="50" fill="url(#tvPele)"/>
+  <path d="M58 98 C60 58 84 46 104 48 C126 50 144 64 142 98 C132 76 112 66 92 70 C78 74 66 84 58 98 Z" fill="url(#tvCab)"/>
+  <path d="M74 92 Q84 87 93 91" stroke="#3B2416" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M107 91 Q116 87 126 92" stroke="#3B2416" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <g class="tv-olhos"><ellipse cx="84" cy="104" rx="5.5" ry="6" fill="#fff"/><ellipse cx="116" cy="104" rx="5.5" ry="6" fill="#fff"/><circle cx="84" cy="105" r="3.6" fill="#3A2A1E"/><circle cx="116" cy="105" r="3.6" fill="#3A2A1E"/><circle cx="85.2" cy="103.6" r="1.1" fill="#fff"/><circle cx="117.2" cy="103.6" r="1.1" fill="#fff"/></g>
+  <path d="M100 108 Q97 120 100 123 Q103 124 105 122" stroke="#B9805C" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="74" cy="122" rx="7" ry="4" fill="#E79A8A" opacity=".45"/><ellipse cx="126" cy="122" rx="7" ry="4" fill="#E79A8A" opacity=".45"/>
+  <g id="tvBoca"><path d="M88 133 Q100 141 112 133 Q100 137 88 133 Z" fill="#B8475A"/><path class="tv-boca-aberta" d="M89 133 Q100 133 111 133 Q100 147 89 133 Z" fill="#7A2335"/></g>
+  <circle cx="57" cy="112" r="4" fill="#C9A227"/><circle cx="143" cy="112" r="4" fill="#C9A227"/></svg>`; }
 function falando(on){ const r=$('#tvRobo'); if(r) r.classList.toggle('fala',!!on); }
 function irCena(i){
   if(!_tv) return; const c=_tv.c; _tv.iniciou=true;
   if(i>=c.cenas.length){ speechSynthesis.cancel(); falando(false); return fimCurso(); }
   _tv.i=Math.max(0,i); const s=c.cenas[_tv.i]; speechSynthesis.cancel(); clearTimeout(_tv.tm);
-  $('#tvCena').innerHTML=`<div class="tv-cena-in"><h3>${esc(s.t)}</h3>${s.v}</div>`;
+  $('#tvCena').innerHTML=`<div class="tv-cena-in"><div class="tv-etapa">Parte ${_tv.i+1} de ${c.cenas.length}</div><h3>${esc(s.t)}</h3>${s.v}</div>`;
   $('#tvLeg').textContent=s.f; $('#tvCont').textContent=`${_tv.i+1} / ${c.cenas.length}`; $('#tvProg').style.width=((_tv.i+1)/c.cenas.length*100)+'%';
   if(!_tv.tocando) return;
   const seguir=()=>{ falando(false); if(_tv&&_tv.tocando) _tv.tm=setTimeout(()=>irCena(_tv.i+1),1200); };
   if(_tv.mudo||!('speechSynthesis' in window)){ falando(true); _tv.tm=setTimeout(seguir,Math.max(4000,s.f.length*65)); return; }
-  const u=new SpeechSynthesisUtterance(s.f); u.lang='pt-BR'; u.rate=1.02; const vz=vozPt(); if(vz) u.voice=vz;
+  const u=new SpeechSynthesisUtterance(s.f); u.lang='pt-BR'; const vz=vozPt(); if(vz) u.voice=vz; u.rate=vozNatural()?1:0.96; u.pitch=vozNatural()?1:1.08;
   u.onstart=()=>falando(true); u.onend=seguir; u.onerror=()=>{ falando(false); _tv.tm=setTimeout(seguir,Math.max(4000,s.f.length*65)); };
   speechSynthesis.speak(u);
 }
@@ -5938,11 +5961,11 @@ async function concluirCurso(c){
   await DB.set('users',S.me.uid,{cursos:cur}).catch(()=>{}); await log('Treinamento em vídeo concluído',S.me.uid,c.titulo);
   $('#tvCena').innerHTML=`<div class="tv-cena-in"><div class="tv-grande">🎉</div><h3>Treinamento concluído!</h3><p>${esc(c.titulo)}</p><button class="btn gold" id="tvFim">Fechar</button></div>`;
   $('#tvLeg').textContent='Parabéns! Você concluiu este treinamento.'; $('#tvFim').onclick=()=>{ fecharCurso(); render(); };
-  try{ if(!_tv.mudo){ const u=new SpeechSynthesisUtterance('Parabéns! Você concluiu o treinamento.'); u.lang='pt-BR'; const vz=vozPt(); if(vz) u.voice=vz; speechSynthesis.speak(u); } }catch(e){}
+  try{ if(!_tv.mudo){ const u=new SpeechSynthesisUtterance('Parabéns! Você concluiu o treinamento. Até a próxima!'); u.lang='pt-BR'; const vz=vozPt(); if(vz) u.voice=vz; speechSynthesis.speak(u); } }catch(e){}
 }
 function blocoCursos(){
   const meus=CURSOS.filter(c=>c.roles.includes(S.me.role));
-  return `<div class="card mb"><h2>🎬 Treinamentos em vídeo</h2><p class="muted" style="margin-top:-6px">O robô do NexumCell explica cada passo. Ligue o som.</p>
+  return `<div class="card mb"><h2>🎬 Treinamentos em vídeo</h2><p class="muted" style="margin-top:-6px">A Ana, instrutora do NexumCell, explica cada passo. Ligue o som.</p>
     <div class="grid g2">${meus.map(c=>{ const ok=S.me.cursos?.[c.id]; return `<div class="tv-card"><div class="tv-thumb">▶</div><div style="flex:1"><b>${esc(c.titulo)}</b><br><span class="small muted">${c.cenas.length} partes · ${c.min} min${c.quiz?' · com teste':''}</span><br>${ok?badge('Concluído em '+fmtD(new Date(ok)),'green'):badge('Não assistido','gray')}</div><button class="btn sm gold" data-act="abrirCurso" data-id="${c.id}">${ok?'Ver de novo':'Assistir'}</button></div>`; }).join('')}</div></div>`;
 }
 { const _tr=PAGES.treinamento; PAGES.treinamento=async()=>{ await _tr(); $('#view')?.insertAdjacentHTML('afterbegin',blocoCursos()); }; }
