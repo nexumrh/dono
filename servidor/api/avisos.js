@@ -7,12 +7,14 @@
 import { db, cors, exigirEquipe, hoje, config, asaasConf, asaas } from './_base.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarSms, enviarWhatsapp, MODELOS } from './_brevo.js';
 import { rotinas, dadosAviso } from './cron.js';
+import { relatorioSemanal } from './relatorio-semanal.js';
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).end();
   try {
     const b = req.body || {}, E = process.env;
+    if (b.acao === 'relSemanal') { await exigirEquipe(req, ['DONO']); return res.status(200).json(await relatorioSemanal(await config(), true)); }
     if (b.acao === 'status') {
       await exigirEquipe(req);
       const ac = await asaasConf();

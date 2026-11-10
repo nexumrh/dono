@@ -359,8 +359,10 @@ service cloud.firestore {
     // ---------- Pedidos do portal do cliente: assistência técnica e LGPD ----------
     match /pedidos/{id} {
       allow create: if signed()
-                    && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm', 'novoDia'])
-                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO', 'VENCIMENTO']
+                    && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm', 'novoDia', 'fotos', 'dados'])
+                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO', 'VENCIMENTO', 'PROTECAO', 'DADOS']
+                    && (!('fotos' in request.resource.data) || (request.resource.data.fotos is list && request.resource.data.fotos.size() <= 3))
+                    && (!('dados' in request.resource.data) || request.resource.data.dados.keys().hasOnly(['tel1', 'tel2', 'cep', 'endereco', 'bairro', 'cidade', 'uf']))
                     && request.resource.data.status == 'ABERTO'
                     && request.resource.data.descricao.size() <= 600
                     && get(/databases/$(database)/documents/aparelhos/$(request.resource.data.token)).data.lojaId == request.resource.data.lojaId
