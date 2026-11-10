@@ -121,6 +121,14 @@ service cloud.firestore {
     function jurosComVip(base, desc) { return desc <= base ? base - desc : 0; }
     function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
 
+    // contrato assinado: o cliente baixa pelo app da trava ou pelo portal (o ID é o token secreto do aparelho)
+    match /contratos/{token} {
+      allow get: if signed();
+      allow list: if false;
+      allow create, update: if staff();
+      allow delete: if hasRole(['DONO']);
+    }
+
     // retorno do reprovado: o vendedor anota que chamou o cliente de novo
     match /retornos/{id} {
       allow read: if staff();
