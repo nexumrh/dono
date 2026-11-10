@@ -323,6 +323,32 @@ details summary{cursor:pointer}
 .inst-status{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--warn-s);color:var(--warn);font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center}
 .inst-status.ok{background:var(--ok-s);color:var(--ok)}.inst-status svg{width:20px;height:20px;flex:none}
 
+.tv-fundo{position:fixed;inset:0;z-index:9998;background:rgba(5,12,30,.88);display:flex;align-items:center;justify-content:center;padding:14px}
+.tv-caixa{width:min(980px,100%);background:#0A1733;border-radius:18px;overflow:hidden;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.tv-topo{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#0E1F47}.tv-x{background:none;border:0;color:#fff;font-size:20px;cursor:pointer}
+.tv-palco{display:flex;gap:18px;align-items:center;padding:22px;min-height:340px;background:radial-gradient(circle at 70% 30%,#1B3577,#0A1733)}
+.tv-robo{flex:0 0 120px;transition:transform .3s}.tv-robo.fala{animation:tvPula 1.2s ease-in-out infinite}.tv-robo.fala #tvBoca{animation:tvBoca .25s ease-in-out infinite alternate}
+@keyframes tvBoca{from{height:3px;y:67px}to{height:12px;y:63px}}@keyframes tvPula{50%{transform:translateY(-6px)}}
+.tv-cena{flex:1;display:flex;justify-content:center}.tv-cena-in{text-align:center;animation:tvEntra .5s ease;max-width:560px;width:100%}.tv-cena-in h3{color:#F3D98B;margin:0 0 12px;font-size:22px}
+@keyframes tvEntra{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.tv-grande{font-size:64px;margin:6px 0}.tv-cena-in p{color:#C9D4EE;font-size:16px}
+.tv-cel{width:210px;margin:0 auto;border:8px solid #2A3A63;border-radius:28px;background:#F5F7FB;color:#0A1733;padding:16px 10px;min-height:250px;position:relative;text-align:left}
+.tv-linha{background:#fff;border:1px solid #E3E8F2;border-radius:10px;padding:9px 10px;margin:6px 0;font-size:13px;display:flex;justify-content:space-between;align-items:center}.tv-linha.dest{border-color:#1D4ED8;box-shadow:0 0 0 3px #BFD3FF;animation:tvPisca 1.4s infinite}
+@keyframes tvPisca{50%{box-shadow:0 0 0 6px #DCE7FF}}.tv-chave{width:34px;height:18px;border-radius:9px;background:#16A34A;position:relative}.tv-chave:after{content:'';position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.tv-toque{position:absolute;right:16px;bottom:20px;font-size:30px;animation:tvTap .6s infinite}.tv-toque b{font-size:14px;color:#1D4ED8;margin-left:4px}@keyframes tvTap{50%{transform:scale(.85)}}
+.tv-ok{color:#16A34A;font-weight:700;font-size:13px;text-align:center;margin:4px 0 10px}.tv-erro{color:#DC2626;font-weight:700;font-size:13px;text-align:center;margin-top:10px}.tv-doc{font-size:38px;text-align:center}
+.tv-pc{width:min(420px,100%);margin:0 auto;border-radius:10px;overflow:hidden;background:#fff;color:#0A1733;text-align:left}.tv-pc-barra{background:#E3E8F2;padding:7px}.tv-pc-barra i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#C9D2E3;margin-right:5px}
+.tv-pc-tela{padding:18px}.tv-btn{background:#C9A227;color:#0A1733;font-weight:700;border-radius:10px;padding:10px 12px;text-align:center;animation:tvPisca 1.4s infinite}.tv-arq{font-family:monospace;font-size:12px;color:#5B6782}
+.tv-term{background:#0B1020;color:#9EF0B5;border-radius:8px;padding:12px;font-size:13px;margin:0;white-space:pre-wrap}.tv-term b{color:#F3D98B}
+.tv-popup{background:#fff;border-radius:12px;padding:14px;margin-top:40px;box-shadow:0 6px 20px rgba(0,0,0,.15);font-size:13px;display:grid;gap:8px}
+.tv-lista{text-align:left;display:inline-block;font-size:17px;color:#fff;line-height:2}.tv-loader{width:56px;height:56px;border:6px solid #2A3A63;border-top-color:#4D8DFF;border-radius:50%;margin:20px auto;animation:spin 1s linear infinite}
+.tv-quiz{text-align:left;background:#fff;color:#0A1733;border-radius:12px;padding:16px;max-height:300px;overflow:auto}.tv-quiz h3{color:#0A1733}
+.tv-legenda{padding:12px 20px;font-size:16px;line-height:1.45;background:#0E1F47;min-height:62px}
+.tv-barra{height:5px;background:#1B2B55}.tv-barra i{display:block;height:100%;width:0;background:#C9A227;transition:width .4s}
+.tv-ctrl{display:flex;gap:8px;align-items:center;padding:10px 16px}.tv-ctrl button{background:#1B2B55;border:0;color:#fff;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer}.tv-ctrl span{margin-left:auto;color:#9FB0D6;font-size:13px}
+.tv-card{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px}.tv-thumb{width:56px;height:56px;border-radius:12px;background:#0A1733;color:#F3D98B;display:flex;align-items:center;justify-content:center;font-size:22px}
+@media(max-width:640px){.tv-palco{flex-direction:column;min-height:0}.tv-robo{flex:0 0 auto;transform:scale(.7)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -402,7 +428,7 @@ const PORTAL = 'dono';
 const PORTAIS = {
   dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','recolher','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','saas','ajuda','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe','ajuda'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
@@ -5833,6 +5859,96 @@ Object.assign(ACT,{
   repAsaas:(d,b)=>repAsaas(b),
   bloquearVendedor:d=>bloquearVendedor(d),
 });
+
+/* ======================= TREINAMENTO EM VÍDEO (robô narrando) ======================= */
+const telaCel=(conteudo,rodape='')=>`<div class="tv-cel"><div class="tv-cel-tela">${conteudo}</div>${rodape?`<div class="tv-cel-pe">${rodape}</div>`:''}</div>`;
+const linhaCfg=(t,dest=false)=>`<div class="tv-linha ${dest?'dest':''}">${t}<span>›</span></div>`;
+const telaPc=conteudo=>`<div class="tv-pc"><div class="tv-pc-barra"><i></i><i></i><i></i></div><div class="tv-pc-tela">${conteudo}</div></div>`;
+const toque=(n=7)=>`<div class="tv-toque">👆<b>${n}x</b></div>`;
+const CURSOS=[
+ {id:'venda',titulo:'Como fazer uma venda',min:4,roles:['VENDEDOR','GERENTE','DONO'],cenas:[
+  {t:'Bem-vindo ao NexumCell',v:`<div class="tv-grande">📱💳</div><p>Venda de celular parcelado com proteção do aparelho</p>`,f:'Olá! Eu sou o robô do NexumCell. Neste vídeo você vai aprender a fazer uma venda do começo ao fim. São oito passos, e nenhum pode ser pulado.'},
+  {t:'1 e 2. Documento e biometria',v:telaCel('<div class="tv-doc">🪪</div><div class="tv-ok">Documento original</div><div class="tv-doc">🙂</div><div class="tv-ok">Prova de vida</div>'),f:'Primeiro, fotografe o documento original, na mão do cliente. Depois faça a biometria com o cliente na loja: ele olha para a câmera, vira o rosto e sorri. Nunca use foto de foto ou foto de tela.'},
+  {t:'3. Contato do cliente',v:telaCel(linhaCfg('📞 Celular do cliente')+linhaCfg('📞 Telefone de recado')+'<div class="tv-erro">✖ Nunca o telefone da equipe</div>'),f:'Cadastre dois telefones do próprio cliente, diferentes. Nunca coloque o seu telefone ou de alguém da equipe. O financeiro confirma os dados pelo WhatsApp.'},
+  {t:'4. Análise de crédito',v:`<div class="tv-loader"></div><p><b>Analisando proposta…</b></p>`,f:'Envie para a análise e espere na tela. O resultado aparece sozinho em poucos minutos.'},
+  {t:'5. Escolha do aparelho',v:telaCel(linhaCfg('Galaxy A15 · 128GB',true)+'<div class="tv-ok">Parcela cabe na renda</div>'),f:'Com a proposta aprovada, escolha o aparelho do estoque, a entrada e as parcelas. O assistente mostra se a parcela cabe no bolso do cliente. O preço vem do sistema e não pode ser mudado.'},
+  {t:'6 e 7. Contrato e entrada',v:telaCel('<div class="tv-doc">✍️</div><div class="tv-ok">Contrato assinado</div><div class="tv-doc">💰</div><div class="tv-ok">Entrada recebida</div>'),f:'O cliente assina o contrato na tela. Explique com calma as parcelas e o bloqueio em caso de atraso. Depois receba a entrada.'},
+  {t:'8. Trava instalada',v:`<div class="tv-grande">🔒✅</div><p>O aparelho só sai da loja com a tela <b style="color:#16A34A">verde</b></p>`,f:'Por último, instale a trava. O aparelho só pode ser entregue quando o sistema mostrar a tela verde: trava instalada e confirmada. Pronto, venda concluída!'}]},
+ {id:'trava-pc',titulo:'Instalar a trava pelo computador',min:5,roles:['VENDEDOR','GERENTE','DONO'],cenas:[
+  {t:'Quando usar',v:`<div class="tv-grande">💻🔌📱</div><p>Quando o QR code não funcionar</p>`,f:'Às vezes o QR code da primeira tela não funciona e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Nesse caso, instale pelo computador, com o cabo USB. A proteção fica completa, igual à do QR.'},
+  {t:'O que você precisa',v:`<ul class="tv-lista"><li>💻 Computador com Windows 10 ou 11</li><li>🔌 Cabo USB de dados</li><li>📱 Celular zerado, sem conta Google</li></ul>`,f:'Você precisa de um computador com Windows e internet, um cabo USB de dados, de preferência o da caixa, e o celular zerado, sem conta Google.'},
+  {t:'1. Zere o celular',v:telaCel(linhaCfg('Sistema')+linhaCfg('Opções de redefinição')+linhaCfg('Apagar tudo',true)),f:'No celular, vá em Configurações, Sistema, Opções de redefinição, e apague tudo. Na configuração inicial, pule o Wi-Fi e não entre com conta Google.'},
+  {t:'2. Opções do desenvolvedor',v:telaCel(linhaCfg('Sobre o telefone')+linhaCfg('Número da versão',true)+toque(7)),f:'Depois vá em Configurações, Sobre o telefone, e toque sete vezes no Número da versão, até aparecer: você agora é um desenvolvedor. No Realme fica em Versão. No Samsung, em Informações do software.'},
+  {t:'3. Depuração USB',v:telaCel(linhaCfg('Opções do desenvolvedor')+'<div class="tv-linha dest">Depuração USB <span class="tv-chave"></span></div>'),f:'Volte e entre em Opções do desenvolvedor. Ligue a Depuração USB. No Xiaomi, ligue também Instalar via USB.'},
+  {t:'4. Baixe o instalador',v:telaPc(`<div class="tv-btn">⬇ Baixar instalador para o computador</div><p class="tv-arq">instalar-trava-contrato-4.bat</p>`),f:'No computador, na tela da trava da venda, abra Instalar pelo computador e clique em Baixar instalador. O arquivo serve só para aquela venda. Dê dois cliques nele. Se o Windows avisar, clique em Mais informações e em Executar assim mesmo.'},
+  {t:'5. Ligue o cabo e permita',v:telaCel('<div class="tv-popup"><b>Permitir depuração USB?</b><span>☑ Sempre permitir deste computador</span><div class="tv-btn">Permitir</div></div>'),f:'Ligue o celular no cabo. Vai aparecer: permitir depuração USB? Marque sempre permitir deste computador e toque em Permitir.'},
+  {t:'6. Espere o PRONTO',v:telaPc(`<pre class="tv-term">Instalando o app...\nAtivando a protecao...\nLigando ao contrato...\n\n<b>PRONTO! Contrato 4 ligado.</b></pre>`),f:'Espere a janela mostrar PRONTO, contrato ligado. Não tire o cabo antes disso.'},
+  {t:'7. Confira e entregue',v:`<div class="tv-grande">✅</div><p>Conecte o Wi-Fi · espere a tela <b style="color:#16A34A">verde</b> · desligue a depuração USB</p>`,f:'Tire o cabo, conecte o celular no Wi-Fi e abra o app NexumCell uma vez. Espere a tela da venda ficar verde. Por fim, desligue a depuração USB e entregue o aparelho ao cliente. Se der erro, veja a tabela de erros no guia ou chame o suporte.'}],
+  quiz:[['O QR code deu "app bloqueado para proteger seu dispositivo". O que fazer?',['Entregar o aparelho sem trava','Instalar pelo computador com o cabo USB','Tentar o mesmo QR várias vezes'],1],
+        ['Na configuração do celular zerado, você deve:',['Entrar com a conta Google do cliente','Pular o Wi-Fi e não entrar com conta Google','Entrar com a conta da loja'],1],
+        ['Quando pode tirar o cabo?',['Logo depois de abrir o instalador','Quando aparecer PRONTO na janela','Quando o celular reiniciar'],1]]}];
+
+let _tv=null;
+function vozPt(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/pt[-_]BR/i.test(v.lang)&&/female|mulher|Francisca|Luciana|Google/i.test(v.name))||vs.find(v=>/pt[-_]BR/i.test(v.lang))||vs.find(v=>/^pt/i.test(v.lang)); }
+function abrirCurso(id){
+  const c=CURSOS.find(x=>x.id===id); if(!c) return;
+  fecharCurso(); _tv={c,i:0,tocando:true,mudo:false};
+  document.body.insertAdjacentHTML('beforeend',`<div id="tvPlayer" class="tv-fundo"><div class="tv-caixa">
+    <div class="tv-topo"><b>${esc(c.titulo)}</b><button class="tv-x" id="tvX" aria-label="Fechar">✕</button></div>
+    <div class="tv-palco"><div class="tv-robo" id="tvRobo">${roboSvg()}</div><div class="tv-cena" id="tvCena"></div></div>
+    <div class="tv-legenda" id="tvLeg"></div>
+    <div class="tv-barra"><i id="tvProg"></i></div>
+    <div class="tv-ctrl"><button id="tvAnt">⏮</button><button id="tvPlay">⏸</button><button id="tvProx">⏭</button><button id="tvMudo">🔊</button><span id="tvCont"></span></div></div></div>`);
+  $('#tvX').onclick=fecharCurso; $('#tvAnt').onclick=()=>irCena(_tv.i-1); $('#tvProx').onclick=()=>irCena(_tv.i+1);
+  $('#tvPlay').onclick=()=>{ _tv.tocando=!_tv.tocando; $('#tvPlay').textContent=_tv.tocando?'⏸':'▶'; if(_tv.tocando) irCena(_tv.i); else { speechSynthesis.cancel(); clearTimeout(_tv.tm); falando(false); } };
+  $('#tvMudo').onclick=()=>{ _tv.mudo=!_tv.mudo; $('#tvMudo').textContent=_tv.mudo?'🔇':'🔊'; irCena(_tv.i); };
+  if(speechSynthesis.getVoices().length) irCena(0); else { speechSynthesis.onvoiceschanged=()=>{ speechSynthesis.onvoiceschanged=null; if(_tv&&_tv.i===0) irCena(0); }; setTimeout(()=>{ if(_tv&&!_tv.iniciou) irCena(0); },600); }
+}
+function roboSvg(){ return `<svg viewBox="0 0 120 140" width="120" height="140"><line x1="60" y1="6" x2="60" y2="22" stroke="#C9A227" stroke-width="4"/><circle cx="60" cy="6" r="6" fill="#C9A227"/>
+  <rect x="18" y="22" width="84" height="70" rx="20" fill="#1E3A8A"/><rect x="28" y="34" width="64" height="44" rx="12" fill="#0A1733"/>
+  <circle class="tv-olho" cx="46" cy="52" r="7" fill="#4D8DFF"/><circle class="tv-olho" cx="74" cy="52" r="7" fill="#4D8DFF"/>
+  <rect id="tvBoca" x="48" y="66" width="24" height="5" rx="2.5" fill="#F3D98B"/>
+  <rect x="34" y="96" width="52" height="36" rx="10" fill="#1E3A8A"/><circle cx="60" cy="114" r="7" fill="#C9A227"/></svg>`; }
+function falando(on){ const r=$('#tvRobo'); if(r) r.classList.toggle('fala',!!on); }
+function irCena(i){
+  if(!_tv) return; const c=_tv.c; _tv.iniciou=true;
+  if(i>=c.cenas.length){ speechSynthesis.cancel(); falando(false); return fimCurso(); }
+  _tv.i=Math.max(0,i); const s=c.cenas[_tv.i]; speechSynthesis.cancel(); clearTimeout(_tv.tm);
+  $('#tvCena').innerHTML=`<div class="tv-cena-in"><h3>${esc(s.t)}</h3>${s.v}</div>`;
+  $('#tvLeg').textContent=s.f; $('#tvCont').textContent=`${_tv.i+1} / ${c.cenas.length}`; $('#tvProg').style.width=((_tv.i+1)/c.cenas.length*100)+'%';
+  if(!_tv.tocando) return;
+  const seguir=()=>{ falando(false); if(_tv&&_tv.tocando) _tv.tm=setTimeout(()=>irCena(_tv.i+1),1200); };
+  if(_tv.mudo||!('speechSynthesis' in window)){ falando(true); _tv.tm=setTimeout(seguir,Math.max(4000,s.f.length*65)); return; }
+  const u=new SpeechSynthesisUtterance(s.f); u.lang='pt-BR'; u.rate=1.02; const vz=vozPt(); if(vz) u.voice=vz;
+  u.onstart=()=>falando(true); u.onend=seguir; u.onerror=()=>{ falando(false); _tv.tm=setTimeout(seguir,Math.max(4000,s.f.length*65)); };
+  speechSynthesis.speak(u);
+}
+function fecharCurso(){ try{ speechSynthesis.cancel(); }catch(e){} if(_tv) clearTimeout(_tv.tm); _tv=null; $('#tvPlayer')?.remove(); }
+async function fimCurso(){
+  const c=_tv.c;
+  if(c.quiz){ $('#tvCena').innerHTML=`<div class="tv-cena-in tv-quiz"><h3>Teste rápido</h3>${c.quiz.map(([q,ops],i)=>`<div class="mt"><b>${i+1}. ${esc(q)}</b>${ops.map((o,k)=>`<label class="check"><input type="radio" name="tq${i}" value="${k}"> <span>${esc(o)}</span></label>`).join('')}</div>`).join('')}<button class="btn gold mt" id="tvCorr">Enviar</button></div>`;
+    $('#tvLeg').textContent='Responda o teste para concluir o treinamento.';
+    $('#tvCorr').onclick=async()=>{ const r=c.quiz.map((q,i)=>+(document.querySelector(`[name=tq${i}]:checked`)?.value??-1)); if(r.includes(-1)) return toast('Responda todas','err');
+      const ac=c.quiz.filter((q,i)=>q[2]===r[i]).length; if(ac<c.quiz.length) return toast(`Você acertou ${ac} de ${c.quiz.length}. Assista de novo e tente outra vez.`,'err');
+      await concluirCurso(c); }; return; }
+  await concluirCurso(c);
+}
+async function concluirCurso(c){
+  const cur={...(S.me.cursos||{}),[c.id]:Date.now()}; S.me.cursos=cur;
+  await DB.set('users',S.me.uid,{cursos:cur}).catch(()=>{}); await log('Treinamento em vídeo concluído',S.me.uid,c.titulo);
+  $('#tvCena').innerHTML=`<div class="tv-cena-in"><div class="tv-grande">🎉</div><h3>Treinamento concluído!</h3><p>${esc(c.titulo)}</p><button class="btn gold" id="tvFim">Fechar</button></div>`;
+  $('#tvLeg').textContent='Parabéns! Você concluiu este treinamento.'; $('#tvFim').onclick=()=>{ fecharCurso(); render(); };
+  try{ if(!_tv.mudo){ const u=new SpeechSynthesisUtterance('Parabéns! Você concluiu o treinamento.'); u.lang='pt-BR'; const vz=vozPt(); if(vz) u.voice=vz; speechSynthesis.speak(u); } }catch(e){}
+}
+function blocoCursos(){
+  const meus=CURSOS.filter(c=>c.roles.includes(S.me.role));
+  return `<div class="card mb"><h2>🎬 Treinamentos em vídeo</h2><p class="muted" style="margin-top:-6px">O robô do NexumCell explica cada passo. Ligue o som.</p>
+    <div class="grid g2">${meus.map(c=>{ const ok=S.me.cursos?.[c.id]; return `<div class="tv-card"><div class="tv-thumb">▶</div><div style="flex:1"><b>${esc(c.titulo)}</b><br><span class="small muted">${c.cenas.length} partes · ${c.min} min${c.quiz?' · com teste':''}</span><br>${ok?badge('Concluído em '+fmtD(new Date(ok)),'green'):badge('Não assistido','gray')}</div><button class="btn sm gold" data-act="abrirCurso" data-id="${c.id}">${ok?'Ver de novo':'Assistir'}</button></div>`; }).join('')}</div></div>`;
+}
+{ const _tr=PAGES.treinamento; PAGES.treinamento=async()=>{ await _tr(); $('#view')?.insertAdjacentHTML('afterbegin',blocoCursos()); }; }
+// atalho na instalação da trava
+{ const _bp=blocoInstalarPc; blocoInstalarPc=(v,tk)=>_bp(v,tk).replace('<div class="row mt"><button class="btn gold" data-act="baixarInstPc"','<div class="row mt"><button class="btn" data-act="abrirCurso" data-id="trava-pc">🎬 Ver o vídeo explicando</button><button class="btn gold" data-act="baixarInstPc"'); }
+Object.assign(ACT,{ abrirCurso:d=>abrirCurso(d.id) });
 
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
