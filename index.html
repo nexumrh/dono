@@ -1550,7 +1550,10 @@ async function passoTrava(){
     const vv=await DB.get('vendas',v.id);
     if(vv.status==='INSTALANDO'&&vv.aparelho?.estoqueId){ try{ await DB.set('estoque',vv.aparelho.estoqueId,{status:'VENDIDO',vendaId:v.id,vendidoEm:Date.now()}); }catch(e){ console.warn('estoque',e); } }
     if(vv.status==='INSTALANDO'){ sincronizarAsaas(v.id); nfAuto(v.id); }
-    if(vv.status==='INSTALANDO'){ try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }catch(err){ console.error(err); } }
+    if(vv.status==='INSTALANDO'){ let salvo=false;
+      try{ await DB.set('vendas',v.id,{status:'ATIVA',instaladoEm:Date.now(),instalacao:{...(vv.instalacao||{}),falha:null,concluidaEm:Date.now()}}); salvo=true; await log('Trava instalada — venda concluída',v.id,`IMEI ${a.checkin.imei||''}`); }
+      catch(err){ console.warn('concluir direto',err); try{ await apiServ('instalacao',{vendaId:v.id}); salvo=true; }catch(e2){ console.error(e2); } }
+      if(!salvo){ el.className='inst-status bad'; el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} A trava subiu no aparelho, mas não consegui concluir a venda no sistema. <button class="btn sm" data-act="concluirTrava" data-id="${v.id}">Tentar de novo</button>`; return; } }
     el.className='inst-status ok'; el.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava instalada e confirmada pelo aparelho (${relT(a.checkin.em)}). Venda concluída — pode entregar ao cliente.`;
     $('#instAjuda').innerHTML=''; const b=$('#btnConcluir'); if(b){ b.disabled=false; b.textContent='Concluir venda'; } });
 }
@@ -5971,7 +5974,8 @@ function blocoCursos(){
 { const _tr=PAGES.treinamento; PAGES.treinamento=async()=>{ await _tr(); $('#view')?.insertAdjacentHTML('afterbegin',blocoCursos()); }; }
 // atalho na instalação da trava
 { const _bp=blocoInstalarPc; blocoInstalarPc=(v,tk)=>_bp(v,tk).replace('<div class="row mt"><button class="btn gold" data-act="baixarInstPc"','<div class="row mt"><button class="btn" data-act="abrirCurso" data-id="trava-pc">🎬 Ver o vídeo explicando</button><button class="btn gold" data-act="baixarInstPc"'); }
-Object.assign(ACT,{ abrirCurso:d=>abrirCurso(d.id) });
+Object.assign(ACT,{ abrirCurso:d=>abrirCurso(d.id),
+  concluirTrava:async(d,b)=>{ b.disabled=true; try{ await apiServ('instalacao',{vendaId:d.id}); toast('Venda concluída','ok'); passoTrava(); }catch(e){ toast(e.message,'err'); b.disabled=false; } } });
 
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
