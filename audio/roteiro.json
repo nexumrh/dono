@@ -1,70 +1,334 @@
 [
- {
-  "id": "venda-0",
-  "texto": "Oi! Eu sou a Ana, instrutora do NexumCell. Neste vídeo, vou te mostrar como fazer uma venda do começo ao fim. São oito passos, bem rapidinhos, e nenhum deles pode ser pulado. Vamos lá?"
- },
- {
-  "id": "venda-1",
-  "texto": "Primeiro, fotografe o documento original, na mão do cliente. Depois faça a biometria com o cliente na loja: ele olha para a câmera, vira o rosto e sorri. Nunca use foto de foto ou foto de tela."
- },
- {
-  "id": "venda-2",
-  "texto": "Cadastre dois telefones do próprio cliente, diferentes. Nunca coloque o seu telefone ou de alguém da equipe. O financeiro confirma os dados pelo WhatsApp."
- },
- {
-  "id": "venda-3",
-  "texto": "Envie para a análise e espere na tela. O resultado aparece sozinho em poucos minutos."
- },
- {
-  "id": "venda-4",
-  "texto": "Com a proposta aprovada, escolha o aparelho do estoque, a entrada e as parcelas. O assistente mostra se a parcela cabe no bolso do cliente. O preço vem do sistema e não pode ser mudado."
- },
- {
-  "id": "venda-5",
-  "texto": "O cliente assina o contrato na tela. Explique com calma as parcelas e o bloqueio em caso de atraso. Depois receba a entrada."
- },
- {
-  "id": "venda-6",
-  "texto": "Por último, instale a trava. O aparelho só pode ser entregue quando o sistema mostrar a tela verde: trava instalada e confirmada. Pronto, venda concluída!"
- },
- {
-  "id": "trava-pc-0",
-  "texto": "Oi, aqui é a Ana de novo! Às vezes o QR code da primeira tela não funciona, e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Sem problema: nesse caso, a gente instala pelo computador, com o cabo USB. E a proteção fica completa, igualzinha à do QR."
- },
- {
-  "id": "trava-pc-1",
-  "texto": "Você precisa de um computador com Windows e internet, um cabo USB de dados, de preferência o da caixa, e o celular zerado, sem conta Google."
- },
- {
-  "id": "trava-pc-2",
-  "texto": "No celular, vá em Configurações, Sistema, Opções de redefinição, e apague tudo. Na configuração inicial, pule o Wi-Fi e não entre com conta Google."
- },
- {
-  "id": "trava-pc-3",
-  "texto": "Depois vá em Configurações, Sobre o telefone, e toque sete vezes no Número da versão, até aparecer: você agora é um desenvolvedor. No Realme fica em Versão. No Samsung, em Informações do software."
- },
- {
-  "id": "trava-pc-4",
-  "texto": "Volte e entre em Opções do desenvolvedor. Ligue a Depuração USB. No Xiaomi, ligue também Instalar via USB."
- },
- {
-  "id": "trava-pc-5",
-  "texto": "No computador, na tela da trava da venda, abra Instalar pelo computador e clique em Baixar instalador. O arquivo serve só para aquela venda. Dê dois cliques nele. Se o Windows avisar, clique em Mais informações e em Executar assim mesmo."
- },
- {
-  "id": "trava-pc-6",
-  "texto": "Ligue o celular no cabo. Vai aparecer: permitir depuração USB? Marque sempre permitir deste computador e toque em Permitir."
- },
- {
-  "id": "trava-pc-7",
-  "texto": "Espere a janela mostrar PRONTO, contrato ligado. Não tire o cabo antes disso."
- },
- {
-  "id": "trava-pc-8",
-  "texto": "Tire o cabo, conecte o celular no Wi-Fi e abra o app NexumCell uma vez. Espere a tela da venda ficar verde. Por fim, desligue a depuração USB e entregue o aparelho ao cliente. Se der erro, veja a tabela de erros no guia ou chame o suporte."
- },
- {
-  "id": "fim",
-  "texto": "Parabéns! Você concluiu o treinamento. Até a próxima!"
- }
+{
+"id": "v-portal-0",
+"texto": "Olá! Eu sou a Ana, instrutora da NexumCell. Neste primeiro módulo, você vai conhecer o seu portal de vendedor, tela por tela. Ao terminar todos os módulos obrigatórios, o sistema de vendas é liberado para você. Assista com atenção, porque no final de alguns módulos tem um teste rápido."
+},
+{
+"id": "v-portal-1",
+"texto": "À esquerda fica o menu. Início é a sua tela principal. Nova venda é onde você faz as vendas. O Simulador de balcão mostra as parcelas para o cliente sem fazer cadastro. Em Vendas você acompanha todas as suas propostas. Em Comissões você confere o que tem para receber. E em Treinamento você encontra estes vídeos sempre que precisar revisar."
+},
+{
+"id": "v-portal-2",
+"texto": "No Início, esses cartões mostram os seus números do mês: quantas vendas você fez, quanto falta para bater a meta, a sua comissão, as propostas que estão em análise, as aprovadas que ainda precisam escolher o aparelho, e as vendas que estão esperando a entrada ou a instalação da trava."
+},
+{
+"id": "v-portal-3",
+"texto": "Em Pendências aparecem as vendas que dependem de você. Por exemplo: uma proposta aprovada em que o cliente ainda não escolheu o aparelho. Toque no botão ao lado do nome para continuar exatamente de onde parou. Resolva as pendências antes de começar uma venda nova."
+},
+{
+"id": "v-portal-4",
+"texto": "Aqui ficam as suas últimas propostas com a situação de cada uma: aprovada, ativa, em análise, cancelada. Uma venda só fica ativa quando a trava é instalada e confirmada pelo próprio aparelho."
+},
+{
+"id": "v-portal-5",
+"texto": "Para começar uma venda nova, toque em Nova venda, aqui no alto da tela, ou no menu. Nos próximos módulos você vai aprender cada passo da venda."
+},
+{
+"id": "v-portal-6",
+"texto": "O botão azul no canto da tela abre o atendimento NexumCell. Ali você tira dúvidas, pede ajuda com aparelho bloqueado, faturas e alterações de cadastro. A assistente responde na hora e, se precisar, chama um atendente humano com um número de protocolo. Liberações de aparelho são feitas somente pelo suporte."
+},
+{
+"id": "v-portal-7",
+"texto": "Em Ajuda e status você encontra respostas rápidas e vê se o sistema está funcionando: banco de dados, servidor e leitura por inteligência artificial. Se algo aparecer em vermelho, aguarde alguns minutos e tente de novo. Se continuar, avise o suporte pelo chat."
+},
+{
+"id": "v-venda1-0",
+"texto": "Toda venda tem oito passos, que aparecem no alto da tela: documento, biometria, contato, análise, aparelho, contrato, entrada e trava. O sistema só deixa avançar quando o passo atual está completo, e nenhum passo pode ser pulado."
+},
+{
+"id": "v-venda1-1",
+"texto": "Se o cliente não está na loja, use Venda a distância. O sistema cria um link e você manda pelo WhatsApp. O cliente envia o documento, a selfie e os dados pelo celular dele, e a proposta entra sozinha na análise. Você acompanha tudo pela tela."
+},
+{
+"id": "v-venda1-2",
+"texto": "Com o cliente na loja, escolha o tipo de documento: RG, nova identidade ou CNH. Depois tire a foto da frente e do verso. Use sempre o documento original, na mão do cliente. Nunca aceite foto enviada por WhatsApp, cópia ou foto de tela."
+},
+{
+"id": "v-venda1-3",
+"texto": "Assim está certo: o documento inteiro na foto, bem iluminado, sem reflexo e sem dedo cobrindo os dados. Coloque o documento sobre a mesa, segure o celular reto por cima e espere a câmera focar antes de tirar a foto."
+},
+{
+"id": "v-venda1-4",
+"texto": "Errado: foto borrada. A inteligência artificial não consegue ler e o analista recusa a proposta. O sistema avisa quando a foto está tremida. Se isso acontecer, tire de novo com a mão firme."
+},
+{
+"id": "v-venda1-5",
+"texto": "Errado: reflexo de luz em cima dos dados. Afaste o documento da lâmpada ou da janela, ou incline um pouco o celular até o brilho sumir."
+},
+{
+"id": "v-venda1-6",
+"texto": "Errado: documento cortado. Todas as bordas precisam aparecer na foto. Afaste um pouco o celular."
+},
+{
+"id": "v-venda1-7",
+"texto": "Errado: foto de tela ou de cópia. Isso é sinal de fraude. Só vale o documento original, físico, nas mãos do cliente."
+},
+{
+"id": "v-venda1-8",
+"texto": "Com as duas fotos nítidas, toque em Ler documento com IA. Em poucos segundos o sistema preenche nome, CPF, data de nascimento, filiação e os outros dados."
+},
+{
+"id": "v-venda1-9",
+"texto": "Confira campo por campo comparando com o documento. Os campos em amarelo são os que a inteligência artificial teve dúvida: confira esses com ainda mais atenção. Se a leitura falhar, digite os dados manualmente. O CPF é validado automaticamente."
+},
+{
+"id": "v-venda1-10",
+"texto": "No passo dois é feita a biometria. Peça ao cliente para tirar óculos escuros e boné e ficar num lugar iluminado. O rosto precisa ficar dentro do oval."
+},
+{
+"id": "v-venda1-11",
+"texto": "Toque em Capturar e siga as instruções na tela com o cliente: olhar para a câmera, virar o rosto e sorrir. Isso é a prova de vida, que impede o uso de foto de outra pessoa."
+},
+{
+"id": "v-venda1-12",
+"texto": "O sistema compara o rosto com a foto do documento e mostra o resultado. Se aparecer incerto, não se preocupe: a foto fica guardada e o analista confere. Se o rosto não for validado, tire de novo com mais luz."
+},
+{
+"id": "v-venda1-13",
+"texto": "No passo três, cadastre dois telefones do próprio cliente, diferentes entre si. Nunca coloque o seu telefone, de outro vendedor ou de alguém da equipe: o sistema bloqueia e isso é tratado como fraude. A equipe vai confirmar os dados pelo WhatsApp em até três dias."
+},
+{
+"id": "v-venda1-14",
+"texto": "Preencha o CEP, que completa o endereço sozinho, o número da casa, a profissão e a renda mensal. A renda é usada para calcular se a parcela cabe no bolso do cliente. Se o cliente tiver comprovantes, fotografe: ajuda na aprovação."
+},
+{
+"id": "v-venda1-15",
+"texto": "Confira tudo e toque em Enviar para análise."
+},
+{
+"id": "v-venda1-16",
+"texto": "A proposta vai para a análise de crédito. Fique nesta tela: o resultado aparece sozinho, normalmente em poucos minutos. Enquanto isso, você já pode mostrar os aparelhos ao cliente."
+},
+{
+"id": "v-venda1-17",
+"texto": "Quando aprovada, aparece o valor que o cliente pode financiar. Toque em Vamos escolher o aparelho para seguir. Se for reprovada, explique com educação e informe que ele pode tentar de novo depois de trinta dias."
+},
+{
+"id": "v-venda2-0",
+"texto": "No passo cinco, escolha a marca e o modelo. Só aparecem os aparelhos que estão no estoque da sua loja, com a quantidade disponível de cada memória."
+},
+{
+"id": "v-venda2-1",
+"texto": "Informe o IMEI do aparelho que vai ser entregue. Você pode ler pela câmera, na etiqueta da caixa, ou digitar. O sistema confere se o número é válido e se está no estoque. O IMEI precisa ser exatamente o do aparelho que sai da loja."
+},
+{
+"id": "v-venda2-2",
+"texto": "Informe a entrada. Ela não pode ser menor que o mínimo mostrado no campo. O preço do aparelho vem do sistema e não pode ser alterado."
+},
+{
+"id": "v-venda2-3",
+"texto": "Escolha o número de parcelas e, se o cliente quiser, o dia do mês para pagar, de preferência logo depois do dia em que ele recebe o salário. Isso diminui muito o atraso."
+},
+{
+"id": "v-venda2-4",
+"texto": "Este quadro mostra o resumo: entrada, valor financiado, valor de cada parcela e o total a prazo. Explique ao cliente que, pagando antes do vencimento, ele ganha desconto na parcela."
+},
+{
+"id": "v-venda2-5",
+"texto": "O Assistente da venda compara a parcela com a renda do cliente. Se a parcela estiver alta, ele sugere mais parcelas, uma entrada maior ou um aparelho mais barato. Venda que cabe no bolso é venda que o cliente consegue pagar."
+},
+{
+"id": "v-venda2-6",
+"texto": "No passo seis aparece o contrato completo. Leia com o cliente os pontos principais: valor, parcelas, juros, e a cláusula do bloqueio do aparelho em caso de atraso. Nunca prometa nada que não esteja no contrato."
+},
+{
+"id": "v-venda2-7",
+"texto": "Marque as duas caixas somente depois que o cliente confirmar: que leu e concorda com o contrato e com o bloqueio por atraso, e que autoriza o uso dos dados e da biometria, conforme a lei de proteção de dados."
+},
+{
+"id": "v-venda2-8",
+"texto": "O cliente assina com o dedo na tela, aqui na loja. Se preferir, ele pode assinar no próprio celular pela aba Cliente assina no celular dele. Depois toque em confirmar a assinatura."
+},
+{
+"id": "v-venda2-9",
+"texto": "No passo sete, receba a entrada. Informe o valor, a forma de pagamento e o comprovante. O aparelho só sai da loja com a entrada paga. Se vender chip ou plano junto, registre aqui também. Marque a confirmação e toque em Confirmar entrada e instalar a trava."
+},
+{
+"id": "v-venda2-10",
+"texto": "No último passo, instale a trava. Restaure o aparelho de fábrica, toque seis vezes na primeira tela de boas-vindas, conecte no Wi-Fi e leia este QR code. O aparelho baixa e instala o app NexumCell sozinho."
+},
+{
+"id": "v-venda2-11",
+"texto": "Se o QR code não funcionar no aparelho, use Instalar pelo computador, com o cabo USB. Existe um módulo só sobre isso no treinamento. Nunca entregue o aparelho sem a trava."
+},
+{
+"id": "v-venda2-12",
+"texto": "Quando o aparelho confirma a trava, esta caixa fica verde: trava instalada e confirmada. Só agora a venda está concluída e você pode entregar o aparelho ao cliente."
+},
+{
+"id": "v-venda2-13",
+"texto": "Toque em Concluir venda. Antes de o cliente ir embora, mostre o app NexumCell no celular dele: lá ele vê as faturas, paga por PIX, baixa o contrato e fala com o suporte."
+},
+{
+"id": "trava-pc-0",
+"texto": "Às vezes o QR code da primeira tela não funciona, e aparece a mensagem: o app foi bloqueado para proteger seu dispositivo. Nesse caso, instale pelo computador, com o cabo USB. A proteção fica completa, igual à do QR."
+},
+{
+"id": "trava-pc-1",
+"texto": "Você precisa de um computador com Windows e internet, um cabo USB de dados, de preferência o que vem na caixa, e o celular restaurado de fábrica, sem nenhuma conta Google."
+},
+{
+"id": "trava-pc-2",
+"texto": "No celular, vá em Configurações, Sistema, Opções de redefinição, e apague tudo. Na configuração inicial, pule o Wi-Fi e não entre com conta Google. Termine até chegar na tela inicial."
+},
+{
+"id": "trava-pc-3",
+"texto": "Vá em Configurações, Sobre o telefone, e toque sete vezes no Número da versão, até aparecer: você agora é um desenvolvedor. No Realme fica em Versão; no Samsung, em Informações do software. Depois, em Opções do desenvolvedor, ligue a Depuração USB. No Xiaomi, ligue também Instalar via USB."
+},
+{
+"id": "trava-pc-4",
+"texto": "No computador, na etapa da trava, abra Instalar pelo computador e toque em Baixar instalador para o computador. O arquivo serve só para aquela venda. Dê dois cliques nele. Se o Windows avisar, clique em Mais informações e em Executar assim mesmo."
+},
+{
+"id": "trava-pc-5",
+"texto": "Ligue o celular no cabo. Vai aparecer: permitir depuração USB? Marque sempre permitir deste computador e toque em Permitir. A janela do computador mostra o andamento."
+},
+{
+"id": "trava-pc-6",
+"texto": "Espere a janela mostrar PRONTO, contrato ligado. Não tire o cabo antes disso."
+},
+{
+"id": "trava-pc-7",
+"texto": "Tire o cabo, conecte o celular no Wi-Fi e abra o app NexumCell uma vez. Espere a tela da venda ficar verde. Por fim, desligue a depuração USB e entregue o aparelho."
+},
+{
+"id": "v-dia-0",
+"texto": "O Simulador de balcão mostra as parcelas sem fazer cadastro e sem salvar nada. Escolha o aparelho e a entrada."
+},
+{
+"id": "v-dia-1",
+"texto": "Se você informar a renda do cliente, o assistente diz se a parcela cabe no orçamento e sugere o melhor plano."
+},
+{
+"id": "v-dia-2",
+"texto": "O quadro mostra o valor das parcelas em três, seis, nove, dez e doze vezes. Você pode mostrar em tela cheia para o cliente."
+},
+{
+"id": "v-dia-3",
+"texto": "Toque em Enviar simulação pelo WhatsApp. O cliente recebe as parcelas e um link para fazer a pré-análise pelo celular. Quando ele preencher, a proposta aparece no seu Início, com o seu nome."
+},
+{
+"id": "v-dia-4",
+"texto": "Em Vendas você encontra todas as propostas. Use a busca por nome, CPF, IMEI ou número, e as abas para filtrar: em análise, aprovadas, aguardando entrada, aguardando trava, ativas e quitadas."
+},
+{
+"id": "v-dia-5",
+"texto": "Toque em uma venda para ver os detalhes e continuar de onde parou. A etiqueta vermelha mostra quando o cliente está com parcela em atraso."
+},
+{
+"id": "v-dia-6",
+"texto": "Em Comissões você vê a comissão do mês, o que o gerente já pagou e o que falta receber. Quando o gerente registrar um pagamento, confirme assim que o dinheiro cair. Se não recebeu, toque em Não recebi: a NexumCell é avisada."
+},
+{
+"id": "v-dia-7",
+"texto": "Pronto! Você conheceu todo o portal do vendedor. Toda semana a NexumCell publica novas aulas aqui no Treinamento: fique de olho. Boas vendas!"
+},
+{
+"id": "g-painel-0",
+"texto": "Olá, gerente! Neste módulo você vai conhecer o Painel, a tela principal da sua loja. O seu portal tem tudo o que o vendedor tem, mais a gestão da loja: equipe, estoque, caixa, cobrança, relatórios e comissões."
+},
+{
+"id": "g-painel-1",
+"texto": "No alto aparece a implantação da loja: o que falta para a loja funcionar completa, como cadastrar a chave PIX do repasse, ter um vendedor treinado e fazer a primeira venda com trava. Os itens ficam verdes conforme você completa."
+},
+{
+"id": "g-painel-2",
+"texto": "Os cartões mostram as vendas do mês, o que foi recebido, a carteira a receber e o valor em atraso, com o percentual de inadimplência. Abaixo, os aparelhos travados agora, as vendas aguardando a trava e as vendas em análise."
+},
+{
+"id": "g-painel-3",
+"texto": "Nas tabelas abaixo você compara as lojas e os vendedores no mês: quantidade de vendas, valor financiado e atrasos."
+},
+{
+"id": "g-painel-4",
+"texto": "Em Vendas você vê todas as vendas da sua loja, de todos os vendedores, com os mesmos filtros do portal do vendedor."
+},
+{
+"id": "g-equipe-0",
+"texto": "Em Equipe você vê as pessoas da sua loja, com o ID de acesso, o e-mail, o perfil e a situação. Você pode desativar o acesso de um vendedor que saiu da loja."
+},
+{
+"id": "g-equipe-1",
+"texto": "Para cadastrar um vendedor, toque em Cadastrar vendedor e preencha nome, CPF, e-mail e WhatsApp. O cadastro vai para a NexumCell aprovar. Depois de aprovado, o vendedor recebe o ID e a senha por e-mail. No primeiro acesso, ele faz este treinamento antes de vender."
+},
+{
+"id": "g-equipe-2",
+"texto": "Em Cadastros enviados à NexumCell você acompanha a situação: aguardando, aprovado ou recusado."
+},
+{
+"id": "g-equipe-3",
+"texto": "Em Escala da equipe você monta os turnos da semana de cada pessoa e toca em Salvar escala. O vendedor vê a escala dele no Início."
+},
+{
+"id": "g-estoque-0",
+"texto": "Em Estoque por IMEI ficam todos os aparelhos da loja, um por um. Os cartões mostram quantos estão disponíveis, vendidos e retomados."
+},
+{
+"id": "g-estoque-1",
+"texto": "Na lista, cada aparelho tem modelo, cor, IMEI e situação. O vendedor só consegue vender aparelho que esteja aqui como disponível. Quando a trava sobe, o aparelho passa para vendido sozinho. Se a venda for cancelada, ele volta para disponível."
+},
+{
+"id": "g-estoque-2",
+"texto": "Para dar entrada, toque em Cadastrar aparelhos, escolha a loja e o modelo do catálogo, informe a cor e o custo, e leia os IMEIs pela câmera, um seguido do outro, ou cole um por linha. O sistema recusa IMEI inválido ou repetido."
+},
+{
+"id": "g-estoque-3",
+"texto": "Use Transferir para mandar um aparelho para outra loja; ele fica em transferência até a outra loja receber. Use Dar baixa para aparelho com defeito ou perdido, sempre com o motivo."
+},
+{
+"id": "g-caixa-0",
+"texto": "Em Fechamento de caixa aparecem, para o dia escolhido, todos os recebimentos da loja: entradas e parcelas, separados por forma de pagamento."
+},
+{
+"id": "g-caixa-1",
+"texto": "A tabela mostra a hora, o que foi recebido, o cliente, a forma e quem recebeu."
+},
+{
+"id": "g-caixa-2",
+"texto": "No fim do dia, conte o dinheiro da gaveta e confira o extrato do PIX e da maquininha. Digite os valores e explique sobras ou faltas na observação. Toque em Fechar caixa. Os fechamentos ficam registrados abaixo."
+},
+{
+"id": "g-caixa-3",
+"texto": "Em Despesas da loja você lança os gastos, como compras pequenas e sangrias. Despesas marcadas como saiu do dinheiro do caixa são descontadas do valor esperado no fechamento."
+},
+{
+"id": "g-cobranca-0",
+"texto": "A Fila de cobrança organiza quem chamar hoje: primeiro quem deve há mais tempo, deve mais ou quebrou uma promessa de pagamento. Os cartões mostram quantos chamar, os lembretes de vencimento e as promessas em aberto."
+},
+{
+"id": "g-cobranca-1",
+"texto": "Em cada cliente, toque em WhatsApp ou Ligar. Depois registre o contato. Se o cliente prometer pagar, informe a data: ele sai da fila até lá. Se não pagar na data, a promessa vira quebrada e ele volta para a fila."
+},
+{
+"id": "g-resultados-0",
+"texto": "Em Relatórios e comissões, defina a meta do mês da loja e de cada vendedor e toque em Salvar metas. A barra mostra o progresso."
+},
+{
+"id": "g-resultados-1",
+"texto": "Esta tabela mostra, por vendedor, as vendas, o recebido, a comissão, a carteira e a inadimplência. Vendedor com inadimplência alta pode estar vendendo para quem não paga: revise as vendas dele."
+},
+{
+"id": "g-resultados-2",
+"texto": "As safras mostram como as vendas de cada mês estão pagando. Se as safras novas pagam pior que as antigas, é sinal para aumentar a entrada ou o rigor da análise."
+},
+{
+"id": "g-resultados-3",
+"texto": "Em Comissões você paga a comissão dos vendedores e registra aqui com o comprovante: PIX, transferência ou recibo assinado. O vendedor confirma que recebeu, e a NexumCell acompanha."
+},
+{
+"id": "g-resultados-4",
+"texto": "O Painel da TV é para deixar numa televisão da loja: mostra as vendas do dia, o vendido no mês, a meta da loja e o ranking dos vendedores. Ele se atualiza sozinho a cada minuto."
+},
+{
+"id": "g-pos-0",
+"texto": "Em Seminovos ficam os aparelhos retomados. Avalie o estado, defina o preço de venda e restaure de fábrica antes de revender. Os seminovos disponíveis com preço aparecem no site do cliente, com as parcelas."
+},
+{
+"id": "g-pos-1",
+"texto": "Em Trocas e devoluções ficam os pedidos dentro da garantia de troca de sete dias. Para registrar, abra a venda e toque em Troca ou devolução. O gerente registra; o Dono ou o Financeiro executam."
+},
+{
+"id": "fim",
+"texto": "Parabéns! Você concluiu o treinamento. Até a próxima!"
+}
 ]
