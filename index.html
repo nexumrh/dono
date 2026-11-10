@@ -386,6 +386,7 @@ details summary{cursor:pointer}
 .tv-card.feito .tv-thumb span{background:#15803D;color:#fff}
 .trilha-aviso{background:#FFF7DD;border:1px solid #F0DA94;color:#5B4500;border-radius:10px;padding:12px 14px;margin:0}
 @media(max-width:640px){.trilha-topo{flex-direction:column-reverse;text-align:center}.tv-card{flex-wrap:wrap}.tv-card .tv-thumb{width:100%;flex-basis:100%;height:110px}.tv-img img{max-height:300px}}
+.rel-tab td,.rel-tab th{white-space:nowrap;font-size:13px}
 @media(max-width:640px){.tv-palco{flex-direction:column;min-height:0;padding:16px}.tv-apres{flex:0 0 auto}.tv-robo{width:130px;height:130px}.tv-robo svg{width:124px;height:142px}}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -465,13 +466,13 @@ details summary{cursor:pointer}
 const FIREBASE_CONFIG = window.NEXUMCELL_FIREBASE || { apiKey:"" };   // fica no arquivo nexumcell-config.js
 const PORTAL = 'dono';
 const PORTAIS = {
-  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','recolher','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','comissoes','repasses','listanegra','catalogo','equipe','saas','ajuda','config'],
+  dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','recolher','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','relDono','relatorios','comissoes','repasses','listanegra','catalogo','equipe','saas','ajuda','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
   gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
-  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','recolher','pedidos','chamados','aprovacoes','relatorios','seminovos','estoque','trocas','repasses','listanegra','ajuda'],
+  financeiro:{nome:'Portal do Financeiro', arq:'../financeiro/', roles:['FINANCEIRO','DONO'],         tabs:['painel','analise','preanalises','confirmacoes','fila','conciliacao','cobranca','caixa','despesas','vendas','aparelhos','recolher','pedidos','chamados','aprovacoes','relDono','relatorios','seminovos','estoque','trocas','repasses','listanegra','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Financeiro</b>', txt:'Análise de crédito, baixas, cobrança e controle da trava dos aparelhos.', tag:'Crédito certo.<br>Carteira<br>saudável.', p:'Acesse sua conta para continuar no Portal do Financeiro.'},
   suporte:   {nome:'Portal do Suporte',    arq:'../suporte/',    roles:['SUPORTE','DONO'],            tabs:['atendimentos','aparelhos','recolher','pedidos','chamados','fila','confirmacoes','vendas','aprovacoes','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Suporte</b>', txt:'Trave, libere e acompanhe os aparelhos e atenda os chamados das lojas.', tag:'Atendimento<br>rápido e<br>seguro.', p:'Acesse sua conta para continuar no Portal do Suporte.'},
@@ -690,6 +691,7 @@ const IC = {
   equipe:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   catalogo:'<rect x="5" y="2" width="10" height="17" rx="2"/><path d="M9 15h2"/><path d="M17 8h4v13h-8v-2"/>',
   relatorios:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+  relDono:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
   seminovos:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><rect x="9" y="8" width="6" height="9" rx="1"/>',
   treinamento:'<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
   simulador:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 10h2M12 10h2M16 10h0M8 14h2M12 14h2M8 18h8"/>',
@@ -738,6 +740,7 @@ const TABS = [
   {id:'fila',label:'Fila de cobrança',roles:['DONO','GERENTE','FINANCEIRO','SUPORTE']},
   {id:'caixa',label:'Fechamento de caixa',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'pedidos',label:'Pedidos dos clientes',roles:['DONO','GERENTE','FINANCEIRO','SUPORTE']},
+  {id:'relDono',label:'Relatórios da carteira',roles:['DONO','FINANCEIRO']},
   {id:'relatorios',label:'Relatórios e comissões',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'seminovos',label:'Seminovos (retomados)',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'estoque',label:'Estoque por IMEI',roles:['DONO','GERENTE','FINANCEIRO']},
@@ -6174,6 +6177,118 @@ Object.assign(ACT,{
   retomarWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; window.open(`https://wa.me/${telWa((v.cliente?.telefones||[])[0])}?text=${encodeURIComponent(msgRetomar(v))}`,'_blank');
     await DB.set('vendas',d.id,{retomada:{em:Date.now(),por:S.me.nome}}).catch(()=>{}); render(); },
   propostaImg:()=>propostaImg(),
+});
+/* ======================= RELATÓRIOS DA CARTEIRA (Dono / Financeiro) ======================= */
+const REL_TIPOS=[['cobrar','Aparelhos sem pagar (por loja)'],['imei','Vendas por IMEI'],['repasses','Repasses às lojas'],['inadimplentes','Clientes inadimplentes']];
+const VENDA_FEITA=['ATIVA','QUITADA','INSTALANDO','RETOMADA','CANCELADA'];
+function relAtraso(v,h){ const atr=(v.parcelas||[]).filter(p=>!p.pago&&p.venc<h); if(!atr.length) return null;
+  const dias=Math.max(...atr.map(p=>diasEntre(p.venc,h))), devido=r2(atr.reduce((s,p)=>s+encargos(p,S.cfg).total,0)), face=r2(atr.reduce((s,p)=>s+(+p.valor||0),0));
+  const aberto=r2((v.parcelas||[]).filter(p=>!p.pago).reduce((s,p)=>s+(+p.valor||0),0));
+  return {atr,dias,devido,face,aberto}; }
+const faixaAtraso=d=>d<=30?'1 a 30 dias':d<=60?'31 a 60 dias':d<=90?'61 a 90 dias':'Mais de 90 dias';
+const recebidoDe=v=>r2((v.parcelas||[]).filter(p=>p.pago).reduce((s,p)=>s+(+(p.valorPago??p.valor)||0),0));
+const dataVenda=v=>v.entradaPaga?.em||v.assinadoEm||v.criadoEm;
+
+async function dadosRelatorio(){
+  const [vendas,aps,users]=await Promise.all([loadVendas(),DB.list('aparelhos').catch(()=>[]),DB.list('users').catch(()=>[])]);
+  const apMap={}; aps.forEach(a=>apMap[a.id]=a); return {vendas,apMap,users};
+}
+function filtroLoja(vs){ const l=S.filtro.relLoja||''; return l?vs.filter(v=>v.lojaId===l):vs; }
+function noPeriodo(ms){ const de=S.filtro.relDe||'', ate=S.filtro.relAte||''; const d=isoDate(new Date(ms)); return (!de||d>=de)&&(!ate||d<=ate); }
+
+/* ---- 1. Aparelhos sem pagar, por loja (para o gerente cobrar) ---- */
+function relCobrar(D){
+  const h=hoje(), l=filtroLoja(D.vendas).filter(v=>v.status==='ATIVA').map(v=>({v,a:relAtraso(v,h),ap:D.apMap[v.aparelhoToken]})).filter(x=>x.a)
+    .filter(x=>!S.filtro.relMin||x.a.dias>=+S.filtro.relMin).sort((a,b)=>b.a.dias-a.a.dias);
+  const lojas={}; l.forEach(x=>{ const k=x.v.lojaId||'-'; (lojas[k]=lojas[k]||{nome:x.v.lojaNome||'Loja',itens:[]}).itens.push(x); });
+  const cab=['Contrato','Cliente','Telefone','Aparelho','IMEI','Parcelas em atraso','Dias de atraso','Valor devido (com multa)','Situação do aparelho','Vendedor'];
+  const linha=x=>['nº '+x.v.numero,x.v.clienteNome,(x.v.cliente?.telefones||[]).map(fmtFone).join(' / '),apNome(x.v),x.v.aparelho?.imei||'',x.a.atr.length,x.a.dias,x.a.devido,x.ap?apSituacao(x.ap)[0]:'—',x.v.vendedorNome||''];
+  return {titulo:'Aparelhos sem pagar por loja',cab,linhas:l.map(linha),grupos:Object.entries(lojas).map(([id,g])=>({id,nome:g.nome,linhas:g.itens.map(linha),total:r2(g.itens.reduce((s,x)=>s+x.a.devido,0))})),
+    kpis:[['Contratos em atraso',l.length],['Valor em atraso',brl(l.reduce((s,x)=>s+x.a.devido,0))],['Lojas',Object.keys(lojas).length],['Mais de 30 dias',l.filter(x=>x.a.dias>30).length]],
+    totCol:7};
+}
+/* ---- 2. Vendas por IMEI ---- */
+function relImei(D){
+  const q=onlyDig(S.filtro.relImei||''); const l=filtroLoja(D.vendas).filter(v=>v.aparelho?.imei&&VENDA_FEITA.includes(v.status)&&noPeriodo(dataVenda(v))&&(!q||String(v.aparelho.imei).includes(q)||String(v.aparelho.imei2||'').includes(q)))
+    .sort((a,b)=>dataVenda(b)-dataVenda(a));
+  const cab=['Data','Contrato','Loja','Vendedor','Cliente','Aparelho','IMEI 1','IMEI 2','Valor','Entrada','Financiado','Parcelas','Total a prazo','Recebido','Repasse','Situação'];
+  const linhas=l.map(v=>{ const pv=(v.parcelas||[])[0]?.valor||0; return [fmtD(isoDate(new Date(dataVenda(v)))),'nº '+v.numero,v.lojaNome||'',v.vendedorNome||'',v.clienteNome,apNome(v),v.aparelho.imei,v.aparelho.imei2||'',+v.valor||0,+v.entrada||0,+v.financiado||0,`${v.nParcelas||(v.parcelas||[]).length}x ${brl(pv)}`,r2((+v.entrada||0)+(v.parcelas||[]).reduce((s,p)=>s+(+p.valor||0),0)),recebidoDe(v),`${brl(repValor(v))} (${repStatus(v)==='PAGO'?'pago':'a pagar'})`,VENDA_ST[v.status]?.[0]||v.status]; });
+  const sum=i=>r2(linhas.reduce((s,x)=>s+(+x[i]||0),0));
+  return {titulo:'Vendas por IMEI',cab,linhas,kpis:[['Vendas',l.length],['Valor vendido',brl(sum(8))],['Entradas',brl(sum(9))],['Financiado',brl(sum(10))]],moedas:[8,9,10,12,13],totCol:null,filtroImei:true,periodo:true};
+}
+/* ---- 3. Repasses ---- */
+function relRepasses(D){
+  const l=filtroLoja(D.vendas).filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)&&(v.entradaPaga||v.assinadoEm))
+    .filter(v=>repStatus(v)==='PENDENTE'||noPeriodo(v.repasse?.em||Date.parse((v.repasse?.pagoEm||'')+'T12:00')||dataVenda(v))).sort((a,b)=>dataVenda(b)-dataVenda(a));
+  const cab=['Data da venda','Contrato','Loja','Cliente','Aparelho','IMEI','Valor do aparelho','Entrada','Repasse','Situação','Pago em','Forma'];
+  const linhas=l.map(v=>[fmtD(isoDate(new Date(dataVenda(v)))),'nº '+v.numero,v.lojaNome||'',v.clienteNome,apNome(v),v.aparelho?.imei||'',+v.valor||0,+v.entrada||0,repValor(v),repStatus(v)==='PAGO'?'Pago':'A pagar',v.repasse?.pagoEm?fmtD(v.repasse.pagoEm):'',v.repasse?.forma||'']);
+  const lojas={}; l.forEach(v=>{ const k=v.lojaId||'-'; const g=(lojas[k]=lojas[k]||{nome:v.lojaNome||'Loja',pago:0,pend:0,n:0}); g[repStatus(v)==='PAGO'?'pago':'pend']+=repValor(v); g.n++; });
+  return {titulo:'Repasses às lojas',cab,linhas,moedas:[6,7,8],periodo:true,
+    kpis:[['A pagar',brl(l.filter(v=>repStatus(v)==='PENDENTE').reduce((s,v)=>s+repValor(v),0))],['Pago no período',brl(l.filter(v=>repStatus(v)==='PAGO').reduce((s,v)=>s+repValor(v),0))],['Vendas',l.length],['Lojas',Object.keys(lojas).length]],
+    resumo:`<div class="tablewrap mt"><table><tr><th>Loja</th><th class="right">Vendas</th><th class="right">A pagar</th><th class="right">Pago</th></tr>${Object.values(lojas).map(g=>`<tr><td><b>${esc(g.nome)}</b></td><td class="right">${g.n}</td><td class="right">${brl(g.pend)}</td><td class="right">${brl(g.pago)}</td></tr>`).join('')}</table></div>`};
+}
+/* ---- 4. Clientes inadimplentes ---- */
+function relInadimplentes(D){
+  const h=hoje(), por={};
+  filtroLoja(D.vendas).filter(v=>['ATIVA','RETOMADA'].includes(v.status)).forEach(v=>{ const a=relAtraso(v,h); if(!a) return; const k=onlyDig(v.clienteCpf)||v.id;
+    const c=(por[k]=por[k]||{nome:v.clienteNome,cpf:v.clienteCpf,tel:(v.cliente?.telefones||[]).map(fmtFone).join(' / '),cidade:[v.cliente?.cidade,v.cliente?.uf].filter(Boolean).join('/'),contratos:[],parc:0,dias:0,devido:0,aberto:0,neg:false,lojas:new Set(),retomado:false});
+    c.contratos.push(v.numero); c.parc+=a.atr.length; c.dias=Math.max(c.dias,a.dias); c.devido+=a.devido; c.aberto+=a.aberto; c.lojas.add(v.lojaNome||''); if(v.negativacao&&v.negativacao.status!=='CANCELADA') c.neg=true; if(v.status==='RETOMADA') c.retomado=true; });
+  const fx=S.filtro.relFaixa||''; const l=Object.values(por).filter(c=>!fx||faixaAtraso(c.dias)===fx).sort((a,b)=>b.devido-a.devido);
+  const cab=['Cliente','CPF','Telefone','Cidade','Loja','Contratos','Parcelas em atraso','Maior atraso (dias)','Faixa','Valor em atraso (com multa)','Saldo devedor total','Negativado','Aparelho retomado'];
+  const linhas=l.map(c=>[c.nome,fmtCpf(c.cpf),c.tel,c.cidade,[...c.lojas].join(', '),c.contratos.map(n=>'nº '+n).join(', '),c.parc,c.dias,faixaAtraso(c.dias),r2(c.devido),r2(c.aberto),c.neg?'Sim':'Não',c.retomado?'Sim':'Não']);
+  const fxs={}; l.forEach(c=>{ const f=faixaAtraso(c.dias); fxs[f]=(fxs[f]||0)+c.devido; });
+  return {titulo:'Clientes inadimplentes',cab,linhas,moedas:[9,10],filtroFaixa:true,
+    kpis:[['Clientes',l.length],['Em atraso',brl(l.reduce((s,c)=>s+c.devido,0))],['Saldo devedor',brl(l.reduce((s,c)=>s+c.aberto,0))],['Negativados',l.filter(c=>c.neg).length]],
+    resumo:`<div class="row mt" style="gap:8px;flex-wrap:wrap">${['1 a 30 dias','31 a 60 dias','61 a 90 dias','Mais de 90 dias'].map(f=>`<span class="badge ${f==='1 a 30 dias'?'b-amber':'b-red'}">${f}: ${brl(fxs[f]||0)}</span>`).join('')}</div>`};
+}
+const REL_FN={cobrar:relCobrar,imei:relImei,repasses:relRepasses,inadimplentes:relInadimplentes};
+const celRel=(x,i,R)=>typeof x==='number'&&(R.moedas||[]).concat(R.totCol!=null?[R.totCol]:[]).includes(i)?brl(x):esc(String(x??''));
+
+PAGES.relDono=async()=>{
+  const tipo=S.filtro.relTipo||'cobrar'; S._relD=await dadosRelatorio(); const R=REL_FN[tipo](S._relD); S._rel=R;
+  const tabela=(cab,linhas)=>`<div class="tablewrap"><table class="rel-tab"><tr>${cab.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${linhas.map(l=>`<tr>${l.map((x,i)=>`<td${typeof x==='number'?' class="right"':''}>${celRel(x,i,R)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cab.length}" class="empty">Nada encontrado com esses filtros.</td></tr>`}</table></div>`;
+  $('#view').innerHTML=`<div class="chips mb">${REL_TIPOS.map(([k,n])=>`<button class="chip ${tipo===k?'on':''}" data-act="relTipo" data-v="${k}">${n}</button>`).join('')}</div>
+    <div class="card mb"><div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label>Loja<select id="relLoja"><option value="">Todas as lojas</option>${S.lojas.map(l=>`<option value="${l.id}" ${S.filtro.relLoja===l.id?'selected':''}>${esc(l.nome)}</option>`).join('')}</select></label>
+      ${R.periodo?`<label>De<input type="date" id="relDe" value="${S.filtro.relDe||''}"></label><label>Até<input type="date" id="relAte" value="${S.filtro.relAte||''}"></label>`:''}
+      ${R.filtroImei?`<label>IMEI<input id="relImei" inputmode="numeric" placeholder="buscar IMEI" value="${esc(S.filtro.relImei||'')}"></label>`:''}
+      ${tipo==='cobrar'?`<label>Atraso mínimo<select id="relMin">${[['','Qualquer'],['5','5 dias'],['15','15 dias'],['30','30 dias'],['60','60 dias']].map(([v,n])=>`<option value="${v}" ${String(S.filtro.relMin||'')===v?'selected':''}>${n}</option>`).join('')}</select></label>`:''}
+      ${R.filtroFaixa?`<label>Faixa de atraso<select id="relFaixa"><option value="">Todas</option>${['1 a 30 dias','31 a 60 dias','61 a 90 dias','Mais de 90 dias'].map(f=>`<option ${S.filtro.relFaixa===f?'selected':''}>${f}</option>`).join('')}</select></label>`:''}
+      <div class="row" style="margin-left:auto;gap:6px"><button class="btn" data-act="relCsv">Baixar planilha (CSV)</button><button class="btn gold" data-act="relPdf">PDF / imprimir</button></div></div></div>
+    <div class="kpis mb">${R.kpis.map(([n,v])=>`<div class="kpi"><small>${esc(n)}</small><b>${v}</b></div>`).join('')}</div>
+    ${R.resumo||''}
+    ${R.grupos?R.grupos.map(g=>`<div class="card mt"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(g.nome)} <span class="badge b-red">${g.linhas.length}</span> <span class="small muted">${brl(g.total)} em atraso</span></h2>
+        <div class="row" style="gap:6px"><button class="btn sm" data-act="relPdfLoja" data-id="${g.id}">PDF da loja</button><button class="btn sm green" data-act="relGerenteWa" data-id="${g.id}">WhatsApp ao gerente</button><button class="btn sm gold" data-act="relGerenteEmail" data-id="${g.id}">E-mail ao gerente</button></div></div>
+        ${tabela(R.cab,g.linhas)}</div>`).join('')||'<div class="card empty">Nenhum aparelho em atraso.</div>':`<div class="card mt" style="padding:0">${tabela(R.cab,R.linhas)}</div>`}
+    <p class="hint">Os valores em atraso já incluem multa e juros de mora pelas regras de Configurações. ${tipo==='cobrar'?'Mande a lista de cada loja ao gerente: ele cobra os clientes e registra o contato na Fila de cobrança.':''}</p>`;
+  [['relLoja','relLoja'],['relDe','relDe'],['relAte','relAte'],['relMin','relMin'],['relFaixa','relFaixa']].forEach(([id,k])=>$('#'+id)?.addEventListener('change',e=>{ S.filtro[k]=e.target.value; render(); }));
+  $('#relImei')?.addEventListener('change',e=>{ S.filtro.relImei=e.target.value; render(); });
+};
+function relCsvTexto(R,linhas){ const q=s=>`"${String(s??'').replace(/"/g,'""')}"`, n=x=>typeof x==='number'?String(x).replace('.',','):q(x);
+  return '﻿'+[R.cab.map(q).join(';'),...linhas.map(l=>l.map(n).join(';'))].join('\r\n'); }
+function relHtmlPdf(R,titulo,linhas,extra=''){
+  const filtros=[S.filtro.relLoja?lojaNome(S.filtro.relLoja):'Todas as lojas',R.periodo&&(S.filtro.relDe||S.filtro.relAte)?`período ${S.filtro.relDe?fmtD(S.filtro.relDe):'início'} a ${S.filtro.relAte?fmtD(S.filtro.relAte):'hoje'}`:''].filter(Boolean).join(' · ');
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;margin:20px}h1{font-size:18px;margin:0}.sub{color:#555;font-size:12px;margin:4px 0 14px}
+    .k{display:flex;gap:10px;margin-bottom:12px}.k div{border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:11px}.k b{display:block;font-size:14px}table{width:100%;border-collapse:collapse;font-size:10.5px}th{background:#0A1733;color:#fff;text-align:left;padding:5px}td{border-bottom:1px solid #e3e3e3;padding:4px 5px}tr:nth-child(even) td{background:#f6f7fb}.r{text-align:right}button{margin:14px 0;padding:8px 16px}@media print{button{display:none}}</style></head>
+    <body><h1>${esc(S.cfg.empresa||'NexumCell')} — ${esc(titulo)}</h1><div class="sub">${esc(filtros)} · gerado em ${fmtDT(Date.now())} por ${esc(S.me.nome)}</div>${extra}
+    <table><tr>${R.cab.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${linhas.map(l=>`<tr>${l.map((x,i)=>`<td${typeof x==='number'?' class="r"':''}>${celRel(x,i,R)}</td>`).join('')}</tr>`).join('')}</table>
+    <button onclick="print()">Imprimir / salvar em PDF</button></body></html>`; }
+function abrirHtml(html){ const w=window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank'); if(!w) toast('Permita pop-ups para abrir o relatório','err'); }
+const gerentesDa=lojaId=>(S._relD?.users||[]).filter(u=>u.role==='GERENTE'&&u.lojaId===lojaId&&u.ativo!==false);
+function textoCobrancaLoja(g){ return `Olá! Segue a lista de clientes da ${g.nome} com parcelas em atraso (${g.linhas.length} contrato(s), ${brl(g.total)}). Por favor, cobre cada um e registre o contato na Fila de cobrança do portal:\n\n`+
+  g.linhas.slice(0,40).map(l=>`• ${l[0]} · ${l[1]} · ${l[2]} · ${l[6]} dia(s) · ${brl(l[7])}`).join('\n')+(g.linhas.length>40?`\n… e mais ${g.linhas.length-40}. Lista completa no portal (Fila de cobrança).`:'')+`\n\n${S.me.nome} · ${S.cfg.empresa||'NexumCell'}`; }
+Object.assign(ACT,{
+  relTipo:d=>{ S.filtro.relTipo=d.v; render(); },
+  relCsv:async()=>{ const R=S._rel; if(!R) return; baixarArquivo(`relatorio-${(S.filtro.relTipo||'cobrar')}-${hoje()}.csv`,relCsvTexto(R,R.linhas),'text/csv;charset=utf-8'); await log('Relatório baixado (CSV)',R.titulo,`${R.linhas.length} linha(s)`); },
+  relPdf:async()=>{ const R=S._rel; if(!R) return; abrirHtml(relHtmlPdf(R,R.titulo,R.linhas,`<div class="k">${R.kpis.map(([n,v])=>`<div>${esc(n)}<b>${v}</b></div>`).join('')}</div>`)); await log('Relatório gerado (PDF)',R.titulo,''); },
+  relPdfLoja:d=>{ const R=S._rel, g=R?.grupos?.find(x=>x.id===d.id); if(!g) return; abrirHtml(relHtmlPdf(R,`Clientes para cobrar — ${g.nome}`,g.linhas,`<div class="k"><div>Contratos em atraso<b>${g.linhas.length}</b></div><div>Valor em atraso<b>${brl(g.total)}</b></div></div>`)); },
+  relGerenteWa:d=>{ const g=S._rel?.grupos?.find(x=>x.id===d.id); if(!g) return; const ge=gerentesDa(d.id)[0];
+    if(!ge?.telefone) toast('O gerente desta loja não tem telefone cadastrado: escolha o contato no WhatsApp','');
+    window.open(`https://wa.me/${ge?.telefone?telWa(ge.telefone):''}?text=${encodeURIComponent(textoCobrancaLoja(g))}`,'_blank'); log('Lista de cobrança enviada ao gerente (WhatsApp)',d.id,`${g.linhas.length} contrato(s)`); },
+  relGerenteEmail:async(d,btn)=>{ const R=S._rel, g=R?.grupos?.find(x=>x.id===d.id); if(!g) return; const ges=gerentesDa(d.id).filter(u=>u.email);
+    if(!ges.length) return toast('Nenhum gerente com e-mail nesta loja','err'); if(!servLigado()) return toast('O servidor de e-mails não está configurado. Use o WhatsApp ou o PDF.','err');
+    btn.disabled=true; try{ for(const u of ges) await apiServ('avisos',{acao:'email',para:u.email,assunto:`Clientes para cobrar — ${g.nome} — ${fmtD(hoje())}`,texto:textoCobrancaLoja(g),anexo:{nome:`cobrar-${g.nome.replace(/\W+/g,'-').toLowerCase()}-${hoje()}.csv`,base64:b64Texto(relCsvTexto(R,g.linhas))}});
+      await log('Lista de cobrança enviada ao gerente (e-mail)',d.id,ges.map(u=>u.email).join(', ')); toast('Enviado para '+ges.map(u=>u.nome).join(', '),'ok'); }catch(e){ toast(e.message,'err'); } btn.disabled=false; },
 });
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
