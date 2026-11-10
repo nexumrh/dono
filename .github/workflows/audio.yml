@@ -2,7 +2,7 @@ name: Gerar áudios do treinamento
 on:
   push:
     branches: [main]
-    paths: ['audio/roteiro.json', 'audio/gerar.py', '.github/workflows/audio.yml']
+    paths: ['audio/roteiro.json', 'audio/gerar.py', 'audio/teste_vozes.py', '.github/workflows/audio.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -16,9 +16,10 @@ jobs:
           python-version: '3.12'
       - run: pip install edge-tts
       - run: python audio/gerar.py
+      - run: python audio/teste_vozes.py
       - name: Salvar os áudios
         run: |
           git config user.name "nexumcell-bot"
           git config user.email "nexumcell-bot@users.noreply.github.com"
-          git add audio/*.mp3 audio/versao.json
+          git add audio/*.mp3 audio/versao.json audio/teste || true
           git diff --cached --quiet || (git commit -m "Áudios do treinamento (voz neural)" && git pull --rebase && git push)
