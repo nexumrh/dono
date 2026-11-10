@@ -10,6 +10,7 @@ import { repasseRotina } from './repasse.js';
 import { backupRotina } from './seguranca.js';
 import { instalacoesRotina } from './instalacao.js';
 import { negativacaoRotina } from './negativacao.js';
+import { cashbackRotina, aniversarioRotina } from './fidelidade.js';
 import { nota } from './motor.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 
@@ -203,9 +204,10 @@ export async function resumoDoDia(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } return r; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } return r; }
   const vendas = await vendasAtivas();
-  return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)) };
+  let aniv = {}; try { aniv = await aniversarioRotina(cfg); } catch (e) { console.error('aniversario', e.message); }
+  return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)), ...aniv };
 }
 
 export default async function handler(req, res) {

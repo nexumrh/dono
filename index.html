@@ -491,7 +491,7 @@ const ROLES = {DONO:'Dono', GERENTE:'Gerente', VENDEDOR:'Vendedor', FINANCEIRO:'
 const ALL = Object.keys(ROLES);
 const CFG_PADRAO = {
   empresa:'NexumCell', cnpj:'', jurosFinanciamentoPct:25, parcelasOpcoes:'3,6,9,10,12', quinzenalAtivo:'nao', jurosQuinzenalPct:35, parcelasOpcoesQuinzenal:'8,12,16,20,24', entradaMinPct:20,
-  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, preAutomatica:'sim', preRendaPct:30, preLimiteMin:300, preLimiteMax:0, brevoCanal:'nenhum', brevoLembretes:'nao', lembreteDiasAntes:2, negativarAuto:'nao', negativarDias:60, negativarMax:10, lembreteDiasAtraso:'1,3,7', brevoRecibo:'nao', roboVoz:'nao', roboVozDias:15, resumoEmail:'sim', resumoCanal:'nao', splitComissao:'nao', vipOuroJuros:5, vipPrataJuros:2, vipOuroParcelas:6, trocaDias:7, nfAutomatica:'nao', nfNcm:'85171300', nfNcmAcessorio:'85177900', nfCfop:'5102', nfCsosn:'102', nfOrigem:'0', nfPisCst:'07', assinaturaZapsign:'nao', etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
+  toleranciaDias:3, maxDiasOffline:15, comissaoPct:3, preAutomatica:'sim', preRendaPct:30, preLimiteMin:300, preLimiteMax:0, brevoCanal:'nenhum', brevoLembretes:'nao', lembreteDiasAntes:2, negativarAuto:'nao', negativarDias:60, negativarMax:10, cashbackAtivo:'nao', cashbackPct:2, aniversarioAtivo:'sim', aniversarioDesconto:0, coberturaDias:20, lembreteDiasAtraso:'1,3,7', brevoRecibo:'nao', roboVoz:'nao', roboVozDias:15, resumoEmail:'sim', resumoCanal:'nao', splitComissao:'nao', vipOuroJuros:5, vipPrataJuros:2, vipOuroParcelas:6, trocaDias:7, nfAutomatica:'nao', nfNcm:'85171300', nfNcmAcessorio:'85177900', nfCfop:'5102', nfCsosn:'102', nfOrigem:'0', nfPisCst:'07', assinaturaZapsign:'nao', etapaParcialDias:3, etapaTotalDias:7, confiancaMensal:'sim', appsParcial:'', bonusIndicacao:30, pontosPorParcela:10, pontosValor:10, limiteDescontoPct:5, urlPonto:'', usadoMaxPct:40, protecaoMensal:9.9, protecaoCobertura:'Conserto de tela e defeitos fora da garantia, 1 vez por contrato', chipComissoes:'Pré-pago:5,Controle:15,Pós-pago:30', entradaSemTravaPct:50, treinamentoObrigatorio:'sim', urlTreinamento:'', desafioTexto:'', desafioMeta:0, desafioPremio:'', horaAbre:'08:00', horaFecha:'19:00', ultimoBackup:0, entradaPct:30, descontoAntecipadoPct:5, cidadePix:'FOZ DO IGUACU', videos:{}, multaPct:2, moraDiaPct:0.033,
   apkUrl:'', apkChecksumHex:'', chavePix:'', servidorPagamentos:'', exigirLocalLoja:'sim', exigirEstoque:'sim', telefoneSuporte:'', wifiSsid:'', wifiSenha:'', frpContas:'',
   mensagemTrava:'Seu aparelho foi bloqueado por atraso no pagamento. Regularize para liberar o uso.'
 };
@@ -1235,6 +1235,8 @@ async function passoAnalise(){
       $('#wz').innerHTML=`<div class="card resultado ok"><div class="res-ic">${svg('<path d="M20 6 9 17l-5-5"/>')}</div>
         <h2 style="justify-content:center;font-size:26px">Parabéns, você foi aprovado!</h2>
         <p class="muted">Crédito aprovado para <b>${esc(v.clienteNome)}</b>${v.analise?.limite?` · valor financiado de até <b>${brl(v.analise.limite)}</b>`:''}.</p>
+        ${v.analise?.contraproposta?`<div class="warn" style="text-align:left"><b>Aprovado com contraproposta.</b> Condições para este cliente: entrada mínima de <b>${v.analise.contraproposta.entradaPct}%</b>${v.analise.contraproposta.limite?` e valor financiado de até <b>${brl(v.analise.contraproposta.limite)}</b>`:''}. Explique ao cliente: com essa entrada a compra sai aprovada.
+          <div class="row mt"><button class="btn sm green" data-act="contraWa" data-id="${v.id}">Enviar a contraproposta pelo WhatsApp</button></div></div>`:''}
         <button class="btn gold lg" data-act="irPasso" data-n="5">${svg(IC.aparelhos)}Vamos escolher o aparelho</button></div>`;
     } else if(v.status==='REPROVADA'){
       unwatch&&unwatch(); unwatch=null;
@@ -1266,7 +1268,7 @@ async function passoAparelho(){
   const doMarca=cat.filter(x=>x.marca===w.sel.marca);
   const modelos=[...new Set(doMarca.map(x=>x.modelo))];
   const item=cat.find(x=>x.id===w.sel.itemId);
-  const lim=v.analise?.limite||0, pct=Number(S.cfg.entradaPct)||30;
+  const lim=v.analise?.limite||0, pct=entradaMinPct(v); S.w._contra=v.analise?.contraproposta||null; S.w._cb=await cashbackDe(v.clienteCpf);
   const cfg=S.cfg, freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL', ops=opsFreq(freq);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">5</span>Escolha o aparelho</h2>
     <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||(exigeEst?'<div class="empty" style="width:100%"><b>Nenhum aparelho no estoque desta loja</b>O gerente precisa cadastrar os aparelhos (com IMEI) em “Estoque por IMEI”.</div>':'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>')}</div>
@@ -1290,6 +1292,8 @@ async function passoAparelho(){
       <label>Cor<input id="nCor" value="${esc(w.sel.cor||'')}"></label>
     </div>
     <div id="acessBox"></div>
+    ${S.w._cb?.saldo>0&&!item.semTrava?`<label class="check mt" style="background:#ECFDF3;border:1px solid #A7E3BF;border-radius:10px;padding:10px 12px"><input type="checkbox" id="nCashback" ${w.sel.usarCashback?'checked':''}> <span><b>Cliente tem ${brl(S.w._cb.saldo)} de cashback</b> por ter pago em dia. Usar como parte da entrada (o cliente paga menos na hora).</span></label>`:''}
+    ${S.w._contra?`<div class="warn mt"><b>Contraproposta:</b> entrada mínima de ${S.w._contra.entradaPct}%${S.w._contra.limite?` e financiado até ${brl(S.w._contra.limite)}`:''}.</div>`:''}
     ${blocoExtrasVenda(item)}
     <div class="sim mt" id="nSim"></div>
     <div ${item.semTrava?'hidden':''}>${blocoImei()}</div>
@@ -1334,7 +1338,7 @@ async function conferirImeiFoto(){
   w.imeiIA=res; if($('#imeiFotoSt')) $('#imeiFotoSt').innerHTML=res.confere?`<b style="color:var(--ok)">✓ ${esc(res.msg)}</b>`:`<b style="color:var(--bad)">✕ ${esc(res.msg)}</b>`;
   return res;
 }
-function guardarCampos(){ const w=S.w; if(!w?.sel||!$('#nImei')) return; Object.assign(w.sel,{imei:onlyDig($('#nImei').value),imei2:onlyDig($('#nImei2').value),entrada:+$('#nEntrada').value||w.sel.entrada,n:+$('#nParc').value,venc:$('#nVenc').value,cor:$('#nCor').value.trim()}); w.anatel=$('#nAnatel')?.value||w.anatel; }
+function guardarCampos(){ const w=S.w; if(!w?.sel||!$('#nImei')) return; Object.assign(w.sel,{imei:onlyDig($('#nImei').value),imei2:onlyDig($('#nImei2').value),entrada:+$('#nEntrada').value||w.sel.entrada,n:+$('#nParc').value,venc:$('#nVenc').value,cor:$('#nCor').value.trim(),usarCashback:!!$('#nCashback')?.checked}); w.anatel=$('#nAnatel')?.value||w.anatel; }
 async function reprovarPorImei(v,motivo){
   await DB.set('vendas',v.id,{status:'REPROVADA',reprovadoPorImei:true,motivoReprovacao:motivo,reprovadoEm:Date.now(),aparelhoRecusado:{imei:S.w.sel.imei,imei2:S.w.sel.imei2,marca:S.w.sel.marca}});
   await log('Venda reprovada: IMEI irregular',v.id,motivo);
@@ -1348,7 +1352,7 @@ function simular(){
   const it=S.w?.sel&&S.w.sel.itemId; if(!it||!$('#nSim')) return;
   guardarCampos(); if($('#imeiCheck')) $('#imeiCheck').innerHTML=imeiMsg($('#nImei').value)||'<span class="muted small">Digite o IMEI acima</span>';
   if($('#nImei2Ok')) $('#nImei2Ok').innerHTML=imeiMsg($('#nImei2').value);
-  const preco=S.w.sel.preco+(S.w.sel.acessValor||0), pct=S.w.sel.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):(Number(S.cfg.entradaPct)||30), min=r2(preco*pct/100);
+  const preco=S.w.sel.preco+(S.w.sel.acessValor||0), pct=S.w.sel.semTrava?(Number(S.cfg.entradaSemTravaPct)||50):entradaMinPct(), min=r2(preco*pct/100);
   let e=+$('#nEntrada').value||0; const n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null);
   const fin=Math.max(0,preco-e), prot=S.w.sel.protecao&&!S.w.sel.semTrava?(Number(S.cfg.protecaoMensal)||0):0, p=r2(parcelaPlano(preco,e,jp,n)+prot), us=S.w.sel.usado?.valor||0;
   $('#nSim').innerHTML=`<div class="row">
@@ -1361,7 +1365,7 @@ function simular(){
 async function trocarFreq(freq){ guardarCampos(); const x=await DB.get('catalogo',S.w.sel.itemId); S.w.sel.freq=freq; S.w.sel.n=null; S.w.sel.venc=null; S.w.sel.juros=jurosVip(jurosFreq(x,freq),S.w.vip); passoAparelho(); }
 async function selItem(id){ const x=await DB.get('catalogo',id), vv=await DB.get('vendas',S.w.vendaId).catch(()=>null); S.w.vip=vv?.vip||null; S.w.sel={...S.w.sel,itemId:id,preco:x.preco,marca:x.marca,juros:jurosVip(jurosFreq(x,quinzenalAtivo()?(S.w.sel.freq||'MENSAL'):'MENSAL'),vv?.vip),entrada:null,semTrava:!!x.semTrava}; passoAparelho(); }
 async function salvarAparelho(btn){
-  const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=Number(S.cfg.entradaPct)||30;
+  const w=S.w, x=await DB.get('catalogo',w.sel.itemId), pct=entradaMinPct();
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
   guardarCampos();
   if(x.semTrava) return salvarProdutoSemTrava(x,btn);
@@ -1390,10 +1394,13 @@ async function salvarAparelho(btn){
   const dup=(await DB.list('aparelhos',[['imei','==',imei]]).catch(()=>[])).filter(a=>!a.quitado&&a.status!=='CANCELADO');
   if(dup.length){ btn.disabled=false; return toast('Este IMEI já tem contrato ativo (nº '+dup[0].vendaNumero+').','err'); }
   const freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL';
+  const limA=v0.analise?.contraproposta?.limite||v0.analise?.limite||0;
+  if(limA&&r2(valorTotal-entrada)>limA){ btn.disabled=false; return toast(`O valor financiado (${brl(valorTotal-entrada)}) passa do aprovado (${brl(limA)}). Aumente a entrada para pelo menos ${brl(valorTotal-limA)}.`,'err'); }
+  const cbUso=w.sel.usarCashback&&S.w._cb?.saldo>0?r2(Math.min(S.w._cb.saldo,Math.max(0,entrada-(w.sel.usado?.valor||0)))):0;
   const juros=jurosVip(jurosFreq(x,freq),v0.vip), fin=r2(valorTotal-entrada), prot=w.sel.protecao?(Number(S.cfg.protecaoMensal)||0):0, vp=r2(parcelaPlano(valorTotal,entrada,juros,n)+prot);
   const verificacaoImei={digito:true,em:Date.now(),por:S.me.nome};
   await DB.set('vendas',w.vendaId,{aparelho:{estoqueId:estItem?estItem.id:'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,armazenamento:x.capacidade,imei,imei2,cor:w.sel.cor,verificacaoImei},
-    valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,frequencia:freq,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
+    valor:valorTotal,usado:w.sel.usado||null,protecao:prot?{mensal:prot,cobertura:S.cfg.protecaoCobertura||''}:null,acessorios:acs.map(({custo,...a})=>a),acessoriosValor:acessValor,cashbackUsado:cbUso||0,custo:estItem?.custo?r2(estItem.custo+acs.reduce((s,a)=>s+a.custo,0)):0,entrada,financiado:fin,nParcelas:n,juros,frequencia:freq,valorParcela:vp,total:r2(vp*n),primeiroVenc:venc,
     parcelas:Array.from({length:n},(_,i)=>({n:i+1,venc:vencDe(venc,i,freq),valor:vp,pago:false}))});
   await log('Aparelho escolhido',w.vendaId,`${x.marca} ${x.modelo} ${x.capacidade} · IMEI ${imei}`);
   irPasso(6);
@@ -1458,10 +1465,10 @@ async function registrarAssinatura(id,o){
 async function passoEntrada(){
   const v=await DB.get('vendas',S.w.vendaId);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">7</span>Receber a entrada</h2>
-    <div class="entrada-box"><small>${v.usado?'Entrada a receber em dinheiro/PIX/cartão':'Entrada a receber'}</small><b>${brl(v.entrada-(v.usado?.valor||0))}</b><span>${esc(v.clienteNome)} · ${esc(apNome(v))}${v.usado?` · entrada total ${brl(v.entrada)} − usado ${esc(v.usado.marca+' '+v.usado.modelo)} ${brl(v.usado.valor)}`:''}</span></div>
+    <div class="entrada-box"><small>${v.usado||v.cashbackUsado?'Entrada a receber em dinheiro/PIX/cartão':'Entrada a receber'}</small><b>${brl(v.entrada-abateEntrada(v))}</b>${v.cashbackUsado?`<span>cashback usado: ${brl(v.cashbackUsado)}</span>`:''}<span>${esc(v.clienteNome)} · ${esc(apNome(v))}${v.usado?` · entrada total ${brl(v.entrada)} − usado ${esc(v.usado.marca+' '+v.usado.modelo)} ${brl(v.usado.valor)}`:''}</span></div>
     <div class="warn mt"><b>O aparelho só sai da loja depois que a entrada for paga.</b> A equipe vai mandar uma mensagem no WhatsApp do cliente confirmando o valor recebido.</div>
     <div class="grid g3 mt">
-      <label>Valor recebido (R$)<input id="eValor" type="number" step="0.01" min="${r2(v.entrada-(v.usado?.valor||0))}" value="${r2(v.entrada-(v.usado?.valor||0))}"></label>
+      <label>Valor recebido (R$)<input id="eValor" type="number" step="0.01" min="${r2(v.entrada-abateEntrada(v))}" value="${r2(v.entrada-abateEntrada(v))}"></label>
       <label>Forma de pagamento<select id="eForma"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option></select></label>
       <label>Nº do comprovante / observação<input id="eObs"></label>
     </div>
@@ -1473,7 +1480,7 @@ async function passoEntrada(){
 async function confirmarEntrada(btn){
   const v=await DB.get('vendas',S.w.vendaId), valor=r2(+$('#eValor').value);
   if(!$('#eOk').checked) return toast('Confirme o recebimento da entrada','err');
-  const minDin=r2(v.entrada-(v.usado?.valor||0));
+  const minDin=r2(v.entrada-abateEntrada(v));
   if(valor<minDin) return toast(`O valor recebido precisa ser pelo menos ${brl(minDin)}`,'err');
   if(v.usado&&!$('#eUsado').checked) return toast('Confirme o recebimento do aparelho usado','err');
   const chip=lerChip();
@@ -1807,21 +1814,27 @@ async function analisar(id){
     <label class="check"><input type="checkbox" id="ck_cpf"> CPF consultado (SPC/Serasa/Boa Vista) sem restrição impeditiva</label>
     <label class="check"><input type="checkbox" id="ck_bio"> Biometria facial confere com o documento</label>
     <label class="check"><input type="checkbox" id="ck_doc"> Documento legível e original</label>
-    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label></div>
+    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label><label>Entrada mínima (%) <span class="small muted">para contraproposta</span><input id="aEntPct" type="number" min="${Number(S.cfg.entradaPct)||30}" max="90" step="1" value="${Number(S.cfg.entradaPct)||30}"></label></div>
+    <p class="small muted">Em vez de reprovar, você pode fazer uma <b>contraproposta</b>: o cliente é aprovado só com entrada maior e/ou valor financiado menor. O vendedor vê as condições e oferece ao cliente.</p>
     <label class="mt">Parecer<textarea id="aObs" rows="2"></textarea></label>
     <label class="check"><input type="checkbox" id="aLN"> Ao reprovar, incluir este cliente (CPF, telefones e rosto) na <b>lista negra</b> — golpe, documento falso ou fraude</label>
-    <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
+    <div class="row mt" style="justify-content:flex-end"><button class="btn red lg" data-act="decidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn gold lg" data-act="decidir" data-id="${id}" data-r="CONTRA">Aprovar com contraproposta</button><button class="btn green lg" data-act="decidir" data-id="${id}" data-r="APROVADA">Aprovar cliente</button></div>`, true);
   if(docs.selfie) compararFaceLN(docs.selfie,c.cpf).finally(()=>compararFaceClientes(docs.selfie,c.cpf,id));
   revisaoIA(v,docs);
   fraudeEntreLojas(v).then(h=>{ const b=$('#fraudeBox'); if(b) b.innerHTML=h; }).catch(()=>{});
 }
 async function decidir(id,r){
   const ck={}; ['cpf','bio','doc'].forEach(k=>ck[k]=$('#ck_'+k).checked);
+  let contra=null; const pctBase=Number(S.cfg.entradaPct)||30;
+  if(r==='CONTRA'){ const ep=Math.round(+$('#aEntPct').value||0), lm=+$('#aLimite').value||0;
+    if(ep<=pctBase&&!lm) return toast(`Para a contraproposta, aumente a entrada mínima (acima de ${pctBase}%) ou defina o valor financiado máximo.`,'err');
+    if(ep>90) return toast('Entrada mínima de no máximo 90%','err');
+    contra={entradaPct:Math.max(pctBase,ep),limite:lm||null}; r='APROVADA'; }
   if(r==='APROVADA' && !(ck.cpf&&ck.bio&&ck.doc)){ toast('Para aprovar, marque as três conferências.','err'); return; }
   if(r==='REPROVADA' && !$('#aObs').value.trim()){ toast('Escreva o motivo da reprovação (fica só para a equipe).','err'); return; }
-  const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),motorSugeriu:(await DB.get('vendas',id))?.motor?.resultado||null,score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck};
+  const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),motorSugeriu:(await DB.get('vendas',id))?.motor?.resultado||null,score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck,...(contra?{contraproposta:contra}:{})};
   const vip=r==='APROVADA'?(S._vipAnalise?.id===id?S._vipAnalise.vip:await vipDaVenda(await DB.get('vendas',id))):null;
-  await DB.set('vendas',id,{status:r,analise,vip:vip||null}); await log(r==='APROVADA'?'Crédito aprovado':'Crédito reprovado',id,analise.obs+(vip?` · cliente VIP ${vip.nivel}`:''));
+  await DB.set('vendas',id,{status:r,analise,vip:vip||null}); await log(r==='APROVADA'?(contra?'Aprovado com contraproposta':'Crédito aprovado'):'Crédito reprovado',id,analise.obs+(contra?` · entrada mín. ${contra.entradaPct}%${contra.limite?' · financiado até '+brl(contra.limite):''}`:'')+(vip?` · cliente VIP ${vip.nivel}`:''));
   if(r==='REPROVADA'&&$('#aLN')?.checked){ const v=await DB.get('vendas',id); await adicionarLN(v,'Fraude na proposta: '+analise.obs); }
   toast(r==='APROVADA'?'Cliente aprovado — o vendedor já está vendo na tela':'Cliente reprovado', r==='APROVADA'?'ok':''); closeModal(); render();
 }
@@ -2554,7 +2567,7 @@ function toggleAcess(id,on){
   const w=S.w, s=new Set(w.sel.acess||[]); on?s.add(id):s.delete(id); w.sel.acess=[...s];
   const acs=(w.acessLista||[]).filter(a=>s.has(a.id)), val=r2(acs.reduce((t,a)=>t+a.preco,0));
   if(val>w.sel.preco*0.5){ s.delete(id); w.sel.acess=[...s]; toast('Acessórios passam de 50% do valor do aparelho','err'); renderAcessorios(); return; }
-  w.sel.acessValor=val; const pct=Number(S.cfg.entradaPct)||30, min=r2((w.sel.preco+val)*pct/100);
+  w.sel.acessValor=val; const pct=entradaMinPct(), min=r2((w.sel.preco+val)*pct/100);
   if($('#nEntrada')&&(+$('#nEntrada').value||0)<min) $('#nEntrada').value=min;
   renderAcessorios(); simular();
 }
@@ -2569,7 +2582,7 @@ let _vitT=null;
 function publicarVitrine(){ if(!can('DONO')) return; clearTimeout(_vitT); _vitT=setTimeout(async()=>{ try{
   const cat=(await DB.list('catalogo')).filter(x=>x.ativo!==false&&x.preco>0).map(x=>({marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,preco:x.preco,juros:jurosDo(x)}))
     .sort((a,b)=>(a.marca+a.modelo).localeCompare(b.marca+b.modelo,'pt-BR',{numeric:true}));
-  await DB.set('publico','vitrine',{empresa:S.cfg.empresa||'NexumCell',entradaPct:+S.cfg.entradaPct||30,jurosPadrao:jurosDo(null),parcelasOpcoes:String(S.cfg.parcelasOpcoes||'6,10,12'),
+  await DB.set('publico','vitrine',{empresa:S.cfg.empresa||'NexumCell',entradaPct:+S.cfg.entradaPct||30,cashbackPct:S.cfg.cashbackAtivo==='sim'?(+S.cfg.cashbackPct||0):0,jurosPadrao:jurosDo(null),parcelasOpcoes:String(S.cfg.parcelasOpcoes||'6,10,12'),
     lojas:S.lojas.map(l=>({id:l.id,nome:l.nome,cidade:l.cidade||'',telefone:l.telefone||''})),aparelhos:cat,servidor:servidorPg(),atualizadoEm:Date.now()});
 }catch(e){ console.warn('vitrine',e); } },1500); }
 
@@ -4485,7 +4498,7 @@ Object.assign(ACT,{
     <div class="grid g4">
       ${sel('brevoCanal','Mensagens automáticas ao cliente',[['nenhum','Desligado (só o Asaas avisa)'],['whatsapp_ou_sms','WhatsApp; se falhar, SMS'],['whatsapp','Só WhatsApp'],['sms','Só SMS'],['ambos','WhatsApp e SMS']],'nenhum')}
       ${sel('brevoLembretes','Lembrete de vencimento e atraso (9h)',sn,'nao')}${f('lembreteDiasAntes','Avisar quantos dias antes de vencer','number','min="1" max="10"')}${f('lembreteDiasAtraso','Avisar com quantos dias de atraso (ex.: 1,3,7)')}
-      ${sel('brevoRecibo','Recibo automático quando o Asaas recebe',sn,'nao')}${sel('roboVoz','Robô de voz do Asaas para atraso longo',sn,'nao')}${f('roboVozDias','Ligar o robô com quantos dias de atraso','number','min="5" max="60"')}${sel('negativarAuto','Negativar no Serasa automaticamente (via Asaas)',sn,'nao')}${f('negativarDias','Negativar com quantos dias de atraso (mín. 30)','number','min="30" max="365"')}${f('negativarMax','Máximo de negativações por noite','number','min="1" max="100"')}
+      ${sel('brevoRecibo','Recibo automático quando o Asaas recebe',sn,'nao')}${sel('roboVoz','Robô de voz do Asaas para atraso longo',sn,'nao')}${f('roboVozDias','Ligar o robô com quantos dias de atraso','number','min="5" max="60"')}${sel('negativarAuto','Negativar no Serasa automaticamente (via Asaas)',sn,'nao')}${f('negativarDias','Negativar com quantos dias de atraso (mín. 30)','number','min="30" max="365"')}${f('negativarMax','Máximo de negativações por noite','number','min="1" max="100"')}${sel('cashbackAtivo','Cashback para quem paga em dia',sn,'nao')}${f('cashbackPct','Cashback (% de cada parcela paga em dia)','number','min="0.5" max="10" step="0.5"')}${sel('aniversarioAtivo','Mensagem de aniversário no celular do cliente',sn,'sim')}${f('aniversarioDesconto','Desconto de aniversário na parcela (R$, 0 = sem desconto)','number','min="0" step="1"')}${f('coberturaDias','Sugestão de compra: estoque para quantos dias','number','min="7" max="90"')}
       ${sel('resumoEmail','Resumo das 19h por e-mail ao dono',sn,'sim')}${f('resumoEmailsExtras','Outros e-mails para o resumo (separe por vírgula)')}
       ${sel('resumoCanal','Resumo das 19h no celular do dono',[['nao','Não'],['sms','SMS'],['whatsapp','WhatsApp (modelo "resumo")']],'nao')}${f('donoTelefone','Celular do dono (com DDD)','tel')}${f('emailContador','E-mail do contador')}
     </div></div>
@@ -6070,6 +6083,98 @@ Object.assign(ACT,{ abrirCurso:d=>abrirCurso(d.id),
 
 /* ---------- negativação automática: exceção por contrato ---------- */
 Object.assign(ACT,{ naoNegativar:async d=>{ const v=await DB.get('vendas',d.id); const nv=!v.naoNegativar; await DB.set('vendas',d.id,{naoNegativar:nv}); await log(nv?'Contrato fora da negativação automática':'Negativação automática liberada',d.id,''); toast(nv?'Este contrato não será negativado automaticamente':'Negativação automática liberada','ok'); render(); } });
+/* ======================= VENDAS: CONTRAPROPOSTA, RETOMAR, PROPOSTA EM IMAGEM, MEU LINK, SUGESTÃO DE COMPRA, CASHBACK ======================= */
+function entradaMinPct(v){ const base=Number(S.cfg.entradaPct)||30, c=v?v.analise?.contraproposta:S.w?._contra; return Math.max(base,+(c?.entradaPct)||0); }
+const abateEntrada=v=>r2((v.usado?.valor||0)+(+v.cashbackUsado||0));
+async function cashbackDe(cpf){ if(S.cfg.cashbackAtivo!=='sim'||!cpf) return null; try{ const c=(await DB.get('clientes',onlyDig(cpf)))?.cashback; return c&&c.saldo>0?c:null; }catch(e){ return null; } }
+document.addEventListener('change',e=>{ if(e.target.id==='nCashback'){ if(S.w?.sel) S.w.sel.usarCashback=e.target.checked; } });
+
+function msgContra(v){ const c=v.analise?.contraproposta||{};
+  return `Olá, ${primeiroNome(v.clienteNome)}! Aqui é ${primeiroNome(S.me.nome)}, da ${v.lojaNome||S.cfg.empresa}. Boa notícia: conseguimos aprovar o seu crédito com uma condição: entrada a partir de ${c.entradaPct}% do valor do aparelho${c.limite?` e valor parcelado de até ${brl(c.limite)}`:''}. Com isso a compra sai aprovada. Quer passar na loja para escolher o aparelho?`; }
+function msgRetomar(v){ return v.analise?.contraproposta?msgContra(v):`Olá, ${primeiroNome(v.clienteNome)}! Aqui é ${primeiroNome(S.me.nome)}, da ${v.lojaNome||S.cfg.empresa}. Seu crédito está aprovado e reservado. Quer passar na loja para escolher o celular e levar hoje?`; }
+
+/* ---- Propostas para retomar: aprovadas que não viraram venda ---- */
+function blocoRetomar(vendas){
+  const lim=Date.now()-20*3600e3, max=Date.now()-30*86400000, minha=v=>can('VENDEDOR')?v.vendedorUid===S.me.uid:can('GERENTE')?v.lojaId===S.me.lojaId:true;
+  const l=vendas.filter(v=>['APROVADA','AGUARDANDO_ENTRADA'].includes(v.status)&&minha(v)&&(v.analise?.em||v.criadoEm)<lim&&(v.analise?.em||v.criadoEm)>max&&(v.cliente?.telefones||[]).length)
+    .sort((a,b)=>(a.analise?.em||a.criadoEm)-(b.analise?.em||b.criadoEm)).slice(0,12);
+  if(!l.length) return '';
+  return `<div class="card mt"><h2>Propostas para retomar <span class="badge b-amber">${l.length}</span></h2>
+    <p class="small muted" style="margin-top:-6px">Clientes aprovados que ainda não fecharam a compra. Chame pelo WhatsApp enquanto o interesse está quente.</p>
+    ${l.map(v=>`<div class="pend"><div class="t2"><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · ${v.status==='APROVADA'?'aprovado':'falta a entrada'} ${relT(v.analise?.em||v.criadoEm)}${can('GERENTE','DONO')?' · '+esc(v.vendedorNome||''):''}${v.analise?.contraproposta?` · contraproposta: entrada ${v.analise.contraproposta.entradaPct}%`:''}${v.retomada?.em?` · chamado ${relT(v.retomada.em)}`:''}</span></div>
+      <div class="row" style="gap:6px"><button class="btn sm green" data-act="retomarWa" data-id="${v.id}">WhatsApp</button>${can('VENDEDOR')||v.vendedorUid===S.me.uid?`<button class="btn sm" data-act="continuar" data-id="${v.id}">Abrir</button>`:''}</div></div>`).join('')}</div>`;
+}
+
+/* ---- Meu link de vendas (status, Instagram, grupos) ---- */
+function linkVendedor(){ return urlCliente()+`?pre&l=${encodeURIComponent(S.me.lojaId||'')}&v=${encodeURIComponent(S.me.uid)}&vn=${encodeURIComponent(primeiroNome(S.me.nome)+' · '+lojaNome(S.me.lojaId))}`; }
+function blocoMeuLink(){
+  const l=linkVendedor(), msg=`Quer um celular novo parcelado no boleto, sem cartão? Faça sua pré-análise grátis em 2 minutos e veja na hora quanto você pode comprar: ${l}`;
+  return `<div class="card mt"><h2>Meu link de vendas</h2><p class="small muted" style="margin-top:-6px">Poste no status do WhatsApp, no Instagram e em grupos. Quem fizer a pré-análise por este link cai direto para você e a venda conta na sua comissão.</p>
+    <div class="row" style="align-items:center;gap:14px;flex-wrap:wrap"><div id="meuLinkQr" style="width:120px;height:120px;background:#fff;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center"></div>
+      <div style="flex:1;min-width:220px"><input value="${esc(l)}" readonly style="width:100%;font-size:12px">
+      <div class="row mt" style="gap:6px"><button class="btn sm" data-act="copiarTexto" data-t="${esc(l)}">Copiar link</button><a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">Postar no WhatsApp</a><button class="btn sm" data-act="copiarTexto" data-t="${esc(msg)}">Copiar texto pronto</button></div></div></div></div>`;
+}
+function desenharQrMeuLink(){ const b=$('#meuLinkQr'); if(!b||typeof qrcode!=='function') return; try{ const q=qrcode(0,'M'); q.addData(linkVendedor()); q.make(); b.innerHTML=q.createSvgTag({cellSize:3,margin:2}); }catch(e){} }
+
+{ const _ir=PAGES.inicio; PAGES.inicio=async()=>{ await _ir(); if(!can('VENDEDOR')||!$('#view')) return;
+  try{ const vs=await loadVendas(); const h=blocoRetomar(vs); $('#view').insertAdjacentHTML('beforeend',h+blocoMeuLink()); desenharQrMeuLink(); }catch(e){ console.warn('retomar',e); } }; }
+{ const _pr=PAGES.painel; PAGES.painel=async()=>{ await _pr(); if(!can('GERENTE')||!$('#view')) return;
+  try{ const vs=await loadVendas(); const h=blocoRetomar(vs); if(h) $('#view').insertAdjacentHTML('beforeend',h); }catch(e){ console.warn('retomar',e); } }; }
+
+/* ---- Proposta em imagem (simulador) ---- */
+{ const _sm=PAGES.simulador; PAGES.simulador=async()=>{ await _sm(); const r=$('#sbRes'); if(!r) return;
+  r.insertAdjacentHTML('afterend',`<div class="row mt"><button class="btn gold" data-act="propostaImg">Gerar proposta em imagem</button><span class="small muted">Imagem pronta para mandar no WhatsApp do cliente.</span></div>`); }; }
+function linhasTexto(ctx,txt,max){ const ws=String(txt).split(' '), out=[]; let l=''; ws.forEach(w=>{ const t=l?l+' '+w:w; if(ctx.measureText(t).width>max&&l){ out.push(l); l=w; } else l=t; }); if(l) out.push(l); return out; }
+async function propostaImg(){
+  const x=S._simCat?.[+$('#sbItem')?.value]; if(!x) return toast('Escolha o aparelho','err');
+  const acs=[...document.querySelectorAll('[data-sbacs]:checked')].map(i=>S._simAcs[+i.dataset.sbacs]), total=r2(x.preco+acs.reduce((s,a)=>s+a.preco,0)), e=+$('#sbEnt').value||r2(total*entradaMinPct()/100), j=jurosDo(x);
+  const ops=opsFreq('MENSAL').slice(-3), W=1080, H=1350, c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d');
+  const grd=g.createLinearGradient(0,0,W,H); grd.addColorStop(0,'#0A1733'); grd.addColorStop(1,'#1B3F8C'); g.fillStyle=grd; g.fillRect(0,0,W,H);
+  g.fillStyle='#C9A227'; g.fillRect(0,0,W,14);
+  const F=(s,w=700)=>`${w} ${s}px Inter, Arial, sans-serif`; g.textAlign='left';
+  g.fillStyle='#C9A227'; g.font=F(30,700); g.fillText(String(S.cfg.empresa||'NexumCell').toUpperCase(),72,110);
+  g.fillStyle='#fff'; g.font=F(40,600); g.fillText('Proposta para você'+(S._propNome?', '+S._propNome:''),72,175);
+  g.fillStyle='#fff'; g.font=F(64,800); let y=290; linhasTexto(g,`${x.marca} ${x.modelo}`,W-144).forEach(l=>{ g.fillText(l,72,y); y+=74; });
+  g.fillStyle='#C9D4EE'; g.font=F(36,500); g.fillText(`${x.capacidade}${acs.length?' + '+acs.map(a=>a.nome).join(', '):''}`,72,y); y+=80;
+  g.fillStyle='rgba(255,255,255,.08)'; g.beginPath(); g.roundRect(60,y,W-120,140,24); g.fill();
+  g.fillStyle='#C9D4EE'; g.font=F(32,500); g.fillText('Entrada',100,y+60); g.fillStyle='#fff'; g.font=F(56,800); g.fillText(brl(e),100,y+120); y+=180;
+  g.fillStyle='#C9D4EE'; g.font=F(32,500); g.fillText('Parcelas no boleto, sem cartão:',72,y); y+=30;
+  ops.slice().reverse().forEach((n,i)=>{ const yy=y+i*130; g.fillStyle=i===0?'#C9A227':'rgba(255,255,255,.08)'; g.beginPath(); g.roundRect(60,yy,W-120,110,22); g.fill();
+    g.fillStyle=i===0?'#0A1733':'#fff'; g.font=F(44,700); g.fillText(`${n}x`,100,yy+72); g.textAlign='right'; g.font=F(60,800); g.fillText(brl(parcelaPlano(total,e,j,n)),W-100,yy+76); g.textAlign='left'; });
+  y+=ops.length*130+50;
+  g.fillStyle='#F3D98B'; g.font=F(30,600); g.fillText(`Pagando antes do vencimento: ${S.cfg.descontoAntecipadoPct||5}% de desconto em cada parcela.`,72,y); y+=60;
+  g.fillStyle='#C9D4EE'; g.font=F(28,500); g.fillText(`Atendimento: ${primeiroNome(S.me.nome)} · ${lojaNome(S.me.lojaId)||''}`,72,H-120);
+  g.fillText(`Válida até ${fmtD(addDays(hoje(),3))}. Sujeito à análise de crédito.`,72,H-75);
+  const blob=await new Promise(ok=>c.toBlob(ok,'image/png')), nome=`proposta-${x.modelo.replace(/\W+/g,'-').toLowerCase()}.png`, file=new File([blob],nome,{type:'image/png'});
+  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],text:`Proposta ${S.cfg.empresa||'NexumCell'}: ${x.marca} ${x.modelo}`}); return; } }catch(err){ if(err.name==='AbortError') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nome; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  openModal(`<h2>Proposta pronta</h2><img src="${c.toDataURL('image/png')}" style="width:100%;max-width:360px;display:block;margin:0 auto;border-radius:12px"><p class="small muted mt">A imagem foi baixada. Anexe no WhatsApp do cliente.</p>`);
+}
+
+/* ---- Sugestão de compra (gerente) ---- */
+async function blocoSugestaoCompra(lojaId){
+  const dias=+S.cfg.coberturaDias||20, d30=Date.now()-30*86400000, d60=Date.now()-60*86400000;
+  const [cat,est,vs]=await Promise.all([DB.list('catalogo').catch(()=>[]),DB.list('estoque',[['lojaId','==',lojaId]]).catch(()=>[]),loadVendas()]);
+  const vend=vs.filter(v=>v.lojaId===lojaId&&v.aparelho?.catalogoId&&['ATIVA','QUITADA','INSTALANDO','RETOMADA'].includes(v.status));
+  const qem=(id,desde)=>vend.filter(v=>v.aparelho.catalogoId===id&&(v.entradaPaga?.em||v.criadoEm)>=desde).length;
+  const l=cat.filter(x=>x.ativo!==false&&!x.semTrava).map(x=>{ const disp=est.filter(e=>e.catalogoId===x.id&&e.status==='DISPONIVEL').length, v30=qem(x.id,d30), v60=qem(x.id,d60), ritmo=v30/30;
+    return {x,disp,v30,v60,cob:ritmo?Math.floor(disp/ritmo):null,comprar:Math.max(0,Math.ceil(ritmo*dias)-disp)}; }).filter(o=>o.disp||o.v60);
+  if(!l.length) return '';
+  const comprar=l.filter(o=>o.comprar>0).sort((a,b)=>b.comprar-a.comprar), parados=l.filter(o=>o.disp>0&&!o.v60);
+  return `<div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Sugestão de compra — ${esc(lojaNome(lojaId))}</h2><p class="small muted" style="padding:0 16px;margin:0">Baseada nas vendas dos últimos 30 dias, para ter estoque para ${dias} dias.</p>
+    <table><tr><th>Aparelho</th><th class="right">Vendidos (30 dias)</th><th class="right">No estoque</th><th class="right">Dura</th><th class="right">Comprar</th></tr>
+    ${(comprar.length?comprar:[]).map(o=>`<tr><td><b>${esc(o.x.marca+' '+o.x.modelo)}</b> <span class="small muted">${esc(o.x.capacidade)}</span></td><td class="right">${o.v30}</td><td class="right">${o.disp}</td><td class="right">${o.cob==null?'—':o.cob+' dia(s)'}</td><td class="right">${badge(String(o.comprar),o.disp===0?'red':'amber')}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Estoque suficiente para o ritmo atual.</td></tr>'}</table>
+    ${parados.length?`<p class="small" style="padding:0 16px"><b>Parados há mais de 60 dias sem venda:</b> ${parados.map(o=>`${esc(o.x.marca+' '+o.x.modelo+' '+o.x.capacidade)} (${o.disp})`).join(' · ')}. Pense em promoção ou transferência para outra loja.</p>`:''}</div>`;
+}
+{ const _es=PAGES.estoque; PAGES.estoque=async()=>{ await _es(); if(!can('GERENTE','DONO')||!$('#view')) return;
+  try{ const ids=can('GERENTE')?[S.me.lojaId]:S.lojas.map(l=>l.id).slice(0,6); for(const id of ids){ const h=await blocoSugestaoCompra(id); if(h&&$('#view')) $('#view').insertAdjacentHTML('beforeend',h); } }catch(e){ console.warn('sugestao',e); } }; }
+
+Object.assign(ACT,{
+  contraWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; window.open(`https://wa.me/${telWa((v.cliente?.telefones||[])[0])}?text=${encodeURIComponent(msgContra({...v,id:d.id}))}`,'_blank'); await log('Contraproposta enviada ao cliente',d.id,''); },
+  retomarWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; window.open(`https://wa.me/${telWa((v.cliente?.telefones||[])[0])}?text=${encodeURIComponent(msgRetomar(v))}`,'_blank');
+    await DB.set('vendas',d.id,{retomada:{em:Date.now(),por:S.me.nome}}).catch(()=>{}); render(); },
+  propostaImg:()=>propostaImg(),
+});
 document.addEventListener('change',e=>{ if(e.target.id==='rgN') simAcordo(); if(e.target.dataset.snpreco) DB.set('seminovos',e.target.dataset.snpreco,{precoVenda:r2(+e.target.value||0)}).then(()=>toast('Preço salvo','ok')); if(e.target.dataset.juros){ const ck=document.querySelector(`[data-cat="${e.target.dataset.juros}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.juros,true); }
   if(e.target.dataset.jq){ const ck=document.querySelector(`[data-cat="${e.target.dataset.jq}"]`); if(ck&&ck.checked) catSalvar(e.target.dataset.jq,true); }
   if(e.target.id==='nDiaVenc'&&e.target.value){ const d=+e.target.value, h=new Date(hoje()+'T12:00:00'); let x=new Date(h.getFullYear(),h.getMonth(),d,12); while(diasEntre(hoje(),isoDate(x))<20) x=new Date(x.getFullYear(),x.getMonth()+1,d,12); $('#nVenc').value=isoDate(x); if(S.w?.sel) S.w.sel.diaVenc=d; }

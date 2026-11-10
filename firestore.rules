@@ -96,7 +96,11 @@ service cloud.firestore {
 
     match /clientes/{cpf} {
       allow read: if staff();
-      allow create, update: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO']);
+      // o saldo de cashback é calculado só pelo servidor (ou dono/financeiro)
+      allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO'])
+                    && (hasRole(['DONO', 'FINANCEIRO']) || !('cashback' in request.resource.data));
+      allow update: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO'])
+                    && (hasRole(['DONO', 'FINANCEIRO']) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cashback']));
     }
 
     // ---------- Catálogo de aparelhos e preços (só o Dono altera) ----------
@@ -180,6 +184,16 @@ service cloud.firestore {
                         // produto sem trava exige entrada maior
                         && request.resource.data.entrada >= request.resource.data.valor * (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
                               ? get(/databases/$(database)/documents/config/sistema).data.get('entradaSemTravaPct', 50) : entradaMin()) / 100)
+                        // contraproposta do dono: entrada mínima maior e/ou valor financiado máximo
+                        && request.resource.data.entrada >= request.resource.data.valor * resource.data.analise.get('contraproposta', {}).get('entradaPct', 0) / 100
+                        && (resource.data.analise.get('contraproposta', {}).get('limite', null) == null
+                            || request.resource.data.valor - request.resource.data.entrada <= resource.data.analise.contraproposta.limite)
+                        // cashback usado na entrada: no máximo o saldo do cliente
+                        && (request.resource.data.get('cashbackUsado', 0) == 0
+                            || (exists(/databases/$(database)/documents/clientes/$(resource.data.clienteCpf))
+                                && request.resource.data.cashbackUsado <= get(/databases/$(database)/documents/clientes/$(resource.data.clienteCpf)).data.get('cashback', {}).get('saldo', 0)))
+                    // vendedor: anota que chamou o cliente aprovado de volta (propostas para retomar)
+                    || (minhaVenda() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retomada']))
                     // vendedor: venda reprovada automaticamente por IMEI irregular (Anatel)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'REPROVADA'
                         && request.resource.data.reprovadoPorImei == true && semMexer(['analise', 'cliente', 'valor', 'entrada', 'parcelas']))
