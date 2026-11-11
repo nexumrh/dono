@@ -95,6 +95,18 @@ export async function avaliarVenda(vendaId) {
     try { const r = await asaas('/creditBureauReport', { method: 'POST', body: JSON.stringify({ cpfCnpj: v.clienteCpf, state: c.uf || 'PR' }) }); serasa = { em: Date.now(), por: 'Motor de crédito', link: r.downloadUrl || r.reportFile || '', id: r.id || '' }; manual.push('Serasa consultado: confira o relatório antes de aprovar'); }
     catch (e) { manual.push('não consegui consultar o Serasa: ' + e.message); }
   }
+  // ---- limite da loja (definido pela NexumCell): carteira em aberto e inadimplência acima do teto mandam a venda para análise manual ----
+  try {
+    const loja = (await db.collection('lojas').doc(v.lojaId).get()).data() || {}, teto = Number(loja.limiteCarteira) || 0, tetoInad = Number(loja.limiteInad) || 0;
+    if (teto > 0 || tetoInad > 0) {
+      const h = hoje(); let aberto = 0, vencido = 0, vencAberto = 0;
+      (await db.collection('vendas').where('lojaId', '==', v.lojaId).get()).docs.map((d) => d.data()).filter((x) => ['ATIVA', 'INSTALANDO', 'QUITADA', 'RETOMADA'].includes(x.status)).forEach((x) => (x.parcelas || []).forEach((p) => {
+        const val = Number(p.valor) || 0; if (!p.pago && ['ATIVA', 'INSTALANDO'].includes(x.status)) aberto += val; if (p.venc < h) { vencido += val; if (!p.pago) vencAberto += val; } }));
+      const pct = vencido ? (vencAberto / vencido) * 100 : 0;
+      if (teto > 0 && aberto >= teto) manual.push(`loja acima do limite de carteira (R$ ${Math.round(aberto)} em aberto, teto R$ ${teto})`);
+      if (tetoInad > 0 && pct > tetoInad) manual.push(`loja com inadimplência de ${pct.toFixed(1)}%, acima do teto de ${tetoInad}%`);
+    }
+  } catch (e) { console.warn('limite da loja', e.message); }
   // ---- decisão ----
   const limite = preOk ? Math.max(pre.valor, N.limite) : Math.max(0, hist.length ? N.limite : Math.min(Math.round((c.renda || 0) * R.fatorRendaNovo / 50) * 50, R.limiteMaxNovo, N.limite || Infinity));
   const resultado = reprova.length ? 'REPROVAR' : manual.length ? 'MANUAL' : 'APROVAR';

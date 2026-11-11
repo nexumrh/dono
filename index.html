@@ -432,7 +432,7 @@ details summary{cursor:pointer}
       </div>
       <div id="loginSenha" hidden>
         <h2>Crie sua senha</h2>
-        <p class="adl-p">Você entrou com a senha temporária enviada pelo dono. Crie agora a sua senha pessoal, com 5 ou 6 números.</p>
+        <p class="adl-p">Você entrou com a senha inicial enviada pela NexumCell. Crie agora a sua senha pessoal, com 5 ou 6 números.</p>
         <form id="fSenha" novalidate>
           <label class="adl-in"><input id="nsSenha" type="password" inputmode="numeric" maxlength="6" placeholder="Nova senha (5 ou 6 números)" autocomplete="new-password"></label>
           <label class="adl-in"><input id="nsSenha2" type="password" inputmode="numeric" maxlength="6" placeholder="Repita a nova senha" autocomplete="new-password"></label>
@@ -442,7 +442,7 @@ details summary{cursor:pointer}
       </div>
       <div id="loginOff" hidden>
         <h2>Sistema indisponível</h2>
-        <p class="adl-p">A configuração do sistema não foi carregada (arquivo <b>nexumcell-config.js</b>). Abra o portal pelo endereço oficial ou fale com o dono.</p>
+        <p class="adl-p">A configuração do sistema não foi carregada (arquivo <b>nexumcell-config.js</b>). Abra o portal pelo endereço oficial ou fale com a NexumCell.</p>
       </div>
       <div id="loginDemo">
         <h2>Modo demonstração</h2>
@@ -481,7 +481,7 @@ const PORTAL = 'dono';
 const PORTAIS = {
   dono:      {nome:'Painel do Dono',       arq:'../dono/',       roles:['DONO'],                      tabs:['painel','analise','preanalises','confirmacoes','vendas','cobranca','aparelhos','recolher','pedidos','atendimentos','chamados','fila','conciliacao','aprovacoes','lojas','relDono','relatorios','comissoes','repasses','listanegra','catalogo','equipe','saas','ajuda','config'],
               h1:'Bem-vindo(a) ao<b>Painel do Dono</b>', txt:'Acompanhe todas as lojas, a carteira, a inadimplência e a equipe da NexumCell em um só lugar.', tag:'Mais controle<br>para grandes<br>resultados.', p:'Acesse sua conta para continuar no Painel do Dono.'},
-  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','escala','equipe','treinamento','ajuda'],
+  gerente:   {nome:'Portal do Gerente',    arq:'../gerente/',    roles:['GERENTE','DONO'],            tabs:['painel','nova','simulador','vendas','fila','caixa','despesas','estoque','relatorios','tv','seminovos','trocas','comissoes','licLoja','escala','equipe','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Gerente</b>', txt:'Resultados da loja, vendas da equipe e cobrança na palma da mão.', tag:'Sua loja<br>sempre<br>em dia.', p:'Acesse sua conta para continuar no Portal do Gerente.'},
   vendedor:  {nome:'Portal do Vendedor',   arq:'../vendedor/',   roles:['VENDEDOR','GERENTE','DONO'], tabs:['inicio','nova','simulador','vendas','comissoes','treinamento','ajuda'],
               h1:'Bem-vindo(a) ao<b>Portal do Vendedor</b>', txt:'Lance vendas parceladas, acompanhe a aprovação do crédito, colha a assinatura do cliente e instale a trava do aparelho em poucos minutos.', tag:'Venda mais.<br>Venda com<br>segurança.', p:'Acesse sua conta para continuar no Portal do Vendedor.'},
@@ -739,6 +739,7 @@ const IC = {
   estoque:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
   listanegra:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   lojas:'<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
+  licLoja:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h6M7 14h4"/><circle cx="16.5" cy="13" r="1.6"/>',
   comissoes:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .9-3 2s1 1.7 3 2 3 .9 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
   recolher:'<path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
   ajuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
@@ -765,7 +766,7 @@ const TABS = [
   {id:'despesas',label:'Despesas da loja',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'escala',label:'Escala da equipe',roles:['DONO','GERENTE']},
   {id:'preanalises',label:'Pré-análises online',roles:['DONO','GERENTE','FINANCEIRO']},
-  {id:'aprovacoes',label:'Aprovações do dono',roles:['DONO','GERENTE','FINANCEIRO','SUPORTE']},
+  {id:'aprovacoes',label:'Aprovações',roles:['DONO','GERENTE','FINANCEIRO','SUPORTE']},
   {id:'tv',label:'Painel da TV',roles:['DONO','GERENTE']},
   {id:'fila',label:'Fila de cobrança',roles:['DONO','GERENTE','FINANCEIRO','SUPORTE']},
   {id:'caixa',label:'Fechamento de caixa',roles:['DONO','GERENTE','FINANCEIRO']},
@@ -779,6 +780,7 @@ const TABS = [
   {id:'repasses',label:'Repasses às lojas',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'lojas',label:'Lojas parceiras',roles:['DONO']},
   {id:'comissoes',label:'Comissões',roles:['DONO','GERENTE','VENDEDOR','FINANCEIRO']},
+  {id:'licLoja',label:'Licenças',roles:['GERENTE']},
   {id:'atendimentos',label:'Atendimentos',roles:['DONO','SUPORTE']},
   {id:'recolher',label:'Recolhimento',roles:['DONO','FINANCEIRO','SUPORTE','GERENTE']},
   {id:'ajuda',label:'Ajuda e status',roles:['DONO','FINANCEIRO','SUPORTE','GERENTE','VENDEDOR']},
@@ -919,7 +921,7 @@ const NAV_GRUPOS=[
   ['Cobrança',['cobranca','fila','recolher','listanegra']],
   ['Aparelhos',['aparelhos','estoque','catalogo','seminovos']],
   ['Atendimento',['pedidos','atendimentos','chamados']],
-  ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','relatorios','relDono']],
+  ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','licLoja','relatorios','relDono']],
   ['Lojas e equipe',['aprovacoes','lojas','equipe','escala','treinamento','tv']],
   ['Sistema',['saas','config','ajuda']],
 ];
@@ -1455,7 +1457,7 @@ async function passoAparelho(){
   ${item?`<div class="card mt"><h2>Aparelho e plano</h2>
     <div class="grid g4">
       <label>Aparelho<input value="${esc(item.marca+' '+item.modelo+' '+item.capacidade)}" readonly></label>
-      <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pelo Dono — não pode ser alterado"></label>
+      <label>Valor do aparelho<input value="${brl(item.preco)}" readonly title="Valor definido pela NexumCell — não pode ser alterado"></label>
       ${S.w.vip?.descontoJuros?`<label>Cliente VIP<input value="VIP ${esc(S.w.vip.nivel)} — condição especial" readonly></label>`:''}
       ${item.semTrava?`<label>Número de série (opcional)<input id="nSerie" value="${esc(w.sel.serie||'')}"></label>`:''}
       <label ${item.semTrava?'hidden':''}><span style="display:flex;gap:8px;align-items:center">IMEI 1 * <span id="nImeiOk"></span><button type="button" class="btn sm" style="margin-left:auto;padding:2px 8px" data-act="lerImei" title="Ler o código de barras com a câmera">📷 Ler</button></span><input id="nImei" inputmode="numeric" maxlength="15" placeholder="Disque *#06#" value="${esc(w.sel.imei||'')}" ${exigeEst?'list="dlImei"':''}>${exigeEst?`<datalist id="dlImei">${est.filter(e=>e.catalogoId===item.id).map(e=>`<option value="${e.imei}">${esc(e.cor||'')}</option>`).join('')}</datalist>`:''}</label>
@@ -1546,6 +1548,8 @@ async function salvarAparelho(btn){
   const imei=onlyDig($('#nImei').value), imei2=onlyDig($('#nImei2').value), entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, venc=$('#nVenc').value;
   guardarCampos();
   if(x.semTrava) return salvarProdutoSemTrava(x,btn);
+  if(fb&&servLigado()&&S.cfg.licencaObrigatoria==='sim'){ try{ const lc=await apiServ('saas',{acao:'licSaldo',lojaId:S.me.lojaId||w.lojaId||''}), prec=Math.max(1,Math.ceil(n/12));
+      if(lc.obrigatoria&&lc.saldo<prec){ openModal(`<h2>Loja sem licenças</h2><p>Esta venda em ${n}x usa <b>${prec} licença(s)</b> e a loja tem <b>${Math.max(0,lc.saldo)}</b> de saldo.</p><p class="muted">${can('GERENTE')?'Compre mais licenças no menu <b>Licenças</b> e continue a venda.':'Avise o gerente da loja: ele compra mais licenças no menu Licenças e você continua esta venda de onde parou.'}</p>`); return; } }catch(e){ console.warn('licenças',e); } }
   const acs=await acessoriosEscolhidos(), acessValor=r2(acs.reduce((s,a)=>s+a.preco,0)), valorTotal=r2(x.preco+acessValor);
   if(w.sel.usado&&w.sel.usado.valor>entrada) return toast('O valor do usado é maior que a entrada: aumente a entrada','err');
   if(acessValor>x.preco*0.5) return toast('Os acessórios passam de 50% do valor do aparelho','err');
@@ -2548,7 +2552,7 @@ async function receberEstoque(id){
 }
 
 /* ======================= PEDIDOS DOS CLIENTES (assistência e LGPD) ======================= */
-const PED_TIPO={ACORDO:['Pedido de acordo do atraso','amber'],VENCIMENTO:['Troca da data de vencimento','blue'],ASSISTENCIA:['Assistência técnica','blue'],LGPD_COPIA:['Cópia dos dados (LGPD)','gray'],LGPD_EXCLUSAO:['Exclusão dos dados (LGPD)','amber'],PROTECAO:['Proteção NexumCell (conserto)','amber'],DADOS:['Atualização de telefone/endereço','blue']};
+const PED_TIPO={ACORDO:['Pedido de acordo do atraso','amber'],VENCIMENTO:['Troca da data de vencimento','blue'],ASSISTENCIA:['Assistência técnica','blue'],LGPD_COPIA:['Cópia dos dados (LGPD)','gray'],LGPD_EXCLUSAO:['Exclusão dos dados (LGPD)','amber'],PROTECAO:['Proteção NexumCell (conserto)','amber'],DADOS:['Atualização de telefone/endereço','blue'],UPGRADE:['Quer trocar por aparelho novo (upgrade)','green']};
 const PED_ST={ABERTO:['Aberto','red'],RECEBIDO:['Aparelho na loja','amber'],EM_REPARO:['Em conserto','amber'],PRONTO:['Pronto para retirar','blue'],ENTREGUE:['Entregue','green'],RECUSADO:['Sem cobertura','gray'],ATENDIDO:['Atendido','green']};
 PAGES.pedidos = async () => {
   const l=(can('GERENTE')?await DB.list('pedidos',[['lojaId','==',S.me.lojaId]]):await DB.list('pedidos')).sort((a,b)=>b.criadoEm-a.criadoEm);
@@ -2826,13 +2830,13 @@ async function salvarPre(id,btn){
 const APV_TIPO={LIBERAR_APARELHO:'Liberar aparelho (sem trava até voltar ao automático)',LIB24H:'Liberar 24 h de novo no mesmo mês',DESCONTO_BAIXA:'Baixa com desconto acima do limite'};
 async function pedirAprovacao(tipo,alvo,dados,resumo){
   await DB.add('aprovacoes',{tipo,alvo,dados,resumo,status:'PENDENTE',solicitanteUid:S.me.uid,solicitanteNome:S.me.nome,solicitantePerfil:S.me.role,lojaId:S.me.lojaId||'',criadoEm:Date.now()});
-  await log('Aprovação solicitada ao dono',alvo,resumo); toast('Pedido enviado ao dono para aprovação','ok'); closeModal(); render();
+  await log('Aprovação solicitada ao dono',alvo,resumo); toast('Pedido enviado à NexumCell para aprovação','ok'); closeModal(); render();
 }
 PAGES.aprovacoes = async () => {
   const dono=can('DONO'), l=(dono?await DB.list('aprovacoes'):await DB.list('aprovacoes',[['solicitanteUid','==',S.me.uid]])).sort((a,b)=>b.criadoEm-a.criadoEm);
   const pend=l.filter(x=>x.status==='PENDENTE'), outras=l.filter(x=>x.status!=='PENDENTE').slice(0,40);
   const linha=x=>`<tr><td><b>${esc(APV_TIPO[x.tipo]||x.tipo)}</b><br><span class="small muted">${esc(x.resumo)}</span></td><td>${esc(x.solicitanteNome)}<br><span class="small muted">${esc(ROLES[x.solicitantePerfil]||x.solicitantePerfil)}</span></td>
-    <td class="small">${fmtDT(x.criadoEm)}</td><td>${x.status==='PENDENTE'?badge('Aguardando dono','amber'):x.status==='APROVADA'?badge('Aprovada','green'):badge('Recusada','gray')}${x.decididoPor?`<br><span class="small muted">${esc(x.decididoPor)} · ${relT(x.decididoEm)}</span>`:''}</td>
+    <td class="small">${fmtDT(x.criadoEm)}</td><td>${x.status==='PENDENTE'?badge('Aguardando a NexumCell','amber'):x.status==='APROVADA'?badge('Aprovada','green'):badge('Recusada','gray')}${x.decididoPor?`<br><span class="small muted">${esc(x.decididoPor)} · ${relT(x.decididoEm)}</span>`:''}</td>
     <td class="right">${dono&&x.status==='PENDENTE'?`<div class="row" style="gap:6px;justify-content:flex-end"><button class="btn sm red" data-act="decidirApv" data-id="${x.id}" data-r="RECUSADA">Recusar</button><button class="btn sm green" data-act="decidirApv" data-id="${x.id}" data-r="APROVADA">Aprovar</button></div>`:''}</td></tr>`;
   $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">${dono?'Ações sensíveis feitas por gerente, financeiro ou suporte esperam a sua aprovação. Ao aprovar, a ação é executada na hora.':'Suas solicitações que dependem da aprovação do dono.'}</p>
     <div class="card tablewrap"><h2 style="padding:16px 16px 0">Pendentes (${pend.length})</h2><table><tr><th>O quê</th><th>Quem pediu</th><th>Quando</th><th>Situação</th><th></th></tr>${pend.map(linha).join('')||'<tr><td colspan="5" class="empty">Nada pendente</td></tr>'}</table></div>
@@ -2989,8 +2993,8 @@ function trocarVencimento(v,dia){
 { const _sc=salvarConfig; salvarConfig=async(...a)=>{ const r=await _sc(...a); publicarVitrine(); return r; }; }
 { const _sl=salvarLoja; salvarLoja=async(...a)=>{ const r=await _sl(...a); publicarVitrine(); return r; }; }
 /* aprovação dupla: gerente/financeiro/suporte liberando aparelho */
-{ const _am=apModo; apModo=async(id,modo)=>{ if(modo==='LIBERAR'&&!can('DONO')){ const motivo=prompt('Liberar o aparelho (sem trava até voltar ao automático) precisa da aprovação do dono.\nMotivo:'); if(!motivo) return; const a=await DB.get('aparelhos',id); return pedirAprovacao('LIBERAR_APARELHO',id,{motivo},`Contrato nº ${a.vendaNumero} · ${a.clienteNome} · ${motivo}`); } return _am(id,modo); }; }
-{ const _a24=ap24h; ap24h=async id=>{ const a=await DB.get('aparelhos',id); if(!can('DONO')&&a.ultimaLib24h&&Date.now()-a.ultimaLib24h<30*86400000){ const motivo=prompt('Este aparelho já foi liberado por 24 h nos últimos 30 dias. Uma nova liberação precisa da aprovação do dono.\nMotivo:'); if(!motivo) return; return pedirAprovacao('LIB24H',id,{motivo},`Contrato nº ${a.vendaNumero} · ${a.clienteNome} · ${motivo}`); }
+{ const _am=apModo; apModo=async(id,modo)=>{ if(modo==='LIBERAR'&&!can('DONO')){ const motivo=prompt('Liberar o aparelho (sem trava até voltar ao automático) precisa da aprovação da NexumCell.\nMotivo:'); if(!motivo) return; const a=await DB.get('aparelhos',id); return pedirAprovacao('LIBERAR_APARELHO',id,{motivo},`Contrato nº ${a.vendaNumero} · ${a.clienteNome} · ${motivo}`); } return _am(id,modo); }; }
+{ const _a24=ap24h; ap24h=async id=>{ const a=await DB.get('aparelhos',id); if(!can('DONO')&&a.ultimaLib24h&&Date.now()-a.ultimaLib24h<30*86400000){ const motivo=prompt('Este aparelho já foi liberado por 24 h nos últimos 30 dias. Uma nova liberação precisa da aprovação da NexumCell.\nMotivo:'); if(!motivo) return; return pedirAprovacao('LIB24H',id,{motivo},`Contrato nº ${a.vendaNumero} · ${a.clienteNome} · ${motivo}`); }
   await _a24(id); await DB.set('aparelhos',id,{ultimaLib24h:Date.now()}).catch(()=>{}); }; }
 
 
@@ -3438,7 +3442,7 @@ const TREINO=[
  ['O processo de venda','A venda tem 8 passos: documento, biometria (com prova de vida), contato, análise de crédito, escolha do aparelho, contrato, entrada e instalação da trava. Nenhum passo pode ser pulado.'],
  ['Documento e biometria','Só vale documento original, na mão do cliente. A biometria é feita na hora, com o cliente na loja: ele olha, vira o rosto e sorri. Nunca use foto de foto ou foto de tela.'],
  ['Telefones e confirmação','Os dois telefones precisam ser do próprio cliente, diferentes e nunca da equipe. O financeiro confirma os dados por WhatsApp em até 3 dias.'],
- ['Preço e entrada','O preço e os juros vêm do sistema e não podem ser mudados. A entrada mínima é a definida pelo dono. Usado na entrada só com checklist completo e fotos.'],
+ ['Preço e entrada','O preço e os juros vêm do sistema e não podem ser mudados. A entrada mínima é a definida pela NexumCell. Usado na entrada só com checklist completo e fotos.'],
  ['IMEI e estoque','Só se vende aparelho que está no estoque da loja. Leia o IMEI pela câmera ou digite com atenção: o sistema confere se o número é válido.'],
  ['Trava e entrega','O aparelho só sai da loja depois que a trava sobe e o painel fica verde. Se o QR não funcionar, instale pelo computador com o cabo USB.'],
  ['Postura com o cliente','Explique com calma as parcelas, o desconto de pagar antes e o bloqueio em caso de atraso. Nunca prometa o que não está no contrato.']];
@@ -3744,7 +3748,7 @@ async function abrirTroca(id){
     <div id="tcDev" class="grid g2 mt" hidden><label>Valor a devolver ao cliente (R$)<input id="tcValor" type="number" step="0.01" value="${pago}"></label><label>Como vai devolver<select id="tcForma"><option>PIX</option><option>Dinheiro</option><option>Estorno no cartão</option></select></label>
       <p class="small muted" style="grid-column:1/-1">O cliente pagou até agora ${brl(pago)} (entrada + parcelas). A venda é cancelada, as cobranças do Asaas são apagadas e a trava sai do aparelho.</p></div>
     <p class="hint">Política da loja: troca ou devolução em até ${diasTroca()} dias da compra. Defeito depois disso segue a garantia legal (90 dias, CDC art. 26): a loja tem até 30 dias para consertar (art. 18).</p>
-    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarTroca" data-id="${id}">${can('DONO','FINANCEIRO')?'Registrar e executar':'Enviar para o Dono/Financeiro aprovar'}</button></div>`);
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarTroca" data-id="${id}">${can('DONO','FINANCEIRO')?'Registrar e executar':'Enviar para a NexumCell aprovar'}</button></div>`);
   $('#tcTipo').onchange=e=>{ $('#tcTroca').hidden=e.target.value!=='TROCA_DEFEITO'; $('#tcDev').hidden=e.target.value!=='DEVOLUCAO'; };
 }
 async function salvarTroca(id,btn){
@@ -3761,7 +3765,7 @@ async function salvarTroca(id,btn){
   btn.disabled=true;
   const ref=await DB.add('trocas',t), tid=ref?.id||ref; await log(tipo==='DEVOLUCAO'?'Devolução registrada':'Troca registrada',id,motivo);
   if(can('DONO','FINANCEIRO')) return executarTroca(tid);
-  toast('Enviado para aprovação do Dono/Financeiro','ok'); closeModal(); render();
+  toast('Enviado para aprovação da NexumCell','ok'); closeModal(); render();
 }
 async function executarTroca(tid,btn){
   if(btn) btn.disabled=true;
@@ -4964,10 +4968,11 @@ async function planosSaas(){
     ${P.map((p,i)=>`<div class="card mb" style="padding:12px"><div class="grid g4"><label>Nome<input id="pl_n${i}" value="${esc(p.nome)}"></label><label>Preço por loja (R$)<input id="pl_v${i}" type="number" step="0.01" value="${+p.porLoja||0}"></label><label>Mínimo de lojas<input id="pl_m${i}" type="number" min="0" value="${+p.minimoLojas||0}"></label><label>Destaque<select id="pl_d${i}"><option value="">Não</option><option value="1" ${p.destaque?'selected':''}>Sim</option></select></label></div>
       <label class="mt">Itens (um por linha)<textarea id="pl_i${i}" rows="3">${esc((p.itens||[]).join('\n'))}</textarea></label></div>`).join('')}
     <div class="grid g4"><label>Valor da licença por venda (R$)<input id="sa_lic" type="number" step="0.01" value="${+c.saasLicencaValor||54.99}"></label><label>Taxa de adesão (R$)<input id="sa_ad" type="number" step="0.01" value="${+c.saasAdesao||0}"></label><label>Dias até a 1ª mensalidade<input id="sa_dt" type="number" min="1" value="${+(c.saasDiasTeste??7)}"></label>
-      <label>Bloquear após atraso de (dias)<input id="sa_db" type="number" min="0" value="${+(c.saasDiasBloqueio??5)}"></label><label>Cobrar pelo Asaas<select id="sa_cb"><option value="sim">Sim</option><option value="nao" ${c.saasCobrar==='nao'?'selected':''}>Não (cobro por fora)</option></select></label></div>
+      <label>Bloquear após atraso de (dias)<input id="sa_db" type="number" min="0" value="${+(c.saasDiasBloqueio??5)}"></label><label>Cobrar pelo Asaas<select id="sa_cb"><option value="sim">Sim</option><option value="nao" ${c.saasCobrar==='nao'?'selected':''}>Não (cobro por fora)</option></select></label>
+      <label>Loja sem saldo de licença<select id="sa_lo"><option value="nao">Pode vender (só aviso)</option><option value="sim" ${c.licencaObrigatoria==='sim'?'selected':''}>Não pode vender</option></select></label></div>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="plOk">Salvar</button></div>`,true);
   $('#plOk').onclick=async()=>{ const planos=P.map((p,i)=>({id:p.id,nome:$('#pl_n'+i).value.trim()||p.nome,porLoja:r2(+$('#pl_v'+i).value||0),minimoLojas:+$('#pl_m'+i).value||0,destaque:!!$('#pl_d'+i).value,itens:$('#pl_i'+i).value.split('\n').map(x=>x.trim()).filter(Boolean)}));
-    const d={planosLojas:planos,saasLicencaValor:r2(+$('#sa_lic').value||54.99),saasAdesao:r2(+$('#sa_ad').value||0),saasDiasTeste:Math.max(1,+$('#sa_dt').value||7),saasDiasBloqueio:Math.max(0,+$('#sa_db').value||0),saasCobrar:$('#sa_cb').value};
+    const d={planosLojas:planos,saasLicencaValor:r2(+$('#sa_lic').value||54.99),saasAdesao:r2(+$('#sa_ad').value||0),saasDiasTeste:Math.max(1,+$('#sa_dt').value||7),saasDiasBloqueio:Math.max(0,+$('#sa_db').value||0),saasCobrar:$('#sa_cb').value,licencaObrigatoria:$('#sa_lo').value};
     await DB.set('config','sistema',d); Object.assign(S.cfg,d); await log('Planos das lojas alterados','config','');
     closeModal(); toast('Planos salvos. O site já mostra os novos valores.','ok'); };
 }
@@ -4996,15 +5001,27 @@ async function pessoasLoja(lojaId){
   openModal(`<h2>${esc(l.nome)}</h2>
     <div class="grid g4 mb"><div class="kpi"><small>Licenças adquiridas</small><b>${compradas}</b></div><div class="kpi"><small>Usadas</small><b>${usadas}</b></div><div class="kpi ${saldo<=0?'alert':''}"><small>Saldo</small><b>${saldo}</b></div>
       <div class="kpi"><small>Mensalidade</small><b>${brl(+S.cfg.saasMensalidade||79.99)}</b></div></div>
-    <div class="row mb" style="gap:8px"><button class="btn sm gold" data-act="addLicencas" data-id="${lojaId}">Adicionar licenças</button>
+    ${(()=>{ const h=hoje(); let ab=0; vs.filter(v=>['ATIVA','INSTALANDO'].includes(v.status)).forEach(v=>(v.parcelas||[]).forEach(p=>{ if(!p.pago) ab+=+p.valor||0; })); const ina=inadimplencia(vs), tc=+l.limiteCarteira||0, ti=+l.limiteInad||0;
+      return `<div class="msg mb small"><b>Limites da loja:</b> carteira em aberto ${brl(ab)}${tc?` de ${brl(tc)} ${ab>=tc?badge('acima do teto','red'):''}`:' (sem teto)'} · inadimplência ${ina.pct.toFixed(1)}%${ti?` (teto ${ti}%) ${ina.pct>ti?badge('acima do teto','red'):''}`:' (sem teto)'}. Acima do teto, as novas vendas da loja vão para análise manual.</div>`; })()}
+    <div class="row mb" style="gap:8px;flex-wrap:wrap"><button class="btn sm gold" data-act="addLicencas" data-id="${lojaId}">Adicionar licenças</button>
+      <button class="btn sm" data-act="limitesLoja" data-id="${lojaId}">Limites da loja</button><button class="btn sm" data-act="faturaLoja" data-id="${lojaId}">Fatura do mês</button>
       ${ger?`<button class="btn sm" data-act="pedirAtualizacao" data-id="${lojaId}">Pedir atualização cadastral</button>`:''}
       ${l.bloqueada?`<button class="btn sm" data-act="desbloquearLoja" data-id="${lojaId}">Desbloquear loja</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${lojaId}">Bloquear a loja</button>`}</div>
     <div class="tablewrap"><table><tr><th>Nome</th><th>ID</th><th>Perfil</th><th>E-mail</th><th>Situação</th><th></th></tr>
     ${us.map(u=>`<tr><td><b>${esc(u.nome)}</b>${u.atualizacaoPedida?'<br><span class="badge b-amber">atualização pedida</span>':''}</td><td class="mono">${esc(u.codigo||'')}</td><td>${esc(ROLES[u.role])}</td><td class="small">${esc(u.email)}</td>
       <td>${l.bloqueada?badge('Loja bloqueada','red'):u.ativo?badge('Ativo','green'):badge(u.bloqueadoPeloDono?'Bloqueado':'Inativo',u.bloqueadoPeloDono?'red':'gray')}${u.motivoBloqueio&&u.bloqueadoPeloDono?`<div class="small muted">${esc(u.motivoBloqueio)}</div>`:''}</td>
-      <td class="right"><button class="btn sm" data-act="reenviarAcesso" data-id="${u.id}">Reenviar login</button> <button class="btn sm" data-act="editarComissao" data-id="${u.id}">${u.asaasWalletId?'💸 ':''}Comissão</button> ${u.ativo?`<button class="btn sm" style="color:var(--bad)" data-act="bloquearPessoa" data-id="${u.id}">Bloquear</button>`:`<button class="btn sm" data-act="desbloquearPessoa" data-id="${u.id}">Desbloquear</button>`}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Ninguém</td></tr>'}</table></div>`,true);
+      <td class="right"><button class="btn sm" data-act="reenviarAcesso" data-id="${u.id}">Reenviar login</button> <button class="btn sm" data-act="senhaPadrao" data-id="${u.id}">Senha 12345</button> <button class="btn sm" data-act="editarComissao" data-id="${u.id}">${u.asaasWalletId?'💸 ':''}Comissão</button> ${u.ativo?`<button class="btn sm" style="color:var(--bad)" data-act="bloquearPessoa" data-id="${u.id}">Bloquear</button>`:`<button class="btn sm" data-act="desbloquearPessoa" data-id="${u.id}">Desbloquear</button>`}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Ninguém</td></tr>'}</table></div>`,true);
 }
 /* Reenviar login: manda o ID e um e-mail de redefinição de senha (recadastra o acesso). */
+async function senhaPadrao(uid,btn){
+  const u=await DB.get('users',uid); if(!u) return;
+  if(!fb||!servLigado()) return toast('Para voltar a senha é preciso o servidor ligado. Use “Reenviar login” por enquanto.','err');
+  if(!confirm(`Voltar a senha de ${u.nome} para ${SENHA_PADRAO}?\n\nNo próximo acesso o sistema pede para criar uma senha nova.`)) return;
+  if(btn) btn.disabled=true;
+  try{ await apiServ('saas',{acao:'senhaPadrao',uid}); toast(`Senha de ${primeiroNome(u.nome)} voltou para ${SENHA_PADRAO}. Ele(a) cria a nova ao entrar.`,'ok'); }
+  catch(e){ toast(e.message,'err'); }
+  if(btn) btn.disabled=false;
+}
 async function reenviarAcesso(uid){
   const u=await DB.get('users',uid); if(!u) return;
   if(!confirm(`Reenviar o acesso de ${u.nome} para ${u.email}?\nVai o ID e um e-mail para a pessoa criar uma nova senha.`)) return;
@@ -5028,15 +5045,78 @@ async function pedirAtualizacao(lojaId){
   await log('Atualização cadastral solicitada',lojaId,`${l.nome}: ${obs}`);
   toast(ok?`Pedido enviado ao gerente (${ger.email})`:'Pedido registrado. Ligue o servidor para enviar o e-mail.','ok'); render();
 }
-/* Adicionar/vender licenças para a loja. */
+/* Licenças de venda: 1 por venda de até 12 parcelas, 2 acima de 12. O gerente compra pelo portal (cobrança no Asaas) e o saldo entra quando o pagamento cai. */
+const licUsadas=vs=>vs.filter(v=>['ATIVA','QUITADA','INSTALANDO','RETOMADA','CANCELADA'].includes(v.status)).reduce((s,v)=>s+(+v.licencas||Math.max(1,Math.ceil((v.nParcelas||0)/12))),0);
+PAGES.licLoja=async()=>{
+  const lojaId=S.me.lojaId, [l,vs,peds]=await Promise.all([DB.get('lojas',lojaId),DB.list('vendas',[['lojaId','==',lojaId]]),DB.list('licencasPedidos',[['lojaId','==',lojaId]]).catch(()=>[])]);
+  const val=+S.cfg.saasLicencaValor||54.99, compradas=+l?.licencasCompradas||0, usadas=licUsadas(vs), saldo=compradas-usadas, mes=hoje().slice(0,7);
+  const usoMes=licUsadas(vs.filter(v=>isoDate(new Date(v.criadoEm||0)).startsWith(mes)));
+  $('#view').innerHTML=`<div class="grid g4"><div class="card kpi"><div class="small muted">Saldo de licenças</div><div class="big" style="color:${saldo>3?'var(--ok)':saldo>0?'#B7791F':'var(--bad)'}">${saldo}</div></div>
+      <div class="card kpi"><div class="small muted">Compradas</div><div class="big">${compradas}</div></div><div class="card kpi"><div class="small muted">Usadas (total)</div><div class="big">${usadas}</div></div><div class="card kpi"><div class="small muted">Usadas neste mês</div><div class="big">${usoMes}</div></div></div>
+    ${saldo<=0?`<div class="msg mt" style="border-color:var(--bad)"><b>Sem saldo de licenças.</b> ${S.cfg.licencaObrigatoria==='sim'?'Novas vendas ficam bloqueadas até a compra ser paga.':'Compre licenças para regularizar.'}</div>`:saldo<=3?`<div class="msg mt"><b>Saldo baixo.</b> Compre mais licenças para não parar de vender.</div>`:''}
+    <div class="card mt"><h2>Comprar licenças</h2><p class="muted" style="margin-top:-6px">Cada venda usa <b>1 licença</b>; venda acima de 12 parcelas usa <b>2</b>. Valor: <b>${brl(val)}</b> por licença.</p>
+      <div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap"><label>Quantidade<input id="lcQ" type="number" min="1" max="500" value="10" style="width:120px"></label><div style="padding-bottom:10px">Total: <b id="lcTot">${brl(val*10)}</b></div>
+        <button class="btn gold" data-act="licComprar">Gerar cobrança (PIX ou boleto)</button><button class="btn" data-act="faturaLoja" data-id="">Fatura do mês</button></div>
+      <p class="hint">O saldo entra sozinho assim que o pagamento é confirmado.</p></div>
+    <div class="card mt tablewrap"><h2>Pedidos</h2><table><tr><th>Data</th><th>Licenças</th><th>Valor</th><th>Vencimento</th><th>Situação</th><th></th></tr>
+      ${peds.sort((a,b)=>b.criadoEm-a.criadoEm).map(x=>`<tr><td>${fmtDT(x.criadoEm)}</td><td><b>${x.q}</b></td><td>${brl(x.valor)}</td><td>${fmtD(x.vencimento)}</td><td>${x.status==='PAGO'?badge('Pago','green'):badge('Aguardando pagamento','amber')}</td><td class="right">${x.status!=='PAGO'&&x.link?`<a class="btn sm gold" target="_blank" rel="noopener" href="${esc(x.link)}">Pagar</a>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum pedido ainda</td></tr>'}</table></div>
+    ${(l?.licencasHist||[]).length?`<div class="card mt tablewrap"><h2>Entradas de licenças</h2><table><tr><th>Data</th><th>Licenças</th><th>Valor</th><th>Origem</th></tr>${[...l.licencasHist].reverse().map(h=>`<tr><td>${fmtDT(h.em)}</td><td>${h.q}</td><td>${h.cortesia?'cortesia':brl(h.valor)}</td><td>${esc(h.por||'')}</td></tr>`).join('')}</table></div>`:''}`;
+  $('#lcQ').addEventListener('input',e=>{ $('#lcTot').textContent=brl(val*Math.max(0,Math.floor(+e.target.value||0))); });
+};
+async function licComprar(btn,lojaId){
+  const q=Math.floor(+($('#lcQ')?.value)||0); if(q<1) return toast('Informe a quantidade','err');
+  if(!fb||!servLigado()) return toast('A compra de licenças precisa do servidor e do Asaas ligados. Fale com a NexumCell.','err');
+  btn.disabled=true;
+  try{ const r=await apiServ('saas',{acao:'licComprar',q,lojaId:lojaId||S.me.lojaId});
+    openModal(`<h2>Cobrança gerada</h2><p><b>${q} licença(s)</b> · ${brl(r.valor)} · vence em ${fmtD(r.vencimento)}</p><p class="muted">Pague por PIX ou boleto. O saldo entra sozinho quando o pagamento for confirmado.</p>${r.link?`<a class="btn gold" target="_blank" rel="noopener" href="${esc(r.link)}">Abrir a cobrança</a>`:''}`);
+    render();
+  }catch(e){ toast(e.message,'err'); btn.disabled=false; }
+}
+/* Limite por loja: teto de carteira em aberto e de inadimplência. O motor de crédito (servidor) manda para análise manual quando a loja passa do teto. */
+async function limitesLoja(lojaId){
+  const l=await DB.get('lojas',lojaId);
+  openModal(`<h2>Limites — ${esc(l.nome)}</h2><p class="muted" style="margin-top:-6px">Quando a loja passa de um dos tetos, as novas vendas dela não são aprovadas sozinhas: caem na análise manual com o motivo. Deixe 0 para não limitar.</p>
+    <div class="grid g2"><label>Teto de carteira em aberto (R$)<input id="llC" type="number" min="0" step="100" value="${+l.limiteCarteira||0}"></label><label>Teto de inadimplência (%)<input id="llI" type="number" min="0" max="100" step="0.5" value="${+l.limiteInad||0}"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="llOk">Salvar</button></div>`);
+  $('#llOk').onclick=async()=>{ const d={limiteCarteira:Math.max(0,r2(+$('#llC').value||0)),limiteInad:Math.max(0,Math.min(100,+$('#llI').value||0))};
+    await DB.set('lojas',lojaId,d); await log('Limites da loja alterados',lojaId,`${l.nome}: carteira ${brl(d.limiteCarteira)} · inadimplência ${d.limiteInad}%`); toast('Limites salvos','ok'); pessoasLoja(lojaId); };
+}
+/* Fatura da loja: o que a loja deve à NexumCell no mês (mensalidade + licenças) e o movimento dela. */
+async function faturaLoja(lojaId,mes){
+  mes=mes||hoje().slice(0,7); lojaId=lojaId||S.me.lojaId;
+  const [l,vs,peds]=await Promise.all([DB.get('lojas',lojaId),DB.list('vendas',[['lojaId','==',lojaId]]).catch(()=>[]),DB.list('licencasPedidos',[['lojaId','==',lojaId]]).catch(()=>[])]);
+  const e=l.empresaId&&can('DONO','FINANCEIRO')?await DB.get('empresas',l.empresaId).catch(()=>null):null;
+  const noMes=t=>isoDate(new Date(t||0)).startsWith(mes), val=+S.cfg.saasLicencaValor||54.99;
+  const cortesia=!!e?.cortesia, mensal=cortesia?0:r2(+e?.porLoja||+S.cfg.saasMensalidade||79.99);
+  const pm=peds.filter(x=>noMes(x.criadoEm)), licPago=r2(pm.filter(x=>x.status==='PAGO').reduce((s,x)=>s+x.valor,0)), licPend=r2(pm.filter(x=>x.status!=='PAGO').reduce((s,x)=>s+x.valor,0));
+  const cort=(l.licencasHist||[]).filter(h=>h.cortesia&&noMes(h.em)).reduce((s,h)=>s+h.q,0);
+  const vm=vs.filter(v=>['ATIVA','QUITADA','INSTALANDO','RETOMADA'].includes(v.status)&&noMes(v.entradaPaga?.em||v.assinadoEm||v.criadoEm)), usoMes=licUsadas(vm);
+  const compradas=+l.licencasCompradas||0, usadas=licUsadas(vs), mm=mes.slice(5)+'/'+mes.slice(0,4);
+  janelaImpressao(`Fatura ${l.nome} ${mm}`,`<h1>FATURA DA LOJA — ${mm}</h1><div class="cab">${esc(l.nome)}${l.cnpj?' · CNPJ '+esc(fmtCnpj(l.cnpj)):''}${l.cidade?' · '+esc(l.cidade):''}</div>
+    <table><tr><td><b>Mensalidade do sistema</b></td><td style="text-align:right">${cortesia?'cortesia':brl(mensal)}</td></tr>
+      <tr><td>Licenças compradas e pagas no mês (${pm.filter(x=>x.status==='PAGO').reduce((s,x)=>s+x.q,0)})</td><td style="text-align:right">${brl(licPago)}</td></tr>
+      <tr><td>Licenças com cobrança em aberto (${pm.filter(x=>x.status!=='PAGO').reduce((s,x)=>s+x.q,0)})</td><td style="text-align:right">${brl(licPend)}</td></tr>
+      ${cort?`<tr><td>Licenças recebidas em cortesia</td><td style="text-align:right">${cort}</td></tr>`:''}
+      <tr><td><b>Total do mês</b></td><td style="text-align:right"><b>${brl(mensal+licPago+licPend)}</b></td></tr>
+      <tr><td><b>Em aberto</b></td><td style="text-align:right"><b>${brl(licPend)}</b>${e?.situacao==='ATRASADA'?' + mensalidade atrasada':''}</td></tr></table>
+    <h1 style="font-size:16px;text-align:left;margin-top:24px">Movimento da loja no mês</h1>
+    <table><tr><td>Vendas concluídas</td><td style="text-align:right">${vm.length} · ${brl(vm.reduce((s,v)=>s+(+v.valor||0),0))}</td></tr>
+      <tr><td>Licenças usadas no mês (1 por venda, 2 acima de 12 parcelas)</td><td style="text-align:right">${usoMes} · equivale a ${brl(usoMes*val)}</td></tr>
+      <tr><td>Saldo de licenças hoje</td><td style="text-align:right">${compradas-usadas} (compradas ${compradas} · usadas ${usadas})</td></tr></table>
+    <p style="font-size:12px;color:#556">Valor da licença: ${brl(val)}. Documento gerado em ${fmtDT(Date.now())} por ${esc(S.me.nome)}.</p>`);
+}
+/* Dono: cobrar licenças da loja pelo Asaas ou lançar como cortesia. */
 async function addLicencas(lojaId){
   const l=await DB.get('lojas',lojaId), val=+S.cfg.saasLicencaValor||54.99;
-  const q=+(prompt(`Quantas licenças adicionar para ${l.nome}?\nValor por licença: ${brl(val)}`,'10')||0);
-  if(!q||q<0) return;
-  const compradas=(+l.licencasCompradas||0)+Math.floor(q);
-  await DB.set('lojas',lojaId,{licencasCompradas:compradas,licencasHist:[...(l.licencasHist||[]),{q:Math.floor(q),valor:r2(q*val),em:Date.now(),por:S.me.nome}]});
-  await log('Licenças adicionadas à loja',lojaId,`${Math.floor(q)} licença(s) · ${brl(q*val)}`);
-  toast(`${Math.floor(q)} licença(s) adicionada(s). Total: ${compradas}.`,'ok'); pessoasLoja(lojaId);
+  openModal(`<h2>Licenças — ${esc(l.nome)}</h2><p class="muted" style="margin-top:-6px">Valor por licença: ${brl(val)}. Saldo comprado hoje: ${+l.licencasCompradas||0}.</p>
+    <label>Quantidade<input id="lcQ" type="number" min="1" max="500" value="10"></label>
+    <div class="row mt" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><button class="btn" id="lcCort">Adicionar sem cobrar (cortesia)</button><button class="btn gold" id="lcCob">Gerar cobrança no Asaas</button></div>
+    <p class="hint">Com cobrança, o saldo entra quando a loja pagar. Em cortesia, entra na hora.</p>`);
+  $('#lcCob').onclick=()=>licComprar($('#lcCob'),lojaId);
+  $('#lcCort').onclick=async()=>{ const q=Math.floor(+$('#lcQ').value||0); if(q<1) return toast('Informe a quantidade','err');
+    const compradas=(+l.licencasCompradas||0)+q;
+    await DB.set('lojas',lojaId,{licencasCompradas:compradas,licencasHist:[...(l.licencasHist||[]),{q,valor:0,cortesia:true,em:Date.now(),por:S.me.nome}]});
+    await log('Licenças em cortesia',lojaId,`${q} licença(s)`); closeModal(); toast(`${q} licença(s) adicionada(s). Total: ${compradas}.`,'ok'); pessoasLoja(lojaId); };
 }
 async function bloquearLoja(id,btn){
   const l=await DB.get('lojas',id); const motivo=(prompt(`Bloquear ${l.nome}? O gerente e todos os vendedores perdem o acesso na hora.\n\nMotivo (vai na mensagem automática):`)||'').trim();
@@ -5334,7 +5414,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+Object.assign(ACT,{ limitesLoja:d=>limitesLoja(d.id), faturaLoja:d=>faturaLoja(d.id), senhaPadrao:(d,b)=>senhaPadrao(d.id,b), licComprar:(d,b)=>licComprar(b), snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
@@ -6729,7 +6809,7 @@ async function emailDoLogin(v){
   v=v.trim(); if(v.includes('@')) return v.toLowerCase();
   const id=v.toUpperCase().replace(/\s+/g,'');
   const l=await DB.get('logins',id).catch(()=>null);
-  if(!l?.email) throw Object.assign(new Error('ID não encontrado. Confira o ID enviado pelo dono.'),{code:'nx/id'});
+  if(!l?.email) throw Object.assign(new Error('ID não encontrado. Confira o ID enviado pela NexumCell.'),{code:'nx/id'});
   return l.email;
 }
 async function fazerLogin(){
@@ -6781,7 +6861,7 @@ async function fbInit(){
         await DB.batch(ops); p={id:u.uid,...perfil};
         if(!sis) toast('Bem-vinda! Cadastre as lojas, o catálogo e a equipe em Lojas e configurações.','ok');
       }
-      if(!p){ $('#lMsg').textContent='Seu usuário não tem acesso. Peça ao dono para cadastrar você.'; await au.signOut(fb.auth); return; }
+      if(!p){ $('#lMsg').textContent='Seu usuário não tem acesso. Peça à NexumCell para cadastrar você.'; await au.signOut(fb.auth); return; }
       if((p.lojaBloqueada&&['GERENTE','VENDEDOR'].includes(p.role))||!p.ativo) return telaRestrito({uid:u.uid,...p});
       if(!P.roles.includes(p.role)){ await au.signOut(fb.auth); $('#lMsg').innerHTML=`Este é o ${esc(P.nome)}. Seu acesso (${esc(ROLES[p.role])}) é pelo <a href="${esc(urlPortal(p.role))}">${esc(PORTAIS[PORTAL_DO_PERFIL[p.role]].nome)}</a>.`; return; }
       if(p.senhaTemporaria){ S._pendente={uid:u.uid,...p}; $('#login').hidden=false; $('#app').hidden=true; $('#loginFb').hidden=true; $('#loginSenha').hidden=false; $('#nsSenha').focus(); return; }

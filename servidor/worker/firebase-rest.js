@@ -168,6 +168,15 @@ async function verifyIdToken(token) {
   return { ...c, uid: c.sub };
 }
 
+// troca de senha pelo servidor (mesma assinatura do firebase-admin: auth.updateUser(uid, { password }))
+async function updateUser(uid, dados) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${projeto()}/accounts:update`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + (await tokenAcesso()), 'Content-Type': 'application/json' }, body: JSON.stringify({ localId: uid, ...(dados.password ? { password: dados.password } : {}) }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Não foi possível trocar a senha: ' + (j.error?.message || r.status));
+  return { uid };
+}
+
 // ---------- Firebase Cloud Messaging (aviso instantâneo para o app da trava) ----------
 async function enviarFcm(msg) {
   const m = { ...msg };
@@ -184,7 +193,7 @@ const admin = {
   initializeApp() { admin.apps.push({}); return {}; },
   credential: { cert: (x) => x },
   firestore: () => firestore,
-  auth: () => ({ verifyIdToken }),
+  auth: () => ({ verifyIdToken, updateUser }),
   messaging: () => ({ send: enviarFcm }),
 };
 export default admin;

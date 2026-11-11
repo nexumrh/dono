@@ -3,7 +3,7 @@
 // POST /api/saas {"acao":"atualizar","empresaId":"e_..."} → recalcula o valor (filial nova ou mudança de plano)
 // POST /api/saas {"acao":"cancelar","empresaId":"e_..."}
 // O webhook do Asaas (externalReference "saas:<empresaId>") marca pago/atrasado; a rotina diária bloqueia por atraso.
-import { db, cors, exigirEquipe, asaas, asaasLigadoSrv, config, hoje } from './_base.js';
+import { db, auth, cors, exigirEquipe, asaas, asaasLigadoSrv, config, hoje } from './_base.js';
 
 const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 export async function valorEmpresa(empresaId) {
@@ -18,6 +18,26 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).end();
   try {
+    const b0 = req.body || {};
+    // ---- licenças por venda (saldo: qualquer pessoa da equipe; compra: gerente da loja ou Dono) ----
+    if (b0.acao === 'licSaldo' || b0.acao === 'licComprar') {
+      const eu = await exigirEquipe(req, b0.acao === 'licSaldo' ? undefined : ['DONO', 'GERENTE']);
+      const lojaId = ['DONO', 'FINANCEIRO', 'SUPORTE'].includes(eu.role) ? String(b0.lojaId || '') : eu.lojaId;
+      if (!lojaId) throw Object.assign(new Error('loja não informada'), { status: 400 });
+      if (b0.acao === 'licSaldo') return res.status(200).json({ ok: true, ...(await saldoLicencas(lojaId)) });
+      return res.status(200).json(await comprarLicencas(lojaId, b0.q, eu));
+    }
+    // ---- voltar a senha de um gerente/vendedor para a senha inicial (Dono; gerente só para vendedor da própria loja) ----
+    if (b0.acao === 'senhaPadrao') {
+      const eu = await exigirEquipe(req, ['DONO', 'GERENTE']), uid = String(b0.uid || '');
+      const ur = db.collection('users').doc(uid), u = (await ur.get()).data();
+      if (!u || !['GERENTE', 'VENDEDOR'].includes(u.role)) throw Object.assign(new Error('Usuário não encontrado'), { status: 404 });
+      if (eu.role === 'GERENTE' && (u.role !== 'VENDEDOR' || u.lojaId !== eu.lojaId)) throw Object.assign(new Error('sem permissão'), { status: 403 });
+      await auth.updateUser(uid, { password: 'nx-12345' });   // o portal acrescenta "nx-" às senhas de 5 dígitos
+      await ur.set({ senhaTemporaria: true, senhaResetEm: Date.now(), senhaResetPor: eu.nome }, { merge: true });
+      await db.collection('logs').add({ em: Date.now(), acao: 'Senha voltou para a inicial', alvo: uid, det: u.nome || '', por: eu.nome });
+      return res.status(200).json({ ok: true });
+    }
     await exigirEquipe(req, ['DONO']);
     if (!(await asaasLigadoSrv())) throw Object.assign(new Error('Asaas não configurado: cole a chave em Configurações → Asaas.'), { status: 400 });
     const b = req.body || {}, id = String(b.empresaId || '');
@@ -57,6 +77,43 @@ export default async function handler(req, res) {
     console.error(e);
     return res.status(e.status || 500).json({ erro: e.message });
   }
+}
+
+// ---- licenças: 1 por venda de até 12 parcelas, 2 acima de 12 ----
+const USA_LICENCA = ['ATIVA', 'QUITADA', 'INSTALANDO', 'RETOMADA', 'CANCELADA'];
+export async function saldoLicencas(lojaId) {
+  const lr = await db.collection('lojas').doc(lojaId).get(); if (!lr.exists) throw Object.assign(new Error('Loja não encontrada'), { status: 404 });
+  const l = lr.data(), cfg = await config();
+  const vs = (await db.collection('vendas').where('lojaId', '==', lojaId).get()).docs.map((d) => d.data()).filter((v) => USA_LICENCA.includes(v.status));
+  const usadas = vs.reduce((s, v) => s + (Number(v.licencas) || Math.max(1, Math.ceil((Number(v.nParcelas) || 0) / 12))), 0);
+  const compradas = Number(l.licencasCompradas) || 0;
+  let cortesia = false;
+  if (l.empresaId) { const e = (await db.collection('empresas').doc(l.empresaId).get()).data(); cortesia = !!e?.cortesia; }
+  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: cfg.licencaObrigatoria === 'sim' && !cortesia, cortesia };
+}
+async function comprarLicencas(lojaId, q, eu) {
+  q = Math.floor(Number(q) || 0); if (q < 1 || q > 500) throw Object.assign(new Error('Quantidade de licenças inválida (1 a 500).'), { status: 400 });
+  if (!(await asaasLigadoSrv())) throw Object.assign(new Error('Cobrança indisponível: o Asaas não está configurado. Fale com a NexumCell.'), { status: 400 });
+  const l = (await db.collection('lojas').doc(lojaId).get()).data(); if (!l) throw Object.assign(new Error('Loja não encontrada'), { status: 404 });
+  if (!l.empresaId) throw Object.assign(new Error('Esta loja não tem empresa cadastrada. Fale com a NexumCell.'), { status: 400 });
+  const eref = db.collection('empresas').doc(l.empresaId), e = (await eref.get()).data(); if (!e) throw Object.assign(new Error('Empresa não encontrada'), { status: 404 });
+  const cfg = await config(), unit = Number(cfg.saasLicencaValor) || 54.99, valor = Math.round(unit * q * 100) / 100;
+  let cliente = e.asaasCliente;
+  if (!cliente) { const c = await asaas('/customers', { method: 'POST', body: JSON.stringify({ name: e.razao || e.fantasia, cpfCnpj: e.cnpj, email: e.respEmail, mobilePhone: e.respTelefone, externalReference: 'saas:' + l.empresaId }) }); cliente = c.id; await eref.set({ asaasCliente: cliente }, { merge: true }); }
+  const ped = db.collection('licencasPedidos').doc(), venc = addDias(hoje(), 3);
+  const p = await asaas('/payments', { method: 'POST', body: JSON.stringify({ customer: cliente, billingType: 'UNDEFINED', value: valor, dueDate: venc, description: `${cfg.empresa || 'NexumCell'} — ${q} licença(s) de venda · ${l.nome || ''}`, externalReference: 'lic:' + ped.id }) });
+  await ped.set({ lojaId, lojaNome: l.nome || '', empresaId: l.empresaId, q, unit, valor, status: 'PENDENTE', pagamento: p.id, link: p.invoiceUrl || '', vencimento: venc, criadoEm: Date.now(), por: eu.nome, porUid: eu.uid });
+  await db.collection('logs').add({ em: Date.now(), acao: 'Pedido de licenças', alvo: lojaId, det: `${q} licença(s) · R$ ${valor}`, por: eu.nome });
+  return { ok: true, pedido: ped.id, valor, link: p.invoiceUrl || '', vencimento: venc };
+}
+export async function licPagamento(event, payment) {
+  if (!['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'].includes(event)) return;
+  const ref = db.collection('licencasPedidos').doc(String(payment.externalReference || '').slice(4)), ped = (await ref.get()).data();
+  if (!ped || ped.status === 'PAGO') return;
+  await ref.set({ status: 'PAGO', pagoEm: Date.now() }, { merge: true });
+  const lref = db.collection('lojas').doc(ped.lojaId), l = (await lref.get()).data() || {};
+  await lref.set({ licencasCompradas: (Number(l.licencasCompradas) || 0) + ped.q, licencasHist: [...(l.licencasHist || []), { q: ped.q, valor: ped.valor, em: Date.now(), por: 'Asaas (pago)' }] }, { merge: true });
+  await db.collection('logs').add({ em: Date.now(), acao: 'Licenças pagas (Asaas)', alvo: ped.lojaId, det: `${ped.q} licença(s) · R$ ${ped.valor}`, por: 'Asaas' });
 }
 
 // ---- usados pelo webhook e pela rotina diária ----

@@ -58,6 +58,12 @@ service cloud.firestore {
       allow write: if hasRole(['DONO']);
     }
 
+    // ---------- Pedidos de licenças de venda (só o servidor grava; o Asaas confirma o pagamento) ----------
+    match /licencasPedidos/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
+      allow write: if false;
+    }
+
     // ---------- Empresas parceiras (SaaS: matriz e filiais, plano e mensalidade) ----------
     match /empresas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']);
@@ -378,7 +384,7 @@ service cloud.firestore {
     match /pedidos/{id} {
       allow create: if signed()
                     && request.resource.data.keys().hasOnly(['tipo', 'token', 'vendaId', 'vendaNumero', 'lojaId', 'lojaNome', 'clienteNome', 'marca', 'modelo', 'imei', 'descricao', 'status', 'criadoEm', 'novoDia', 'fotos', 'dados'])
-                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO', 'VENCIMENTO', 'PROTECAO', 'DADOS']
+                    && request.resource.data.tipo in ['ASSISTENCIA', 'LGPD_COPIA', 'LGPD_EXCLUSAO', 'VENCIMENTO', 'PROTECAO', 'DADOS', 'UPGRADE']
                     && (!('fotos' in request.resource.data) || (request.resource.data.fotos is list && request.resource.data.fotos.size() <= 3))
                     && (!('dados' in request.resource.data) || request.resource.data.dados.keys().hasOnly(['tel1', 'tel2', 'cep', 'endereco', 'bairro', 'cidade', 'uf']))
                     && request.resource.data.status == 'ABERTO'

@@ -2,7 +2,7 @@
 // Eventos de cobrança (PAYMENT_RECEIVED, PAYMENT_CONFIRMED) e do PIX Automático. Token = ASAAS_WEBHOOK_TOKEN.
 import { db, asaas, baixarParcela, parcelaDaCobranca, config, asaasConf } from './_base.js';
 import { brevoLigado, avisarCliente } from './_brevo.js';
-import { saasPagamento } from './saas.js';
+import { saasPagamento, licPagamento } from './saas.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -36,6 +36,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     // ---- mensalidade das lojas parceiras (SaaS) ----
+    if (String(payment?.externalReference || '').startsWith('lic:')) { await licPagamento(event, payment); return res.status(200).json({ ok: true }); }
     if (String(payment?.externalReference || '').startsWith('saas:')) { await saasPagamento(event, payment); return res.status(200).json({ ok: true }); }
     if (!['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'].includes(event) || !payment) return res.status(200).json({ ok: true, ignorado: event });
     const alvo = await parcelaDaCobranca(payment);

@@ -35,7 +35,8 @@ export default async function handler(req, res) {
       if (!(+d.renda > 0)) throw erro('Informe a renda mensal.');
       for (const k of ['cpf_' + cpf, 'tel_' + tel]) { const ln = await db.collection('listanegra').doc(k).get(); if (ln.exists) throw erro('Não foi possível seguir com a proposta. Procure a loja.', 403); }
       if (b.aceite !== true) throw erro('Aceite os termos para continuar.');
-      const frente = img(b.frente), verso = img(b.verso), selfie = img(b.selfie);
+      const frente = img(b.frente), verso = img(b.verso), selfie = img(b.selfie), mosaico = img(b.mosaico), mov = b.vidaMov == null ? null : Number(b.vidaMov);
+      const vida = mov == null ? { ok: null, metodo: 'ARQUIVO', via: 'REMOTA' } : { ok: mov > 4, metodo: 'MOVIMENTO', d: Math.round(mov), via: 'REMOTA' };
       if (!frente || !selfie) throw erro('Envie a foto da frente do documento e a selfie.');
       const agora = Date.now(), tel2 = dig(d.telefone2), refNome = txt(d.ref1Nome, 80);
       if (tel2 && tel2 === tel) throw erro('O telefone da referência precisa ser de outra pessoa.');
@@ -48,10 +49,10 @@ export default async function handler(req, res) {
         const o = (await db.collection('clientes').where('telefones', 'array-contains', t).get()).docs.filter((x) => x.id !== cpf);
         if (o.length) throw erro('Este telefone já está cadastrado para outra pessoa. Use o seu número.');
       }
-      await db.collection('docs').doc(id).set({ vendaId: id, cpf, docTipo: cliente.docTipo, docDigital: d.docDigital === true, frente, verso, selfie, criadoEm: agora, vendedorUid: v.vendedorUid, via: 'remota' });
+      await db.collection('docs').doc(id).set({ vendaId: id, cpf, docTipo: cliente.docTipo, docDigital: d.docDigital === true, frente, verso, selfie, ...(mosaico ? { vidaQuadros: mosaico } : {}), criadoEm: agora, vendedorUid: v.vendedorUid, via: 'remota' });
       await db.collection('clientes').doc(cpf).set({ ...cliente, atualizadoEm: agora }, { merge: true });
       await db.collection('vendas').doc(id).set({ status: 'ANALISE', clienteCpf: cpf, clienteNome: cliente.nome, cliente,
-        verificacao: { remota: true, docTipo: cliente.docTipo, docDigital: d.docDigital === true, iaLeitura: false, documentoOriginal: true, editados: [], face: null, obs: 'Enviado pelo cliente a distância: confira documento e selfie com atenção.' },
+        verificacao: { remota: true, docTipo: cliente.docTipo, docDigital: d.docDigital === true, iaLeitura: false, documentoOriginal: true, editados: [], face: null, vida, obs: 'Enviado pelo cliente a distância: confira documento e selfie com atenção.' },
         confirmacaoDados: { status: 'PENDENTE', prazo: agora + 3 * 86400000 },
         remota: { ...v.remota, enviadoEm: agora, ip: req.headers['cf-connecting-ip'] || '' } }, { merge: true });
       await db.collection('logs').add({ em: Date.now(), acao: 'Cliente enviou a proposta a distância', alvo: id, det: `nº ${v.numero} · ${cliente.nome}`, por: 'Cliente' });
