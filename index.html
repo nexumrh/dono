@@ -4808,10 +4808,53 @@ async function recusarVendedor(id){
 }
 async function pessoasLoja(lojaId){
   const l=await DB.get('lojas',lojaId), us=(await DB.list('users',[['lojaId','==',lojaId]])).sort((a,b)=>(a.role==='GERENTE'?0:1)-(b.role==='GERENTE'?0:1)||a.nome.localeCompare(b.nome));
-  openModal(`<h2>${esc(l.nome)} — pessoas</h2><div class="tablewrap"><table><tr><th>Nome</th><th>ID</th><th>Perfil</th><th>E-mail</th><th>Situação</th><th></th></tr>
-    ${us.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td class="mono">${esc(u.codigo||'')}</td><td>${esc(ROLES[u.role])}</td><td class="small">${esc(u.email)}</td>
+  const vs=await DB.list('vendas',[['lojaId','==',lojaId]]).catch(()=>[]);
+  const usadas=vs.filter(v=>['ATIVA','QUITADA','INSTALANDO','RETOMADA','CANCELADA'].includes(v.status)).reduce((s,v)=>s+(+v.licencas||Math.max(1,Math.ceil((v.nParcelas||0)/12))),0);
+  const compradas=+l.licencasCompradas||0, saldo=compradas-usadas, ger=us.find(u=>u.role==='GERENTE');
+  openModal(`<h2>${esc(l.nome)}</h2>
+    <div class="grid g4 mb"><div class="kpi"><small>Licenças adquiridas</small><b>${compradas}</b></div><div class="kpi"><small>Usadas</small><b>${usadas}</b></div><div class="kpi ${saldo<=0?'alert':''}"><small>Saldo</small><b>${saldo}</b></div>
+      <div class="kpi"><small>Mensalidade</small><b>${brl(+S.cfg.saasMensalidade||79.99)}</b></div></div>
+    <div class="row mb" style="gap:8px"><button class="btn sm gold" data-act="addLicencas" data-id="${lojaId}">Adicionar licenças</button>
+      ${ger?`<button class="btn sm" data-act="pedirAtualizacao" data-id="${lojaId}">Pedir atualização cadastral</button>`:''}
+      ${l.bloqueada?`<button class="btn sm" data-act="desbloquearLoja" data-id="${lojaId}">Desbloquear loja</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${lojaId}">Bloquear a loja</button>`}</div>
+    <div class="tablewrap"><table><tr><th>Nome</th><th>ID</th><th>Perfil</th><th>E-mail</th><th>Situação</th><th></th></tr>
+    ${us.map(u=>`<tr><td><b>${esc(u.nome)}</b>${u.atualizacaoPedida?'<br><span class="badge b-amber">atualização pedida</span>':''}</td><td class="mono">${esc(u.codigo||'')}</td><td>${esc(ROLES[u.role])}</td><td class="small">${esc(u.email)}</td>
       <td>${l.bloqueada?badge('Loja bloqueada','red'):u.ativo?badge('Ativo','green'):badge(u.bloqueadoPeloDono?'Bloqueado':'Inativo',u.bloqueadoPeloDono?'red':'gray')}${u.motivoBloqueio&&u.bloqueadoPeloDono?`<div class="small muted">${esc(u.motivoBloqueio)}</div>`:''}</td>
-      <td class="right"><button class="btn sm" data-act="editarComissao" data-id="${u.id}">${u.asaasWalletId?'💸 ':''}Comissão</button> ${u.ativo?`<button class="btn sm" style="color:var(--bad)" data-act="bloquearPessoa" data-id="${u.id}">Bloquear</button>`:`<button class="btn sm" data-act="desbloquearPessoa" data-id="${u.id}">Desbloquear</button>`}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Ninguém</td></tr>'}</table></div>`,true);
+      <td class="right"><button class="btn sm" data-act="reenviarAcesso" data-id="${u.id}">Reenviar login</button> <button class="btn sm" data-act="editarComissao" data-id="${u.id}">${u.asaasWalletId?'💸 ':''}Comissão</button> ${u.ativo?`<button class="btn sm" style="color:var(--bad)" data-act="bloquearPessoa" data-id="${u.id}">Bloquear</button>`:`<button class="btn sm" data-act="desbloquearPessoa" data-id="${u.id}">Desbloquear</button>`}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Ninguém</td></tr>'}</table></div>`,true);
+}
+/* Reenviar login: manda o ID e um e-mail de redefinição de senha (recadastra o acesso). */
+async function reenviarAcesso(uid){
+  const u=await DB.get('users',uid); if(!u) return;
+  if(!confirm(`Reenviar o acesso de ${u.nome} para ${u.email}?\nVai o ID e um e-mail para a pessoa criar uma nova senha.`)) return;
+  const url=urlPortal(u.role);
+  try{ if(fb&&u.email) await fb.au.sendPasswordResetEmail(fb.au.getAuth(),String(u.email)); }catch(e){ console.warn('reset',e); }
+  await DB.set('users',uid,{senhaTemporaria:true,acessoReenviadoEm:Date.now()});
+  const corpo=`Olá, ${primeiroNome(u.nome)}!\n\nAqui está o seu acesso à ${MARCA}${u.lojaId?` (${lojaNome(u.lojaId)})`:''}.\n\nPortal: ${url}\nSeu ID: ${u.codigo}\n\nVocê vai receber também um e-mail para criar uma nova senha. Se não chegar, use "Esqueci minha senha" na tela de entrada.\n\nEquipe ${MARCA}`;
+  const ok=await emailAuto(u.email,`Seu acesso à ${MARCA}`,corpo,'Seu acesso');
+  await log('Login reenviado',uid,u.nome);
+  toast(ok?`Acesso reenviado para ${u.email}`:`E-mail de senha enviado. ${servLigado()?'':'(Configure o servidor para enviar o ID por e-mail também.)'}`,'ok'); render();
+}
+/* Pedir atualização cadastral ao gerente da loja. */
+async function pedirAtualizacao(lojaId){
+  const l=await DB.get('lojas',lojaId), ger=(await DB.list('users',[['lojaId','==',lojaId]])).find(u=>u.role==='GERENTE');
+  if(!ger) return toast('Esta loja não tem gerente cadastrado','err');
+  const obs=(prompt('O que precisa atualizar? (vai na mensagem ao gerente)','Confirme os dados da loja, o seu telefone e e-mail, e os documentos.')||'').trim();
+  if(!obs) return;
+  await DB.set('users',ger.id,{atualizacaoPedida:{em:Date.now(),por:S.me.nome,obs}});
+  const corpo=`Olá, ${primeiroNome(ger.nome)}!\n\nA ${MARCA} pede a atualização do cadastro da loja ${l.nome}:\n\n${obs}\n\nPor favor, entre no portal (${urlPortal('GERENTE')}) e atualize os dados, ou responda este e-mail.\n\nEquipe ${MARCA}`;
+  const ok=await emailAuto(ger.email,`Atualização cadastral — ${MARCA}`,corpo,'Atualização cadastral');
+  await log('Atualização cadastral solicitada',lojaId,`${l.nome}: ${obs}`);
+  toast(ok?`Pedido enviado ao gerente (${ger.email})`:'Pedido registrado. Ligue o servidor para enviar o e-mail.','ok'); render();
+}
+/* Adicionar/vender licenças para a loja. */
+async function addLicencas(lojaId){
+  const l=await DB.get('lojas',lojaId), val=+S.cfg.saasLicencaValor||54.99;
+  const q=+(prompt(`Quantas licenças adicionar para ${l.nome}?\nValor por licença: ${brl(val)}`,'10')||0);
+  if(!q||q<0) return;
+  const compradas=(+l.licencasCompradas||0)+Math.floor(q);
+  await DB.set('lojas',lojaId,{licencasCompradas:compradas,licencasHist:[...(l.licencasHist||[]),{q:Math.floor(q),valor:r2(q*val),em:Date.now(),por:S.me.nome}]});
+  await log('Licenças adicionadas à loja',lojaId,`${Math.floor(q)} licença(s) · ${brl(q*val)}`);
+  toast(`${Math.floor(q)} licença(s) adicionada(s). Total: ${compradas}.`,'ok'); pessoasLoja(lojaId);
 }
 async function bloquearLoja(id,btn){
   const l=await DB.get('lojas',id); const motivo=(prompt(`Bloquear ${l.nome}? O gerente e todos os vendedores perdem o acesso na hora.\n\nMotivo (vai na mensagem automática):`)||'').trim();
@@ -4975,6 +5018,7 @@ function telaCredenciamento(){
 
 Object.assign(ACT,{
   salvarCadastroVendedor:(d,b)=>salvarCadastroVendedor(b), aprovarLoja:d=>aprovarLoja(d.id), recusarLoja:d=>recusarLoja(d.id), aprovarVendedor:(d,b)=>aprovarVendedor(d.id,b), recusarVendedor:d=>recusarVendedor(d.id),
+  reenviarAcesso:d=>reenviarAcesso(d.id), pedirAtualizacao:d=>pedirAtualizacao(d.id), addLicencas:d=>addLicencas(d.id),
   pessoasLoja:d=>pessoasLoja(d.id), bloquearLoja:(d,b)=>bloquearLoja(d.id,b), desbloquearLoja:(d,b)=>desbloquearLoja(d.id,b), bloquearPessoa:d=>bloquearPessoa(d.id), desbloquearPessoa:d=>desbloquearPessoa(d.id),
   pagarComissao:d=>pagarComissao(d.id,d.v), salvarPagComissao:(d,b)=>salvarPagComissao(b), verComprovanteCom:d=>verComprovanteCom(d.id), confirmarComissao:d=>confirmarComissao(d.id), contestarComissao:d=>contestarComissao(d.id), comLoja:d=>comLoja(d.id),
 });
