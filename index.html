@@ -1691,6 +1691,7 @@ async function passoEntrada(){
   const v=await DB.get('vendas',S.w.vendaId);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">7</span>Receber a entrada</h2>
     <div class="entrada-box"><small>${v.usado||v.cashbackUsado?'Entrada a receber em dinheiro/PIX/cartão':'Entrada a receber'}</small><b>${brl(v.entrada-abateEntrada(v))}</b>${v.cashbackUsado?`<span>cashback usado: ${brl(v.cashbackUsado)}</span>`:''}<span>${esc(v.clienteNome)} · ${esc(apNome(v))}${v.usado?` · entrada total ${brl(v.entrada)} − usado ${esc(v.usado.marca+' '+v.usado.modelo)} ${brl(v.usado.valor)}`:''}</span></div>
+    ${v.entradaCredito?.valor?`<div class="msg mt"><b>Este cliente já pagou ${brl(v.entradaCredito.valor)} de entrada</b> em ${fmtD(isoDate(new Date(v.entradaCredito.em)))}${v.entradaCredito.forma?' ('+esc(v.entradaCredito.forma)+')':''}, na venda que foi desfeita. Receba agora só a diferença, se houver, e registre abaixo o valor total da entrada.</div>`:''}
     <div class="warn mt"><b>O aparelho só sai da loja depois que a entrada for paga.</b> A equipe vai mandar uma mensagem no WhatsApp do cliente confirmando o valor recebido.</div>
     <div class="grid g3 mt">
       <label>Valor recebido (R$)<input id="eValor" type="number" step="0.01" min="${r2(v.entrada-abateEntrada(v))}" value="${r2(v.entrada-abateEntrada(v))}"></label>
@@ -1722,7 +1723,7 @@ async function confirmarEntrada(btn){
     const extras=[]; if(v.usado) extras.push({c:'seminovos',id:'t_'+v.id,data:{origem:'TROCA',marca:v.usado.marca,modelo:v.usado.modelo,capacidade:'',imei:v.usado.imei,imei2:'',vendaId:v.id,vendaNumero:v.numero,cliente:v.clienteNome,estado:v.usado.estado,avaliacao:v.usado.valor,precoVenda:r2(v.usado.valor*1.35),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:agora,por:S.me.nome}});
     if(v.usado?.fotos?.length) extras.push({c:'docs',id:'u_'+v.id,data:{tipo:'USADO',vendaId:v.id,fotos:v.usado.fotos,criadoEm:agora,vendedorUid:S.me.uid}});
     await DB.batch([{c:'aparelhos',id:tk,data:ap},...extras,{c:'vendas',id:v.id,data:{...st,aparelhoToken:tk,...(chip?{chip}:{}),...(v.usado?{usado:{...v.usado,fotos:[]}}:{}),
-      entradaPaga:{valor,forma:$('#eForma').value,obs:$('#eObs').value.trim(),em:agora,por:S.me.nome,geo},confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
+      entradaPaga:{valor,forma:$('#eForma').value,obs:[$('#eObs').value.trim(),v.entradaCredito?.valor?`inclui ${brl(v.entradaCredito.valor)} já pagos em ${fmtD(isoDate(new Date(v.entradaCredito.em)))}`:''].filter(Boolean).join(' · '),em:agora,por:S.me.nome,geo},entradaCredito:null,confirmacaoEntrada:{status:'PENDENTE',prazo:agora+86400000}}}]);
     await log('Entrada recebida',v.id,`${brl(valor)} · ${$('#eForma').value}`);
     try{ await gravarAcesso(v,tk); }catch(e){ console.warn('acesso',e); }
     if(v.aparelho.semTrava){ sincronizarAsaas(v.id); nfAuto(v.id); }
@@ -1792,7 +1793,8 @@ async function passoTrava(){
         <details class="mt" id="instPc"><summary class="btn sm" style="display:inline-flex">Instalar pelo computador (cabo USB)</summary>${blocoInstalarPc(v,tk)}</details>
         ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
     </div>
-    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
+    <div class="row mt" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
+      ${can('DONO','FINANCEIRO','GERENTE')?`<button class="btn red" data-act="deixarPendente" data-id="${v.id}">Cancelar venda (cliente fica pendente)</button>`:'<span class="small muted" style="align-self:center">Para cancelar esta venda, chame o gerente.</span>'}</div>
       <button class="btn gold lg" id="btnConcluir" data-act="novaProposta" disabled title="Liberado quando a trava subir">Concluir venda</button></div>
 `;
   if(!(S.cfg.videos||{})[marca]) animarGuia(marca);
@@ -1967,8 +1969,33 @@ async function verVenda(id){
       ${v.status==='ATIVA'&&can('DONO','FINANCEIRO')?`<button class="btn green" data-act="quitar" data-id="${v.id}">Quitação antecipada</button><button class="btn" data-act="renegociar" data-id="${v.id}">Renegociar</button>`:''}
       ${['ATIVA','INSTALANDO'].includes(v.status)&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="retomar" data-id="${v.id}">Retomar aparelho</button>`:''}
       ${dentroTroca(v)&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="abrirTroca" data-id="${v.id}">Troca ou devolução (${diasTroca()} dias)</button>`:''}
+      ${['INSTALANDO','AGUARDANDO_ENTRADA'].includes(v.status)&&v.aparelho&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="deixarPendente" data-id="${v.id}">Cancelar e deixar o cliente pendente</button>`:''}
       ${podeCancelar?`<button class="btn red" data-act="cancelarVenda" data-id="${v.id}">Cancelar venda</button>`:''}
     </div>`, true);
+}
+/* Desfaz a venda do APARELHO, mas mantém o crédito aprovado: o cliente volta para "Crédito aprovado" e escolhe o celular depois.
+   O aparelho volta ao estoque, a trava gerada é anulada e a entrada já recebida fica guardada como crédito para a próxima escolha. */
+async function deixarPendente(id,btn){
+  const v=await DB.get('vendas',id); if(!v||!['INSTALANDO','AGUARDANDO_ENTRADA'].includes(v.status)) return toast('Esta venda não pode mais ser desfeita por aqui','err');
+  const ent=v.entradaPaga?.valor||0;
+  const motivo=prompt(`Cancelar a venda do ${v.aparelho?.marca||''} ${v.aparelho?.modelo||''} e deixar ${primeiroNome(v.clienteNome)} com o crédito aprovado, para escolher o celular depois?\n\n- O aparelho volta ao estoque.\n- O contrato e a trava desta venda são anulados.${ent?`\n- A entrada de ${brl(ent)} já recebida fica guardada para a próxima escolha.`:''}\n\nMotivo:`,'Trava não instalou'); if(!motivo) return;
+  if(btn) btn.disabled=true;
+  try{
+    const agora=Date.now(), ops=[{c:'vendas',id,data:{status:'APROVADA',aparelho:null,aparelhoToken:'',valor:0,entrada:0,financiado:0,nParcelas:0,valorParcela:0,total:0,parcelas:[],licencas:0,usado:null,protecao:null,acessorios:[],acessoriosValor:0,cashbackUsado:0,custo:0,
+      assinatura:null,assinadoEm:null,assinaturaDigital:null,contratoTexto:null,assinaturaPendente:null,entradaPaga:null,confirmacaoEntrada:null,instalacao:null,chip:null,
+      ...(ent?{entradaCredito:{valor:r2((v.entradaCredito?.valor||0)+ent),forma:v.entradaPaga.forma||'',em:v.entradaPaga.em||agora,por:v.entradaPaga.por||''}}:{}),
+      pendente:{em:agora,por:S.me.nome,motivo,aparelho:`${v.aparelho?.marca||''} ${v.aparelho?.modelo||''}`.trim(),imei:v.aparelho?.imei||''}}}];
+    if(v.aparelhoToken) ops.push({c:'aparelhos',id:v.aparelhoToken,data:{status:'CANCELADO'}});
+    let volta=null; const eid=v.aparelho?.estoqueId||v.aparelho?.imei;
+    const e=(eid?await DB.get('estoque',eid).catch(()=>null):null)||(await DB.list('estoque',[['vendaId','==',id]]).catch(()=>[]))[0];
+    if(e&&e.status!=='DISPONIVEL'&&(!e.vendaId||e.vendaId===id)){ volta=e; ops.push({c:'estoque',id:e.id,data:{status:'DISPONIVEL',vendaId:'',vendidoEm:null,obs:`Voltou ao estoque: venda nº ${v.numero} desfeita (${motivo})`,atualizadoEm:agora}}); }
+    if(v.usado) ops.push({c:'seminovos',id:'t_'+id,data:{status:'BAIXADO',motivoBaixa:'Venda desfeita: o usado volta para o cliente',baixadoEm:agora,baixadoPor:S.me.nome}});
+    await DB.batch(ops);
+    await log('Venda desfeita: cliente ficou pendente',id,`${motivo}${volta?` · IMEI ${volta.imei||volta.id} voltou ao estoque`:''}${ent?` · entrada de ${brl(ent)} guardada`:''}`);
+    if(v.asaas&&asaasLigado()&&can('DONO','FINANCEIRO')){ try{ await apiLoja('cancelarCobrancas',{vendaId:id}); }catch(err){ toast('As cobranças no Asaas não foram apagadas: '+err.message,'err'); } }
+    toast(`Venda desfeita. ${primeiroNome(v.clienteNome)} ficou com o crédito aprovado: escolha o celular quando quiser, em Vendas.`,'ok');
+    closeModal(); S.w={}; S.tab='vendas'; render();
+  }catch(err){ toast('Não foi possível: '+err.message,'err'); if(btn) btn.disabled=false; }
 }
 async function cancelarVenda(id){
   const motivo=prompt('Motivo do cancelamento (a trava será removida do aparelho):'); if(!motivo) return;
@@ -4747,7 +4774,7 @@ const ACT = {
   bioCapturar:()=>bioCapturar(), bioCelular:(d,b)=>bioCelular(b), bioRefazer:()=>{ S.w.selfie=null; S.w.face=null; S.w.vida=null; passoBio(); },
   enviarAnalise:(d,b)=>enviarAnalise(b), simularDecisao:async d=>{ await DB.set('vendas',S.w.vendaId,{status:d.r,analise:{resultado:d.r,porNome:'Simulação',em:Date.now(),limite:d.r==='APROVADA'?3000:null}}); },
   selMarca:d=>{ S.w.sel={marca:d.v}; passoAparelho(); }, selItem:d=>selItem(d.id), salvarAparelho:(d,b)=>salvarAparelho(b), confirmarEntrada:(d,b)=>confirmarEntrada(b),
-  confirmarDado:d=>confirmarDado(d.id,d.k,d.st), verVenda:d=>verVenda(d.id), cancelarVenda:d=>cancelarVenda(d.id),
+  confirmarDado:d=>confirmarDado(d.id,d.k,d.st), verVenda:d=>verVenda(d.id), cancelarVenda:d=>cancelarVenda(d.id), deixarPendente:(d,b)=>deixarPendente(d.id,b),
   analisar:d=>analisar(d.id), decidir:d=>decidir(d.id,d.r),
   assinar:d=>assinar(d.id), limparSig:()=>setupSig($('#sig')), confirmarAssinatura:(d,b)=>confirmarAssinatura(d.id,b), imprimirContrato:d=>imprimirContrato(d.id),
   apQR:d=>mostrarQR(d.id), copiarQR:d=>{ navigator.clipboard?.writeText(payloadProvisionamento(d.tk)).then(()=>toast('Copiado','ok')); },
