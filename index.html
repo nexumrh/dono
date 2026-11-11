@@ -4132,6 +4132,7 @@ function apCard(a){
     ${ativo&&gerencia?`<button class="btn sm" data-act="apMsg" data-id="${a.id}">Mensagem</button>`:''}
     ${ativo&&!ck.em?`<button class="btn sm navy" data-act="apQR" data-id="${a.id}">QR de instalação</button>`:''}
     ${ativo&&can('DONO','SUPORTE')&&ck.em?`<button class="btn sm" data-act="apCodigo" data-id="${a.id}">Código sem internet</button>`:''}
+    ${can('DONO','SUPORTE')&&a.status!=='CANCELADO'?`<button class="btn sm red" data-act="apRemover" data-id="${a.id}">Remover a trava</button>`:''}
     <button class="btn sm" data-act="apLog" data-id="${a.id}">Histórico</button>
   </div></div>`;
 }
@@ -4946,6 +4947,57 @@ async function codigoOffline(segredo, dia, n){
   return String(v%1000000).padStart(6,'0');
 }
 const diaBR = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date());
+/* Código de REMOÇÃO definitiva da trava (só a trava da NexumCell). MESMA conta do app (Remocao.kt).
+   HMAC-SHA256(segredo do aparelho, "REMOVER|dia") -> 10 dígitos. Só deste aparelho, vale hoje e amanhã. */
+async function removocaoOffline(segredo, dia){
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(segredo),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const h=new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(`REMOVER|${dia}`)));
+  let v=0; for(let i=0;i<5;i++) v=v*256+h[i];
+  return String(v%10000000000).padStart(10,'0');
+}
+/* Programa .bat (Windows) que finaliza a remoção por USB: desinstala só o app da NexumCell depois que o código tirou a trava. Baixa o ADB sozinho. */
+function baixarRemovedorUsb(){
+  const bat=[
+'@echo off','chcp 65001 >nul','title NexumCell - remover a trava pelo USB','cd /d "%~dp0"','set "ADB=adb"',
+'if exist "%~dp0platform-tools\\adb.exe" set "ADB=%~dp0platform-tools\\adb.exe"',
+'echo ==============================================','echo   REMOVER A TRAVA NEXUMCELL PELO USB','echo ==============================================','echo.',
+'echo Isto desinstala SOMENTE o app da NexumCell (br.com.nexumcell.trava).','echo Use DEPOIS que o codigo de remocao ja tirou a trava no aparelho.','echo Enquanto a trava esta ativa, o cabo nao conecta (ela bloqueia a depuracao USB).','echo.',
+'"%ADB%" version >nul 2>&1 && goto temadb',
+'echo Baixando as ferramentas do Google (ADB)...',
+'curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-windows.zip',
+'powershell -NoProfile -Command "Expand-Archive -Force platform-tools.zip ."',
+'set "ADB=%~dp0platform-tools\\adb.exe"',
+':temadb',
+'echo.','echo No aparelho: ative as Opcoes de desenvolvedor e a Depuracao USB.','echo Ligue o cabo USB e toque em PERMITIR na pergunta de depuracao...',
+'"%ADB%" wait-for-device',
+'echo.','echo Removendo o app da NexumCell...',
+'"%ADB%" uninstall br.com.nexumcell.trava',
+'"%ADB%" shell pm uninstall -k --user 0 br.com.nexumcell.trava 2>nul',
+'echo.','echo Pronto. Se apareceu "Success", o app da NexumCell saiu do aparelho.','echo Se deu erro de "device owner", use primeiro o CODIGO DE REMOCAO no aparelho.','echo.','pause'
+  ].join('\r\n')+'\r\n';
+  baixarArquivo('remover-trava-nexumcell.bat',bat,'application/octet-stream');
+}
+
+/* Remoção definitiva da trava (Dono/Suporte): gera o código do aparelho e o passo a passo. */
+async function apRemover(id){
+  const a=await DB.get('aparelhos',id); if(!a) return;
+  if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nUse quando a remoção pela internet não funcionar. O código tira a proteção e desinstala o app. Não dá para desfazer.`)) return;
+  let ch=await DB.get('chavesTrava',id).catch(()=>null); if(!ch&&!fb) ch={k:'demo-'+id};
+  if(!ch?.k) return openModal(`<h2>Remoção da trava</h2><p>Este aparelho ainda está com a versão antiga do app da trava. O código de remoção passa a funcionar depois que ele <b>atualizar sozinho</b>. Enquanto isso, remova pela internet (Liberar / cancelar o contrato).</p>`);
+  const dia=diaBR(), cod=await removocaoOffline(ch.k,dia);
+  await DB.set('aparelhos',id,{removocao:{por:S.me.nome,em:Date.now(),dia}}); await log('Código de REMOÇÃO da trava gerado',id,`nº ${a.vendaNumero} · ${a.clienteNome}`);
+  openModal(`<h2>Remover a trava — código do aparelho</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)} · IMEI <span class="mono">${esc(a.imei||'')}</span></p>
+    <div style="font-size:40px;font-weight:800;letter-spacing:6px;text-align:center;margin:16px 0" class="mono">${cod.slice(0,5)} ${cod.slice(5)}</div>
+    <div class="warn"><b>No aparelho, mesmo sem internet:</b><ol style="margin:6px 0 0 18px;padding:0">
+      <li>Se o aparelho não estiver na tela de bloqueio, trave agora pelo botão <b>“Travar agora”</b> deste painel — a tela de bloqueio aparece no aparelho.</li>
+      <li>Na tela de bloqueio, toque em <b>“Tenho um código da loja”</b>.</li>
+      <li>Digite estes <b>10 números</b> e confirme a remoção.</li>
+      <li>A proteção sai e o app pede para ser desinstalado.</li></ol></div>
+    <p class="small muted">Vale hoje e amanhã, uma vez só, e só neste aparelho. Remove apenas a trava da NexumCell — não mexe no bloqueio do Google nem em nada mais.</p>
+    <div class="row mt" style="justify-content:space-between;align-items:center"><button class="btn" data-act="copiarTexto" data-t="${cod}">Copiar código</button>
+      <button class="btn sm" data-act="removedorUsb">Baixar removedor por USB (.bat)</button></div>
+    <p class="small muted" style="margin-top:8px">O programa por USB é opcional: ele só <b>desinstala</b> o app depois que o código acima já tirou a trava (o cabo não funciona enquanto a trava está ativa, porque ela bloqueia a depuração USB).</p>`);
+}
 async function apCodigo(id){
   const a=await DB.get('aparelhos',id); if(!a) return;
   let ch=await DB.get('chavesTrava',id).catch(()=>null);
@@ -4975,7 +5027,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
+Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
 
 /* ======================= SAAS: clientes (financeiras) que usam o sistema, cada um com o próprio Firebase =======================
    Este é o modelo do Atlas: cada cliente tem Firebase, portais e servidor próprios (dados 100% separados).
