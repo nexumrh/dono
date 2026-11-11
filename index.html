@@ -904,6 +904,8 @@ async function notificacoes(){
       add(pg.filter(p=>p.contestado).length,'Comissão contestada','o vendedor diz que não recebeu','comissoes','contest');
       add(sn.filter(s=>s.lojaId===S.me.lojaId&&snPend(s)).length,'Seminovos para analisar','aparelhos retomados aguardando baixa','seminovos','sn');
       try{ add((await abaixoMinimo(S.me.lojaId)).length,'Estoque abaixo do mínimo','modelos para repor','estoque','est'); }catch(e){}
+      try{ const es=await DB.list('estoque',[['lojaId','==',S.me.lojaId]]); add(es.filter(e=>e.pedidoTransf&&e.status==='DISPONIVEL').length,'Pedido de transferência de aparelho','outra loja diz que o aparelho está lá','estoque','transf');
+        add((await DB.list('estoque',[['lojaDestino','==',S.me.lojaId]])).filter(e=>e.status==='EM_TRANSITO').length,'Aparelho a receber','confirme que chegou na loja','estoque','receber'); }catch(e){}
       if(l){ const vs2=await DB.list('vendas',[['lojaId','==',S.me.lojaId]]).catch(()=>[]), saldo=(+l.licencasCompradas||0)-licUsadas(vs2); if(saldo<=3&&((+l.licencasCompradas||0)>0||S.cfg.licencaObrigatoria==='sim')) n.push({q:Math.max(0,saldo),t:saldo<=0?'Sem saldo de licenças':'Licenças acabando',d:'compre mais para não parar de vender',tab:'licLoja',k:'lic',sempre:true}); } }
     if(can('DONO')){ const pg=await DB.list('comissoesPagas').catch(()=>[]); add(pg.filter(p=>p.contestado).length,'Comissão contestada','vendedor diz que não recebeu','comissoes','contest'); }
   }catch(e){ console.warn('notificações',e); }
@@ -2330,12 +2332,17 @@ async function salvarEstoque(btn){
     if(b&&!imeiOk(b)){ erros.push(`${ln}: IMEI 2 inválido`); continue; }
     if(vistos.has(a)||(b&&vistos.has(b))){ erros.push(`${a}: repetido na lista`); continue; }
     const ja=await DB.get('estoque',a).catch(()=>null);
-    if(ja){ erros.push(`${a}: já está no estoque (${ja.lojaNome||''}, ${(EST_ST[ja.status]||[ja.status])[0].toLowerCase()})`); continue; }
+    if(ja){ const st=(EST_ST[ja.status]||[ja.status])[0].toLowerCase();
+      if(ja.lojaId===lojaId) erros.push(`${a}: já está no estoque desta loja (${st})`);
+      else if(ja.status==='EM_TRANSITO'&&ja.lojaDestino===lojaId) erros.push({h:`${a}: já foi enviado para esta loja pela ${esc(ja.lojaNome||'outra loja')}. Falta só confirmar que chegou. <button class="btn sm gold" data-act="receberEstoque" data-id="${a}">Confirmar recebimento</button>`});
+      else if(ja.status==='DISPONIVEL') erros.push({h:`${a}: no sistema este aparelho está no estoque da <b>${esc(ja.lojaNome||'outra loja')}</b>. Se ele veio para cá, a transferência ainda não foi registrada. ${can('DONO')?`<button class="btn sm gold" data-act="pedirTransf" data-id="${a}" data-loja="${lojaId}">Mover para esta loja</button>`:ja.pedidoTransf?.lojaId===lojaId?'<i>Pedido de transferência já enviado; aguardando a outra loja.</i>':`<button class="btn sm gold" data-act="pedirTransf" data-id="${a}" data-loja="${lojaId}">Pedir a transferência</button>`}`});
+      else erros.push(`${a}: já está no estoque (${ja.lojaNome||''}, ${st})`);
+      continue; }
     vistos.add(a); b&&vistos.add(b);
     ops.push({c:'estoque',id:a,data:{imei:a,imei2:b||'',catalogoId:x.id,marca:x.marca,modelo:x.modelo,capacidade:x.capacidade,cor:$('#esCor').value.trim(),notaFiscal:$('#esNF').value.trim(),custo:r2(+$('#esCusto').value||0),lojaId,lojaNome:loja.nome||'',status:'DISPONIVEL',criadoEm:Date.now(),por:S.me.nome}});
   }
   if(ops.length){ await DB.batch(ops); await log('Aparelhos cadastrados no estoque',lojaId,`${ops.length}x ${x.marca} ${x.modelo} ${x.capacidade}`); }
-  if(erros.length){ btn.disabled=false; $('#esMsg').innerHTML=`${ops.length?`<b style="color:var(--ok)">${ops.length} cadastrado(s).</b> `:''}<b style="color:var(--bad)">Recusados:</b><br>${erros.map(esc).join('<br>')}`; $('#esImeis').value=''; return; }
+  if(erros.length){ btn.disabled=false; $('#esMsg').innerHTML=`${ops.length?`<b style="color:var(--ok)">${ops.length} cadastrado(s).</b> `:''}<b style="color:var(--bad)">Recusados:</b><div>${erros.map(x=>`<div style="margin-top:6px">${x.h||esc(x)}</div>`).join('')}</div>`; $('#esImeis').value=''; return; }
   toast(`${ops.length} aparelho(s) no estoque`,'ok'); closeModal(); render();
 }
 async function baixarEstoque(id){
@@ -2586,11 +2593,39 @@ function transferirEstoque(id){
     await DB.set('estoque',id,{status:'EM_TRANSITO',lojaDestino:dest.id,lojaDestinoNome:dest.nome,transferidoEm:Date.now(),transferidoPor:S.me.nome});
     await log('Aparelho enviado para outra loja',id,`${e.lojaNome} → ${dest.nome}`); toast('Transferência registrada','ok'); closeModal(); render(); };
 }
+/* Aparelho que está no estoque de outra loja no sistema, mas fisicamente veio para esta: o gerente daqui pede, a loja de origem envia (ou recusa) e o recebimento é confirmado aqui. O Dono move direto. */
+async function pedirTransf(imei,lojaId,btn){
+  const e=await DB.get('estoque',imei), dest=S.lojas.find(l=>l.id===lojaId)||{}; if(!e||e.status!=='DISPONIVEL') return toast('Este aparelho não está mais disponível na outra loja','err');
+  if(btn) btn.disabled=true;
+  try{
+    if(can('DONO')){ if(!confirm(`Mover o ${e.marca} ${e.modelo} (IMEI ${imei}) da ${e.lojaNome} para a ${dest.nome}?`)){ if(btn) btn.disabled=false; return; }
+      await DB.set('estoque',imei,{lojaId,lojaNome:dest.nome||'',pedidoTransf:null,recebidoEm:Date.now(),recebidoPor:S.me.nome,historico:[...(e.historico||[]),{de:e.lojaNome,para:dest.nome,enviadoEm:Date.now(),enviadoPor:S.me.nome,recebidoEm:Date.now(),recebidoPor:S.me.nome}]});
+      await log('Aparelho movido de loja pelo Dono',imei,`${e.lojaNome} → ${dest.nome}`); toast('Aparelho movido para '+dest.nome,'ok');
+    } else {
+      await DB.set('estoque',imei,{pedidoTransf:{lojaId,lojaNome:dest.nome||'',por:S.me.nome,em:Date.now()}});
+      await log('Pedido de transferência de aparelho',imei,`${e.lojaNome} → ${dest.nome}`); toast(`Pedido enviado para a ${e.lojaNome}. Quando ela enviar, confirme o recebimento aqui.`,'ok'); }
+    if(btn) btn.outerHTML='<i>'+(can('DONO')?'Movido para esta loja.':'Pedido enviado; aguardando a outra loja.')+'</i>';
+  }catch(err){ toast('Não foi possível: '+err.message,'err'); if(btn) btn.disabled=false; }
+}
+async function responderTransf(imei,aceitar){
+  const e=await DB.get('estoque',imei), p=e?.pedidoTransf; if(!p) return render();
+  if(aceitar){ if(e.status!=='DISPONIVEL') return toast('Este aparelho não está disponível','err');
+    if(!confirm(`Enviar o ${e.marca} ${e.modelo} (IMEI ${imei}) para a ${p.lojaNome}?`)) return;
+    await DB.set('estoque',imei,{status:'EM_TRANSITO',lojaDestino:p.lojaId,lojaDestinoNome:p.lojaNome,transferidoEm:Date.now(),transferidoPor:S.me.nome,pedidoTransf:null});
+    await log('Aparelho enviado para outra loja',imei,`${e.lojaNome} → ${p.lojaNome} (a pedido)`); toast('Enviado. A outra loja confirma o recebimento.','ok');
+  } else { await DB.set('estoque',imei,{pedidoTransf:null}); await log('Pedido de transferência recusado',imei,`pedido da ${p.lojaNome}`); toast('Pedido recusado','ok'); }
+  render();
+}
+{ const _pt=PAGES.estoque; PAGES.estoque=async()=>{ await _pt(); if(!can('GERENTE','DONO')||!$('#view')) return;
+  const l=(can('GERENTE')?await DB.list('estoque',[['lojaId','==',S.me.lojaId]]):await DB.list('estoque')).filter(e=>e.pedidoTransf&&e.status==='DISPONIVEL'); if(!l.length) return;
+  $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb" style="border-left:4px solid var(--gold,#B7791F)"><h2 style="margin-top:0">Pedidos de transferência (${l.length})</h2>
+    ${l.map(e=>`<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)"><div><b>${esc(e.marca+' '+e.modelo)}</b> ${esc(e.capacidade||'')} · IMEI <span class="mono">${esc(e.imei)}</span><div class="small muted">A <b>${esc(e.pedidoTransf.lojaNome)}</b> diz que este aparelho está lá · pedido de ${esc(e.pedidoTransf.por||'')} em ${fmtDT(e.pedidoTransf.em)}${can('DONO')?' · hoje em '+esc(e.lojaNome||''):''}</div></div>
+      <div class="row" style="gap:6px"><button class="btn sm gold" data-act="respTransf" data-id="${e.imei}" data-v="1">Enviar para ${esc(e.pedidoTransf.lojaNome)}</button><button class="btn sm" data-act="respTransf" data-id="${e.imei}" data-v="0">Recusar</button></div></div>`).join('')}</div>`); }; }
 async function receberEstoque(id){
   const e=await DB.get('estoque',id); if(!confirm(`Confirma que o ${e.marca} ${e.modelo} (IMEI ${e.imei}) chegou na ${e.lojaDestinoNome}?`)) return;
   await DB.set('estoque',id,{status:'DISPONIVEL',lojaId:e.lojaDestino,lojaNome:e.lojaDestinoNome,lojaDestino:null,lojaDestinoNome:null,recebidoEm:Date.now(),recebidoPor:S.me.nome,
     historico:[...(e.historico||[]),{de:e.lojaNome,para:e.lojaDestinoNome,enviadoEm:e.transferidoEm,enviadoPor:e.transferidoPor,recebidoEm:Date.now(),recebidoPor:S.me.nome}]});
-  await log('Aparelho recebido de outra loja',id,`${e.lojaNome} → ${e.lojaDestinoNome}`); toast('Recebimento confirmado','ok'); render();
+  await log('Aparelho recebido de outra loja',id,`${e.lojaNome} → ${e.lojaDestinoNome}`); toast('Recebimento confirmado','ok'); closeModal(); render();
 }
 
 /* ======================= PEDIDOS DOS CLIENTES (assistência e LGPD) ======================= */
@@ -5481,7 +5516,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ sino:()=>{ const p=$('#sinoP'); p.hidden=!p.hidden; if(!p.hidden){ desenharSino(); atualizarSino(true); } }, sinoAtualizar:()=>atualizarSino(true), sinoIr:d=>{ $('#sinoP').hidden=true; S.tab=d.tab; render(); }, audCsv:()=>audCsv(), limitesLoja:d=>limitesLoja(d.id), faturaLoja:d=>faturaLoja(d.id), senhaPadrao:(d,b)=>senhaPadrao(d.id,b), licComprar:(d,b)=>licComprar(b), snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+Object.assign(ACT,{ pedirTransf:(d,b)=>pedirTransf(d.id,d.loja,b), respTransf:d=>responderTransf(d.id,d.v==='1'), sino:()=>{ const p=$('#sinoP'); p.hidden=!p.hidden; if(!p.hidden){ desenharSino(); atualizarSino(true); } }, sinoAtualizar:()=>atualizarSino(true), sinoIr:d=>{ $('#sinoP').hidden=true; S.tab=d.tab; render(); }, audCsv:()=>audCsv(), limitesLoja:d=>limitesLoja(d.id), faturaLoja:d=>faturaLoja(d.id), senhaPadrao:(d,b)=>senhaPadrao(d.id,b), licComprar:(d,b)=>licComprar(b), snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */

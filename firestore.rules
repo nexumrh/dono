@@ -311,6 +311,10 @@ service cloud.firestore {
                     || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId && request.resource.data.lojaId == me().lojaId)
                     // transferência: o gerente da loja de destino confirma o recebimento
                     || (hasRole(['GERENTE']) && resource.data.status == 'EM_TRANSITO' && resource.data.lojaDestino == me().lojaId && request.resource.data.lojaId == me().lojaId)
+                    // gerente de outra loja pede a transferência de um aparelho disponível (só grava o pedido, em nome da própria loja)
+                    || (hasRole(['GERENTE']) && resource.data.status == 'DISPONIVEL'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pedidoTransf'])
+                        && request.resource.data.pedidoTransf.lojaId == me().lojaId)
                     // vendedor só marca como vendido o aparelho da própria loja
                     || (hasRole(['VENDEDOR']) && resource.data.lojaId == me().lojaId && resource.data.status == 'DISPONIVEL'
                         && request.resource.data.status == 'VENDIDO'
