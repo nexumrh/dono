@@ -1003,11 +1003,12 @@ async function iaVisao(prompt, imagens, maxTok=700){
   const j=await r.json(), txt=String(j.choices?.[0]?.message?.content||'');
   try{ return JSON.parse(txt); }catch(e){ const m=txt.replace(/<think>[\s\S]*?<\/think>/g,'').match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]); throw new Error('A IA respondeu fora do formato. Tente de novo.'); }
 }
-const PROMPT_DOC=`Você transcreve documentos de identidade brasileiros (RG antigo, nova Carteira de Identidade Nacional – CIN, ou CNH). As imagens são a frente e, se houver, o verso do MESMO documento.
+const PROMPT_DOC=`Você transcreve documentos de identidade brasileiros (RG antigo, nova Carteira de Identidade Nacional – CIN, CNH, ou o documento de estrangeiro RNE/CRNM). As imagens são a frente e, se houver, o verso do MESMO documento.
 Onde ficam os dados:
 - RG antigo: a frente tem foto e assinatura; o VERSO tem "REGISTRO GERAL" (número do RG), "DATA DE EXPEDIÇÃO", "NOME", "FILIAÇÃO" (pai e mãe, um embaixo do outro), "NATURALIDADE", "DATA DE NASCIMENTO" e às vezes "CPF". O órgão vem no rodapé (ex.: SESP/PR, SSP/SP, DETRAN/RJ).
 - CIN (nova identidade): o número do CPF é o número do documento; tem NOME, SEXO, NACIONALIDADE, DATA DE NASCIMENTO, FILIAÇÃO, NATURALIDADE, VALIDADE, ÓRGÃO EXPEDIDOR e DATA DE EMISSÃO.
 - CNH: NOME, "DOC. IDENTIDADE / ÓRG. EMISSOR / UF" (RG, órgão e UF juntos), CPF, DATA NASCIMENTO, FILIAÇÃO (pai e mãe), Nº REGISTRO (11 dígitos), VALIDADE, CAT. HAB., DATA EMISSÃO, LOCAL.
+- RNE / CRNM (estrangeiro residente, emitido pela Polícia Federal): tem NOME, FILIAÇÃO, NACIONALIDADE, DATA DE NASCIMENTO, "RNE" ou "RNM" (letra + números, ex.: V123456-7 ou F1234567) — coloque esse número em "rg" —, CLASSIFICAÇÃO, VALIDADE, DATA DE EXPEDIÇÃO e às vezes CPF. Use "tipo":"RNE", órgão emissor "CGPI/DIREX/PF" ou o que estiver impresso, e em "naturalidade" o país de nascimento. O CPF pode não estar no documento: nesse caso deixe "".
 Regras:
 1. Copie EXATAMENTE o que está impresso, letra por letra e número por número. Não corrija, não complete e não invente. Se um campo não existir ou estiver ilegível, deixe "".
 2. CPF: só os 11 números. Confira duas vezes cada dígito (cuidado com 1/7, 3/8, 5/6, 0/8).
@@ -1016,7 +1017,7 @@ Regras:
 5. "confianca": para cada campo lido, de 0 a 100. Use menos de 80 quando houver qualquer dúvida em algum caractere.
 6. "documento_original": false se parecer foto de tela, xerox, impressão ou montagem.
 Responda SOMENTE com JSON:
-{"legivel":true,"motivo":"","tipo":"RG|CNH|CIN|OUTRO","documento_original":true,"nome":"","cpf":"","rg":"","orgao_emissor":"","uf_emissor":"","data_nascimento":"DD/MM/AAAA","data_emissao":"DD/MM/AAAA","validade":"DD/MM/AAAA","nome_mae":"","nome_pai":"","naturalidade":"","sexo":"M|F|","nacionalidade":"","numero_cnh":"","categoria_cnh":"","confianca":{"nome":0,"cpf":0,"data_nascimento":0,"rg":0,"nome_mae":0}}
+{"legivel":true,"motivo":"","tipo":"RG|CNH|CIN|RNE|OUTRO","documento_original":true,"nome":"","cpf":"","rg":"","orgao_emissor":"","uf_emissor":"","data_nascimento":"DD/MM/AAAA","data_emissao":"DD/MM/AAAA","validade":"DD/MM/AAAA","nome_mae":"","nome_pai":"","naturalidade":"","sexo":"M|F|","nacionalidade":"","numero_cnh":"","categoria_cnh":"","confianca":{"nome":0,"cpf":0,"data_nascimento":0,"rg":0,"nome_mae":0}}
 Se nome, CPF ou data de nascimento não puderem ser lidos, use "legivel":false e explique em "motivo".`;
 const PROMPT_CPF=`Leia SOMENTE o número do CPF impresso neste documento brasileiro (11 dígitos, às vezes no formato 000.000.000-00). Confira cada dígito com atenção. A leitura anterior deu "{cpf}", que é inválido (o dígito verificador não bate): leia de novo.
 Responda SOMENTE com JSON: {"cpf":"somente os 11 números ou vazio se não der para ler"}`;
@@ -1034,7 +1035,7 @@ async function normalizarDoc(r){
   if(validade&&validade<hj) duv.add('validadeDoc');
   const d={nome:nomeProprio(r.nome),cpf,nasc,rg:String(r.rg||'').trim(),orgao:[String(r.orgao_emissor||'').trim().toUpperCase(),String(r.uf_emissor||'').trim().toUpperCase()].filter(Boolean).join('/').replace(/\/(\w\w)\/\1$/,'/$1'),
     mae:nomeProprio(r.nome_mae),pai:nomeProprio(r.nome_pai),naturalidade:nomeProprio(r.naturalidade),sexo:(String(r.sexo||'').toUpperCase().match(/^[MF]/)||[''])[0],
-    emissao:dataOk(emissao,'1950-01-01',hj)?emissao:'',validadeDoc:validade,cnh:onlyDig(r.numero_cnh),categoriaCnh:String(r.categoria_cnh||'').toUpperCase().replace(/[^A-E]/g,'')};
+    nacionalidade:nomeProprio(r.nacionalidade||''),emissao:dataOk(emissao,'1950-01-01',hj)?emissao:'',validadeDoc:validade,cnh:onlyDig(r.numero_cnh),categoriaCnh:String(r.categoria_cnh||'').toUpperCase().replace(/[^A-E]/g,'')};
   if(d.nome.split(' ').length<2) duv.add('nome'); if(!d.mae) duv.add('mae');
   const mapa={nome:'nome',cpf:'cpf',data_nascimento:'nasc',rg:'rg',nome_mae:'mae'};
   Object.entries(mapa).forEach(([k,c])=>{ if(conf[k]!=null&&+conf[k]<80) duv.add(c); });
@@ -1109,7 +1110,7 @@ async function passoDoc(){
   const d=w.dados||{};
   $('#wz').innerHTML=`<div class="card">
     <h2><span class="step">1</span>Documento do cliente</h2>
-    <div class="tabs">${[['RG','RG'],['CIN','Nova identidade (CIN)'],['CNH','CNH']].map(([k,l])=>`<button data-act="docTipo" data-v="${k}" class="${w.docTipo===k?'on':''}">${l}</button>`).join('')}</div>
+    <div class="tabs">${[['RG','RG'],['CIN','Nova identidade (CIN)'],['CNH','CNH'],['RNE','RNE (estrangeiro)']].map(([k,l])=>`<button data-act="docTipo" data-v="${k}" class="${w.docTipo===k?'on':''}">${l}</button>`).join('')}</div>
     <div class="grid g2">${caixaFoto('frente','Frente')}${precisaVerso?caixaFoto('verso','Verso'):'<div class="foto-box"><div class="foto-prev">'+svg('<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>')+'</div><b>CNH</b><span class="small muted">Basta a frente (os dados ficam no mesmo lado).</span></div>'}</div>
     ${!iaChave()?`<div class="warn mt">${fb?'IA não configurada: o Dono precisa colar a chave do Groq em Lojas e configurações → Inteligência artificial. Até lá, os dados serão digitados.':'Modo demonstração: a leitura por IA é simulada com um cliente de exemplo.'}</div>`:''}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="lerDoc" ${w.fotos.frente&&(!precisaVerso||w.fotos.verso)?'':'disabled'}>${svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>')}Ler documento com IA</button></div>
@@ -1120,8 +1121,8 @@ async function passoDoc(){
     <div>${['frente','verso'].filter(l=>w.fotos[l]).map(l=>`<a href="${w.fotos[l].ver}" target="_blank" rel="noopener" title="Abrir a foto"><img src="${w.fotos[l].ver}" alt="${l}" style="width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px"></a>`).join('')}<p class="small muted" style="margin:0">Toque na foto para ampliar e conferir.</p></div>
     <div class="grid g3">${(()=>{ const du=new Set(w.duvidas||[]), f=(k,l,v,x='')=>`<label>${l}${du.has(k)?' <span class="badge b-amber">conferir</span>':''}<input data-dado="${k}" value="${esc(v||'')}" ${x} ${du.has(k)?'style="border-color:#D97706;background:#FFFBEB"':''}></label>`;
       return f('nome','Nome completo',d.nome)+f('cpf','CPF',fmtCpf(d.cpf||''),'inputmode="numeric"')+f('nasc','Data de nascimento',d.nasc,'type="date"')+f('sexo','Sexo (M/F)',d.sexo,'maxlength="1"')
-        +f('rg','RG / registro',d.rg)+f('orgao','Órgão emissor / UF',d.orgao)+f('emissao','Data de emissão',d.emissao,'type="date"')+f('validadeDoc','Validade',d.validadeDoc,'type="date"')
-        +f('mae','Nome da mãe',d.mae)+f('pai','Nome do pai',d.pai)+f('naturalidade','Naturalidade',d.naturalidade)
+        +f('rg',w.docTipo==='RNE'?'Nº do RNE / RNM':'RG / registro',d.rg)+f('orgao','Órgão emissor / UF',d.orgao)+f('emissao','Data de emissão',d.emissao,'type="date"')+f('validadeDoc','Validade',d.validadeDoc,'type="date"')
+        +f('mae','Nome da mãe',d.mae)+f('pai','Nome do pai',d.pai)+f('naturalidade',w.docTipo==='RNE'?'País de nascimento':'Naturalidade',d.naturalidade)+(w.docTipo==='RNE'||d.nacionalidade?f('nacionalidade','Nacionalidade',d.nacionalidade):'')
         +(w.docTipo==='CNH'||d.cnh?f('cnh','Nº da CNH (registro)',d.cnh,'inputmode="numeric"')+f('categoriaCnh','Categoria',d.categoriaCnh):''); })()}</div></div>
     <p class="hint">Confira cada campo com a foto do documento. Os campos em amarelo a IA leu com dúvida ou não passaram na conferência (ex.: CPF com dígito errado). Campos alterados à mão ficam marcados para o analista.</p>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="docOk">Continuar para biometria ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
@@ -1145,20 +1146,21 @@ async function lerDoc(btn){
     else r={legivel:true,manual:true};
     if(!r.legivel){ w.fotos={}; toast('Documento ilegível: '+(r.motivo||'tire as fotos de novo'),'err'); passoDoc(); setTimeout(()=>{ const e=$('#erro_frente'); if(e) e.textContent='A IA não conseguiu ler: '+(r.motivo||'foto ilegível')+'. Tire as fotos de novo.'; },50); return; }
     if(r.documento_original===false) toast('Atenção: o documento parece foto de tela ou cópia. Isso será informado ao analista.','err');
-    if(r.manual){ w.ia=r; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc(); return; }
+    if(r.manual){ w.ia=r; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',nacionalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc(); return; }
     const {d,duv}=await normalizarDoc(r);
     w.ia=r; w.dados=d; w.duvidas=duv; w.lidos={...w.dados}; passoDoc();
     if(duv.length) toast('Confira os campos marcados em amarelo com o documento.','err');
   }catch(e){
     if(/limite|ocupada|429|não respondeu|grande demais/i.test(e.message)){
-      w.ia={legivel:true,manual:true,falhaIA:e.message}; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc();
+      w.ia={legivel:true,manual:true,falhaIA:e.message}; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',nacionalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc();
       toast(e.message,'err'); return; }
     toast(e.message,'err'); btn.disabled=false; btn.textContent='Ler documento com IA'; }
 }
 async function docOk(){
-  const w=S.w; document.querySelectorAll('[data-dado]').forEach(i=>w.dados[i.dataset.dado]=i.dataset.dado==='cpf'?onlyDig(i.value):['nome','mae','pai','naturalidade'].includes(i.dataset.dado)?nomeProprio(i.value):i.value.trim());
+  const w=S.w; document.querySelectorAll('[data-dado]').forEach(i=>w.dados[i.dataset.dado]=i.dataset.dado==='cpf'?onlyDig(i.value):['nome','mae','pai','naturalidade','nacionalidade'].includes(i.dataset.dado)?nomeProprio(i.value):i.value.trim());
   const d=w.dados;
-  if(!cpfOk(d.cpf)){ toast('CPF inválido — confira com o documento','err'); return; }
+  if(!cpfOk(d.cpf)){ toast(w.docTipo==='RNE'?'Informe o CPF do cliente. Estrangeiro também precisa de CPF para o crediário (se não está no RNE, peça o cartão ou comprovante do CPF).':'CPF inválido — confira com o documento','err'); return; }
+  if(w.docTipo==='RNE'&&!d.rg){ toast('Informe o número do RNE / RNM','err'); return; }
   if(d.nome.split(/\s+/).length<2||!d.nasc){ toast('Confira nome completo e data de nascimento','err'); return; }
   if(!d.mae||d.mae.split(/\s+/).length<2){ toast('Informe o nome completo da mãe (está no documento)','err'); return; }
   if(d.validadeDoc&&d.validadeDoc<hoje()&&!confirm('O documento está VENCIDO ('+fmtD(d.validadeDoc)+'). Continuar mesmo assim? Isso vai para o analista.')) return;
@@ -1280,7 +1282,7 @@ async function enviarAnalise(btn){
       if(outros.length){ err.textContent=`O telefone ${fmtFone(t)} já está cadastrado para outro cliente.`; btn.disabled=false; return; }
     }
     const w=S.w, d=w.dados, numero=await DB.nextNum(), id='v'+numero+'_'+token(5), agora=Date.now();
-    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
+    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',nacionalidade:d.nacionalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
       verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
@@ -1882,7 +1884,7 @@ async function analisar(id){
       ${badge('Rosto x documento: '+(f.mesma_pessoa||'—')+(f.confianca!=null?' ('+f.confianca+'%)':''),f.mesma_pessoa==='sim'?'green':'amber')}
       ${vf.editados?.length?badge('Editado à mão: '+vf.editados.join(', '),'amber'):''}</div>
     <div class="grid g2 mt">
-      <dl class="kv"><dt>Cliente</dt><dd>${esc(c.nome)}</dd><dt>CPF</dt><dd>${fmtCpf(c.cpf)}</dd><dt>Nascimento</dt><dd>${fmtD(c.nasc)} (${idade} anos)</dd><dt>RG</dt><dd>${esc(c.rg||'—')} ${esc(c.orgao||'')}</dd><dt>Mãe</dt><dd>${esc(c.mae||'—')}</dd></dl>
+      <dl class="kv"><dt>Cliente</dt><dd>${esc(c.nome)}</dd><dt>CPF</dt><dd>${fmtCpf(c.cpf)}</dd><dt>Nascimento</dt><dd>${fmtD(c.nasc)} (${idade} anos)</dd><dt>${c.docTipo==='RNE'?'RNE':'RG'}</dt><dd>${esc(c.rg||'—')} ${esc(c.orgao||'')}</dd>${c.nacionalidade?`<dt>Nacionalidade</dt><dd>${esc(c.nacionalidade)}</dd>`:''}<dt>Mãe</dt><dd>${esc(c.mae||'—')}</dd></dl>
       <dl class="kv"><dt>Telefones</dt><dd>${(c.telefones||[]).map(fmtFone).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd><dt>Profissão</dt><dd>${esc(c.profissao||'—')}</dd><dt>Renda</dt><dd>${brl(c.renda)}</dd><dt>Histórico</dt><dd style="font-weight:500">${histTxt}</dd></dl>
     </div>
     <h3>Conferências</h3>
