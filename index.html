@@ -149,6 +149,11 @@ nav{display:flex;flex-direction:column;gap:2px}
 nav button{display:flex;align-items:center;gap:12px;border:0;background:none;color:rgba(255,255,255,.66);padding:10px 12px;border-radius:8px;text-align:left;font-weight:500}
 nav button:hover{background:var(--ink2);color:#fff}
 nav button.on{background:var(--ink3);color:#fff}
+nav button.navg{margin-top:10px;padding:6px 12px;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42);gap:8px}
+nav button.navg:hover{background:none;color:rgba(255,255,255,.8)}
+nav button.navg i{margin-left:auto;font-style:normal;font-size:14px;transition:transform .15s}
+nav button.navg .cnt+i{margin-left:6px}
+nav button.navg.ab i{transform:rotate(90deg)}
 nav svg{width:19px;height:19px;flex:none}
 nav .cnt{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:#FF5C7A;color:#fff;font-size:11.5px;font-weight:700;display:inline-grid;place-items:center;margin-left:auto}
 .side-foot{margin-top:auto;padding:14px 8px 0;border-top:1px solid rgba(255,255,255,.1);font-size:13px}
@@ -846,11 +851,33 @@ setInterval(async()=>{ if(!S.me||DEMO) return; const r=await contarPendencias(),
 },60000);
 async function renderNav(){
   const pend=await contarPendencias(); S._pend=S._pend||pend;
-  $('#nav').innerHTML=minhasAbas().map(t=>{
-    const c=pend[t.id]||0;
-    return `<button data-act="go" data-tab="${t.id}" class="${S.tab===t.id?'on':''}">${svg(IC[t.id])}<span>${t.label}</span>${c?`<span class="cnt">${c}</span>`:''}</button>`;
-  }).join('');
+  const btn=t=>{ const c=pend[t.id]||0;
+    return `<button data-act="go" data-tab="${t.id}" class="${S.tab===t.id?'on':''}">${svg(IC[t.id])}<span>${t.label}</span>${c?`<span class="cnt">${c}</span>`:''}</button>`; };
+  const abas=minhasAbas();
+  if(abas.length<10){ $('#nav').innerHTML=abas.map(btn).join(''); return; }   // portais pequenos: lista simples
+  let fech={}; try{ fech=JSON.parse(localStorage.getItem('nx_nav_'+PORTAL)||'{}'); }catch(e){}
+  const usados=new Set(); let h='';
+  for(const [g,ids] of NAV_GRUPOS){
+    const its=ids.map(id=>abas.find(t=>t.id===id)).filter(Boolean); if(!its.length) continue; its.forEach(t=>usados.add(t.id));
+    if(!g){ h+=its.map(btn).join(''); continue; }
+    const ativo=its.some(t=>t.id===S.tab), aberto=ativo||!fech[g], tot=its.reduce((s,t)=>s+(pend[t.id]||0),0);
+    h+=`<button class="navg${aberto?' ab':''}" data-act="navGrupo" data-g="${g}"><span>${g}</span>${!aberto&&tot?`<span class="cnt">${tot}</span>`:''}<i>›</i></button>${aberto?its.map(btn).join(''):''}`;
+  }
+  h+=abas.filter(t=>!usados.has(t.id)).map(btn).join('');
+  $('#nav').innerHTML=h;
 }
+/* Menu lateral agrupado (Dono e Gerente). A ordem aqui é a ordem na tela. */
+const NAV_GRUPOS=[
+  ['',['inicio','painel']],
+  ['Vendas',['nova','simulador','analise','preanalises','confirmacoes','vendas','trocas']],
+  ['Cobrança',['cobranca','fila','recolher','listanegra']],
+  ['Aparelhos',['aparelhos','estoque','catalogo','seminovos']],
+  ['Atendimento',['pedidos','atendimentos','chamados']],
+  ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','relatorios','relDono']],
+  ['Lojas e equipe',['aprovacoes','lojas','equipe','escala','treinamento','tv']],
+  ['Sistema',['saas','config','ajuda']],
+];
+function navGrupo(g){ let f={}; try{ f=JSON.parse(localStorage.getItem('nx_nav_'+PORTAL)||'{}'); }catch(e){} f[g]=!f[g]; try{ localStorage.setItem('nx_nav_'+PORTAL,JSON.stringify(f)); }catch(e){} renderNav(); }
 async function render(){
   const t=TABS.find(x=>x.id===S.tab);
   try{ pararCamera(); }catch(e){} if(typeof unwatch==='function'){ unwatch(); unwatch=null; } clearInterval(guiaT);
@@ -5133,7 +5160,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+Object.assign(ACT,{ navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
