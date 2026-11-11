@@ -90,7 +90,7 @@ service cloud.firestore {
       allow update: if hasRole(['DONO'])
                     || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid
                         && resource.data.confirmado == false && resource.data.contestado == false
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmado', 'confirmadoEm', 'contestado', 'motivoContestacao', 'contestadoEm']));
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmado', 'confirmadoEm', 'contestado', 'motivoContestacao', 'contestadoEm', 'assinatura', 'recibo']));
       allow delete: if false;
     }
 

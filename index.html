@@ -5027,8 +5027,8 @@ async function desbloquearPessoa(uid){
 const pctDe = u => (u?.comissaoPct!=null&&u.comissaoPct!=='')?+u.comissaoPct:(Number(S.cfg.comissaoPct)||0);
 function comissaoVend(vendas,uid,mes,u){ let s=0; vendas.filter(v=>v.vendedorUid===uid).forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&String(p.pagoEm||'').startsWith(mes)&&p.forma!=='Entrada do acordo') s+=Number(p.valorPago||p.valor); })); return r2(s*pctDe(u)/100); }
 function mesesOpc(sel){ const o=[]; const d=new Date(hoje()+'T12:00:00'); for(let i=0;i<12;i++){ const m=isoDate(new Date(d.getFullYear(),d.getMonth()-i,1)).slice(0,7); o.push(`<option value="${m}" ${m===sel?'selected':''}>${m.slice(5)}/${m.slice(0,4)}</option>`); } return o.join(''); }
-const stPg = p => p.contestado?badge('Vendedor diz que não recebeu','red'):p.confirmado?badge('Vendedor confirmou','green'):badge('Aguardando o vendedor','amber');
-const linkCompr = p => p.comprovante?`<button class="btn link sm" data-act="verComprovanteCom" data-id="${p.id}">ver comprovante</button>`:badge('sem comprovante','red');
+const stPg = p => p.contestado?badge('Vendedor diz que não recebeu','red'):p.confirmado?badge(p.assinatura?'Recibo assinado pelo vendedor':'Vendedor confirmou','green'):badge('Aguardando o vendedor assinar','amber');
+const linkCompr = p => [p.comprovante?`<button class="btn link sm" data-act="verComprovanteCom" data-id="${p.id}">ver comprovante</button>`:'',p.assinatura?`<button class="btn link sm" data-act="verReciboCom" data-id="${p.id}">ver recibo assinado</button>`:''].filter(Boolean).join(' ')||(p.confirmado?'<span class="muted">—</span>':badge('aguardando recibo','amber'));
 PAGES.comissoes = async () => {
   const mes=S.filtro.cmMes||mesHoje(); S.filtro.cmMes=mes;
   const split=S.cfg.splitComissao==='sim';
@@ -5039,18 +5039,18 @@ PAGES.comissoes = async () => {
     $('#view').innerHTML=head+`<div class="grid g4"><div class="card kpi"><div class="small muted">Sua comissão do mês</div><div class="big">${brl(dev)}</div></div><div class="card kpi"><div class="small muted">Pago pelo gerente</div><div class="big">${brl(pago)}</div></div><div class="card kpi"><div class="small muted">Falta receber</div><div class="big">${brl(Math.max(0,r2(dev-pago)))}</div></div></div>
     <div class="card mt tablewrap"><h2>Pagamentos que o gerente registrou</h2><table><tr><th>Mês</th><th>Valor</th><th>Forma</th><th>Data</th><th>Comprovante</th><th>Situação</th><th></th></tr>
     ${pg.sort((a,b)=>b.em-a.em).map(p=>`<tr><td>${esc(p.mes.slice(5)+'/'+p.mes.slice(0,4))}</td><td><b>${brl(p.valor)}</b></td><td>${esc(p.forma)}</td><td>${fmtD(p.dataPagamento)}</td><td>${linkCompr(p)}</td><td>${stPg(p)}</td>
-      <td class="right">${!p.confirmado&&!p.contestado?`<button class="btn sm gold" data-act="confirmarComissao" data-id="${p.id}">Recebi</button> <button class="btn sm" data-act="contestarComissao" data-id="${p.id}">Não recebi</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento registrado</td></tr>'}</table></div>
-    <p class="hint">Confirme cada pagamento assim que o dinheiro cair. Se não recebeu, toque em “Não recebi”: a ${MARCA} é avisada.</p>`;
+      <td class="right">${!p.confirmado&&!p.contestado?`<button class="btn sm gold" data-act="confirmarComissao" data-id="${p.id}">Assinar recibo</button> <button class="btn sm" data-act="contestarComissao" data-id="${p.id}">Não recebi</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento registrado</td></tr>'}</table></div>
+    <p class="hint">Assim que receber, toque em <b>Assinar recibo</b>: você assina na tela e o pagamento fica confirmado para o gerente e para a ${MARCA}. Se não recebeu, toque em “Não recebi”: a ${MARCA} é avisada.</p>`;
     return;
   }
   if(can('GERENTE')){
     const [vendas,us,pg]=await Promise.all([loadVendas(),DB.list('users',[['lojaId','==',S.me.lojaId]]),DB.list('comissoesPagas',[['lojaId','==',S.me.lojaId]])]);
     const vs=us.filter(u=>u.role==='VENDEDOR');
     $('#topActions').innerHTML='<button class="btn gold" data-act="pagarComissao" data-id="">Registrar pagamento</button>';
-    $('#view').innerHTML=head+`<div class="msg mb small">Você paga a comissão dos seus vendedores e <b>registra aqui com o comprovante</b> (PIX, transferência ou recibo assinado). O vendedor confirma que recebeu e a ${MARCA} acompanha.</div>
+    $('#view').innerHTML=head+`<div class="msg mb small">Você paga a comissão dos seus vendedores e <b>registra aqui</b>. O recibo vai para o portal do vendedor: ele <b>assina na tela</b> e confirma que recebeu. A ${MARCA} acompanha o que foi pago e assinado.</div>
     <div class="card tablewrap"><table><tr><th>Vendedor</th><th>Comissão (${pctDe(null)}% padrão)</th><th>Pago</th><th>Saldo</th><th></th></tr>
     ${vs.map(u=>{ const dev=comissaoVend(vendas,u.id,mes,u), pago=r2(pg.filter(p=>p.vendedorUid===u.id&&p.mes===mes).reduce((a,p)=>a+(+p.valor||0),0)), sal=r2(dev-pago); return `<tr><td><b>${esc(u.nome)}</b>${u.ativo?'':' '+badge('inativo','gray')}</td><td>${brl(dev)}</td><td>${brl(pago)}</td><td>${sal>0.009?`<b style="color:var(--bad)">${brl(sal)}</b>`:badge('em dia','green')}</td>
-      <td class="right"><button class="btn sm gold" data-act="pagarComissao" data-id="${u.id}" data-v="${Math.max(0,sal)}">Pagar e anexar comprovante</button></td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum vendedor</td></tr>'}</table></div>
+      <td class="right"><button class="btn sm gold" data-act="pagarComissao" data-id="${u.id}" data-v="${Math.max(0,sal)}">Registrar pagamento</button></td></tr>`; }).join('')||'<tr><td colspan="5" class="empty">Nenhum vendedor</td></tr>'}</table></div>
     <div class="card mt tablewrap"><h2>Pagamentos registrados</h2><table><tr><th>Vendedor</th><th>Mês</th><th>Valor</th><th>Forma</th><th>Data</th><th>Comprovante</th><th>Situação</th></tr>
     ${pg.sort((a,b)=>b.em-a.em).map(p=>`<tr><td>${esc(p.vendedorNome)}</td><td>${esc(p.mes.slice(5)+'/'+p.mes.slice(0,4))}</td><td><b>${brl(p.valor)}</b></td><td>${esc(p.forma)}</td><td>${fmtD(p.dataPagamento)}</td><td>${linkCompr(p)}</td><td>${stPg(p)}${p.contestado&&p.motivoContestacao?`<div class="small muted">${esc(p.motivoContestacao)}</div>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento</td></tr>'}</table></div>`;
     return;
@@ -5059,13 +5059,13 @@ PAGES.comissoes = async () => {
   const [vendas,us,pg,lojas]=await Promise.all([loadVendas(),DB.list('users'),DB.list('comissoesPagas'),listarLojas()]);
   const vs=us.filter(u=>u.role==='VENDEDOR'), doMes=pg.filter(p=>p.mes===mes);
   const linhas=lojas.map(l=>{ const v=vs.filter(u=>u.lojaId===l.id); const dev=r2(v.reduce((a,u)=>a+comissaoVend(vendas,u.id,mes,u),0)); const p=doMes.filter(x=>x.lojaId===l.id);
-    return {l,dev,pago:r2(p.reduce((a,x)=>a+(+x.valor||0),0)),conf:r2(p.filter(x=>x.confirmado).reduce((a,x)=>a+(+x.valor||0),0)),semCompr:p.filter(x=>!x.comprovante).length,cont:p.filter(x=>x.contestado).length,v,p}; });
-  const alertas=pg.filter(p=>p.contestado||!p.comprovante);
-  $('#view').innerHTML=head+`<p class="muted" style="margin-top:-4px">Quem paga a comissão dos vendedores é o gerente de cada loja, com comprovante. Aqui você confere o que era devido, o que foi pago e o que o vendedor confirmou.</p>
-  ${alertas.length?`<div class="msg mb" style="border-color:var(--bad)"><b>⚠️ ${alertas.length} pagamento(s) com problema</b> (sem comprovante ou o vendedor diz que não recebeu). Veja abaixo.</div>`:''}
-  <div class="card tablewrap"><table><tr><th>Loja</th><th>Comissão devida</th><th>Pago pelo gerente</th><th>Confirmado pelos vendedores</th><th>Saldo</th><th>Problemas</th><th></th></tr>
+    return {l,dev,pago:r2(p.reduce((a,x)=>a+(+x.valor||0),0)),conf:r2(p.filter(x=>x.confirmado).reduce((a,x)=>a+(+x.valor||0),0)),semCompr:p.filter(x=>!x.confirmado&&!x.contestado).length,cont:p.filter(x=>x.contestado).length,v,p}; });
+  const alertas=pg.filter(p=>p.contestado);
+  $('#view').innerHTML=head+`<p class="muted" style="margin-top:-4px">Quem paga a comissão dos vendedores é o gerente de cada loja. O vendedor assina o recibo no portal dele. Aqui você confere o que era devido, o que foi pago e o que já tem recibo assinado.</p>
+  ${alertas.length?`<div class="msg mb" style="border-color:var(--bad)"><b>⚠️ ${alertas.length} pagamento(s) com problema</b> (o vendedor diz que não recebeu). Veja abaixo.</div>`:''}
+  <div class="card tablewrap"><table><tr><th>Loja</th><th>Comissão devida</th><th>Pago pelo gerente</th><th>Com recibo assinado</th><th>Saldo</th><th>Problemas</th><th></th></tr>
   ${linhas.map(x=>{ const sal=r2(x.dev-x.pago); return `<tr><td><b>${esc(x.l.nome)}</b>${x.l.bloqueada?' '+badge('bloqueada','red'):''}</td><td>${brl(x.dev)}</td><td>${brl(x.pago)}</td><td>${brl(x.conf)}</td><td>${sal>0.009?`<b style="color:var(--bad)">${brl(sal)}</b>`:badge('em dia','green')}</td>
-    <td>${x.semCompr?badge(x.semCompr+' sem comprovante','red')+' ':''}${x.cont?badge(x.cont+' contestado(s)','red'):''}${!x.semCompr&&!x.cont?'<span class="muted">—</span>':''}</td><td class="right"><button class="btn sm" data-act="comLoja" data-id="${x.l.id}">Detalhar</button></td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nenhuma loja</td></tr>'}</table></div>
+    <td>${x.semCompr?badge(x.semCompr+' aguardando assinatura','amber')+' ':''}${x.cont?badge(x.cont+' contestado(s)','red'):''}${!x.semCompr&&!x.cont?'<span class="muted">—</span>':''}</td><td class="right"><button class="btn sm" data-act="comLoja" data-id="${x.l.id}">Detalhar</button></td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nenhuma loja</td></tr>'}</table></div>
   <div id="comDet"></div>`;
   S._com={vendas,us,pg,lojas,mes};
   if(S.filtro.cmLoja) comLoja(S.filtro.cmLoja);
@@ -5085,10 +5085,10 @@ async function pagarComissao(uid,valor){
     <label>Vendedor<select id="pcV">${us.map(u=>`<option value="${u.id}" ${u.id===uid?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
     <label>Comissão do mês<select id="pcMes">${mesesOpc(mes)}</select></label>
     <label>Valor pago (R$)<input id="pcValor" type="number" step="0.01" min="0.01" value="${+valor>0?(+valor).toFixed(2):''}"></label>
-    <label>Forma<select id="pcForma"><option>PIX</option><option>Transferência</option><option>Dinheiro (recibo assinado)</option></select></label>
+    <label>Forma<select id="pcForma"><option>PIX</option><option>Transferência</option><option>Dinheiro</option></select></label>
     <label>Data do pagamento<input id="pcData" type="date" value="${hoje()}" max="${hoje()}"></label>
-    <label>Comprovante (foto ou PDF) — obrigatório<input id="pcArq" type="file" accept="image/*,application/pdf"></label></div>
-    <p class="hint">Em dinheiro, anexe a foto do recibo assinado pelo vendedor. O vendedor vai confirmar no portal dele.</p>
+    <label>Comprovante do PIX / transferência (opcional)<input id="pcArq" type="file" accept="image/*,application/pdf"></label></div>
+    <p class="hint">Não precisa de recibo em papel: ao registrar, o recibo aparece no portal do vendedor para ele <b>assinar na tela</b> e confirmar o recebimento.</p>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarPagComissao">Registrar</button></div>`);
 }
 async function arquivoComprovante(f){
@@ -5101,11 +5101,11 @@ async function salvarPagComissao(btn){
   if(!uid) return toast('Escolha o vendedor','err'); if(!(valor>0)) return toast('Informe o valor','err'); if(!data) return toast('Informe a data','err');
   btn.disabled=true;
   try{
-    const comprovante=await arquivoComprovante($('#pcArq').files[0]); const u=await DB.get('users',uid);
+    const arq=$('#pcArq').files[0], comprovante=arq?await arquivoComprovante(arq):''; const u=await DB.get('users',uid);
     await DB.add('comissoesPagas',{lojaId:S.me.lojaId,lojaNome:lojaNome(S.me.lojaId),vendedorUid:uid,vendedorNome:u.nome,mes,valor,forma,dataPagamento:data,comprovante,gerenteUid:S.me.uid,gerenteNome:S.me.nome,em:Date.now(),confirmado:false,contestado:false});
     await log('Comissão paga pelo gerente',uid,`${u.nome} · ${mes} · ${brl(valor)} · ${forma}`);
-    await emailAuto(u.email,'Comissão registrada — confirme o recebimento',`Olá, ${primeiroNome(u.nome)}.\n\n${S.me.nome} registrou o pagamento da sua comissão de ${mes.slice(5)}/${mes.slice(0,4)}: ${brl(valor)} (${forma}, ${fmtD(data)}).\n\nEntre no portal e toque em “Recebi” (ou “Não recebi”): ${urlPortal('VENDEDOR')}\n\nEquipe ${MARCA}`);
-    closeModal(); toast('Pagamento registrado. O vendedor vai confirmar.','ok'); render();
+    await emailAuto(u.email,'Comissão registrada — confirme o recebimento',`Olá, ${primeiroNome(u.nome)}.\n\n${S.me.nome} registrou o pagamento da sua comissão de ${mes.slice(5)}/${mes.slice(0,4)}: ${brl(valor)} (${forma}, ${fmtD(data)}).\n\nEntre no portal, confira e assine o recibo na tela (ou toque em “Não recebi”): ${urlPortal('VENDEDOR')}\n\nEquipe ${MARCA}`);
+    closeModal(); toast('Pagamento registrado. O recibo foi para o portal do vendedor assinar.','ok'); render();
   }catch(e){ toast(e.message,'err'); btn.disabled=false; }
 }
 async function verComprovanteCom(id){
@@ -5114,7 +5114,34 @@ async function verComprovanteCom(id){
   openModal(`<h2>Comprovante — ${esc(p.vendedorNome)} · ${brl(p.valor)}</h2><p class="small muted">${esc(p.forma)} em ${fmtD(p.dataPagamento)} · registrado por ${esc(p.gerenteNome||'')} em ${fmtDT(p.em)}</p>
     ${pdf?`<a class="btn gold" download="comprovante-${esc(p.vendedorNome)}.pdf" href="${p.comprovante}">Baixar o PDF</a>`:`<img src="${p.comprovante}" alt="Comprovante" style="max-width:100%;border-radius:8px">`}`,true);
 }
-async function confirmarComissao(id){ await DB.set('comissoesPagas',id,{confirmado:true,confirmadoEm:Date.now()}); await log('Vendedor confirmou a comissão',id,''); toast('Obrigado! Recebimento confirmado.','ok'); render(); }
+const textoReciboCom=p=>`Eu, ${p.vendedorNome}, declaro que recebi de ${p.lojaNome||'loja'} (gerente ${p.gerenteNome||''}) a quantia de ${brl(p.valor)}, referente à minha comissão de vendas de ${p.mes.slice(5)}/${p.mes.slice(0,4)}, paga em ${fmtD(p.dataPagamento)} por ${String(p.forma||'').toLowerCase()}. Dou plena quitação deste valor.`;
+async function confirmarComissao(id){
+  const p=await DB.get('comissoesPagas',id); if(!p||p.confirmado||p.contestado) return;
+  const texto=textoReciboCom(p);
+  openModal(`<h2>Recibo de comissão</h2><div class="msg" style="font-size:15px;line-height:1.6">${esc(texto)}</div>
+    ${p.comprovante?`<p class="small"><button class="btn link sm" data-act="verComprovanteCom" data-id="${id}">ver o comprovante que o gerente anexou</button></p>`:''}
+    <p class="small muted" style="margin:12px 0 4px">Assine no quadro abaixo, com o dedo ou o mouse:</p>
+    <canvas id="rcAss" width="640" height="200" style="width:100%;height:160px;border:2px dashed var(--line);border-radius:10px;background:#fff;touch-action:none;cursor:crosshair"></canvas>
+    <label class="check mt"><input type="checkbox" id="rcOk"> <span>Confirmo que <b>recebi ${brl(p.valor)}</b> e assino este recibo.</span></label>
+    <div class="row mt" style="justify-content:space-between"><button class="btn" id="rcLimpar">Limpar assinatura</button><button class="btn gold" id="rcSalvar">Assinar e confirmar</button></div>`);
+  const cv=$('#rcAss'), x=cv.getContext('2d'); x.lineWidth=2.6; x.lineCap='round'; x.strokeStyle='#0A1733'; let des=false, tracos=0;
+  const pos=e=>{ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height]; };
+  cv.onpointerdown=e=>{ des=true; cv.setPointerCapture(e.pointerId); x.beginPath(); x.moveTo(...pos(e)); };
+  cv.onpointermove=e=>{ if(!des) return; x.lineTo(...pos(e)); x.stroke(); tracos++; };
+  cv.onpointerup=cv.onpointercancel=()=>{ des=false; };
+  $('#rcLimpar').onclick=()=>{ x.clearRect(0,0,cv.width,cv.height); tracos=0; };
+  $('#rcSalvar').onclick=async()=>{ if(tracos<12) return toast('Faça sua assinatura no quadro','err'); if(!$('#rcOk').checked) return toast('Marque a confirmação de recebimento','err');
+    $('#rcSalvar').disabled=true;
+    try{ await DB.set('comissoesPagas',id,{confirmado:true,confirmadoEm:Date.now(),assinatura:cv.toDataURL('image/png'),recibo:texto});
+      await log('Vendedor assinou o recibo da comissão',id,`${p.mes} · ${brl(p.valor)}`); closeModal(); toast('Recibo assinado. Recebimento confirmado.','ok'); render();
+    }catch(e){ toast(e.message,'err'); $('#rcSalvar').disabled=false; } };
+}
+async function verReciboCom(id){
+  const p=await DB.get('comissoesPagas',id); if(!p?.assinatura) return;
+  janelaImpressao('Recibo de comissão',`<h1>RECIBO DE COMISSÃO</h1><div class="cab">${esc(p.lojaNome||'')} · ${brl(p.valor)}</div><p>${esc(p.recibo||textoReciboCom(p))}</p>
+    <table><tr><td>Vendedor</td><td>${esc(p.vendedorNome)}</td></tr><tr><td>Mês da comissão</td><td>${esc(p.mes.slice(5)+'/'+p.mes.slice(0,4))}</td></tr><tr><td>Valor</td><td>${brl(p.valor)}</td></tr><tr><td>Forma e data</td><td>${esc(p.forma)} · ${fmtD(p.dataPagamento)}</td></tr><tr><td>Registrado por</td><td>${esc(p.gerenteNome||'')} em ${fmtDT(p.em)}</td></tr></table>
+    <div class="ass"><img src="${p.assinatura}" alt="Assinatura" style="max-width:320px;max-height:120px"><br>________________________________________<br>${esc(p.vendedorNome)}<br><span style="font-size:11px;color:#667">Assinado eletronicamente no Portal do Vendedor em ${fmtDT(p.confirmadoEm)}</span></div>`);
+}
 async function contestarComissao(id){
   const m=prompt('O que aconteceu? (ex.: não caiu o PIX, valor diferente)'); if(m===null) return;
   await DB.set('comissoesPagas',id,{contestado:true,motivoContestacao:m.trim().slice(0,300),contestadoEm:Date.now()}); await log('Vendedor contestou a comissão',id,m);
@@ -5157,7 +5184,7 @@ Object.assign(ACT,{
   salvarCadastroVendedor:(d,b)=>salvarCadastroVendedor(b), aprovarLoja:d=>aprovarLoja(d.id), recusarLoja:d=>recusarLoja(d.id), aprovarVendedor:(d,b)=>aprovarVendedor(d.id,b), recusarVendedor:d=>recusarVendedor(d.id),
   reenviarAcesso:d=>reenviarAcesso(d.id), pedirAtualizacao:d=>pedirAtualizacao(d.id), addLicencas:d=>addLicencas(d.id),
   pessoasLoja:d=>pessoasLoja(d.id), bloquearLoja:(d,b)=>bloquearLoja(d.id,b), desbloquearLoja:(d,b)=>desbloquearLoja(d.id,b), bloquearPessoa:d=>bloquearPessoa(d.id), desbloquearPessoa:d=>desbloquearPessoa(d.id),
-  pagarComissao:d=>pagarComissao(d.id,d.v), salvarPagComissao:(d,b)=>salvarPagComissao(b), verComprovanteCom:d=>verComprovanteCom(d.id), confirmarComissao:d=>confirmarComissao(d.id), contestarComissao:d=>contestarComissao(d.id), comLoja:d=>comLoja(d.id),
+  pagarComissao:d=>pagarComissao(d.id,d.v), salvarPagComissao:(d,b)=>salvarPagComissao(b), verComprovanteCom:d=>verComprovanteCom(d.id), verReciboCom:d=>verReciboCom(d.id), confirmarComissao:d=>confirmarComissao(d.id), contestarComissao:d=>contestarComissao(d.id), comLoja:d=>comLoja(d.id),
 });
 document.addEventListener('change',e=>{ if(e.target.id==='cmMes'){ S.filtro.cmMes=e.target.value; render(); } });
 
