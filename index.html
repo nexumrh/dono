@@ -427,10 +427,10 @@ details summary{cursor:pointer}
       </div>
       <div id="loginSenha" hidden>
         <h2>Crie sua senha</h2>
-        <p class="adl-p">Você entrou com a senha temporária enviada pelo dono. Crie agora a sua senha pessoal (mínimo 6 dígitos).</p>
+        <p class="adl-p">Você entrou com a senha temporária enviada pelo dono. Crie agora a sua senha pessoal, com 5 ou 6 números.</p>
         <form id="fSenha" novalidate>
-          <label class="adl-in"><input id="nsSenha" type="password" inputmode="numeric" placeholder="Nova senha" autocomplete="new-password"></label>
-          <label class="adl-in"><input id="nsSenha2" type="password" inputmode="numeric" placeholder="Repita a nova senha" autocomplete="new-password"></label>
+          <label class="adl-in"><input id="nsSenha" type="password" inputmode="numeric" maxlength="6" placeholder="Nova senha (5 ou 6 números)" autocomplete="new-password"></label>
+          <label class="adl-in"><input id="nsSenha2" type="password" inputmode="numeric" maxlength="6" placeholder="Repita a nova senha" autocomplete="new-password"></label>
           <button class="adl-ent" type="submit">Salvar senha e entrar</button>
         </form>
         <p class="adl-msg" id="nsMsg"></p>
@@ -4273,14 +4273,14 @@ function novoUsuario(){
   const roles=can('DONO')?['VENDEDOR','GERENTE','FINANCEIRO','SUPORTE','DONO']:['VENDEDOR'];
   openModal(`<h2>Adicionar pessoa</h2><div class="grid g2">
     <label>Nome completo<input id="uNome"></label><label>E-mail (será o login)<input id="uEmail" type="email"></label><label>Telefone / WhatsApp<input id="uTel" inputmode="tel"></label>
-    <label>Senha temporária (6 dígitos)<input id="uSenha" type="text" inputmode="numeric" maxlength="6" value="${String(Math.floor(100000+Math.random()*900000))}"></label>
+    <label>Senha inicial (a pessoa troca no 1º acesso)<input id="uSenha" type="text" inputmode="numeric" maxlength="6" value="${SENHA_PADRAO}"></label>
     <label>Perfil<select id="uRole">${roles.map(r=>`<option value="${r}">${ROLES[r]}</option>`).join('')}</select></label>
     <label>Loja<select id="uLoja">${S.lojas.filter(l=>can('DONO')||l.id===S.me.lojaId).map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')}${can('DONO')?'<option value="">Todas (financeiro/suporte/dono)</option>':''}</select></label></div>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarUsuario">Criar acesso</button></div>`);
 }
 async function salvarUsuario(btn){
   const nome=$('#uNome').value.trim(), email=$('#uEmail').value.trim().toLowerCase(), senha=$('#uSenha').value, role=$('#uRole').value, lojaId=$('#uLoja').value, tel=fone($('#uTel').value);
-  if(!nome||!email.includes('@')||senha.length<6){ toast('Preencha nome, e-mail e senha (mín. 6)','err'); return; }
+  if(!nome||!email.includes('@')||senha.length<5){ toast('Preencha nome, e-mail e senha (mín. 5)','err'); return; }
   if(!/^\d{10,11}$/.test(tel)){ toast('Informe o telefone com DDD (usado para impedir que o vendedor cadastre o próprio número em clientes)','err'); return; }
   if(['VENDEDOR','GERENTE'].includes(role)&&!lojaId){ toast('Vendedor e gerente precisam de uma loja','err'); return; }
   btn.disabled=true;
@@ -4290,7 +4290,7 @@ async function salvarUsuario(btn){
     const pre={DONO:'DON',GERENTE:'GER',VENDEDOR:'VND',FINANCEIRO:'FIN',SUPORTE:'SUP'}[role]; let codigo;
     do{ codigo=pre+'-'+String(Math.floor(1000+Math.random()*9000)); }while(us.some(u=>u.codigo===codigo));
     let uid;
-    if(fb){ const sec=fb.a.initializeApp(FIREBASE_CONFIG,'sec'+Date.now()); try{ const sa=fb.au.getAuth(sec); const cr=await fb.au.createUserWithEmailAndPassword(sa,email,senha); uid=cr.user.uid; await fb.au.signOut(sa); } finally{ fb.a.deleteApp(sec).catch(()=>{}); } }
+    if(fb){ const sec=fb.a.initializeApp(FIREBASE_CONFIG,'sec'+Date.now()); try{ const sa=fb.au.getAuth(sec); const cr=await fb.au.createUserWithEmailAndPassword(sa,email,senhaFb(senha)); uid=cr.user.uid; await fb.au.signOut(sa); } finally{ fb.a.deleteApp(sec).catch(()=>{}); } }
     else uid='u_'+token(8);
     await DB.batch([{c:'users',id:uid,data:{nome,email,telefone:tel,codigo,role,lojaId,ativo:true,senhaTemporaria:true,criadoEm:Date.now(),criadoPor:S.me.nome}},{c:'logins',id:codigo,data:{email,uid}}]);
     await log('Usuário criado',uid,`${nome} (${ROLES[role]}) ${codigo}`);
@@ -4604,7 +4604,7 @@ if(PORTAL==='dono'){ const t=TABS.find(x=>x.id==='equipe'); if(t) t.label=`Equip
 /* Cria o login (Firebase Auth + users + logins). Só o Dono chama. Devolve o texto do e-mail com ID e senha. */
 async function criarAcesso({nome,email,tel,senha,role,lojaId='',extra={}}){
   email=String(email||'').trim().toLowerCase(); tel=fone(tel||'');
-  if(!nome||!email.includes('@')||String(senha).length<6) throw new Error('Preencha nome, e-mail e senha (mín. 6)');
+  if(!nome||!email.includes('@')||String(senha).length<5) throw new Error('Preencha nome, e-mail e senha (mín. 5)');
   if(!/^\d{10,11}$/.test(tel)) throw new Error('Informe o telefone com DDD');
   if(['VENDEDOR','GERENTE'].includes(role)&&!lojaId) throw new Error('Vendedor e gerente precisam de uma loja');
   const us=await DB.list('users');
@@ -4613,7 +4613,7 @@ async function criarAcesso({nome,email,tel,senha,role,lojaId='',extra={}}){
   const pre={DONO:'DON',GERENTE:'GER',VENDEDOR:'VND',FINANCEIRO:'FIN',SUPORTE:'SUP'}[role]; let codigo;
   do{ codigo=pre+'-'+String(Math.floor(1000+Math.random()*9000)); }while(us.some(u=>u.codigo===codigo));
   let uid;
-  if(fb){ const sec=fb.a.initializeApp(FIREBASE_CONFIG,'sec'+Date.now()); try{ const sa=fb.au.getAuth(sec); const cr=await fb.au.createUserWithEmailAndPassword(sa,email,String(senha)); uid=cr.user.uid; await fb.au.signOut(sa); } finally{ fb.a.deleteApp(sec).catch(()=>{}); } }
+  if(fb){ const sec=fb.a.initializeApp(FIREBASE_CONFIG,'sec'+Date.now()); try{ const sa=fb.au.getAuth(sec); const cr=await fb.au.createUserWithEmailAndPassword(sa,email,senhaFb(senha)); uid=cr.user.uid; await fb.au.signOut(sa); } finally{ fb.a.deleteApp(sec).catch(()=>{}); } }
   else uid='u_'+token(8);
   const loja=lojaId?await DB.get('lojas',lojaId):null;
   await DB.batch([{c:'users',id:uid,data:{nome,email,telefone:tel,codigo,role,lojaId,ativo:true,senhaTemporaria:true,criadoEm:Date.now(),criadoPor:S.me.nome,...(loja?.bloqueada?{lojaBloqueada:true,motivoBloqueio:loja.motivoBloqueio||''}:{}),...extra}},{c:'logins',id:codigo,data:{email,uid}}]);
@@ -4694,7 +4694,7 @@ async function salvarCadastroVendedor(btn){
 }
 
 /* ---------- LOJAS PARCEIRAS (Dono) ---------- */
-const SITUACAO_SAAS={TESTE:['Em teste','navy'],EM_DIA:['Em dia','green'],ATRASADA:['Atrasada','red'],CANCELADA:['Cancelada','gray']};
+const SITUACAO_SAAS={TESTE:['Em teste','navy'],EM_DIA:['Em dia','green'],ATRASADA:['Atrasada','red'],CANCELADA:['Cancelada','gray'],CORTESIA:['Cortesia','green']};
 // solicitações antigas (uma loja só) viram o formato novo
 const unidadesDe = s => Array.isArray(s.lojas)&&s.lojas.length?s.lojas:[{nome:s.fantasia,cidade:s.cidade,uf:s.uf,telefone:s.telefone,endereco:s.endereco,cep:s.cep,cnpj:'',status:'PENDENTE',gerente:{nome:s.respNome,cpf:s.respCpf,email:s.respEmail,telefone:s.respTelefone}}];
 const urlSite = () => new URL('site.html',(window.NEXUMCELL_URLS?.gerente||urlPortal('GERENTE'))).href;
@@ -4719,8 +4719,8 @@ PAGES.lojas = async () => {
       <td class="right"><button class="btn sm gold" data-act="aprovarVendedor" data-id="${c.id}">Aprovar e enviar acesso</button> <button class="btn sm" data-act="recusarVendedor" data-id="${c.id}">Recusar</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum vendedor aguardando</td></tr>'}</table></div></div>
   <div class="card mt"><h2>Empresas e lojas</h2><div class="tablewrap"><table><tr><th>Loja</th><th>Gerente</th><th>Vendedores</th><th>Situação</th><th></th></tr>
     ${grupos.map(({e,ls})=>`<tr style="background:var(--soft,#F4F6FB)"><td colspan="3">${e?`<b>${esc(e.fantasia)}</b> <span class="small muted mono">${esc(fmtCnpj(e.cnpj))}</span><div class="small">Plano ${esc(e.planoNome||e.plano||'—')} · ${ls.length} loja(s) · mensalidade ${brl(e.mensalidade||(+e.porLoja||0)*ls.length)}</div>`:'<b>Lojas sem empresa cadastrada</b>'}</td>
-      <td>${e?(e.asaasAssinatura?badge(...(SITUACAO_SAAS[e.situacao]||['Cobrança ativa','navy'])):badge('Sem cobrança','gray'))+(e.ultimoPagamento?`<div class="small muted">pago ${fmtDT(e.ultimoPagamento.em)}</div>`:''):''}</td>
-      <td class="right">${e?(e.asaasAssinatura?`<button class="btn sm" data-act="saasAcao" data-id="${e.id}" data-q="atualizar">Atualizar valor</button>`:`<button class="btn sm gold" data-act="saasAcao" data-id="${e.id}" data-q="assinar">Gerar cobrança mensal</button>`):''}</td></tr>${ls.sort((a,b)=>(a.filial?1:0)-(b.filial?1:0)||String(a.nome).localeCompare(b.nome)).map(linhaLoja).join('')}`).join('')||'<tr><td colspan="5" class="empty">Nenhuma loja</td></tr>'}</table></div>
+      <td>${e?(e.cortesia?badge('Cortesia','green'):(e.asaasAssinatura?badge(...(SITUACAO_SAAS[e.situacao]||['Cobrança ativa','navy'])):badge('Sem cobrança','gray')))+(e.ultimoPagamento?`<div class="small muted">pago ${fmtDT(e.ultimoPagamento.em)}</div>`:''):''}</td>
+      <td class="right">${e?(e.cortesia?`<button class="btn sm" data-act="saasAcao" data-id="${e.id}" data-q="descortesia">Voltar a cobrar</button>`:`${e.asaasAssinatura?`<button class="btn sm" data-act="saasAcao" data-id="${e.id}" data-q="atualizar">Atualizar valor</button>`:`<button class="btn sm gold" data-act="saasAcao" data-id="${e.id}" data-q="assinar">Gerar cobrança mensal</button>`} <button class="btn sm" data-act="saasAcao" data-id="${e.id}" data-q="brinde">Cortesia</button>`):''}</td></tr>${ls.sort((a,b)=>(a.filial?1:0)-(b.filial?1:0)||String(a.nome).localeCompare(b.nome)).map(linhaLoja).join('')}`).join('')||'<tr><td colspan="5" class="empty">Nenhuma loja</td></tr>'}</table></div>
     <p class="hint">Bloquear tira o acesso do gerente e dos vendedores da loja na hora, com e-mail automático e a mesma mensagem na tela de login. Com a cobrança mensal ligada, a mensalidade atrasada há mais de ${+S.cfg.saasDiasBloqueio||5} dias bloqueia as lojas da empresa sozinha, e o pagamento desbloqueia. Os contratos e a cobrança dos clientes continuam.</p></div>`;
 };
 async function aprovarLoja(id){
@@ -4747,7 +4747,7 @@ async function aprovarLoja(id){
           const lojaId='l_'+token(10);
           await DB.set('lojas',lojaId,{nome:l.nome,cidade:l.cidade||'',uf:l.uf||'',telefone:fmtFone(l.telefone||''),cnpj:l.cnpj||'',endereco:l.endereco||'',cep:l.cep||'',empresaId,empresaNome:s.fantasia,filial:filial||i>0,criadoEm:Date.now(),solicitacaoId:id});
           S.lojas=await DB.list('lojas');
-          const a=await criarAcesso({nome:l.gerente.nome,email:l.gerente.email,tel:l.gerente.telefone,senha:senha6(),role:'GERENTE',lojaId,extra:{cpf:l.gerente.cpf||'',empresaId}});
+          const a=await criarAcesso({nome:l.gerente.nome,email:l.gerente.email,tel:l.gerente.telefone,senha:SENHA_PADRAO,role:'GERENTE',lojaId,extra:{cpf:l.gerente.cpf||'',empresaId}});
           enviarAcessoEmail(a.email,a.assunto,a.corpo); lojasNovas[i]={...l,status:'APROVADO',lojaId,gerenteUid:a.uid}; feitos.push(`${l.nome}: ${a.nome} · ${a.codigo}`);
         }catch(e){ erros.push(`${l.nome}: ${e.code==='auth/email-already-in-use'?'o e-mail do gerente já tem acesso':e.message}`); }
       }
@@ -4770,6 +4770,14 @@ async function recusarLoja(id){
   toast('Cadastro recusado'+(ok?' e e-mail enviado':''),'ok'); render();
 }
 async function saasAcao(empresaId,q,btn){
+  if(q==='brinde'){ const e=await DB.get('empresas',empresaId); if(!confirm(`Dar cortesia para ${e?.fantasia||'esta empresa'}?\n\nA cobrança mensal é cancelada e a empresa continua usando o sistema de graça. Você pode voltar a cobrar depois.`)) return;
+    btn.disabled=true; try{ if(e?.asaasAssinatura&&servLigado()&&fb){ try{ await apiServ('saas',{acao:'cancelar',empresaId}); }catch(err){} }
+      await DB.set('empresas',empresaId,{cortesia:true,situacao:'CORTESIA',mensalidade:0,asaasAssinatura:'',cortesiaEm:Date.now(),cortesiaPor:S.me.nome});
+      await log('Empresa em cortesia',empresaId,e?.fantasia||''); toast('Cobrança cancelada. Empresa em cortesia.','ok'); render(); }
+    catch(err){ toast(err.message,'err'); btn.disabled=false; } return; }
+  if(q==='descortesia'){ const e=await DB.get('empresas',empresaId); if(!confirm(`Voltar a cobrar de ${e?.fantasia||'esta empresa'}?`)) return;
+    btn.disabled=true; await DB.set('empresas',empresaId,{cortesia:false,situacao:'TESTE',cortesiaEncerradaEm:Date.now()});
+    await log('Cortesia encerrada (voltou a cobrar)',empresaId,e?.fantasia||''); toast('Pronto. Gere a cobrança mensal quando quiser.','ok'); render(); return; }
   if(!servLigado()) return toast('Ligue o servidor e o Asaas para cobrar a mensalidade','err');
   if(!fb) return toast('Modo demonstração: a cobrança é criada no Asaas quando o sistema estiver ligado ao servidor.');
   btn.disabled=true;
@@ -4796,7 +4804,7 @@ async function aprovarVendedor(id,btn){
   if(!confirm(`Aprovar ${c.nome} como vendedor da ${lojaNome(c.lojaId)} e enviar o ID e a senha para ${c.email}?`)) return;
   btn.disabled=true;
   try{
-    const a=await criarAcesso({nome:c.nome,email:c.email,tel:c.telefone,senha:senha6(),role:'VENDEDOR',lojaId:c.lojaId,extra:{cpf:c.cpf,cadastradoPor:c.gerenteNome||''}});
+    const a=await criarAcesso({nome:c.nome,email:c.email,tel:c.telefone,senha:SENHA_PADRAO,role:'VENDEDOR',lojaId:c.lojaId,extra:{cpf:c.cpf,cadastradoPor:c.gerenteNome||''}});
     await DB.set('cadastrosVendedor',id,{status:'APROVADO',uid:a.uid,codigo:a.codigo,aprovadoEm:Date.now(),aprovadoPor:S.me.nome});
     modalAcessoCriado(a); render();
   }catch(e){ toast(e.code==='auth/email-already-in-use'?'Esse e-mail já tem acesso':e.message,'err'); btn.disabled=false; }
@@ -6496,6 +6504,8 @@ async function entrarDemo(role){
   await iniciarSessao({uid,...u});
 }
 function mascara(e){ const [u,d]=String(e).split('@'); return (u.slice(0,2)+'***@'+d); }
+const SENHA_PADRAO='12345';
+const senhaFb=s=>{ s=String(s); return s.length<6?'nx-'+s:s; };
 async function emailDoLogin(v){
   v=v.trim(); if(v.includes('@')) return v.toLowerCase();
   const id=v.toUpperCase().replace(/\s+/g,'');
@@ -6506,7 +6516,7 @@ async function emailDoLogin(v){
 async function fazerLogin(){
   const login=$('#lEmail').value.trim(), senha=$('#lSenha').value; $('#lMsg').textContent='';
   if(!login||!senha){ $('#lMsg').textContent='Informe seu ID e a senha.'; return; }
-  try{ if(!fb) await fbInit(); const email=await emailDoLogin(login); await fb.au.signInWithEmailAndPassword(fb.auth,email,senha); }
+  try{ if(!fb) await fbInit(); const email=await emailDoLogin(login); await fb.au.signInWithEmailAndPassword(fb.auth,email,senhaFb(senha)); }
   catch(e){ $('#lMsg').textContent=e.code==='nx/id'?e.message:['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-email'].includes(e.code)?'ID ou senha incorretos.':e.code==='auth/too-many-requests'?'Muitas tentativas. Aguarde alguns minutos ou use “Esqueci minha senha”.':'Erro: '+e.message; }
 }
 async function esqueciSenha(){
@@ -6521,13 +6531,14 @@ async function esqueciSenha(){
 }
 async function criarSenhaPropria(){
   const a=$('#nsSenha').value, b=$('#nsSenha2').value, msg=$('#nsMsg'); msg.textContent='';
-  if(a.length<6) return msg.textContent='A senha precisa ter pelo menos 6 dígitos.';
+  if(!/^\d{5,6}$/.test(a)) return msg.textContent='A senha precisa ter 5 ou 6 números.';
+  if(a===SENHA_PADRAO||/^(\d)\1+$/.test(a)) return msg.textContent='Escolha outra senha: essa é fácil demais de adivinhar.';
   if(a!==b) return msg.textContent='As senhas não são iguais.';
   try{
-    await fb.au.updatePassword(fb.auth.currentUser,a);
+    await fb.au.updatePassword(fb.auth.currentUser,senhaFb(a));
     await DB.set('users',fb.auth.currentUser.uid,{senhaTemporaria:false,senhaTrocadaEm:Date.now()});
     $('#loginSenha').hidden=true; const p=S._pendente; S._pendente=null; toast('Senha criada!','ok'); await iniciarSessao(p);
-  }catch(e){ msg.textContent=e.code==='auth/weak-password'?'Senha fraca. Use pelo menos 6 dígitos.':e.code==='auth/requires-recent-login'?'Por segurança, saia e entre de novo com a senha temporária.':'Erro: '+e.message; }
+  }catch(e){ msg.textContent=e.code==='auth/weak-password'?'Senha fraca. Use 5 ou 6 números.':e.code==='auth/requires-recent-login'?'Por segurança, saia e entre de novo com a senha temporária.':'Erro: '+e.message; }
 }
 async function sair(){ if(fb) await fb.au.signOut(fb.auth); S.me=null; closeModal(); mostrarLogin(); }
 async function fbInit(){
