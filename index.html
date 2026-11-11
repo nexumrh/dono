@@ -1025,6 +1025,8 @@ Responda SOMENTE com JSON: {"cpf":"somente os 11 números ou vazio se não der p
 const isoDeBR = x => { x=String(x||'').trim(); let m=x.match(/^(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})$/); if(m) return `${m[3]}-${m[2]}-${m[1]}`; m=x.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?x:''; };
 const dataOk = (x,min,max) => { if(!x) return false; const d=new Date(x+'T12:00:00'); return !isNaN(d) && x===isoDate(d) && x>=min && x<=max; };
 const nomeProprio = n => String(n||'').replace(/\s+/g,' ').trim().toLowerCase().replace(/(^|\s)(\S)/g,(a,b,c)=>b+c.toUpperCase()).replace(/\s(Da|De|Do|Das|Dos|E)(?=\s)/g,m=>m.toLowerCase()).replace(/([\/\-]\s?)([a-z]{2})$/i,(m,x,uf)=>x+uf.toUpperCase());
+const PROMPT_DOC_DIGITAL=`
+ATENÇÃO: este é um DOCUMENTO DIGITAL, exibido no celular do cliente pelo aplicativo oficial (gov.br, Carteira Digital de Trânsito ou identidade digital). As imagens são prints ou fotos da tela: isso é esperado e NÃO torna o documento falso. Uma das imagens pode mostrar só o QR Code. Para a regra 6, use "documento_original": false apenas se houver sinais de edição ou montagem (fontes diferentes, campos desalinhados, recortes, texto sobreposto) ou se não parecer a tela de um aplicativo oficial.`;
 async function normalizarDoc(r){
   const hj=hoje(), conf=r.confianca||{}, duv=new Set();
   let cpf=onlyDig(r.cpf);
@@ -1099,19 +1101,21 @@ function caixaFoto(lado,titulo){
   const f=S.w.fotos[lado];
   return `<div class="foto-box ${f?'tem':''}">
     <div class="foto-prev">${f?`<img src="${f.ver}" alt="">`:svg('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M15 9h3M15 13h3M7 16h4"/>')}</div>
-    <b>${titulo}</b>${f?`<span class="badge b-green">Foto nítida</span>`:'<span class="small muted">Documento inteiro, sem reflexo, sem dedo na frente</span>'}
+    <b>${titulo}</b>${f?`<span class="badge b-green">${S.w.digital?'Imagem nítida':'Foto nítida'}</span>`:`<span class="small muted">${S.w.digital?'Print inteiro da tela do aplicativo, sem cortar':'Documento inteiro, sem reflexo, sem dedo na frente'}</span>`}
     <div class="row" style="justify-content:center;margin-top:8px">
-      <label class="btn sm gold">${svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}Tirar foto<input type="file" accept="image/*" capture="environment" data-foto="${lado}" hidden></label>
-      <label class="btn sm">Enviar foto<input type="file" accept="image/*" data-foto="${lado}" hidden></label>
+      <label class="btn sm gold">${svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}${S.w.digital?'Fotografar a tela':'Tirar foto'}<input type="file" accept="image/*" capture="environment" data-foto="${lado}" hidden></label>
+      <label class="btn sm">${S.w.digital?'Enviar print':'Enviar foto'}<input type="file" accept="image/*" data-foto="${lado}" hidden></label>
     </div><p class="foto-erro" id="erro_${lado}"></p></div>`;
 }
 async function passoDoc(){
-  const w=S.w, precisaVerso=w.docTipo!=='CNH';
+  const w=S.w, precisaVerso=w.digital||w.docTipo!=='CNH';
   const d=w.dados||{};
   $('#wz').innerHTML=`<div class="card">
     <h2><span class="step">1</span>Documento do cliente</h2>
     <div class="tabs">${[['RG','RG'],['CIN','Nova identidade (CIN)'],['CNH','CNH'],['RNE','RNE (estrangeiro)']].map(([k,l])=>`<button data-act="docTipo" data-v="${k}" class="${w.docTipo===k?'on':''}">${l}</button>`).join('')}</div>
-    <div class="grid g2">${caixaFoto('frente','Frente')}${precisaVerso?caixaFoto('verso','Verso'):'<div class="foto-box"><div class="foto-prev">'+svg('<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>')+'</div><b>CNH</b><span class="small muted">Basta a frente (os dados ficam no mesmo lado).</span></div>'}</div>
+    <label style="display:flex;flex-direction:row;gap:10px;align-items:center;margin:12px 0;cursor:pointer;text-align:left"><input type="checkbox" data-act="docDigital" ${w.digital?'checked':''} style="width:18px;height:18px;flex:none;margin:0"><span><b>Documento digital</b> <span class="small muted">— cliente mostra no celular (app gov.br, CNH Digital / CDT, identidade digital)</span></span></label>
+    ${w.digital?`<div class="msg">Peça para o cliente abrir o documento <b>no aplicativo oficial</b>, na sua frente. Registre a tela com os dados e a tela com o <b>QR Code</b> (o analista confere o QR Code no app <b>Vio</b>, do governo). Print recebido pelo WhatsApp ou PDF sem o aplicativo aberto não vale.</div>`:''}
+    <div class="grid g2">${caixaFoto('frente',w.digital?'Tela com os dados':'Frente')}${precisaVerso?caixaFoto('verso',w.digital?'Tela com o QR Code':'Verso'):'<div class="foto-box"><div class="foto-prev">'+svg('<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>')+'</div><b>CNH</b><span class="small muted">Basta a frente (os dados ficam no mesmo lado).</span></div>'}</div>
     ${!iaChave()?`<div class="warn mt">${fb?'IA não configurada: o Dono precisa colar a chave do Groq em Lojas e configurações → Inteligência artificial. Até lá, os dados serão digitados.':'Modo demonstração: a leitura por IA é simulada com um cliente de exemplo.'}</div>`:''}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="lerDoc" ${w.fotos.frente&&(!precisaVerso||w.fotos.verso)?'':'disabled'}>${svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>')}Ler documento com IA</button></div>
   </div>
@@ -1141,11 +1145,11 @@ async function lerDoc(btn){
   const w=S.w; btn.disabled=true; btn.innerHTML='<span class="spin"></span> Lendo documento…';
   try{
     let r;
-    if(iaChave()) r=await iaVisao(PROMPT_DOC,[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])],700);
+    if(iaChave()) r=await iaVisao(PROMPT_DOC+(w.digital?PROMPT_DOC_DIGITAL:''),[w.fotos.frente.ia,...(w.fotos.verso?[w.fotos.verso.ia]:[])],700);
     else if(!fb){ await new Promise(o=>setTimeout(o,1200)); r={legivel:true,tipo:w.docTipo,documento_original:true,nome:'Roberto Carlos Teixeira',cpf:gerarCpf(),rg:'12.345.678-9',orgao_emissor:'SESP/PR',data_nascimento:'22/03/1991',data_emissao:'10/05/2015',nome_mae:'Maria Aparecida Teixeira',nome_pai:'José Carlos Teixeira',naturalidade:'Foz do Iguaçu/PR',sexo:'M',confianca:{nome:98,cpf:97,data_nascimento:95,rg:90,nome_mae:92},simulado:true}; }
     else r={legivel:true,manual:true};
     if(!r.legivel){ w.fotos={}; toast('Documento ilegível: '+(r.motivo||'tire as fotos de novo'),'err'); passoDoc(); setTimeout(()=>{ const e=$('#erro_frente'); if(e) e.textContent='A IA não conseguiu ler: '+(r.motivo||'foto ilegível')+'. Tire as fotos de novo.'; },50); return; }
-    if(r.documento_original===false) toast('Atenção: o documento parece foto de tela ou cópia. Isso será informado ao analista.','err');
+    if(r.documento_original===false) toast(w.digital?'Atenção: a imagem não parece a tela do aplicativo oficial ou tem sinais de edição. Isso será informado ao analista.':'Atenção: o documento parece foto de tela ou cópia. Isso será informado ao analista.','err');
     if(r.manual){ w.ia=r; w.dados={nome:'',cpf:'',nasc:'',rg:'',orgao:'',mae:'',pai:'',naturalidade:'',nacionalidade:'',sexo:'',emissao:'',validadeDoc:'',cnh:'',categoriaCnh:''}; w.duvidas=[]; w.lidos={...w.dados}; passoDoc(); return; }
     const {d,duv}=await normalizarDoc(r);
     w.ia=r; w.dados=d; w.duvidas=duv; w.lidos={...w.dados}; passoDoc();
@@ -1187,9 +1191,11 @@ async function passoBio(){
         ${w.face?faceResumo(w.face):'<div class="msg"><small>Dica</small>Enquadre o rosto dentro do oval e toque em Capturar.</div>'}
         <div class="row mt">
           ${w.selfie?`<button class="btn" data-act="bioRefazer">Tirar de novo</button>`:`<button class="btn gold lg" data-act="bioCapturar">${svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>')}Capturar</button>
-          <label class="btn" id="bioAlt" hidden>Abrir câmera<input type="file" accept="image/*" capture="user" data-selfie hidden></label>`}
+          <label class="btn" id="bioAlt" hidden>Abrir câmera<input type="file" accept="image/*" capture="user" data-selfie hidden></label>
+          <button class="btn" data-act="bioCelular">📱 Fazer pelo celular (QR Code)</button>`}
         </div>
         <p class="foto-erro" id="bioErro"></p>
+        <div id="bioQr"></div>
       </div>
     </div>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="irPasso" data-n="1">Voltar</button>
@@ -1205,6 +1211,40 @@ function faceResumo(f){
     <span class="small">${esc(f.motivo||'')}${f.mesma_pessoa?` · Confere com o documento: <b>${f.mesma_pessoa}</b>${f.confianca!=null?` (${f.confianca}%)`:''}`:''}</span></div>`;
 }
 async function bioCapturar(){ return bioCapturarVida(); }
+/* Biometria pelo celular: a loja mostra um QR Code, o cliente (ou o vendedor) abre no celular, faz a prova de vida com a câmera do aparelho e a selfie volta para esta tela. */
+async function bioCelular(btn){
+  const w=S.w, box=$('#bioQr'); if(!box) return;
+  if(btn) btn.disabled=true;
+  const tk=token(24), agora=Date.now();
+  try{ await DB.set('bios',tk,{status:'PENDENTE',criadoEm:agora,expiraEm:agora+15*60000,vendedorUid:S.me.uid,lojaId:S.me.lojaId||'',empresa:S.cfg.empresa||MARCA}); }
+  catch(e){ toast('Não foi possível gerar o QR Code: '+e.message,'err'); if(btn) btn.disabled=false; return; }
+  pararCamera(); const cam=$('#cam'); if(cam) cam.style.visibility='hidden';
+  const url=urlCliente()+'?bio='+tk+(DEMO?'&demo':'');
+  let qrHtml=''; try{ const q=qrcode(0,'M'); q.addData(url); q.make(); qrHtml=q.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){}
+  box.innerHTML=`<div class="card mt" style="text-align:center"><b>Biometria pelo celular</b>
+    <div class="qr" style="margin:10px auto;max-width:220px">${qrHtml}</div>
+    <p class="small">Aponte a câmera do celular para o QR Code. A página abre a câmera da frente, pede para <b>olhar, virar o rosto e sorrir</b>, e a foto aparece aqui sozinha.</p>
+    <div id="bioQrSt" class="inst-status"><span class="spin"></span> Aguardando a biometria no celular…</div>
+    <div class="row mt" style="justify-content:center"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar link</button><button class="btn sm" data-act="bioRefazer">Cancelar e usar esta câmera</button></div>
+    <p class="hint">O QR Code vale por 15 minutos e só serve para esta venda.</p></div>`;
+  unwatch&&unwatch();
+  unwatch=DB.watch('bios',tk,async x=>{ if(!x||x.status!=='ENVIADA'||!$('#bioQrSt')) return; unwatch&&unwatch(); unwatch=null;
+    $('#bioQrSt').className='inst-status ok'; $('#bioQrSt').textContent='Biometria recebida do celular. Validando…';
+    const selfie=x.selfie, mosaico=x.mosaico||'', mov=x.mov;
+    DB.set('bios',tk,{status:'USADA',selfie:'',mosaico:'',usadaEm:Date.now()}).catch(()=>{});   // a foto não fica guardada no link
+    if(mov!=null&&mov<=4){ w.vida={ok:false,metodo:'MOVIMENTO',d:Math.round(mov),via:'CELULAR'}; w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: o rosto não se mexeu. Pode ser uma foto. Gere o QR Code e faça de novo.'}; return passoBio(); }
+    let iaV=null;
+    if(mov==null) w.vida={ok:null,metodo:'ARQUIVO',via:'CELULAR'};
+    else if(iaChave()&&mosaico){
+      try{ const ia=await iaVisao(PROMPT_VIDA,[mosaico,w.fotos.frente.ia]);
+        w.vida={ok:!!(ia.mesma_pessoa_nos_quadros&&ia.movimento_real&&!ia.foto_de_tela_ou_papel&&!ia.mascara_ou_boneco),metodo:'IA',ia,via:'CELULAR'};
+        if(!w.vida.ok){ w.selfie=null; w.face={aprovado:false,motivo:'Prova de vida recusada: '+(ia.foto_de_tela_ou_papel?'parece foto de tela ou papel.':ia.mascara_ou_boneco?'parece máscara ou boneco.':!ia.movimento_real?'não houve movimento real.':'os quadros não são da mesma pessoa.')}; return passoBio(); }
+        iaV=ia;
+      }catch(e){ w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(mov),obs:'IA indisponível',via:'CELULAR'}; }
+    } else w.vida={ok:true,metodo:'MOVIMENTO',d:Math.round(mov),via:'CELULAR'};
+    await validarSelfie(selfie,iaV);
+  });
+}
 async function bioCapturarSimples(){
   const v=$('#cam'); if(!v||!v.videoWidth){ toast('Câmera ainda não está pronta','err'); return; }
   const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0);
@@ -1237,24 +1277,35 @@ async function validarSelfie(url,iaVida=null){
 async function passoContato(){
   const c=S.w.contato||{};
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">3</span>Contato e endereço</h2>
-    <div class="msg" style="margin-top:-4px"><small>Importante</small>Informe <b>2 telefones do próprio cliente</b> (diferentes entre si e que não sejam de ninguém da equipe). A equipe vai entrar em contato em até <b>3 dias</b> para confirmar os dados.</div>
+    <div class="msg" style="margin-top:-4px"><small>Importante</small>Informe o <b>WhatsApp do cliente</b> e <b>telefones de referência</b> com o <b>nome</b> e o <b>parentesco</b> de cada pessoa (diferentes entre si e que não sejam de ninguém da equipe). A equipe vai entrar em contato em até <b>3 dias</b> para confirmar os dados.</div>
     <div class="grid g3 mt">
       <label>Telefone 1 (WhatsApp) *<input id="cTel1" inputmode="tel" value="${esc(c.tel1||'')}" placeholder="(45) 99999-9999"></label>
-      <label>Telefone 2 *<input id="cTel2" inputmode="tel" value="${esc(c.tel2||'')}" placeholder="(45) 99999-9999"></label>
       <label>E-mail<input id="cEmail" type="email" value="${esc(c.email||'')}"></label>
+      <label>Código de indicação (opcional)<input id="cInd" placeholder="ex.: NXC-12" value="${esc(c.indicacao||'')}"></label>
+      <label>Referência 1 — telefone *<input id="cTel2" inputmode="tel" value="${esc(c.tel2||'')}" placeholder="(45) 99999-9999"></label>
+      <label>Referência 1 — nome *<input id="cRef1Nome" value="${esc(c.ref1Nome||'')}" placeholder="Nome de quem atende"></label>
+      <label>Referência 1 — parentesco *${selParentesco('cRef1Par',c.ref1Par)}</label>
+      <label>Referência 2 — telefone<input id="cTel3" inputmode="tel" value="${esc(c.tel3||'')}" placeholder="(45) 99999-9999"></label>
+      <label>Referência 2 — nome<input id="cRef2Nome" value="${esc(c.ref2Nome||'')}" placeholder="Nome de quem atende"></label>
+      <label>Referência 2 — parentesco${selParentesco('cRef2Par',c.ref2Par)}</label>
       <label>CEP *<input id="nCep" inputmode="numeric" maxlength="9" value="${esc(c.cep||'')}"></label>
       <label>Endereço e número *<input id="nEnd" value="${esc(c.endereco||'')}"></label>
       <label>Bairro *<input id="nBairro" value="${esc(c.bairro||'')}"></label>
       <label>Cidade / UF *<input id="nCidade" value="${esc(c.cidade?c.cidade+' / '+c.uf:'')}"></label>
       <label>Profissão *<input id="cProf" value="${esc(c.profissao||'')}"></label>
       <label>Renda mensal (R$) *<input id="cRenda" type="number" min="0" step="0.01" value="${esc(c.renda||'')}"></label>
-      <label>Código de indicação (opcional)<input id="cInd" placeholder="ex.: NXC-12" value="${esc(c.indicacao||'')}"></label>
     </div>
     ${blocoCompr()}
     <p class="foto-erro" id="telErro"></p>
     <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="irPasso" data-n="2">Voltar</button>
       <button class="btn gold lg" data-act="enviarAnalise">${svg('<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>')}Enviar para análise de crédito</button></div></div>`;
 }
+const PARENTESCOS=['Do próprio cliente','Mãe','Pai','Cônjuge / companheiro(a)','Filho(a)','Irmão / irmã','Avô / avó','Tio(a)','Primo(a)','Sogro(a)','Cunhado(a)','Amigo(a)','Vizinho(a)','Colega de trabalho','Patrão / empresa','Outro'];
+const selParentesco=(id,v)=>`<select id="${id}"><option value="">Selecione…</option>${PARENTESCOS.map(p=>`<option ${v===p?'selected':''}>${p}</option>`).join('')}</select>`;
+/* referências do cliente: [{tel,nome,parentesco}] (cadastros antigos só têm telefones/refNome/refTel) */
+const refsCliente=c=>(c?.referencias?.length?c.referencias:(c?.refTel||c?.refNome)?[{tel:onlyDig(c.refTel||''),nome:c.refNome||'',parentesco:''}]:[]);
+const refsHtml=c=>refsCliente(c).map(r=>`${esc(r.nome||'—')}${r.parentesco?` <span class="muted">(${esc(r.parentesco)})</span>`:''}${r.tel?` — ${esc(fmtFone(r.tel))}`:''}`).join('<br>')||'—';
+const refDoTel=(c,t)=>refsCliente(c).find(r=>onlyDig(r.tel)===onlyDig(t));
 async function buscarCep(){
   const cep=onlyDig($('#nCep').value); if(cep.length!==8) return;
   try{ const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`); const j=await r.json(); if(j.erro) return;
@@ -1262,35 +1313,38 @@ async function buscarCep(){
   }catch(e){}
 }
 async function enviarAnalise(btn){
-  const g=id=>$(id).value.trim(), t1=fone(g('#cTel1')), t2=fone(g('#cTel2')), err=$('#telErro'); err.textContent='';
+  const g=id=>$(id).value.trim(), t1=fone(g('#cTel1')), t2=fone(g('#cTel2')), t3=fone(g('#cTel3')), err=$('#telErro'); err.textContent='';
   const [cidade,uf]=g('#nCidade').split('/').map(s=>s.trim());
-  const c={tel1:t1,tel2:t2,email:g('#cEmail'),cep:g('#nCep'),endereco:g('#nEnd'),bairro:g('#nBairro'),cidade:cidade||'',uf:uf||'',profissao:g('#cProf'),renda:+g('#cRenda')||0,indicacao:(g('#cInd')||'').toUpperCase().replace(/\s/g,'')};
+  const c={tel1:t1,tel2:t2,tel3:t3,ref1Nome:nomeProprio(g('#cRef1Nome')),ref1Par:g('#cRef1Par'),ref2Nome:nomeProprio(g('#cRef2Nome')),ref2Par:g('#cRef2Par'),email:g('#cEmail'),cep:g('#nCep'),endereco:g('#nEnd'),bairro:g('#nBairro'),cidade:cidade||'',uf:uf||'',profissao:g('#cProf'),renda:+g('#cRenda')||0,indicacao:(g('#cInd')||'').toUpperCase().replace(/\s/g,'')};
   S.w.contato=c;
-  if(![t1,t2].every(t=>/^\d{10,11}$/.test(t))) return err.textContent='Informe os 2 telefones com DDD.';
-  if(t1===t2) return err.textContent='Os dois telefones não podem ser iguais.';
+  if(![t1,t2].every(t=>/^\d{10,11}$/.test(t))) return err.textContent='Informe o WhatsApp do cliente e o telefone da referência 1, com DDD.';
+  if(t1===t2) return err.textContent='Os telefones não podem ser iguais.';
+  if(!c.ref1Nome||!c.ref1Par) return err.textContent='Informe o nome e o parentesco da referência 1.';
+  if(t3){ if(!/^\d{10,11}$/.test(t3)) return err.textContent='Confira o telefone da referência 2 (com DDD).'; if(t3===t1||t3===t2) return err.textContent='O telefone da referência 2 repete outro número.'; if(!c.ref2Nome||!c.ref2Par) return err.textContent='Informe o nome e o parentesco da referência 2.'; }
   if(!c.endereco||!c.bairro||!c.cidade||!c.profissao||!(c.renda>0)) return err.textContent='Preencha endereço, bairro, cidade, profissão e renda.';
   btn.disabled=true;
   try{
     const equipe=(await DB.list('users')).filter(u=>u.telefone).map(u=>fone(u.telefone));
-    if([t1,t2].some(t=>equipe.includes(t))){ err.textContent='Um dos telefones é de alguém da equipe. Informe telefones do próprio cliente.'; btn.disabled=false; return; }
+    if([t1,t2,t3].filter(Boolean).some(t=>equipe.includes(t))){ err.textContent='Um dos telefones é de alguém da equipe. Informe telefones do cliente e das referências dele.'; btn.disabled=false; return; }
     const ln=await naListaNegra(S.w.dados.cpf,[t1,t2]);
     if(ln.length){ await log('Tentativa de venda para cliente da lista negra',S.w.dados.cpf,ln.map(x=>x.tipo+' '+x.motivo).join(', ')); btn.disabled=false; bloqueadoLN(); return; }
     if(c.indicacao&&!/^NXC-?\d+$/.test(c.indicacao)){ err.textContent='Código de indicação inválido. O formato é NXC-123 (está no portal do cliente de quem indicou).'; btn.disabled=false; return; }
     let geo=null; try{ geo=await conferirLocal(); }catch(e){ err.textContent=e.message; btn.disabled=false; await log('Venda bloqueada: fora da loja',S.w.dados.cpf,e.message); return; }
-    for(const t of [t1,t2]){
+    const proprios=[t1,...(c.ref1Par==='Do próprio cliente'?[t2]:[]),...(t3&&c.ref2Par==='Do próprio cliente'?[t3]:[])];   // números de parentes ficam só em referências (podem se repetir entre clientes da mesma família)
+    for(const t of proprios){
       const outros=(await DB.list('clientes',[['telefones','array-contains',t]]).catch(()=>[])).filter(x=>x.id!==S.w.dados.cpf);
       if(outros.length){ err.textContent=`O telefone ${fmtFone(t)} já está cadastrado para outro cliente.`; btn.disabled=false; return; }
     }
     const w=S.w, d=w.dados, numero=await DB.nextNum(), id='v'+numero+'_'+token(5), agora=Date.now();
-    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',nacionalidade:d.nacionalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:[t1,t2],email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
+    const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',nacionalidade:d.nacionalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',docDigital:!!w.digital,...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:proprios,referencias:[{tel:t2,nome:c.ref1Nome,parentesco:c.ref1Par},...(t3?[{tel:t3,nome:c.ref2Nome,parentesco:c.ref2Par}]:[])],refNome:c.ref1Nome,refTel:fmtFone(t2),email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
-      verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
+      verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,docDigital:!!w.digital,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
       confirmacaoDados:{status:'PENDENTE',prazo:agora+3*86400000}};
     await DB.batch([
       {c:'clientes',id:d.cpf,data:{...cli,atualizadoEm:agora}},
       {c:'vendas',id,data:venda},
-      {c:'docs',id,data:{vendaId:id,cpf:d.cpf,docTipo:w.docTipo,frente:w.fotos.frente.ver,verso:w.fotos.verso?.ver||'',selfie:w.selfie,comprRenda:w.compr?.renda?.foto||'',comprEndereco:w.compr?.endereco?.foto||'',criadoEm:agora,vendedorUid:S.me.uid}}]);
+      {c:'docs',id,data:{vendaId:id,cpf:d.cpf,docTipo:w.docTipo,docDigital:!!w.digital,frente:w.fotos.frente.ver,verso:w.fotos.verso?.ver||'',selfie:w.selfie,comprRenda:w.compr?.renda?.foto||'',comprEndereco:w.compr?.endereco?.foto||'',criadoEm:agora,vendedorUid:S.me.uid}}]);
     await log('Proposta enviada para análise',id,`Nº ${numero} — ${d.nome}`);
     if(fb&&servLigado()) apiServ('motor',{vendaId:id}).catch(e=>console.warn('motor',e.message));
     w.vendaId=id; irPasso(4);
@@ -1792,7 +1846,7 @@ async function verVenda(id){
     <div class="grid g2">
       <div><h3>Cliente</h3><dl class="kv"><dt>Nome</dt><dd>${esc(c.nome)}</dd><dt>CPF</dt><dd>${fmtCpf(c.cpf)}</dd><dt>Nascimento</dt><dd>${fmtD(c.nasc)}</dd>
         <dt>Telefones</dt><dd>${(c.telefones||[c.tel]).map(fmtFone).map(esc).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd>
-        <dt>Profissão / renda</dt><dd>${esc(c.profissao||'—')} · ${brl(c.renda)}</dd><dt>Referência</dt><dd>${esc([c.refNome,c.refTel].filter(Boolean).join(' — ')||'—')}</dd></dl></div>
+        <dt>Profissão / renda</dt><dd>${esc(c.profissao||'—')} · ${brl(c.renda)}</dd><dt>Referências</dt><dd>${refsHtml(c)}</dd></dl></div>
       <div><h3>Aparelho e plano</h3><dl class="kv"><dt>Aparelho</dt><dd>${esc(apNome(v))}</dd>
         ${v.aparelho?.imei?`<dt>IMEI</dt><dd class="mono">${esc(v.aparelho.imei)}${v.aparelho.imei2?' / '+esc(v.aparelho.imei2):''} ${v.aparelho.verificacaoImei?.anatel?badge('Anatel: '+(v.aparelho.verificacaoImei.anatel==='REGULAR'?'regular':v.aparelho.verificacaoImei.anatel)+' · foto *#06#: '+({CONFERE:'confere',MANUAL:'conferir',SIMULADO:'simulado'}[v.aparelho.verificacaoImei.ia]||'-'),v.aparelho.verificacaoImei.anatel==='REGULAR'?'green':'red'):''}</dd>`:''}
         ${v.reprovadoPorImei?`<dt>Reprovada</dt><dd style="color:var(--bad)">${esc(v.motivoReprovacao)} · IMEI ${esc(v.aparelhoRecusado?.imei||'')}</dd>`:''}
@@ -1855,7 +1909,7 @@ async function reativarBoleto(id,n,btn){
 PAGES.analise = async () => {
   const lista=(await DB.list('vendas',[['status','==','ANALISE']])).sort((a,b)=>a.criadoEm-b.criadoEm);
   $('#view').innerHTML=`<div class="card tablewrap"><table><tr><th>Nº</th><th>Aguardando</th><th>Cliente</th><th>Renda</th><th>Verificação</th><th></th></tr>
-  ${lista.map(v=>{ const vf=v.verificacao||{}, alertas=[(v.alertasFraude||[]).length&&'⚠ fraude entre lojas',!vf.documentoOriginal&&'doc. suspeito',vf.editados?.length&&'dados editados',vf.face?.mesma_pessoa&&vf.face.mesma_pessoa!=='sim'&&'rosto '+vf.face.mesma_pessoa].filter(Boolean);
+  ${lista.map(v=>{ const vf=v.verificacao||{}, alertas=[(v.alertasFraude||[]).length&&'⚠ fraude entre lojas',!vf.documentoOriginal&&'doc. suspeito',vf.docDigital&&'doc. digital',vf.editados?.length&&'dados editados',vf.face?.mesma_pessoa&&vf.face.mesma_pessoa!=='sim'&&'rosto '+vf.face.mesma_pessoa].filter(Boolean);
    return `<tr class="click" data-act="analisar" data-id="${v.id}"><td class="mono">${v.numero}</td><td>${relT(v.criadoEm)}<br><span class="small muted">${esc(v.vendedorNome)} · ${esc(v.lojaNome)}</span></td>
    <td><b>${esc(v.clienteNome)}</b><br><span class="small muted">${fmtCpf(v.clienteCpf)}</span></td><td>${brl(v.cliente.renda)}</td>
    <td>${alertas.length?alertas.map(a=>badge(a,'red')).join(' '):badge('OK','green')}${v.motor?' '+badge('Motor: '+{APROVAR:'aprovar',REPROVAR:'reprovar',MANUAL:'analisar'}[v.motor.resultado],{APROVAR:'green',REPROVAR:'red',MANUAL:'amber'}[v.motor.resultado]):''}</td>
@@ -1880,12 +1934,12 @@ async function analisar(id){
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>
     <div class="row mt">${badge(vf.iaLeitura?(vf.simulado?'Leitura simulada':'Documento lido por IA'):'Dados digitados','blue')}
-      ${badge(vf.documentoOriginal===false?'Documento parece cópia/tela':'Documento original',vf.documentoOriginal===false?'red':'green')}
+      ${vf.docDigital?badge(vf.documentoOriginal===false?'Documento digital com sinais de edição':'Documento digital — confira o QR Code no app Vio',vf.documentoOriginal===false?'red':'amber'):badge(vf.documentoOriginal===false?'Documento parece cópia/tela':'Documento original',vf.documentoOriginal===false?'red':'green')}
       ${badge('Rosto x documento: '+(f.mesma_pessoa||'—')+(f.confianca!=null?' ('+f.confianca+'%)':''),f.mesma_pessoa==='sim'?'green':'amber')}
       ${vf.editados?.length?badge('Editado à mão: '+vf.editados.join(', '),'amber'):''}</div>
     <div class="grid g2 mt">
       <dl class="kv"><dt>Cliente</dt><dd>${esc(c.nome)}</dd><dt>CPF</dt><dd>${fmtCpf(c.cpf)}</dd><dt>Nascimento</dt><dd>${fmtD(c.nasc)} (${idade} anos)</dd><dt>${c.docTipo==='RNE'?'RNE':'RG'}</dt><dd>${esc(c.rg||'—')} ${esc(c.orgao||'')}</dd>${c.nacionalidade?`<dt>Nacionalidade</dt><dd>${esc(c.nacionalidade)}</dd>`:''}<dt>Mãe</dt><dd>${esc(c.mae||'—')}</dd></dl>
-      <dl class="kv"><dt>Telefones</dt><dd>${(c.telefones||[]).map(fmtFone).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd><dt>Profissão</dt><dd>${esc(c.profissao||'—')}</dd><dt>Renda</dt><dd>${brl(c.renda)}</dd><dt>Histórico</dt><dd style="font-weight:500">${histTxt}</dd></dl>
+      <dl class="kv"><dt>Telefones</dt><dd>${(c.telefones||[]).map(fmtFone).join(' · ')}</dd><dt>Referências</dt><dd>${refsHtml(c)}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd><dt>Profissão</dt><dd>${esc(c.profissao||'—')}</dd><dt>Renda</dt><dd>${brl(c.renda)}</dd><dt>Histórico</dt><dd style="font-weight:500">${histTxt}</dd></dl>
     </div>
     <h3>Conferências</h3>
     <label class="check"><input type="checkbox" id="ck_cpf"> CPF consultado (SPC/Serasa/Boa Vista) sem restrição impeditiva</label>
@@ -4092,13 +4146,13 @@ PAGES.confirmacoes = async () => {
   const dados=vendas.filter(v=>v.confirmacaoDados?.status==='PENDENTE'&&!['REPROVADA','CANCELADA'].includes(v.status)).sort((a,b)=>a.confirmacaoDados.prazo-b.confirmacaoDados.prazo);
   const entradas=vendas.filter(v=>v.confirmacaoEntrada?.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm);
   const prazo=ms=>{ const d=Math.ceil((ms-Date.now())/86400000); return d<0?badge(`atrasado ${-d} dia(s)`,'red'):badge(d===0?'vence hoje':`${d} dia(s) para confirmar`,d<=1?'amber':'blue'); };
-  const wa=(t,msg)=>`<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/55${fone(t)}?text=${encodeURIComponent(msg)}">${svg(IC.confirmacoes)}${fmtFone(t)}</a>`;
+  const wa=(t,msg,r)=>`<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/55${fone(t)}?text=${encodeURIComponent(msg)}">${svg(IC.confirmacoes)}${fmtFone(t)}${r?` · ${esc(primeiroNome(r.nome||''))}${r.parentesco?` (${esc(r.parentesco)})`:''}`:''}</a>`;
   const linha=(v,k,msg)=>`<div class="pend"><div class="t2"><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · ${esc(v.lojaNome)} · ${esc(v.vendedorNome)} · CPF ${fmtCpf(v.clienteCpf)}</span>
-      <div class="row" style="margin-top:6px">${(v.cliente.telefones||[v.cliente.tel]).map(t=>wa(t,msg)).join('')}</div></div>
+      <div class="row" style="margin-top:6px">${[...new Set([...(v.cliente.telefones||[v.cliente.tel]),...refsCliente(v.cliente).map(r=>r.tel)].map(x=>onlyDig(x||'')).filter(Boolean))].map((t,i)=>wa(t,msg,refDoTel(v.cliente,t)||(i===0?{nome:'Cliente'}:null))).join('')}</div></div>
     <div class="row" style="flex-direction:column;align-items:flex-end">${prazo(v[k].prazo)}<div class="row"><button class="btn sm red" data-act="confirmarDado" data-id="${v.id}" data-k="${k}" data-st="PROBLEMA">Problema</button><button class="btn sm green" data-act="confirmarDado" data-id="${v.id}" data-k="${k}" data-st="CONFIRMADO">Confirmado</button></div></div></div>`;
   $('#view').innerHTML=`<div class="grid g2" style="align-items:start">
     <div class="card"><h2>Confirmar cadastro (até 3 dias) <span class="badge b-blue">${dados.length}</span></h2>
-      <p class="hint" style="margin-top:-6px">Mande mensagem para os 2 telefones do cliente confirmando que foi ele quem fez a proposta.</p>
+      <p class="hint" style="margin-top:-6px">Mande mensagem para o cliente e para as referências (o nome e o parentesco aparecem em cada botão) confirmando que foi ele quem fez a proposta.</p>
       ${dados.map(v=>linha(v,'confirmacaoDados',`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da equipe ${emp}. Estamos confirmando o cadastro feito na loja ${v.lojaNome} em ${fmtD(isoDate(new Date(v.criadoEm)))}: nome ${v.clienteNome}, CPF final ${v.clienteCpf.slice(-4)}${v.aparelho?.modelo?`, aparelho ${apNome(v)} em ${v.nParcelas}x de ${brl(v.valorParcela)}`:''}. Você confirma que foi você quem fez esta compra? Responda SIM ou NÃO.`)).join('')||'<div class="empty"><b>Nada pendente</b></div>'}</div>
     <div class="card"><h2>Confirmar entrada recebida <span class="badge b-blue">${entradas.length}</span></h2>
       <p class="hint" style="margin-top:-6px">Confirme com o cliente o valor que ele pagou de entrada na loja.</p>
@@ -4530,8 +4584,8 @@ const ACT = {
   portais:()=>openModal(`<h2>Portais NexumCell</h2><p class="small muted">Envie a cada pessoa o link do portal do perfil dela.</p>${Object.entries(PORTAIS).map(([k,p])=>`<div class="msg"><b>${esc(p.nome)}</b><br>${URLS[k]?`<a href="${esc(URLS[k])}" target="_blank" rel="noopener">${esc(URLS[k])}</a>`:'<span class="muted">endereço não configurado em nexumcell-config.js</span>'}</div>`).join('')}`), logout:()=>sair(),
   demo:d=>entrarDemo(d.role), demoReset:()=>{ demoInit(true); toast('Exemplos restaurados','ok'); },
   novaProposta:()=>{ novoFluxo(); S.tab='nova'; render(); }, continuar:d=>continuar(d.id), irPasso:d=>irPasso(+d.n),
-  docTipo:d=>{ S.w.docTipo=d.v; S.w.fotos={}; S.w.dados=null; passoDoc(); }, lerDoc:(d,b)=>lerDoc(b), docOk:()=>docOk(),
-  bioCapturar:()=>bioCapturar(), bioRefazer:()=>{ S.w.selfie=null; S.w.face=null; S.w.vida=null; passoBio(); },
+  docTipo:d=>{ S.w.docTipo=d.v; S.w.fotos={}; S.w.dados=null; passoDoc(); }, docDigital:()=>{ S.w.digital=!S.w.digital; S.w.fotos={}; S.w.dados=null; S.w.ia=null; passoDoc(); }, lerDoc:(d,b)=>lerDoc(b), docOk:()=>docOk(),
+  bioCapturar:()=>bioCapturar(), bioCelular:(d,b)=>bioCelular(b), bioRefazer:()=>{ S.w.selfie=null; S.w.face=null; S.w.vida=null; passoBio(); },
   enviarAnalise:(d,b)=>enviarAnalise(b), simularDecisao:async d=>{ await DB.set('vendas',S.w.vendaId,{status:d.r,analise:{resultado:d.r,porNome:'Simulação',em:Date.now(),limite:d.r==='APROVADA'?3000:null}}); },
   selMarca:d=>{ S.w.sel={marca:d.v}; passoAparelho(); }, selItem:d=>selItem(d.id), salvarAparelho:(d,b)=>salvarAparelho(b), confirmarEntrada:(d,b)=>confirmarEntrada(b),
   confirmarDado:d=>confirmarDado(d.id,d.k,d.st), verVenda:d=>verVenda(d.id), cancelarVenda:d=>cancelarVenda(d.id),
