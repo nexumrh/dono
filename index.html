@@ -6238,43 +6238,153 @@ function blocoInstalarPc(v,tk){
     <li>No celular: Configurações → Sobre o telefone → toque 7 vezes em <b>Número da versão</b> (ou "Versão"). Volte em Opções do desenvolvedor e ligue a <b>Depuração USB</b>.</li>
     <li>No computador (Windows), baixe o instalador abaixo e dê dois cliques nele.</li>
     <li>Ligue o celular no cabo USB e toque em <b>Permitir</b> na pergunta de depuração.</li>
-    <li>Espere aqui ficar verde. Depois pode configurar o Wi-Fi e a conta Google normalmente.</li></ol>
-    <div class="row mt"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">⬇ Baixar instalador para o computador</button></div>
-    <p class="hint">Na primeira vez o instalador baixa sozinho as ferramentas do Google (ADB). Precisa de internet no computador.</p>`;
+    <li>O instalador confere o aparelho (conta, IMEI do contrato), instala e só mostra <b>PRONTO</b> quando o sistema recebe o sinal do celular. Aqui também fica verde.</li></ol>
+    <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">Baixar instalador deste contrato</button><button class="btn" data-act="baixarInstLoja">Instalador da loja (vários contratos)</button></div>
+    <p class="hint">O instalador da loja traz todos os contratos que estão aguardando a trava: você escolhe o número e pode fazer um aparelho atrás do outro. Na primeira vez ele baixa sozinho as ferramentas do Google (ADB); precisa de internet no computador.</p>`;
 }
-function scriptInstPc(v){
-  const k=FIREBASE_CONFIG.apiKey||'DEMO', p=FIREBASE_CONFIG.projectId||'DEMO', tk=v.aparelhoToken;
+/* Instalador da trava pelo cabo USB (.bat, Windows). Recebe um ou vários contratos:
+   confere o aparelho ANTES de instalar (Android, conta Google, outro administrador, IMEI), explica o erro por marca,
+   espera o aparelho dar sinal no sistema e pode instalar vários aparelhos em sequência. */
+function scriptInstPc(lista){
+  lista=[].concat(lista);
+  const k=FIREBASE_CONFIG.apiKey||'DEMO', p=FIREBASE_CONFIG.projectId||'DEMO';
   const apk=apkDireto(S.cfg.apkUrl)||'https://nexumrh.github.io/dono/nexumcell-trava.apk';
-  const link=`nexumcell://ativar?t=${tk}&k=${k}&p=${p}`;
-  return [
-'@echo off','chcp 65001 >nul',`title NexumCell - instalar a trava (contrato ${v.numero})`,'cd /d "%~dp0"','set "ADB=adb"',
+  const limpo=s=>String(s||'').normalize('NFD').replace(/[^\x20-\x7E]/g,'').replace(/[%&|<>^"!()]/g,' ').trim();
+  const varios=lista.length>1;
+  const L=[
+'@echo off','chcp 65001 >nul','title NexumCell - instalar a trava pelo cabo USB','cd /d "%~dp0"','set "ADB=adb"',
 'if exist "%~dp0platform-tools\\adb.exe" set "ADB=%~dp0platform-tools\\adb.exe"',
 '"%ADB%" version >nul 2>&1 && goto temadb',
 'echo Baixando as ferramentas do Google (ADB)...',
 'curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-windows.zip',
 'powershell -NoProfile -Command "Expand-Archive -Force platform-tools.zip ."',
 'set "ADB=%~dp0platform-tools\\adb.exe"',
+'"%ADB%" version >nul 2>&1 || goto erroadb',
 ':temadb',
-'echo.','echo Ligue o celular no cabo USB e toque em PERMITIR na pergunta de depuracao USB...',
-'"%ADB%" wait-for-device',
+'if exist nexumcell-trava.apk del /q nexumcell-trava.apk',
 'echo Baixando o app NexumCell...',
-`curl -L -o nexumcell-trava.apk ${apk}`,
-'echo Instalando o app...',
-'"%ADB%" install -r nexumcell-trava.apk',
-'if errorlevel 1 goto erroinst',
-'echo Ativando a protecao (dono do aparelho)...',
-'"%ADB%" shell dpm set-device-owner br.com.nexumcell.trava/.AdminReceiver',
-'if errorlevel 1 goto erroowner',
-'echo Ligando ao contrato...',
-`"%ADB%" shell am start -a android.intent.action.VIEW -d "'${link}'" br.com.nexumcell.trava`,
-'echo.',`echo PRONTO! Contrato ${v.numero} ligado. Confira no sistema se a instalacao ficou verde.`,'echo Pode desligar o cabo e configurar o Wi-Fi e a conta Google.','pause','exit /b 0',
-':erroinst','echo.','echo ERRO ao instalar o app. Confira o cabo e se a depuracao USB foi permitida, e rode de novo.','pause','exit /b 1',
-':erroowner','echo.','echo ERRO ao ativar a protecao. O celular precisa estar ZERADO e SEM conta Google.','echo Remova as contas (Configuracoes - Contas) ou restaure de fabrica e rode de novo.','pause','exit /b 1'
-  ].join('\r\n')+'\r\n';
+`curl -L -s -o nexumcell-trava.apk ${apk}`,
+'if not exist nexumcell-trava.apk goto erroapk',
+':inicio','cls',
+'echo ==============================================','echo   NEXUMCELL - INSTALAR A TRAVA PELO CABO USB','echo ==============================================','echo.',
+'set "TK="','set "NUM="','set "IMEI1="','set "IMEI2="','set "CLI="'];
+  if(varios){
+    L.push('echo Contratos aguardando a trava:','echo.');
+    lista.forEach(v=>L.push(`echo   ${v.numero}  -  ${limpo(v.clienteNome).slice(0,28)}  -  ${limpo((v.aparelho?.marca||'')+' '+(v.aparelho?.modelo||''))}  -  IMEI ${onlyDig(v.aparelho?.imei||'')||'?'}`));
+    L.push('echo.','set "ESC="','set /p ESC=Digite o numero do contrato e aperte ENTER (ou S para sair): ','if /i "%ESC%"=="S" exit /b 0');
+    lista.forEach(v=>L.push(`if "%ESC%"=="${v.numero}" set "TK=${v.aparelhoToken}"& set "NUM=${v.numero}"& set "IMEI1=${onlyDig(v.aparelho?.imei||'')}"& set "IMEI2=${onlyDig(v.aparelho?.imei2||'')}"& set "CLI=${limpo(v.clienteNome).slice(0,40)}"`));
+    L.push('if "%TK%"=="" echo Contrato nao encontrado na lista.& pause& goto inicio');
+  } else { const v=lista[0];
+    L.push(`set "TK=${v.aparelhoToken}"`,`set "NUM=${v.numero}"`,`set "IMEI1=${onlyDig(v.aparelho?.imei||'')}"`,`set "IMEI2=${onlyDig(v.aparelho?.imei2||'')}"`,`set "CLI=${limpo(v.clienteNome).slice(0,40)}"`); }
+  L.push(
+'echo Contrato %NUM% - %CLI%','echo.',
+'echo Ligue o celular no cabo USB e toque em PERMITIR na pergunta de depuracao USB.',
+':espera',
+'"%ADB%" devices > "%TEMP%\\nx_dev.txt" 2>nul',
+'set N=0','set "SER="','set NAUT=0',
+'for /f "usebackq skip=1 tokens=1,2" %%a in ("%TEMP%\\nx_dev.txt") do call :conta %%a %%b',
+'if %NAUT% GTR 0 if %N%==0 echo O celular esta ligado, mas falta tocar em PERMITIR na tela dele.& timeout /t 4 >nul& goto espera',
+'if %N%==0 timeout /t 3 >nul& goto espera',
+'if %N%==1 goto umso',
+'echo.','echo Ha %N% celulares ligados no cabo:','"%ADB%" devices -l','set "SER="',
+'set /p SER=Copie aqui o codigo (primeira coluna) do celular deste contrato e aperte ENTER: ',
+'if "%SER%"=="" goto espera',
+':umso',
+'set "D=-s %SER%"',
+'rem ---------- 1. conferencia antes de instalar ----------',
+'echo.','echo [1/5] Conferindo o aparelho...',
+'set "MARCA="','set "MODELO="','set "SDK=0"',
+'"%ADB%" %D% shell getprop ro.product.manufacturer > "%TEMP%\\nx_a.txt" 2>nul','set /p MARCA=<"%TEMP%\\nx_a.txt"',
+'"%ADB%" %D% shell getprop ro.product.model > "%TEMP%\\nx_a.txt" 2>nul','set /p MODELO=<"%TEMP%\\nx_a.txt"',
+'"%ADB%" %D% shell getprop ro.build.version.sdk > "%TEMP%\\nx_a.txt" 2>nul','set /p SDK=<"%TEMP%\\nx_a.txt"',
+'echo       Aparelho: %MARCA% %MODELO%',
+'if %SDK% LSS 26 goto erroandroid',
+'"%ADB%" %D% shell dumpsys device_policy > "%TEMP%\\nx_dp.txt" 2>nul',
+'findstr /i /c:"br.com.nexumcell.trava/.AdminReceiver" "%TEMP%\\nx_dp.txt" >nul && findstr /c:"Device Owner:" "%TEMP%\\nx_dp.txt" >nul && goto jadono',
+'findstr /c:"Device Owner:" "%TEMP%\\nx_dp.txt" >nul && goto errooutrodono',
+'"%ADB%" %D% shell dumpsys account > "%TEMP%\\nx_ac.txt" 2>nul',
+'findstr /c:"Account {" "%TEMP%\\nx_ac.txt" >nul && goto erroconta',
+'echo       Sem conta Google e sem outro administrador: OK',
+'rem ---------- 2. IMEI ----------',
+'echo [2/5] Conferindo o IMEI...',
+'set "LIDO="',
+`powershell -NoProfile -Command "$o=& '%ADB%' %D% shell service call iphonesubinfo 1 s16 com.android.shell 2>$null; $s=''; foreach($l in $o){ if($l -match [char]39+'(.*)'+[char]39){ $s+=$Matches[1] } }; $s=$s -replace '[^0-9]',''; if($s.Length -eq 15){ $s }" > "%TEMP%\\nx_im.txt" 2>nul`,
+'set /p LIDO=<"%TEMP%\\nx_im.txt"',
+'if "%LIDO%"=="" goto imeimanual',
+'if "%IMEI1%"=="" goto imeimanual',
+'if "%LIDO%"=="%IMEI1%" echo       IMEI %LIDO% confere com o contrato: OK& goto instalar',
+'if "%LIDO%"=="%IMEI2%" echo       IMEI %LIDO% confere com o contrato: OK& goto instalar',
+'echo.','echo       ATENCAO: o IMEI lido pelo cabo (%LIDO%) e DIFERENTE do contrato.','goto imeiperg',
+':imeimanual',
+'echo       Nao foi possivel ler o IMEI pelo cabo neste modelo.',
+':imeiperg',
+'echo       IMEI do contrato %NUM%: %IMEI1% %IMEI2%',
+'echo       No celular, digite *#06# no telefone e compare.',
+'set "CONF="','set /p CONF=O IMEI do celular e o mesmo do contrato? (S/N): ',
+'if /i not "%CONF%"=="S" goto erroimei',
+'rem ---------- 3. instalar ----------',
+':instalar',
+'echo [3/5] Instalando o app...',
+'"%ADB%" %D% install -r nexumcell-trava.apk > "%TEMP%\\nx_in.txt" 2>&1',
+'findstr /c:"Success" "%TEMP%\\nx_in.txt" >nul || goto erroinst',
+'echo [4/5] Ativando a protecao (dono do aparelho)...',
+'"%ADB%" %D% shell dpm set-device-owner br.com.nexumcell.trava/.AdminReceiver > "%TEMP%\\nx_ow.txt" 2>&1',
+'findstr /i /c:"Success" "%TEMP%\\nx_ow.txt" >nul || goto erroowner',
+':jadono',
+'echo       Ligando ao contrato %NUM%...',
+`powershell -NoProfile -Command "try{ $a=Invoke-RestMethod -Method Post -Uri ('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${k}') -ContentType 'application/json' -Body '{\\"returnSecureToken\\":true}'; $d=Invoke-RestMethod -Uri ('https://firestore.googleapis.com/v1/projects/${p}/databases/(default)/documents/aparelhos/%TK%') -Headers @{Authorization='Bearer '+$a.idToken}; $d.updateTime }catch{}" > "%TEMP%\\nx_b.txt" 2>nul`,
+'set "BASE="','set /p BASE=<"%TEMP%\\nx_b.txt"',
+`"%ADB%" %D% shell am start -a android.intent.action.VIEW -d "'nexumcell://ativar?t=%TK%&k=${k}&p=${p}&pc=%COMPUTERNAME%'" br.com.nexumcell.trava >nul 2>&1`,
+'rem ---------- 5. espera o aparelho dar sinal no sistema ----------',
+'echo [5/5] Aguardando o aparelho aparecer no sistema (ate 2 minutos). O celular precisa de internet (Wi-Fi ou chip)...',
+`powershell -NoProfile -Command "$k='${k}'; $p='${p}'; $t='%TK%'; try{ $a=Invoke-RestMethod -Method Post -Uri ('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+$k) -ContentType 'application/json' -Body '{\\"returnSecureToken\\":true}' }catch{ exit 2 }; $u='https://firestore.googleapis.com/v1/projects/'+$p+'/databases/(default)/documents/aparelhos/'+$t; $h=@{Authorization='Bearer '+$a.idToken}; $b='%BASE%'; for($i=0;$i -lt 40;$i++){ try{ $d=Invoke-RestMethod -Uri $u -Headers $h; $c=$d.fields.checkin.mapValue.fields; if($c -and ([string]$d.updateTime) -ne $b){ if($c.deviceOwner.booleanValue){ exit 0 } else { exit 3 } } }catch{}; Start-Sleep 3 }; exit 1"`,
+'if errorlevel 3 goto semdono',
+'if errorlevel 2 goto seminternetpc',
+'if errorlevel 1 goto semsinal',
+'echo.','echo ==============================================',
+'echo   PRONTO! Contrato %NUM% com a trava ativa.',
+'echo ==============================================',
+'echo   - O sistema ja recebeu o sinal do aparelho (instalacao verde).',
+'echo   - A depuracao USB foi desligada pela propria trava: o cabo nao controla mais o celular.',
+'echo   - Pode desligar o cabo, configurar o Wi-Fi e a conta Google do cliente.',
+'goto fim',
+':semsinal','echo.','echo A trava foi instalada, mas o aparelho ainda NAO deu sinal no sistema.','echo Ligue o Wi-Fi ou coloque o chip no celular, abra o app NexumCell e confira no sistema','echo se a instalacao ficou verde ANTES de entregar o aparelho.','goto fim',
+':seminternetpc','echo.','echo A trava foi instalada, mas este computador nao conseguiu consultar o sistema (sem internet?).','echo Confira no sistema se a instalacao ficou verde antes de entregar.','goto fim',
+':semdono','echo.','echo ATENCAO: o app abriu, mas SEM a protecao completa. Nao entregue o aparelho.','echo Restaure de fabrica e rode o instalador de novo.','goto fim',
+':erroandroid','echo.','echo NAO DA PARA INSTALAR: este celular tem Android antigo (anterior ao 8). A trava exige Android 8 ou mais novo.','goto fim',
+':errooutrodono','echo.','echo NAO DA PARA INSTALAR: o celular ja tem OUTRO aplicativo administrador (de outra financeira ou empresa).','echo Restaure o celular de fabrica e rode o instalador de novo.','goto fim',
+':erroconta','echo.','echo NAO DA PARA INSTALAR AINDA: o celular tem conta cadastrada (Google, Samsung, Xiaomi...).','echo No celular: Configuracoes - Contas - remova TODAS as contas. Depois rode o instalador de novo.','echo Se nao conseguir remover, restaure de fabrica e NAO coloque conta na configuracao inicial.','goto fim',
+':erroimei','echo.','echo PARE: o IMEI deste celular (%LIDO%) NAO e o do contrato %NUM% (%IMEI1% %IMEI2%).','echo Voce pegou o aparelho errado ou escolheu o contrato errado. Nada foi instalado.','goto fim',
+':erroinst','echo.','echo ERRO ao instalar o app:','type "%TEMP%\\nx_in.txt"','echo.',
+'echo %MARCA% | findstr /i "xiaomi redmi poco" >nul && echo XIAOMI / REDMI / POCO: em Opcoes do desenvolvedor ligue "Instalar via USB" e "Depuracao USB (Config. de seguranca)". Precisa de chip no aparelho e conta Mi so para ligar essa opcao - remova a conta depois.',
+'echo %MARCA% | findstr /i "realme oppo oneplus" >nul && echo REALME / OPPO: em Opcoes do desenvolvedor ligue "Desativar monitoramento de permissoes" e aceite a instalacao na tela do celular.',
+'echo %MARCA% | findstr /i "samsung" >nul && echo SAMSUNG: em Configuracoes - Seguranca e privacidade desligue o "Bloqueador automatico" e tente de novo.',
+'echo %MARCA% | findstr /i "vivo" >nul && echo VIVO: aceite o aviso de instalacao que aparece na tela do celular em ate 10 segundos.',
+'echo Em qualquer marca: olhe a tela do celular, pode haver uma pergunta esperando voce tocar em Instalar.','goto fim',
+':erroowner','echo.','echo ERRO ao ativar a protecao:','type "%TEMP%\\nx_ow.txt"','echo.',
+'findstr /i /c:"account" "%TEMP%\\nx_ow.txt" >nul && echo MOTIVO: ainda ha conta no celular. Remova TODAS em Configuracoes - Contas e rode de novo.',
+'findstr /i /c:"already set" /c:"already has" /c:"already provisioned" "%TEMP%\\nx_ow.txt" >nul && echo MOTIVO: o celular ja foi configurado com outro administrador ou outro usuario. Restaure de fabrica e rode de novo.',
+'findstr /i /c:"users on the device" "%TEMP%\\nx_ow.txt" >nul && echo MOTIVO: ha mais de um usuario, pasta segura ou espaco duplo no celular. Remova e rode de novo.',
+'echo %MARCA% | findstr /i "xiaomi redmi poco" >nul && echo XIAOMI / REDMI / POCO: ligue tambem "Depuracao USB (Config. de seguranca)" nas Opcoes do desenvolvedor.',
+'goto fim',
+':fim','echo.',
+varios?'set "DENOVO="':'pause',
+varios?'set /p DENOVO=Instalar em outro aparelho? Desligue este do cabo antes. (S/N): ':'exit /b 0',
+varios?'if /i "%DENOVO%"=="S" goto inicio':'',
+'exit /b 0',
+':erroadb','echo.','echo Nao foi possivel baixar as ferramentas do Google (ADB). Confira a internet deste computador e rode de novo.','pause','exit /b 1',
+':erroapk','echo.','echo Nao foi possivel baixar o app NexumCell. Confira a internet deste computador e rode de novo.','pause','exit /b 1',
+':conta','if "%2"=="device" set /a N+=1& set "SER=%1"','if "%2"=="unauthorized" set /a NAUT+=1','exit /b 0');
+  return L.filter(x=>x!=='').join('\r\n')+'\r\n';
 }
+function baixarBat(nome,txt){ const b=new Blob([txt],{type:'application/octet-stream'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=nome; document.body.appendChild(a); a.click(); a.remove(); }
 Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id); if(!v?.aparelhoToken) return toast('Trava ainda não gerada','err');
-  const b=new Blob([scriptInstPc(v)],{type:'application/octet-stream'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`instalar-trava-contrato-${v.numero}.bat`; document.body.appendChild(a); a.click(); a.remove();
-  await log('Instalador da trava (computador) baixado',v.id,''); toast('Instalador baixado. Abra o arquivo no computador.','ok'); } });
+  baixarBat(`instalar-trava-contrato-${v.numero}.bat`,scriptInstPc(v));
+  await log('Instalador da trava (computador) baixado',v.id,`contrato ${v.numero}`); toast('Instalador baixado. Abra o arquivo no computador.','ok'); },
+  baixarInstLoja:async()=>{ const vs=(can('DONO','SUPORTE','FINANCEIRO')?await DB.list('vendas',[['status','==','INSTALANDO']]):(await DB.list('vendas',[['lojaId','==',S.me.lojaId]])).filter(v=>v.status==='INSTALANDO')).filter(v=>v.aparelhoToken&&!v.aparelho?.semTrava).sort((a,b)=>a.numero-b.numero).slice(0,60);
+    if(!vs.length) return toast('Nenhum contrato aguardando a instalação da trava','err');
+    baixarBat('instalar-trava-loja.bat',scriptInstPc(vs));
+    await log('Instalador da trava da loja (computador) baixado','',`${vs.length} contrato(s): ${vs.map(v=>v.numero).join(', ')}`); toast(`Instalador baixado com ${vs.length} contrato(s). Baixe de novo quando houver vendas novas.`,'ok'); } });
 
 /* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
 const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
@@ -6380,7 +6490,7 @@ function saudeHtml(s){
   const al=[s.root&&badge('ROOT detectado','red'),s.modoDesenvolvedor&&badge('Modo desenvolvedor ligado','amber'),['ruim','superaquecida','sobretensão'].includes(s.bateriaSaude)&&badge('Bateria '+s.bateriaSaude,'amber'),s.temperatura>45&&badge(`${s.temperatura} °C`,'amber'),s.armTotalGb&&s.armLivreGb/s.armTotalGb<0.05&&badge('Memória quase cheia','amber')].filter(Boolean);
   return `<div class="small mt" style="margin-top:6px">Saúde: armazenamento <b>${s.armLivreGb??'—'} GB livres de ${s.armTotalGb??'—'} GB</b> · bateria <b>${esc(s.bateriaSaude||'—')}</b>${s.temperatura?` (${s.temperatura} °C)`:''}${s.ligadoHa!=null?` · ligado há ${esc(String(s.ligadoHa))} h`:''} ${al.join(' ')}</div>`;
 }
-{ const _ac=apCard; apCard=a=>{ const ck=a.checkin||{}, lk=ck.modo==='link'?(ck.adminAtivo?badge('Instalada por link','amber'):badge('Proteção DESATIVADA pelo cliente','red')):'', rl=ck.relogio?.adulterado?' '+badge('Data/hora do aparelho alterada'+(ck.relogio.diferencaMin?` (${Math.round(Math.abs(ck.relogio.diferencaMin)/60)} h)`:''),'red'):'', gl=ck.googleLock==='ativo'?' '+badge('Trava oficial do Google ativa','green'):ck.googleLock==='disponivel'?' '+badge('Compatível com Device Lock do Google','navy'):''; const h=_ac(a).replace('</b>','</b>'+lk+rl+gl), s=saudeHtml(ck.saude); if(!s) return h; const k='</div><div class="row" style="justify-content:flex-end'; const i=h.indexOf(k); return i<0?h:h.slice(0,i)+s+h.slice(i); }; }
+{ const _ac=apCard; apCard=a=>{ const ck=a.checkin||{}, lk=ck.modo==='link'?(ck.adminAtivo?badge('Instalada por link','amber'):badge('Proteção DESATIVADA pelo cliente','red')):'', rl=ck.relogio?.adulterado?' '+badge('Data/hora do aparelho alterada'+(ck.relogio.diferencaMin?` (${Math.round(Math.abs(ck.relogio.diferencaMin)/60)} h)`:''),'red'):'', gl=ck.googleLock==='ativo'?' '+badge('Trava oficial do Google ativa','green'):ck.googleLock==='disponivel'?' '+badge('Compatível com Device Lock do Google','navy'):''; const pc=ck.instaladoPc?' '+badge('Instalada pelo cabo · '+ck.instaladoPc,'gray'):''; const h=_ac(a).replace('</b>','</b>'+lk+rl+gl+pc), s=saudeHtml(ck.saude); if(!s) return h; const k='</div><div class="row" style="justify-content:flex-end'; const i=h.indexOf(k); return i<0?h:h.slice(0,i)+s+h.slice(i); }; }
 
 /* ---- Seminovos à venda no site do cliente ---- */
 { const _pv=publicarVitrine; let _snT; publicarVitrine=(...a)=>{ _pv(...a); if(!can('DONO')) return; clearTimeout(_snT); _snT=setTimeout(async()=>{ try{
@@ -6961,7 +7071,7 @@ $('#lOlho').addEventListener('click',()=>{ const i=$('#lSenha'), v=i.type==='pas
   if(FB_ON){ try{ await fbInit(); }catch(e){ console.error(e); mostrarLogin(); $('#lMsg').textContent='Não foi possível conectar ao servidor. Verifique a internet e recarregue.'; } }
   else mostrarLogin();
 })();
-window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito};
+window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
 </script>
 </body>
 </html>
