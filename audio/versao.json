@@ -327,6 +327,46 @@
   "h": "dda2b40911",
   "texto": "Em Trocas e devoluções ficam os pedidos dentro da garantia de troca de sete dias. Para registrar, abra a venda e toque em Troca ou devolução. O gerente registra; o Dono ou o Financeiro executam."
  },
+ "nov-semana-0": {
+  "h": "3e74bda933",
+  "texto": "Olá! Toda semana a NexumCell traz novidades, e eu vou te mostrar as desta semana para você usar já no atendimento. Preste atenção, porque isso ajuda o cliente a pagar em dia e deixa a sua venda mais fácil."
+ },
+ "nov-semana-1": {
+  "h": "9d902dc229",
+  "texto": "No aplicativo do cliente tem um botão novo: Pedir para alguém pagar por você. Ele gera o PIX daquela parcela, com QR Code e o código copia e cola, pronto para mandar no WhatsApp. Assim o pai, a mãe ou o patrão do cliente paga por ele, de qualquer banco, e cai direto na parcela. Quando o cliente disser que está sem dinheiro no momento, lembre dele que outra pessoa pode pagar por aqui."
+ },
+ "nov-semana-2": {
+  "h": "ad0c59842f",
+  "texto": "Outra novidade: a promessa de pagamento. O cliente em atraso escolhe no próprio celular um dia para pagar, e o aparelho fica liberado até lá. É uma vez só por contrato. Explique que é para quem vai receber em poucos dias e não quer ficar sem o celular enquanto isso."
+ },
+ "nov-semana-3": {
+  "h": "b18b810580",
+  "texto": "O cliente também pode baixar o carnê digital, com o PIX de cada parcela, e acionar a Proteção NexumCell direto pelo aplicativo, mandando fotos do aparelho. E no aniversário ele recebe uma mensagem de parabéns, às vezes com um desconto na parcela. Tudo isso você pode mostrar para o cliente na hora da venda, como vantagem de comprar com a gente."
+ },
+ "nov-semana-4": {
+  "h": "9df2a76354",
+  "texto": "Pronto! Você já está por dentro das novidades da semana. Na próxima semana eu volto com mais. Bom trabalho e boas vendas!"
+ },
+ "nov-gestao-0": {
+  "h": "07cd1ae4d4",
+  "texto": "Olá, gestor! O Painel ganhou uma faixa de Hoje, ao vivo: vendas de hoje, o que foi recebido hoje, as parcelas que vencem hoje e os aparelhos travados agora. É a visão rápida do dia, com um botão para atualizar quando quiser."
+ },
+ "nov-gestao-1": {
+  "h": "482d8ec473",
+  "texto": "Mais abaixo, o ranking das lojas, ordenado por uma nota de saúde da carteira: quanto menor a inadimplência, maior a nota, de zero a cem, em verde, amarelo ou vermelho. E o ranking dos vendedores, com medalha para os três primeiros do mês. Use isso para comparar as lojas e cobrar quem está para trás."
+ },
+ "nov-gestao-2": {
+  "h": "ed98a90c3f",
+  "texto": "Novidade importante: o simulador e o contrato agora mostram a taxa de juros ao mês e ao ano, o IOF e o Custo Efetivo Total, o CET. O CET é tudo o que o cliente paga, já com o imposto incluído. Toda financeira séria mostra isso. Então seja transparente: quando o cliente perguntar o juro, mostre o CET no contrato. Isso passa confiança e evita problema depois."
+ },
+ "nov-gestao-3": {
+  "h": "d12530fa04",
+  "texto": "E quando a remoção pela internet não funciona, agora tem o botão Remover a trava, no Dono e no Suporte. Ele gera um código de dez números que a equipe digita no próprio aparelho, na tela de bloqueio, em Tenho um código da loja. O aparelho tira a proteção e o aplicativo se desinstala. Lembre: esse código é só da nossa trava, e serve para quando o aparelho está travado e sem internet."
+ },
+ "nov-gestao-4": {
+  "h": "f82279f433",
+  "texto": "É isso! Você já pode usar as novidades de gestão da semana. Até a próxima aula!"
+ },
  "fim": {
   "h": "9b8ce4f999",
   "texto": "Parabéns! Você concluiu o treinamento. Até a próxima!"
