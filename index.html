@@ -6274,7 +6274,10 @@ function irCena(i){
     tela.style.setProperty('--ox',cx+'%'); tela.style.setProperty('--oy',cy+'%'); if(z>1.05) setTimeout(()=>{ tela.style.setProperty('--z',z.toFixed(2)); tela.classList.add('zoom'); },900); }
   $('#tvLeg').textContent=s.f; $('#tvCont').textContent=`${_tv.i+1} / ${c.cenas.length}`; $('#tvProg').style.width=((_tv.i+1)/c.cenas.length*100)+'%';
   if(!_tv.tocando) return;
-  const seguir=()=>{ falando(false); if(_tv&&_tv.tocando) _tv.tm=setTimeout(()=>irCena(_tv.i+1),1400); };
+  // tempo mínimo por cena: se a voz falhar ou terminar antes da hora (acontece em alguns navegadores), a cena ainda fica o tempo de leitura
+  const t0=Date.now(), minimo=Math.max(6000,s.f.length*62), cenaI=_tv.i; let seguiu=false;
+  const seguir=()=>{ falando(false); if(seguiu||!_tv||!_tv.tocando||_tv.i!==cenaI) return; seguiu=true; clearTimeout(_tv.tm);
+    _tv.tm=setTimeout(()=>{ if(_tv&&_tv.tocando&&_tv.i===cenaI) irCena(cenaI+1); },1800+Math.max(0,minimo-(Date.now()-t0))); };
   if(_tv.mudo){ falando(true); _tv.tm=setTimeout(seguir,Math.max(5000,s.f.length*70)); return; }
   const mp3=audioDe(c.id+'-'+_tv.i,s.f), falarTTS=()=>falarNavegador(s,seguir);
   if(mp3){ const au=new Audio(); au.crossOrigin='anonymous'; au.preload='auto'; au.src=mp3; _tv.audio=au; labios(au);
@@ -6312,7 +6315,7 @@ async function concluirCurso(c,nota){
   $('#tvCena').innerHTML=`<div class="tv-cena-in"><div class="tv-fim"><div class="tv-check">✓</div><h3>${apto?'Treinamento concluído!':'Aula concluída'}</h3><p>${esc(c.titulo)}</p>${emGate&&!apto&&prox?`<p class="small muted">Próxima: ${esc(prox.titulo)} — começa sozinha em instantes.</p>`:''}<button class="btn gold" id="tvFim">${apto?'Concluir treinamento':(emGate&&prox?'Próxima aula ▶':'Continuar')}</button></div></div>`;
   $('#tvLeg').textContent=apto?'Parabéns! Você concluiu todo o treinamento.':'Boa! Vamos para a próxima aula.';
   $('#tvFim').onclick=irAdiante;
-  if(emGate){ _proxTm=setTimeout(()=>{ if($('#tvPlayer')) irAdiante(); }, apto?3800:3000); }
+  if(emGate){ _proxTm=setTimeout(()=>{ if($('#tvPlayer')) irAdiante(); }, 6000); }
   const fimMp3=audioDe('fim','Parabéns! Você concluiu o treinamento. Até a próxima!');
   if(fimMp3&&!_tv.mudo){ const au=new Audio(); au.crossOrigin='anonymous'; au.src=fimMp3; _tv.audio=au; labios(au); au.play().catch(()=>{}); }
 }
