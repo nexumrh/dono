@@ -5231,7 +5231,7 @@ async function removerEmMassa(){
       <li>${travados} estão travados/sem sinal — só removem quando pegarem internet. Para esses, use <b>“Remover a trava”</b> no aparelho (código no celular).</li></ul>
     <p class="mt">Para confirmar, digite <b>REMOVER</b> abaixo:</p>
     <input id="rmConf" placeholder="REMOVER" autocomplete="off" style="text-transform:uppercase">
-    <div class="row mt" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn red" id="rmGo" disabled>Remover as travas</button></div>`);
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn red" id="rmGo" disabled>Remover as travas</button></div>`);
   $('#rmConf').addEventListener('input',e=>{ $('#rmGo').disabled=e.target.value.trim().toUpperCase()!=='REMOVER'; });
   $('#rmGo').onclick=async(e)=>{ e.target.disabled=true; e.target.textContent='Removendo…';
     const ops=base.map(a=>({c:'aparelhos',id:a.id,data:{removerRemoto:true,modo:'AUTO',removocao:{por:S.me.nome,em:Date.now(),massa:true}}}));
@@ -6347,7 +6347,7 @@ function liberarVendas(){
   $('#trilha')?.remove();
   openModal(`<div style="text-align:center;padding:10px 4px"><div class="tv-check" style="margin:0 auto 12px">✓</div><h2 style="justify-content:center">Parabéns, ${esc(primeiroNome(S.me.nome))}!</h2>
     <p style="font-size:17px"><b>Agora você está apto a vender na NexumCell.</b></p><p class="muted">O sistema de vendas foi liberado. Toda semana há novas aulas no menu Treinamento: fique de olho.</p>
-    <button class="btn gold lg mt" onclick="closeModal()">Começar a vender</button></div>`);
+    <button class="btn gold lg mt" data-act="closeModal">Começar a vender</button></div>`);
   S.tab='inicio'; render();
 }
 { const _is=iniciarSessao; iniciarSessao=async(...a)=>{ await _is(...a); try{ if(precisaTrilha()) mostrarTrilha(); }catch(e){ console.warn('trilha',e); } }; }
