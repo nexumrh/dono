@@ -619,6 +619,7 @@ const DEMO_KEY='nexumcell_demo_v1';
 function demoSave(){ try{ localStorage.setItem(DEMO_KEY, JSON.stringify(demo)); }catch(e){} }
 function demoInit(reset){ let d=null; if(!reset){ try{ d=JSON.parse(localStorage.getItem(DEMO_KEY)); }catch(e){} } demo=d||seedDemo(); demoSave(); }
 const dcol = c => demo[c] || (demo[c]={});
+const listarLojas=async()=>(await DB.list('lojas')).filter(l=>!l.encerrada);
 const DB = {
   async get(c,id){ if(!fb){ const v=dcol(c)[id]; return v?{id,...clone(v)}:null; } let s; try{ s=await fb.m.getDoc(fb.m.doc(fb.db,c,id)); }catch(e){ e.alvo='ler '+c; throw e; } return s.exists()?{id:s.id,...s.data()}:null; },
   async set(c,id,data){ if(c==='aparelhos') avisarAparelhos([id],data); data=clone(data); delete data.id; if(!fb){ dcol(c)[id]=Object.assign(dcol(c)[id]||{},data); demoSave(); return; } try{ await fb.m.setDoc(fb.m.doc(fb.db,c,id),data,{merge:true}); }catch(e){ e.alvo='gravar '+c+' · '+Object.keys(data).slice(0,6).join(','); throw e; } },
@@ -789,7 +790,7 @@ async function iniciarSessao(perfil){
   S.me=perfil;
   const sis=await DB.get('config','sistema').catch(()=>null);
   S.cfg={...CFG_PADRAO,...(sis||{})};
-  S.lojas=await DB.list('lojas');
+  S.lojas=await listarLojas();
   $('#login').hidden=true; $('#app').hidden=false;
   $('#empresaNome').textContent=P.nome;
   $('#me').innerHTML=`<div class="who">${esc(S.me.nome)}</div><div class="role">${esc(ROLES[S.me.role])}${S.me.lojaId?' · '+esc(lojaNome(S.me.lojaId)):''}</div><div class="row"><button class="btn sm" data-act="logout">Sair</button>${S.me.role==='DONO'?'<button class="btn sm" data-act="portais">Portais</button>':''}</div>`;
@@ -4472,7 +4473,7 @@ async function catTodos(liberar){
 
 /* ---------- LOJAS E CONFIGURAÇÕES ---------- */
 PAGES.config = async () => {
-  S.lojas=await DB.list('lojas'); const c=S.cfg, cat=await DB.list('catalogo');
+  S.lojas=await listarLojas(); const c=S.cfg, cat=await DB.list('catalogo');
   const f=(k,l,t='text',x='')=>`<label>${l}<input data-cfg="${k}" type="${t}" value="${esc(c[k])}" ${x}></label>`;
   $('#view').innerHTML=`
   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lojas</h2><button class="btn sm gold" data-act="editarLoja" data-id="">Nova loja</button></div>
@@ -4548,7 +4549,7 @@ async function editarLoja(id){
 async function salvarLoja(id){
   const d={nome:$('#lgNome').value.trim(),cidade:$('#lgCid').value.trim(),telefone:$('#lgTel').value.trim(),lat:$('#lgLat').value===''?null:+$('#lgLat').value,lng:$('#lgLng').value===''?null:+$('#lgLng').value,raio:+$('#lgRaio').value||150}; if(!d.nome){ toast('Nome da loja','err'); return; }
   if(id) await DB.set('lojas',id,d); else await DB.add('lojas',d);
-  S.lojas=await DB.list('lojas'); closeModal(); render();
+  S.lojas=await listarLojas(); closeModal(); render();
 }
 
 /* ======================= EVENTOS ======================= */
@@ -4782,7 +4783,7 @@ const SITUACAO_SAAS={TESTE:['Em teste','navy'],EM_DIA:['Em dia','green'],ATRASAD
 const unidadesDe = s => Array.isArray(s.lojas)&&s.lojas.length?s.lojas:[{nome:s.fantasia,cidade:s.cidade,uf:s.uf,telefone:s.telefone,endereco:s.endereco,cep:s.cep,cnpj:'',status:'PENDENTE',gerente:{nome:s.respNome,cpf:s.respCpf,email:s.respEmail,telefone:s.respTelefone}}];
 const urlSite = () => new URL('site.html',(window.NEXUMCELL_URLS?.gerente||urlPortal('GERENTE'))).href;
 PAGES.lojas = async () => {
-  const [sol,cad,lojas,us,emps]=await Promise.all([DB.list('solicitacoesLoja'),DB.list('cadastrosVendedor'),DB.list('lojas'),DB.list('users'),DB.list('empresas').catch(()=>[])]); S.lojas=lojas;
+  const [sol,cad,lojas,us,emps]=await Promise.all([DB.list('solicitacoesLoja'),DB.list('cadastrosVendedor'),listarLojas(),DB.list('users'),DB.list('empresas').catch(()=>[])]); S.lojas=lojas;
   const pend=sol.filter(s=>s.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm), cpend=cad.filter(c=>c.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm);
   const site=urlSite();
   $('#topActions').innerHTML=`<button class="btn" data-act="copiarTexto" data-t="${esc(site)}">Copiar link do site</button> <a class="btn" href="${esc(site)}${DEMO?'?demo':''}" target="_blank" rel="noopener">Abrir o site de vendas</a> <button class="btn" data-act="planosSaas">Planos e mensalidade</button>`;
@@ -4790,7 +4791,7 @@ PAGES.lojas = async () => {
   const linhaLoja=l=>{ const gs=us.filter(u=>u.lojaId===l.id&&u.role==='GERENTE'), vs=us.filter(u=>u.lojaId===l.id&&u.role==='VENDEDOR'&&u.ativo); return `<tr>
       <td style="padding-left:22px"><b>${esc(l.nome)}</b>${l.filial?' '+badge('filial','gray'):''}<div class="small muted">${esc(l.cidade||'')}${l.uf?'/'+esc(l.uf):''}</div></td><td>${gs.map(g=>esc(g.nome)).join(', ')||'<span class="muted">—</span>'}</td><td>${vs.length}</td>
       <td>${l.bloqueada?badge(l.bloqueioAuto?'Bloqueada (mensalidade)':'Bloqueada','red')+`<div class="small muted">${esc(l.motivoBloqueio||'')}</div>`:badge('Ativa','green')}</td>
-      <td class="right"><button class="btn sm" data-act="pessoasLoja" data-id="${l.id}">Pessoas</button> ${l.bloqueada?`<button class="btn sm gold" data-act="desbloquearLoja" data-id="${l.id}">Desbloquear</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${l.id}">Bloquear</button>`}</td></tr>`; };
+      <td class="right"><button class="btn sm" data-act="pessoasLoja" data-id="${l.id}">Pessoas</button> ${!gs.length&&!vs.length?`<button class="btn sm" style="color:var(--bad)" data-act="excluirLoja" data-id="${l.id}">Excluir</button> `:''}${l.bloqueada?`<button class="btn sm gold" data-act="desbloquearLoja" data-id="${l.id}">Desbloquear</button>`:`<button class="btn sm" style="color:var(--bad)" data-act="bloquearLoja" data-id="${l.id}">Bloquear</button>`}</td></tr>`; };
   $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">As empresas se cadastram pelo <b>site de vendas</b> com a matriz e as filiais, cada uma com o seu gerente. Você aprova cada loja e o login do gerente sai daqui, por e-mail. Os vendedores o gerente cadastra e você aprova abaixo.</p>
   <div class="card"><h2>Cadastros para aprovar ${pend.length?badge(pend.length,'amber'):''}</h2><div class="tablewrap"><table><tr><th>Empresa</th><th>CNPJ</th><th>Pedido</th><th>Plano</th><th>Responsável</th><th>Enviado</th><th></th></tr>
     ${pend.map(s=>{ const u=unidadesDe(s); return `<tr><td><b>${esc(s.fantasia)}</b><div class="small muted">${esc(s.razao||'')}</div></td><td class="mono">${esc(fmtCnpj(s.cnpj))}</td>
@@ -4827,11 +4828,13 @@ async function aprovarLoja(id){
         plano:s.plano||'',planoNome:s.planoNome||'',porLoja:+s.porLoja||0,situacao:'SEM_COBRANCA',criadoEm:Date.now(),solicitacaoId:id});
       for(const i of sel){ const l=u[i];
         try{
-          const lojaId='l_'+token(10);
-          await DB.set('lojas',lojaId,{nome:l.nome,cidade:l.cidade||'',uf:l.uf||'',telefone:fmtFone(l.telefone||''),cnpj:l.cnpj||'',endereco:l.endereco||'',cep:l.cep||'',empresaId,empresaNome:s.fantasia,filial:filial||i>0,criadoEm:Date.now(),solicitacaoId:id});
-          S.lojas=await DB.list('lojas');
+          const lojaId=l.lojaId||('l_'+String(id).replace(/[^A-Za-z0-9]/g,'').slice(0,14)+'_'+i), nova=!(await DB.get('lojas',lojaId));
+          try{
+          await DB.set('lojas',lojaId,{encerrada:false,nome:l.nome,cidade:l.cidade||'',uf:l.uf||'',telefone:fmtFone(l.telefone||''),cnpj:l.cnpj||'',endereco:l.endereco||'',cep:l.cep||'',empresaId,empresaNome:s.fantasia,filial:filial||i>0,criadoEm:Date.now(),solicitacaoId:id});
+          S.lojas=await listarLojas();
           const a=await criarAcesso({nome:l.gerente.nome,email:l.gerente.email,tel:l.gerente.telefone,senha:SENHA_PADRAO,role:'GERENTE',lojaId,extra:{cpf:l.gerente.cpf||'',empresaId}});
           enviarAcessoEmail(a.email,a.assunto,a.corpo); lojasNovas[i]={...l,status:'APROVADO',lojaId,gerenteUid:a.uid}; feitos.push(`${l.nome}: ${a.nome} · ${a.codigo}`);
+          }catch(e){ if(nova){ await DB.set('lojas',lojaId,{encerrada:true,encerradaEm:Date.now(),encerradaMotivo:'Aprovação não concluída'}).catch(()=>{}); S.lojas=await listarLojas(); } throw e; }
         }catch(e){ erros.push(`${l.nome}: ${e.code==='auth/email-already-in-use'?'o e-mail do gerente já tem acesso':e.message}`); }
       }
       u.forEach((l,i)=>{ if(!sel.includes(i)&&(l.status||'PENDENTE')==='PENDENTE') lojasNovas[i]={...l,status:'RECUSADO'}; });
@@ -4844,6 +4847,17 @@ async function aprovarLoja(id){
       render();
     }catch(e){ toast(e.message,'err'); b.disabled=false; b.textContent='Aprovar e enviar os logins'; }
   };
+}
+async function excluirLoja(id,btn){
+  const l=await DB.get('lojas',id); if(!l) return;
+  const us=(await DB.list('users')).filter(u=>u.lojaId===id), vd=await DB.list('vendas',[['lojaId','==',id]]).catch(()=>[]);
+  if(us.length||vd.length) return toast('Esta loja tem pessoas ou vendas. Use Bloquear em vez de excluir.','err');
+  if(!confirm(`Excluir a loja "${l.nome}"${l.empresaNome?' de '+l.empresaNome:''}?\n\nEla não tem gerente, vendedores nem vendas. Sai da lista e deixa de contar na mensalidade.`)) return;
+  if(btn) btn.disabled=true;
+  await DB.set('lojas',id,{encerrada:true,encerradaEm:Date.now(),encerradaPor:S.me.nome}); S.lojas=await listarLojas();
+  await log('Loja excluída',id,l.nome);
+  if(l.empresaId&&servLigado()&&fb){ try{ const e=await DB.get('empresas',l.empresaId); if(e?.asaasAssinatura) await apiServ('saas',{acao:'atualizar',empresaId:l.empresaId}); }catch(e){} }
+  toast('Loja excluída','ok'); render();
 }
 async function recusarLoja(id){
   const s=await DB.get('solicitacoesLoja',id); const motivo=prompt(`Motivo da recusa de ${s.fantasia} (vai no e-mail):`); if(motivo===null) return;
@@ -5010,7 +5024,7 @@ PAGES.comissoes = async () => {
     return;
   }
   // Dono / Financeiro: visão de todas as lojas
-  const [vendas,us,pg,lojas]=await Promise.all([loadVendas(),DB.list('users'),DB.list('comissoesPagas'),DB.list('lojas')]);
+  const [vendas,us,pg,lojas]=await Promise.all([loadVendas(),DB.list('users'),DB.list('comissoesPagas'),listarLojas()]);
   const vs=us.filter(u=>u.role==='VENDEDOR'), doMes=pg.filter(p=>p.mes===mes);
   const linhas=lojas.map(l=>{ const v=vs.filter(u=>u.lojaId===l.id); const dev=r2(v.reduce((a,u)=>a+comissaoVend(vendas,u.id,mes,u),0)); const p=doMes.filter(x=>x.lojaId===l.id);
     return {l,dev,pago:r2(p.reduce((a,x)=>a+(+x.valor||0),0)),conf:r2(p.filter(x=>x.confirmado).reduce((a,x)=>a+(+x.valor||0),0)),semCompr:p.filter(x=>!x.comprovante).length,cont:p.filter(x=>x.contestado).length,v,p}; });
@@ -5216,7 +5230,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+Object.assign(ACT,{ excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
@@ -5275,7 +5289,7 @@ verificarLicenca();
 if(PORTAL==='gerente'){ const m=document.getElementById('lMsg'); m&&m.insertAdjacentHTML('afterend',`<p class="small" style="text-align:center;margin-top:14px">Quer vender no crediário com a ${esc(MARCA)}? <a href="site.html${DEMO?'?demo':''}">Cadastre sua loja e filiais</a></p>`); }
 // limite de lojas do plano
 { const _a=aprovarLoja; aprovarLoja=async function(id){ const lim=+S.licenca?.limiteLojas||0;
-  if(lim>0){ const n=(await DB.list('lojas')).length; if(n>=lim) return toast(`Seu plano permite ${lim} loja(s). Fale com a NexumCell para aumentar.`,'err'); }
+  if(lim>0){ const n=(await listarLojas()).length; if(n>=lim) return toast(`Seu plano permite ${lim} loja(s). Fale com a NexumCell para aumentar.`,'err'); }
   return _a(id); }; }
 
 /* ---------- Painel SaaS (só no sistema master da NexumCell) ---------- */
@@ -6132,7 +6146,7 @@ function saudeHtml(s){
 const PIX_TIPOS=[['CNPJ','CNPJ'],['CPF','CPF'],['EMAIL','E-mail'],['TELEFONE','Telefone'],['ALEATORIA','Chave aleatória']];
 { const _el=editarLoja; editarLoja=async id=>{ await _el(id); if(!can('DONO','FINANCEIRO')) return; const l=id?S.lojas.find(x=>x.id===id)||{}:{};
   const btn=document.querySelector('[data-act="salvarLoja"]'); btn?.closest('.row').insertAdjacentHTML('beforebegin',`<h3>Chave PIX para o repasse</h3><div class="grid g3"><label>Tipo<select id="lgPixTipo">${PIX_TIPOS.map(([k,t])=>`<option value="${k}" ${l.pixTipo===k?'selected':''}>${t}</option>`).join('')}</select></label><label style="grid-column:span 2">Chave PIX da loja<input id="lgPix" value="${esc(l.pixChave||'')}" placeholder="a chave que recebe o repasse"></label></div><p class="hint">Confira com o gerente: o repasse automático manda o dinheiro direto para esta chave.</p><h3>Wi-Fi da loja (vai dentro do QR da trava)</h3><div class="grid g2"><label>Nome da rede (Wi-Fi)<input id="lgWifi" value="${esc(l.wifiSsid||'')}"></label><label>Senha do Wi-Fi<input id="lgWifiSenha" value="${esc(l.wifiSenha||'')}"></label></div>`); }; }
-{ const _sl=salvarLoja; salvarLoja=async id=>{ const tp=$('#lgPixTipo')?.value, ch=$('#lgPix')?.value.trim(), wf=$('#lgWifi')?.value||'', ws=$('#lgWifiSenha')?.value||''; await _sl(id); if(tp!=null&&id) await DB.set('lojas',id,{pixTipo:tp,pixChave:ch||'',wifiSsid:wf.trim(),wifiSenha:ws}).catch(e=>toast(e.message,'err')); if(tp!=null) S.lojas=await DB.list('lojas'); }; }
+{ const _sl=salvarLoja; salvarLoja=async id=>{ const tp=$('#lgPixTipo')?.value, ch=$('#lgPix')?.value.trim(), wf=$('#lgWifi')?.value||'', ws=$('#lgWifiSenha')?.value||''; await _sl(id); if(tp!=null&&id) await DB.set('lojas',id,{pixTipo:tp,pixChave:ch||'',wifiSsid:wf.trim(),wifiSenha:ws}).catch(e=>toast(e.message,'err')); if(tp!=null) S.lojas=await listarLojas(); }; }
 async function repAsaas(btn){
   const ids=[...document.querySelectorAll('[data-rep]:checked')].map(c=>c.dataset.rep);
   if(!ids.length) return toast('Marque as vendas para repassar','err');
