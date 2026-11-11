@@ -387,6 +387,7 @@ details summary{cursor:pointer}
 .trilha-aviso{background:#FFF7DD;border:1px solid #F0DA94;color:#5B4500;border-radius:10px;padding:12px 14px;margin:0}
 @media(max-width:640px){.trilha-topo{flex-direction:column-reverse;text-align:center}.tv-card{flex-wrap:wrap}.tv-card .tv-thumb{width:100%;flex-basis:100%;height:110px}.tv-img img{max-height:300px}}
 .rel-tab td,.rel-tab th{white-space:nowrap;font-size:13px}
+.pulse{display:inline-block;width:9px;height:9px;border-radius:50%;background:#15803D;margin-left:6px;box-shadow:0 0 0 0 rgba(21,128,61,.6);animation:pulse 1.8s infinite}@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(21,128,61,0)}100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}}
 @media(max-width:640px){.tv-palco{flex-direction:column;min-height:0;padding:16px}.tv-apres{flex:0 0 auto}.tv-robo{width:130px;height:130px}.tv-robo svg{width:124px;height:142px}}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -854,12 +855,32 @@ PAGES.painel = async () => {
     else { carteira+=p.valor; if(stParc(p)==='atraso'){ atraso+=p.valor; contratosAtraso.add(v.id); } }
   }));
   const travados=aps.filter(a=>a.checkin?.em && !a.quitado && a.status!=='CANCELADO' && avaliar(a).travar).length;
+  const limSumido=(Number(S.cfg.maxDiasOffline)||15)*86400000;
+  const sumidos=aps.filter(a=>!a.quitado && a.status==='ATIVO' && (!a.checkin?.em || Date.now()-a.checkin.em>limSumido)).length;
   const semInst=vendas.filter(v=>v.status==='INSTALANDO').length;
   const pend=vendas.filter(v=>v.status==='ANALISE').length;
   const inad=carteira?(atraso/carteira*100):0;
-  const porLoja={}; ativas.forEach(v=>{ const k=v.lojaId; porLoja[k]=porLoja[k]||{vendas:0,fin:0,atraso:0}; if(doMes.includes(v)){porLoja[k].vendas++; porLoja[k].fin+=v.financiado;} (v.parcelas||[]).forEach(p=>{ if(stParc(p)==='atraso') porLoja[k].atraso+=p.valor; }); });
+  // números de HOJE (ao vivo)
+  const hj=hoje(); let vendHoje=0, recebHoje=0, venceHoje=0, venceHojeV=0;
+  ativas.forEach(v=>{ if(v.entradaPaga&&isoDate(new Date(v.entradaPaga.em))===hj) vendHoje++;
+    (v.parcelas||[]).forEach(p=>{ if(p.pago){ if(String(p.pagoEm||'')===hj) recebHoje+=Number(p.valorPago||p.valor); } else if(p.venc===hj){ venceHoje++; venceHojeV+=Number(p.valor)||0; } }); });
+  const porLoja={}; ativas.forEach(v=>{ const k=v.lojaId; porLoja[k]=porLoja[k]||{vendas:0,fin:0,atraso:0,carteira:0,receb:0,contr:0,atr:0};
+    if(v.status==='ATIVA') porLoja[k].contr++;
+    if(doMes.includes(v)){porLoja[k].vendas++; porLoja[k].fin+=v.financiado;}
+    let temAtr=false; (v.parcelas||[]).forEach(p=>{ if(p.pago){ if(String(p.pagoEm||'').startsWith(mes)) porLoja[k].receb+=Number(p.valorPago||p.valor); } else { porLoja[k].carteira+=p.valor; if(stParc(p)==='atraso'){ porLoja[k].atraso+=p.valor; temAtr=true; } } }); if(temAtr) porLoja[k].atr++; });
+  Object.values(porLoja).forEach(o=>{ o.inad=o.carteira?o.atraso/(o.carteira||1)*100:0; o.nota=Math.max(0,Math.min(100,Math.round(100-o.inad*1.6))); });
+  const rankLoja=Object.entries(porLoja).sort((a,b)=>b[1].nota-a[1].nota||b[1].vendas-a[1].vendas);
   const porVend={}; doMes.forEach(v=>{ porVend[v.vendedorNome]=porVend[v.vendedorNome]||{q:0,v:0}; porVend[v.vendedorNome].q++; porVend[v.vendedorNome].v+=v.valor; });
   $('#view').innerHTML=`
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><h2 style="margin:0">Hoje <span class="pulse" title="ao vivo"></span></h2><button class="btn sm" data-act="atualizarPainel">Atualizar</button></div>
+  <div class="grid g4">
+    <div class="kpi"><small>Vendas hoje</small><b>${vendHoje}</b></div>
+    <div class="kpi"><small>Recebido hoje</small><b style="color:var(--ok)">${brl(recebHoje)}</b></div>
+    <div class="kpi ${venceHoje?'':''}"><small>Vencem hoje</small><b>${venceHoje}</b><span>${brl(venceHojeV)}</span></div>
+    <div class="kpi ${travados?'alert':''}"><small>Travados agora</small><b>${travados}</b></div>
+  </div>
+  ${sumidos?`<div class="aviso-alerta" style="background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span>⚠ <b>${sumidos} aparelho(s) sumido(s)</b> — sem dar sinal há mais de ${Number(S.cfg.maxDiasOffline)||15} dias. Pode ser tentativa de burlar a trava.</span><button class="btn sm red" data-act="semSinal">Ver quais</button></div>`:''}
+  <h2 class="mt" style="margin-bottom:8px">No mês</h2>
   <div class="grid g4">
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
     <div class="kpi"><small>Recebido no mês</small><b>${brl(recebidoMes)}</b><span>parcelas baixadas</span></div>
@@ -872,11 +893,11 @@ PAGES.painel = async () => {
     <div class="kpi"><small>Vendas em análise</small><b>${pend}</b></div>
   </div>
   <div class="grid g2 mt">
-    <div class="card"><h2>Por loja</h2><div class="tablewrap"><table><tr><th>Loja</th><th class="right">Vendas mês</th><th class="right">Financiado</th><th class="right">Em atraso</th></tr>
-      ${Object.entries(porLoja).map(([k,o])=>`<tr><td>${esc(lojaNome(k))}</td><td class="right">${o.vendas}</td><td class="right">${brl(o.fin)}</td><td class="right">${brl(o.atraso)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Sem dados</td></tr>'}
+    <div class="card"><h2>Ranking das lojas <span class="small muted">(nota por saúde da carteira)</span></h2><div class="tablewrap"><table><tr><th>#</th><th>Loja</th><th class="right">Vendas mês</th><th class="right">Recebido</th><th class="right">Em atraso</th><th class="right">Inad.</th><th class="right">Nota</th></tr>
+      ${rankLoja.map(([k,o],i)=>`<tr><td><b>${i+1}º</b></td><td>${esc(lojaNome(k))}</td><td class="right">${o.vendas}</td><td class="right">${brl(o.receb)}</td><td class="right">${brl(o.atraso)}</td><td class="right">${o.inad.toFixed(0)}%</td><td class="right">${badge(String(o.nota),o.nota>=80?'green':o.nota>=60?'amber':'red')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Sem dados</td></tr>'}
     </table></div></div>
-    <div class="card"><h2>Vendedores no mês</h2><div class="tablewrap"><table><tr><th>Vendedor</th><th class="right">Vendas</th><th class="right">Valor</th></tr>
-      ${Object.entries(porVend).sort((a,b)=>b[1].v-a[1].v).map(([k,o])=>`<tr><td>${esc(k)}</td><td class="right">${o.q}</td><td class="right">${brl(o.v)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhuma venda assinada neste mês</td></tr>'}
+    <div class="card"><h2>Ranking dos vendedores no mês</h2><div class="tablewrap"><table><tr><th>#</th><th>Vendedor</th><th class="right">Vendas</th><th class="right">Valor</th></tr>
+      ${Object.entries(porVend).sort((a,b)=>b[1].v-a[1].v).map(([k,o],i)=>`<tr><td>${['🥇','🥈','🥉'][i]||(i+1)+'º'}</td><td>${esc(k)}</td><td class="right">${o.q}</td><td class="right">${brl(o.v)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhuma venda assinada neste mês</td></tr>'}
     </table></div></div>
   </div>`;
 };
@@ -1663,7 +1684,7 @@ PAGES.inicio = async () => {
     <button class="btn gold lg" data-act="novaProposta">${svg(IC.nova)}Nova venda</button></div>
   <div class="kpis">
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
-    ${S._metaVend!=null?`<div class="kpi"><small>Meta do mês</small><b>${S._metaVend?Math.round(doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100)+'%':'—'}</b><div class="barra"><i style="width:${S._metaVend?Math.min(100,doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100):0}%"></i></div><span>${S._metaVend?brl(doMes.reduce((s,v)=>s+v.valor,0))+' de '+brl(S._metaVend):'meta não definida'}</span></div>`:''}
+    ${S._metaVend!=null?`<div class="kpi"><small>Meta do mês</small><b>${S._metaVend?Math.round(doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100)+'%':'—'}</b>${S._metaVend&&doMes.reduce((s,v)=>s+v.valor,0)<S._metaVend?`<span>faltam ${brl(S._metaVend-doMes.reduce((s,v)=>s+v.valor,0))}</span>`:S._metaVend?`<span style="color:var(--ok)">meta batida! 🎉</span>`:''}<div class="barra"><i style="width:${S._metaVend?Math.min(100,doMes.reduce((s,v)=>s+v.valor,0)/S._metaVend*100):0}%"></i></div><span>${S._metaVend?brl(doMes.reduce((s,v)=>s+v.valor,0))+' de '+brl(S._metaVend):'meta não definida'}</span></div>`:''}
     <div class="kpi"><small>Comissão do mês</small><b style="color:var(--ok)">${brl(comissaoDe(vendas,mes))}</b><span>${S.cfg.comissaoPct||0}% das parcelas pagas</span></div>
     <div class="kpi"><small>Em análise</small><b>${analise.length}</b><span>aguardando aprovação</span></div>
     <div class="kpi"><small>Aprovadas</small><b style="color:${aprovadas.length?'var(--pri)':''}">${aprovadas.length}</b><span>escolher aparelho / assinar</span></div>
@@ -5027,7 +5048,8 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
+Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+  atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
 async function removerEmMassa(){
