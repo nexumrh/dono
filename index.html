@@ -4106,9 +4106,9 @@ PAGES.aparelhos = async () => {
   const q=(S.filtro.aq||'').toLowerCase(), f=S.filtro.ap||'todos';
   const sit=a=>apSituacao(a)[0];
   const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal(), exterior:a=>!a.quitado&&a.status==='ATIVO'&&!!foraDoPais(a)};
-  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q));
+  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
   const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['exterior','Fora do Brasil'],['fim','Quitados/cancelados']];
-  $('#view').innerHTML=`<div class="row mb"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px" value="${esc(S.filtro.aq||'')}"></div>
+  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO','SUPORTE')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
   $('#aq').addEventListener('input',e=>{ S.filtro.aq=e.target.value; clearTimeout(S._aqT); S._aqT=setTimeout(()=>{ PAGES.aparelhos().then(()=>{ const el=$('#aq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }); },250); });
@@ -5027,7 +5027,29 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
+Object.assign(ACT,{ apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); } });
+
+/* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
+async function removerEmMassa(){
+  const base=(S._apLista||[]).filter(a=>a.status==='ATIVO'&&!a.quitado&&!a.semTrava&&!a.removerRemoto);
+  if(!base.length) return toast('Nenhum aparelho com trava ativa na lista atual para remover.','err');
+  const travados=base.filter(a=>avaliar(a).travar).length, online=base.filter(a=>a.checkin?.em&&Date.now()-a.checkin.em<2*86400000).length;
+  openModal(`<h2>Remover a trava de ${base.length} aparelho(s)</h2>
+    <div class="warn"><b>Isto remove a proteção da NexumCell</b> de todos os ${base.length} aparelho(s) que estão na lista/filtro atual. Cada aparelho tira a trava e deixa de ser administrado assim que fizer contato com a internet. <b>Não dá para desfazer.</b></div>
+    <ul class="small" style="margin:8px 0 0 18px;padding:0">
+      <li>${online} aparelho(s) fizeram contato nas últimas 48 h — removem logo.</li>
+      <li>${travados} estão travados/sem sinal — só removem quando pegarem internet. Para esses, use <b>“Remover a trava”</b> no aparelho (código no celular).</li></ul>
+    <p class="mt">Para confirmar, digite <b>REMOVER</b> abaixo:</p>
+    <input id="rmConf" placeholder="REMOVER" autocomplete="off" style="text-transform:uppercase">
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn red" id="rmGo" disabled>Remover as travas</button></div>`);
+  $('#rmConf').addEventListener('input',e=>{ $('#rmGo').disabled=e.target.value.trim().toUpperCase()!=='REMOVER'; });
+  $('#rmGo').onclick=async(e)=>{ e.target.disabled=true; e.target.textContent='Removendo…';
+    const ops=base.map(a=>({c:'aparelhos',id:a.id,data:{removerRemoto:true,modo:'AUTO',removocao:{por:S.me.nome,em:Date.now(),massa:true}}}));
+    for(let i=0;i<ops.length;i+=400) await DB.batch(ops.slice(i,i+400));
+    await log('Remoção da trava em massa',`${base.length} aparelho(s)`,`filtro: ${S.filtro.ap||'todos'}${S.filtro.aq?' · busca "'+S.filtro.aq+'"':''}`);
+    closeModal(); toast(`${base.length} aparelho(s) marcados: a trava sai no próximo contato de cada um.`,'ok'); render();
+  };
+}
 
 /* ======================= SAAS: clientes (financeiras) que usam o sistema, cada um com o próprio Firebase =======================
    Este é o modelo do Atlas: cada cliente tem Firebase, portais e servidor próprios (dados 100% separados).
