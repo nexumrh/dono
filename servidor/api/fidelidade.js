@@ -72,3 +72,22 @@ export async function aniversarioRotina(cfg) {
   }
   return { aniversarios: n };
 }
+
+// Pós-venda (manhã): no 3º dia depois da trava ativa, o cliente recebe um aviso no app perguntando se está tudo certo.
+export async function posVendaRotina(cfg) {
+  if (cfg.posVenda === 'nao') return { posVenda: 'desligado' };
+  const agora = Date.now(), vendas = (await db.collection('vendas').where('status', '==', 'ATIVA').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  let n = 0;
+  for (const v of vendas) {
+    const ini = v.ativadaEm || v.entradaPaga?.em || v.assinadoEm || 0, d = (agora - ini) / 86400000;
+    if (!ini || v.posVendaEm || d < 3 || d > 10 || !v.aparelhoToken) continue;
+    try {
+      const nome = String(v.clienteNome || '').split(' ')[0], loja = v.lojaNome || cfg.empresa || 'NexumCell';
+      const msg = `${nome}, tudo certo com o seu aparelho novo? Qualquer dúvida ou defeito, fale com a ${loja} pelo portal. Pagando em dia você ganha limite para a próxima compra.`;
+      await pushNotificacao(v.aparelhoToken, 'Como está o seu aparelho?', msg).catch(() => {});
+      await db.collection('vendas').doc(v.id).set({ posVendaEm: agora }, { merge: true });
+      n++;
+    } catch (e) { console.error('posvenda', v.id, e.message); }
+  }
+  return { posVenda: n };
+}

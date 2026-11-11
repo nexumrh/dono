@@ -10,7 +10,7 @@ import { repasseRotina } from './repasse.js';
 import { backupRotina } from './seguranca.js';
 import { instalacoesRotina } from './instalacao.js';
 import { negativacaoRotina } from './negativacao.js';
-import { cashbackRotina, aniversarioRotina } from './fidelidade.js';
+import { cashbackRotina, aniversarioRotina, posVendaRotina } from './fidelidade.js';
 import { relatorioSemanal } from './relatorio-semanal.js';
 import { nota } from './motor.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
@@ -209,6 +209,7 @@ export async function rotinas(qual) {
   const vendas = await vendasAtivas();
   let aniv = {}; try { aniv = await aniversarioRotina(cfg); } catch (e) { console.error('aniversario', e.message); }
   try { Object.assign(aniv, await relatorioSemanal(cfg)); } catch (e) { console.error('relsemanal', e.message); }
+  try { Object.assign(aniv, await posVendaRotina(cfg)); } catch (e) { console.error('posvenda', e.message); }
   return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)), ...aniv };
 }
 
