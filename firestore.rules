@@ -18,6 +18,8 @@ service cloud.firestore {
     function lojaOk()  { return me().get('lojaBloqueada', false) != true; }
     function staff()   { return donoEmail() || (signed() && !anon() && exists(userDoc()) && me().ativo == true && lojaOk()); }
     function hasRole(rs) { return (donoEmail() && 'DONO' in rs) || (signed() && !anon() && exists(userDoc()) && me().ativo == true && lojaOk() && me().role in rs); }
+    // gerente desativado ou de loja bloqueada: só consegue falar com o suporte pelo chat da tela de acesso restrito
+    function gerenteBloqueado() { return signed() && !anon() && exists(userDoc()) && me().role == 'GERENTE' && (me().ativo != true || !lojaOk()); }
     function sistemaExiste() { return exists(/databases/$(database)/documents/config/sistema); }
 
     // ---------- Configuração ----------
@@ -257,9 +259,12 @@ service cloud.firestore {
 
     // ---------- Atendimento (chat do vendedor/gerente com o assistente e o suporte) ----------
     match /atendimentos/{id} {
-      allow read: if hasRole(['DONO', 'SUPORTE']) || (staff() && resource.data.abertoPor == request.auth.uid);
-      allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'BOT';
+      allow read: if hasRole(['DONO', 'SUPORTE']) || ((staff() || gerenteBloqueado()) && resource.data.abertoPor == request.auth.uid);
+      allow create: if (hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'BOT')
+                    || (gerenteBloqueado() && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'HUMANO' && request.resource.data.categoria == 'Acesso bloqueado');
       allow update: if hasRole(['DONO', 'SUPORTE'])
+                    || (gerenteBloqueado() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'HUMANO'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs', 'naoLidoSuporte', 'naoLidoUser', 'atualizadoEm']))
                     // pesquisa de satisfação depois de concluído (uma vez)
                     || (staff() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'CONCLUIDO' && !('pesquisa' in resource.data)
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pesquisa', 'atualizadoEm', 'naoLidoUser']))
