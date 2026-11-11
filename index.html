@@ -4092,20 +4092,52 @@ async function confirmarRetomada(id,btn){
   if(ret.motivo==='Inadimplência'&&$('#rtLN')?.checked) await adicionarLN(v,`Aparelho retomado por inadimplência (saldo ${brl(ret.saldo)})`);
   toast('Retomada registrada — aparelho no estoque de seminovos','ok'); closeModal(); render();
 }
+/* Seminovo: chega da retomada (ou da troca) → o GERENTE da loja analisa e dá baixa: volta ao estoque para revenda ou é baixado (sem conserto). */
+const snPend=s=>s.status==='DISPONIVEL'&&!s.analise;
 PAGES.seminovos = async () => {
   let lista=await DB.list('seminovos'); if(can('GERENTE')) lista=lista.filter(s=>s.lojaId===S.me.lojaId);
-  const f=S.filtro.sn||'DISPONIVEL', l=lista.filter(s=>f==='todos'||s.status===f).sort((a,b)=>b.criadoEm-a.criadoEm);
-  $('#view').innerHTML=`<div class="tabs">${[['DISPONIVEL','Disponíveis'],['VENDIDO','Vendidos'],['todos','Todos']].map(([k,t])=>`<button data-act="filtro" data-k="sn" data-v="${k}" class="${f===k?'on':''}">${t} (${k==='todos'?lista.length:lista.filter(s=>s.status===k).length})</button>`).join('')}</div>
+  const grupo=s=>snPend(s)?'ANALISAR':s.status==='DISPONIVEL'?'ESTOQUE':s.status;
+  const pend=lista.filter(snPend).length, f=S.filtro.sn&&S.filtro.sn!=='DISPONIVEL'?S.filtro.sn:(pend?'ANALISAR':'ESTOQUE'), l=lista.filter(s=>f==='todos'||grupo(s)===f).sort((a,b)=>b.criadoEm-a.criadoEm);
+  const sit=s=>snPend(s)?badge('Aguardando análise','amber'):s.status==='DISPONIVEL'?badge('No estoque','green'):s.status==='VENDIDO'?badge('Vendido '+brl(s.vendidoPor),'gray'):badge('Baixado','red');
+  $('#view').innerHTML=`<div class="tabs">${[['ANALISAR','Aguardando análise'],['ESTOQUE','No estoque'],['VENDIDO','Vendidos'],['BAIXADO','Baixados'],['todos','Todos']].map(([k,t])=>`<button data-act="filtro" data-k="sn" data-v="${k}" class="${f===k?'on':''}">${t} (${k==='todos'?lista.length:lista.filter(s=>grupo(s)===k).length})</button>`).join('')}</div>
   <div class="card tablewrap"><table><tr><th>Aparelho</th><th>IMEI</th><th>Estado</th><th>Origem</th><th class="right">Avaliação</th><th class="right">Preço de venda</th><th>Situação</th><th></th></tr>
-  ${l.map(s=>`<tr><td><b>${esc(s.marca+' '+s.modelo)}</b> ${esc(s.capacidade||'')}</td><td class="mono small">${esc(s.imei)}</td><td>${esc(s.estado)}</td><td class="small">nº ${s.vendaNumero} · ${esc(s.cliente)}<br><span class="muted">${esc(s.lojaNome||'')} · ${fmtD(isoDate(new Date(s.criadoEm)))}</span></td>
-    <td class="right">${brl(s.avaliacao)}</td><td class="right"><input type="number" step="0.01" data-snpreco="${s.id}" value="${s.precoVenda||''}" style="width:120px;min-height:32px;padding:4px 8px" ${s.status!=='DISPONIVEL'?'disabled':''}></td>
-    <td>${s.status==='DISPONIVEL'?badge('Disponível','green'):badge('Vendido '+brl(s.vendidoPor),'gray')}</td>
-    <td class="right">${s.status==='DISPONIVEL'?`<button class="btn sm" data-act="snVender" data-id="${s.id}">Marcar vendido</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum aparelho retomado</td></tr>'}</table></div>
-  <p class="hint">Aparelhos entram aqui automaticamente quando uma venda é marcada como “Retomar aparelho”. Lembre de restaurar de fábrica antes de revender.</p>`;
+  ${l.map(s=>`<tr><td><b>${esc(s.marca+' '+s.modelo)}</b> ${esc(s.capacidade||'')}</td><td class="mono small">${esc(s.imei)}</td><td>${esc(s.analise?.estado||s.estado||'—')}${s.analise?`<div class="small muted">${esc(s.analise.obs||'')}</div>`:''}</td><td class="small">${s.origem==='TROCA'?'Troca · ':''}nº ${s.vendaNumero} · ${esc(s.cliente)}<br><span class="muted">${esc(s.lojaNome||'')} · ${fmtD(isoDate(new Date(s.criadoEm)))}</span></td>
+    <td class="right">${brl(s.avaliacao)}</td><td class="right">${s.status==='DISPONIVEL'&&s.analise&&can('GERENTE')?`<input type="number" step="0.01" data-snpreco="${s.id}" value="${s.precoVenda||''}" style="width:120px;min-height:32px;padding:4px 8px">`:(s.precoVenda?brl(s.precoVenda):'—')}</td>
+    <td>${sit(s)}${s.analise?`<div class="small muted">${esc(s.analise.por||'')} · ${fmtD(isoDate(new Date(s.analise.em)))}</div>`:''}${s.status==='BAIXADO'?`<div class="small muted">${esc(s.motivoBaixa||'')}</div>`:''}</td>
+    <td class="right">${can('GERENTE')?(snPend(s)?`<button class="btn sm gold" data-act="snAnalisar" data-id="${s.id}">Analisar e dar baixa</button>`:s.status==='DISPONIVEL'?`<button class="btn sm" data-act="snVender" data-id="${s.id}">Marcar vendido</button>`:''):''}</td></tr>`).join('')||`<tr><td colspan="8" class="empty">${f==='ANALISAR'?'Nenhum aparelho aguardando análise':'Nenhum aparelho aqui'}</td></tr>`}</table></div>
+  <p class="hint">O aparelho retomado (ou recebido na troca) chega em <b>Aguardando análise</b>. O gerente da loja confere o aparelho, restaura de fábrica e dá baixa: <b>volta ao estoque</b> para revender ou é <b>baixado</b> se não tiver conserto.${can('GERENTE')?'':' Só o gerente da loja faz a análise.'}</p>`;
 };
+async function snAnalisar(id){
+  const s=await DB.get('seminovos',id); if(!s) return;
+  const CK=[['fabrica','Restaurado de fábrica e sem conta Google / iCloud'],['liga','Liga, carrega e a bateria segura'],['tela','Tela e toque funcionando, sem trinca'],['cameras','Câmeras, som e microfone funcionando'],['chip','Chip e Wi-Fi funcionando'],['carcaca','Carcaça em bom estado']];
+  openModal(`<h2>Analisar seminovo</h2><p class="muted" style="margin-top:-6px"><b>${esc(s.marca+' '+s.modelo)}</b> ${esc(s.capacidade||'')} · IMEI ${esc(s.imei)} · ${s.origem==='TROCA'?'troca':'retomado'} da venda nº ${s.vendaNumero} (${esc(s.cliente||'')})</p>
+    <h3>Conferência do aparelho</h3>${CK.map(([k,tx])=>`<label class="check"><input type="checkbox" class="snCk" data-k="${k}"> <span>${tx}</span></label>`).join('')}
+    <div class="grid g2 mt"><label>Estado do aparelho<select id="snEst"><option>Como novo</option><option selected>Bom</option><option>Com marcas de uso</option><option>Com defeito</option></select></label>
+      <label>Preço de revenda (R$)<input id="snPreco" type="number" step="0.01" min="0" value="${s.precoVenda||s.avaliacao||''}"></label></div>
+    <label>Observações<textarea id="snObs" rows="2" maxlength="300" placeholder="ex.: risco na traseira, bateria 86%, acompanha carregador"></textarea></label>
+    <div class="row mt" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><button class="btn" style="color:var(--bad)" id="snBaixar">Baixar (sem conserto)</button><button class="btn gold" id="snVoltar">Voltar ao estoque</button></div>`);
+  const ler=()=>({ck:Object.fromEntries([...document.querySelectorAll('.snCk')].map(c=>[c.dataset.k,c.checked])),estado:$('#snEst').value,obs:$('#snObs').value.trim(),por:S.me.nome,uid:S.me.uid,em:Date.now()});
+  $('#snVoltar').onclick=async()=>{ const an=ler(), preco=r2(+$('#snPreco').value||0);
+    if(!an.ck.fabrica) return toast('Restaure o aparelho de fábrica e tire a conta do cliente antes de voltar ao estoque','err');
+    if(Object.values(an.ck).some(x=>!x)&&!an.obs) return toast('Há itens não conferidos: descreva o problema nas observações','err');
+    if(!(preco>0)) return toast('Informe o preço de revenda','err');
+    $('#snVoltar').disabled=true;
+    try{
+      if(s.imei){ const ja=await DB.get('estoque',s.imei).catch(()=>null);
+        await DB.set('estoque',s.imei,{imei:s.imei,imei2:s.imei2||'',catalogoId:ja?.catalogoId||slugCat(s.marca,s.modelo,s.capacidade||''),marca:s.marca,modelo:s.modelo,capacidade:s.capacidade||'',cor:ja?.cor||'',lojaId:s.lojaId,lojaNome:s.lojaNome||lojaNome(s.lojaId),
+          status:'DISPONIVEL',seminovo:true,seminovoId:id,estado:an.estado,precoSeminovo:preco,vendaId:'',vendidoEm:null,obs:`Seminovo (${an.estado}) — ${s.origem==='TROCA'?'troca':'retomado'} da venda nº ${s.vendaNumero}`,atualizadoEm:Date.now(),...(ja?{}:{criadoEm:Date.now(),por:S.me.nome})}); }
+      await DB.set('seminovos',id,{analise:an,estado:an.estado,precoVenda:preco,noEstoque:!!s.imei});
+      await log('Seminovo analisado: voltou ao estoque',id,`${s.marca} ${s.modelo} · ${an.estado} · ${brl(preco)}`); toast('Aparelho de volta ao estoque','ok'); closeModal(); S.filtro.sn='ESTOQUE'; render();
+    }catch(e){ toast('Não foi possível dar baixa: '+e.message,'err'); $('#snVoltar').disabled=false; } };
+  $('#snBaixar').onclick=async()=>{ const an=ler(); if(an.obs.length<5) return toast('Descreva nas observações por que o aparelho será baixado','err');
+    if(!confirm('Baixar este aparelho? Ele não volta ao estoque nem vai para a venda.')) return;
+    await DB.set('seminovos',id,{analise:an,estado:an.estado,status:'BAIXADO',motivoBaixa:an.obs,baixadoEm:Date.now(),baixadoPor:S.me.nome});
+    await log('Seminovo baixado',id,`${s.marca} ${s.modelo} · ${an.obs}`); toast('Aparelho baixado','ok'); closeModal(); render(); };
+}
 async function snVender(id){
   const s=await DB.get('seminovos',id), v=prompt(`Valor da venda do ${s.marca} ${s.modelo} (R$):`,s.precoVenda||''); if(!v) return;
-  await DB.set('seminovos',id,{status:'VENDIDO',vendidoPor:r2(+v),vendidoEm:Date.now(),vendidoPorNome:S.me.nome}); await log('Seminovo vendido',id,brl(+v)); render();
+  await DB.set('seminovos',id,{status:'VENDIDO',vendidoPor:r2(+v),vendidoEm:Date.now(),vendidoPorNome:S.me.nome});
+  if(s.noEstoque&&s.imei){ const e=await DB.get('estoque',s.imei).catch(()=>null); if(e&&e.status==='DISPONIVEL'&&e.seminovoId===id) await DB.set('estoque',s.imei,{status:'VENDIDO',vendidoEm:Date.now(),lojaId:e.lojaId}).catch(()=>{}); } await log('Seminovo vendido',id,brl(+v)); render();
 }
 
 /* ======================= RELATÓRIOS E COMISSÕES ======================= */
@@ -5230,7 +5262,7 @@ async function apCodigo(id){
     <p class="small muted">Sem este ID, o aparelho confere a cada 15 minutos. Para ligar: Console do Firebase → Configurações do projeto → Seus apps → Adicionar app → Android → pacote <span class="mono">br.com.nexumcell.trava</span> → Registrar (pule o download do arquivo e os demais passos) → copie o “ID do app”.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
 }; }
-Object.assign(ACT,{ excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
+Object.assign(ACT,{ snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
 /* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
@@ -6134,10 +6166,10 @@ function saudeHtml(s){
 /* ---- Seminovos à venda no site do cliente ---- */
 { const _pv=publicarVitrine; let _snT; publicarVitrine=(...a)=>{ _pv(...a); if(!can('DONO')) return; clearTimeout(_snT); _snT=setTimeout(async()=>{ try{
   const on=S.cfg.seminovosOnline!=='nao';
-  const sn=on?(await DB.list('seminovos')).filter(s=>s.status==='DISPONIVEL'&&s.precoVenda>0&&s.online!==false).map(s=>({id:s.id,marca:s.marca||'',modelo:s.modelo||'',capacidade:s.capacidade||'',estado:s.estado||'',preco:s.precoVenda,lojaId:s.lojaId||'',lojaNome:s.lojaNome||''})).slice(0,60):[];
+  const sn=on?(await DB.list('seminovos')).filter(s=>s.status==='DISPONIVEL'&&s.analise&&s.precoVenda>0&&s.online!==false).map(s=>({id:s.id,marca:s.marca||'',modelo:s.modelo||'',capacidade:s.capacidade||'',estado:s.estado||'',preco:s.precoVenda,lojaId:s.lojaId||'',lojaNome:s.lojaNome||''})).slice(0,60):[];
   await DB.set('publico','vitrine',{seminovos:sn,seminovosEm:Date.now(),apkUrl:S.cfg.apkUrl||'https://github.com/nexumrh/trava/releases/latest/download/nexumcell-trava.apk',instalacaoLink:S.cfg.instalacaoLink!=='nao'}); }catch(e){ console.warn('vitrine seminovos',e); } },2500); }; }
 { const _ps=PAGES.seminovos; PAGES.seminovos=async()=>{ await _ps(); if(!$('#view')) return;
-  $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb small">🌐 Os seminovos <b>disponíveis com preço</b> aparecem no site do cliente (pré-análise), com as parcelas. ${can('DONO')?`<label class="check" style="display:inline-flex;margin-left:8px"><input type="checkbox" id="snOnline" ${S.cfg.seminovosOnline!=='nao'?'checked':''}> Mostrar no site</label>`:'O site é atualizado quando o Dono abre esta tela.'}</div>`);
+  $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb small">🌐 Os seminovos <b>analisados pelo gerente, no estoque e com preço</b> aparecem no site do cliente (pré-análise), com as parcelas. ${can('DONO')?`<label class="check" style="display:inline-flex;margin-left:8px"><input type="checkbox" id="snOnline" ${S.cfg.seminovosOnline!=='nao'?'checked':''}> Mostrar no site</label>`:'O site é atualizado quando o Dono abre esta tela.'}</div>`);
   $('#snOnline')?.addEventListener('change',async e=>{ S.cfg.seminovosOnline=e.target.checked?'sim':'nao'; await DB.set('config','sistema',{seminovosOnline:S.cfg.seminovosOnline}); publicarVitrine(); toast('Salvo','ok'); });
   publicarVitrine(); }; }
 { const _sv=snVender; snVender=async(...a)=>{ const r=await _sv(...a); publicarVitrine(); return r; }; }
