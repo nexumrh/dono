@@ -314,6 +314,20 @@ service cloud.firestore {
 
     // ---------- Segredo do código de liberação sem internet ----------
     // O app da trava cria uma vez (login anônimo); só a equipe lê para gerar o código. Ninguém altera.
+    // ---------- Selfie tirada no app da trava (o aparelho grava; a loja confere antes de entregar) ----------
+    match /selfiesApp/{tk} {
+      allow get: if signed();
+      allow list: if false;
+      allow create: if anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
+                    && request.resource.data.keys().hasOnly(['foto', 'em', 'modelo'])
+                    && request.resource.data.foto is string && request.resource.data.foto.size() < 900000;
+      allow update: if (anon() && !resource.data.get('conferida', false)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['foto', 'em', 'modelo'])
+                        && request.resource.data.foto is string && request.resource.data.foto.size() < 900000)
+                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['conferida', 'conferidaPor', 'conferidaEm']));
+      allow delete: if hasRole(['DONO']);
+    }
+
     match /chavesTrava/{token} {
       allow get: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                  || (hasRole(['GERENTE']) && get(/databases/$(database)/documents/aparelhos/$(token)).data.lojaId == me().lojaId);

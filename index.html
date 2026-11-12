@@ -442,6 +442,9 @@ details summary{cursor:pointer}
 .rk{list-style:none;margin:0;padding:0}.rk li{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px}.rk li:nth-child(odd){background:#F7F9FD}.rk li span:nth-child(2){flex:1}.rk li.eu{background:#EAF1FF;font-weight:700}
 .rk-pos{width:30px;font-weight:800;color:var(--mut)}.rk li:nth-child(1) .rk-pos{color:#C9A227}.rk li:nth-child(2) .rk-pos{color:#8A94A6}.rk li:nth-child(3) .rk-pos{color:#B87333}
 .bk-banner{position:fixed;left:18px;bottom:18px;z-index:900;display:flex;gap:8px;align-items:center;background:#0A1733;color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25);cursor:pointer}.bk-banner svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+/* selfie pelo app */
+.sf-box h3 svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.sf-fotos{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}.sf-fotos figure{margin:0;width:170px}.sf-fotos img{width:170px;height:200px;object-fit:cover;border-radius:12px;border:1px solid var(--line)}.sf-fotos figcaption{font-size:12px;color:var(--mut);margin-top:4px}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="data:image/png;base64,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"><link rel="icon" href="favicon.ico" sizes="any"><link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -1763,7 +1766,7 @@ async function confirmarEntrada(btn){
       lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',servidorPix:cfg.servidorPagamentos||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,...camposEtapas(cfg),
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
-      mensagem:cfg.mensagemTrava||'',vip:v.vip?.nivel||'',trocaDias:+cfg.trocaDias||7,parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,ios:ehIphone(v.aparelho),quitado:false,protecao:v.protecao?{cobertura:v.protecao.cobertura||''}:null,frpContas:cfg.frpContas||'',portal:urlCliente(),servidor:servidorPg(),criadoEm:agora};
+      mensagem:cfg.mensagemTrava||'',vip:v.vip?.nivel||'',trocaDias:+cfg.trocaDias||7,parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,ios:ehIphone(v.aparelho),selfieApp:S.cfg.selfieApp!=='nao'&&!ehIphone(v.aparelho)&&!v.aparelho.semTrava,quitado:false,protecao:v.protecao?{cobertura:v.protecao.cobertura||''}:null,frpContas:cfg.frpContas||'',portal:urlCliente(),servidor:servidorPg(),criadoEm:agora};
     const st=v.aparelho.semTrava?{status:'ATIVA',instaladoEm:agora}:{status:'INSTALANDO',instalacao:{tentativas:1,inicio:agora}};
     const extras=[]; if(v.usado) extras.push({c:'seminovos',id:'t_'+v.id,data:{origem:'TROCA',marca:v.usado.marca,modelo:v.usado.modelo,capacidade:'',imei:v.usado.imei,imei2:'',vendaId:v.id,vendaNumero:v.numero,cliente:v.clienteNome,estado:v.usado.estado,avaliacao:v.usado.valor,precoVenda:r2(v.usado.valor*1.35),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:agora,por:S.me.nome}});
     if(v.usado?.fotos?.length) extras.push({c:'docs',id:'u_'+v.id,data:{tipo:'USADO',vendaId:v.id,fotos:v.usado.fotos,criadoEm:agora,vendedorUid:S.me.uid}});
@@ -4466,15 +4469,17 @@ async function salvarParcelas(v,acao,det){
   toast(quitado?'Contrato quitado! A trava será removida do aparelho.':'Pagamento registrado','ok');
 }
 
+/* "Chave de acesso" de 8 números que aparece na tela de bloqueio (mesmo cálculo do app: FNV-1a do token) */
+function chaveTrava(tk){ let h=0x811c9dc5; for(const ch of String(tk||'')) { h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return String((h>>>0)%100000000).padStart(8,'0'); }
 /* ---------- APARELHOS / TRAVA ---------- */
 PAGES.aparelhos = async () => {
   const aps=(await loadAparelhos()).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
   const q=(S.filtro.aq||'').toLowerCase(), f=S.filtro.ap||'todos';
   const sit=a=>apSituacao(a)[0];
   const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal(), exterior:a=>!a.quitado&&a.status==='ATIVO'&&!!foraDoPais(a)};
-  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
+  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero),chaveTrava(a.id)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
   const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['exterior','Fora do Brasil'],['fim','Quitados/cancelados']];
-  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
+  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, chave de acesso, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
   $('#aq').addEventListener('input',e=>{ S.filtro.aq=e.target.value; clearTimeout(S._aqT); S._aqT=setTimeout(()=>{ PAGES.aparelhos().then(()=>{ const el=$('#aq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }); },250); });
@@ -4487,7 +4492,7 @@ function apCard(a){
   const gerencia=can('DONO','SUPORTE','FINANCEIRO');
   return `<div class="card ap"><div>
     <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}${foraDoPais(a)?badge('🌎 '+foraDoPais(a)+(a.foraDesde?' há '+Math.max(0,Math.round((Date.now()-a.foraDesde)/86400000))+' dia(s)':''),'amber'):''}</div>
-    <div class="small muted mt" style="margin-top:4px">IMEI <span class="mono">${esc(a.imei)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
+    <div class="small muted mt" style="margin-top:4px">IMEI <span class="mono">${esc(a.imei)}</span> · chave <span class="mono">${chaveTrava(a.id)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
     <div class="small mt" style="margin-top:6px">Regra: <b>${esc(av.motivo)}</b>${ck.em?` · último contato <b>${relT(ck.em)}</b> (bateria ${ck.bateria??'—'}%, Android ${esc(ck.android||'—')}, app ${esc(ck.versao||'—')})`:''}
       ${reportDiverge?`<br><span style="color:var(--amber)">O aparelho ainda está ${ck.travado?'travado':'liberado'} — muda no próximo contato.</span>`:''}${ck.imei&&imeiDiverge?`<br><span style="color:var(--red)">Aparelho informou IMEI ${esc(ck.imei)}.</span>`:''}</div>
   </div><div class="row" style="justify-content:flex-end;max-width:420px">
@@ -7919,6 +7924,41 @@ Object.assign(ACT,{
   bkDesligar:async()=>{ if(!confirm('Desligar o backup automático?')) return; await bkHandle(null); await DB.set('config','sistema',{backupAuto:null}); S.cfg.backupAuto=null; toast('Backup automático desligado','ok'); render(); },
   cfgRisco:async()=>{ const f=Math.min(100,Math.max(1,+$('#cfgFpd').value||10)), im=$('#cfgImei').value; await DB.set('config','sistema',{fpdAlertaPct:f,exigirConsultaImei:im}); Object.assign(S.cfg,{fpdAlertaPct:f,exigirConsultaImei:im}); await log('Configuração de risco alterada','config',`1ª parcela ${f}% · IMEI ${im}`); toast('Salvo','ok'); },
 });
+
+/* ================= Selfie pelo app da trava: a venda só é entregue depois que a selfie tirada no app chega e o vendedor confere ================= */
+let _selfieUnw=null;
+{ const _pt2=passoTrava; passoTrava=async function(){
+    _selfieUnw&&_selfieUnw(); _selfieUnw=null; if(S.w) S.w._selfiePend=false;
+    await _pt2();
+    const v=await DB.get('vendas',S.w?.vendaId).catch(()=>null); if(!v?.aparelhoToken||!$('#wz')) return;
+    const ap=await DB.get('aparelhos',v.aparelhoToken).catch(()=>null); if(!ap?.selfieApp||ap.ios) return;
+    const docs=await DB.get('docs',v.id).catch(()=>null);
+    S.w._selfiePend=true;
+    const alvo=$('#btnConcluir')?.closest('.row'); if(!alvo) return;
+    alvo.insertAdjacentHTML('beforebegin',`<div class="card mt sf-box" id="sfBox"><h3 style="margin:0;display:flex;gap:8px;align-items:center">${svg('<path d="M3 8a2 2 0 0 1 2-2h3l2-2.5h4L16 6h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>')} Selfie pelo app da trava <span class="badge b-blue">obrigatória</span></h3>
+      <div id="sfCorpo"><p class="small muted">Depois que a trava subir, o app NexumCell abre no celular do cliente com o botão <b>“Tirar selfie agora”</b>. Peça para o cliente tirar a selfie ali, olhando para a câmera. Ela aparece aqui sozinha.</p><div class="inst-status"><span class="spin"></span> Aguardando a selfie do app…</div></div></div>`);
+    const desenhar=x=>{ const c=$('#sfCorpo'); if(!c) return;
+      if(!x?.foto){ return; }
+      if(x.conferida){ S.w._selfiePend=false; c.innerHTML=`<div class="inst-status ok">${svg('<path d="M20 6 9 17l-5-5"/>')} Selfie conferida por ${esc(x.conferidaPor||'')} ${relT(x.conferidaEm)}. Pode concluir.</div>`; return; }
+      c.innerHTML=`<div class="sf-fotos"><figure><img src="${x.foto}" alt=""><figcaption>Selfie do app · ${relT(x.em)}${x.modelo?' · '+esc(x.modelo):''}</figcaption></figure>
+        ${docs?.selfie?`<figure><img src="${docs.selfie}" alt=""><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}" alt=""><figcaption>Documento</figcaption></figure>`:''}</div>
+        <p class="small muted">É a mesma pessoa do documento e da proposta? Se a foto ficou ruim, peça para o cliente tocar em “Tirar outra selfie” no app.</p>
+        <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`; };
+    _selfieUnw=DB.watch('selfiesApp',v.aparelhoToken,desenhar);
+    // demonstração: simula a selfie chegando do app
+    if(!fb) setTimeout(async()=>{ if(!(await DB.get('selfiesApp',v.aparelhoToken).catch(()=>null))) DB.set('selfiesApp',v.aparelhoToken,{foto:FOTO_DEMO('ROSTO'),em:Date.now(),modelo:'Demonstração'}); },6000);
+  }; }
+// enquanto a selfie não for conferida, o "Concluir venda" não passa
+document.addEventListener('click',e=>{ const b=e.target.closest('#btnConcluir'); if(!b||!S.w?._selfiePend) return;
+  e.stopImmediatePropagation(); e.preventDefault(); toast('Falta a selfie pelo app da trava: peça ao cliente para tirar no app NexumCell e confira aqui.','err'); $('#sfBox')?.scrollIntoView({behavior:'smooth',block:'center'}); },true);
+Object.assign(ACT,{
+  sfOk:async(d,b)=>{ b.disabled=true; try{ await DB.set('selfiesApp',d.tk,{conferida:true,conferidaPor:S.me.nome,conferidaEm:Date.now()}); await log('Selfie do app conferida',d.id,'mesma pessoa da proposta'); }catch(e){ b.disabled=false; toast('Não foi possível salvar: '+e.message,'err'); } },
+  sfNao:()=>{ openModal(`<h2>A selfie não é do cliente</h2><p>Não entregue o aparelho. Peça para o próprio cliente tirar a selfie no app (botão “Tirar outra selfie”). Se houver suspeita de fraude (outra pessoa usando os documentos), cancele a venda e avise a análise de crédito.</p><div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Entendi</button></div>`); },
+});
+{ const _cf2=PAGES.config; PAGES.config=async()=>{ await _cf2(); if(!can('DONO')||!$('#view')) return;
+    const b=$('[data-act="cfgRisco"]')?.closest('.card'); if(!b) return;
+    b.querySelector('.grid').insertAdjacentHTML('beforeend',`<label>Selfie pelo app da trava antes de entregar<select id="cfgSelfieApp"><option value="sim" ${S.cfg.selfieApp!=='nao'?'selected':''}>Obrigatória</option><option value="nao" ${S.cfg.selfieApp==='nao'?'selected':''}>Desligada</option></select></label>`); }; }
+{ const _cr=ACT.cfgRisco; ACT.cfgRisco=async(d,b)=>{ const s=$('#cfgSelfieApp')?.value; if(s){ await DB.set('config','sistema',{selfieApp:s}); S.cfg.selfieApp=s; } return _cr(d,b); }; }
 
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
 </script>
