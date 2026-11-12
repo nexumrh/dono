@@ -5502,14 +5502,21 @@ function baixarRemovedorUsb(){
 /* Remoção definitiva da trava (Dono/Suporte): gera o código do aparelho e o passo a passo. */
 async function apRemover(id){
   const a=await DB.get('aparelhos',id); if(!a) return;
-  if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nSe o aparelho tiver internet, a trava sai sozinha em alguns minutos. O código de 10 números abaixo é só para quando ele estiver offline.\n\nNão dá para desfazer.`)) return;
+  if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nO sistema tenta remover pela internet primeiro. Só se não der certo é que aparece o código de digitar no aparelho.\n\nNão dá para desfazer.`)) return;
   let ch=await DB.get('chavesTrava',id).catch(()=>null); if(!ch&&!fb) ch={k:'demo-'+id};
   if(!ch?.k) return openModal(`<h2>Remoção da trava</h2><p>Este aparelho ainda está com a versão antiga do app da trava. O código de remoção passa a funcionar depois que ele <b>atualizar sozinho</b>. Enquanto isso, remova pela internet (Liberar / cancelar o contrato).</p>`);
-  const dia=diaBR(), cod=await removocaoOffline(ch.k,dia);
+  const dia=diaBR();
   // autoriza a remoção automática (o app se remove ao sincronizar) e MANDA O AVISO NA HORA (FCM) para ele sincronizar já
-  await DB.set('aparelhos',id,{removerRemoto:true,modo:'AUTO',removocao:{por:S.me.nome,em:Date.now(),dia}}); await log('Remoção da trava autorizada (automática + código)',id,`nº ${a.vendaNumero} · ${a.clienteNome}`);
+  await DB.set('aparelhos',id,{removerRemoto:true,modo:'AUTO',removocao:{por:S.me.nome,em:Date.now(),dia}}); await log('Remoção da trava autorizada',id,`nº ${a.vendaNumero} · ${a.clienteNome}`);
   const online=a.checkin?.em&&Date.now()-a.checkin.em<2*86400000;
-  const rodape=`<p class="small muted" style="margin:14px 0 2px">Código para remover <b>sem internet</b> (só se precisar):</p>
+  openModal(`<h2>Remover a trava</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)} · IMEI <span class="mono">${esc(a.imei||'')}</span></p>
+    <div class="inst-status" id="remSt"><span class="spin"></span> Removendo pela internet… ${online?'o aparelho deu sinal há pouco, deve sair em alguns segundos.':'aguardando o aparelho pegar internet.'}</div>
+    <div id="remFall"></div>`);
+  // empurrão imediato (além do automático): acorda o app mesmo em segundo plano
+  if(servLigado()) apiServ('push',{ids:[id]}).catch(()=>{});
+  // mostra o código de 10 números SÓ se a remoção automática não acontecer no tempo
+  const mostrarCodigo=async()=>{ const box=$('#remFall'); if(!box) return; const cod=await removocaoOffline(ch.k,dia);
+    box.innerHTML=`<p class="small muted" style="margin:14px 0 2px">A remoção pela internet não aconteceu. Use o código abaixo <b>no aparelho</b>:</p>
     <div style="font-size:40px;font-weight:800;letter-spacing:6px;text-align:center;margin:8px 0" class="mono">${cod.slice(0,5)} ${cod.slice(5)}</div>
     <div class="warn"><b>No aparelho, sem internet:</b><ol style="margin:6px 0 0 18px;padding:0">
       <li>Se o aparelho não estiver na tela de bloqueio, trave agora pelo botão <b>“Travar agora”</b> deste painel — a tela de bloqueio aparece no aparelho.</li>
@@ -5518,18 +5525,14 @@ async function apRemover(id){
       <li>A proteção sai e o app pede para ser desinstalado.</li></ol></div>
     <p class="small muted">Vale hoje e amanhã, uma vez só, e só neste aparelho. Remove apenas a trava da NexumCell — não mexe no bloqueio do Google nem em nada mais.</p>
     <div class="row mt" style="justify-content:space-between;align-items:center"><button class="btn" data-act="copiarTexto" data-t="${cod}">Copiar código</button>
-      <button class="btn sm" data-act="removedorUsb">Baixar removedor por USB (.bat)</button></div>
-    <p class="small muted" style="margin-top:8px">O programa por USB é opcional: ele só <b>desinstala</b> o app depois que o código acima já tirou a trava (o cabo não funciona enquanto a trava está ativa, porque ela bloqueia a depuração USB).</p>`;
-  openModal(`<h2>Remover a trava</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)} · IMEI <span class="mono">${esc(a.imei||'')}</span></p>
-    <div class="inst-status" id="remSt"><span class="spin"></span> Enviando a ordem ao aparelho e aguardando ele remover…</div>${rodape}`);
-  // empurrão imediato (além do automático): acorda o app mesmo em segundo plano
-  if(servLigado()) apiServ('push',{ids:[id]}).catch(()=>{});
+      <button class="btn sm" data-act="removedorUsb">Baixar removedor por USB (.bat)</button></div>`; };
   // acompanha o aparelho por ~45s; quando ele confirma a remoção, mostra sucesso na hora
   (async()=>{ const t0=Date.now();
     while(Date.now()-t0<45000){ await new Promise(r=>setTimeout(r,3000)); const st=$('#remSt'); if(!st) return;
       const n=await DB.get('aparelhos',id).catch(()=>null);
-      if(n?.checkin?.finalizado){ st.className='inst-status ok'; st.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava removida! O aparelho confirmou. Pode fechar.`; S._apLista=null; return; } }
-    const st=$('#remSt'); if(st) st.innerHTML=online?'O aparelho ainda não confirmou. Se estiver com você, abra o app NexumCell nele para remover na hora; se estiver com o cliente, passe o código abaixo.':'O aparelho não deu sinal. Ligue a internet dele (a trava sai sozinha) ou passe o código abaixo.';
+      if(n?.checkin?.finalizado){ st.className='inst-status ok'; st.innerHTML=`${svg('<path d="M20 6 9 17l-5-5"/>')} Trava removida! O aparelho confirmou. Pode fechar.`; const f=$('#remFall'); if(f) f.innerHTML=''; S._apLista=null; return; } }
+    const st=$('#remSt'); if(st) st.innerHTML=online?'O aparelho não confirmou a tempo. Se ele estiver com você, abra o app NexumCell nele para remover na hora — ou use o código abaixo.':'O aparelho não deu sinal. Ligue a internet dele (a trava sai sozinha) — ou use o código abaixo.';
+    await mostrarCodigo();
   })();
 }
 async function apCodigo(id){
