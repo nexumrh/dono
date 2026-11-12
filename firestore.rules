@@ -416,7 +416,8 @@ service cloud.firestore {
       allow update: if (staff() && resource.data.vendedorUid == request.auth.uid)
                     || (anon() && resource.data.status == 'PENDENTE' && request.resource.data.status == 'ENVIADA'
                         && request.time.toMillis() < resource.data.expiraEm
-                        && request.resource.data.selfie is string && request.resource.data.selfie.size() < 400000
+                        && request.resource.data.selfie is string && request.resource.data.selfie.size() < 450000
+                        && (!('mosaico' in request.resource.data) || request.resource.data.mosaico.size() < 450000)
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'selfie', 'mosaico', 'mov', 'enviadaEm', 'dispositivo']));
       allow delete: if staff() && resource.data.vendedorUid == request.auth.uid;
     }
