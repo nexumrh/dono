@@ -997,8 +997,10 @@ PAGES.painel = async () => {
     else { carteira+=p.valor; if(stParc(p)==='atraso'){ atraso+=p.valor; contratosAtraso.add(v.id); } }
   }));
   const travados=aps.filter(a=>a.checkin?.em && !a.quitado && a.status!=='CANCELADO' && avaliar(a).travar).length;
-  const limSumido=(Number(S.cfg.maxDiasOffline)||15)*86400000;
-  const sumidos=aps.filter(a=>!a.quitado && a.status==='ATIVO' && (!a.checkin?.em || Date.now()-a.checkin.em>limSumido)).length;
+  const maxOff=Number(S.cfg.maxDiasOffline)||15, limSumido=maxOff*86400000, limQuieto=Math.max(2,Math.floor(maxOff/3))*86400000;
+  const ativosT=aps.filter(a=>!a.quitado && a.status==='ATIVO');
+  const sumidos=ativosT.filter(a=>!a.checkin?.em || Date.now()-a.checkin.em>limSumido).length;
+  const quietos=ativosT.filter(a=>a.checkin?.em && Date.now()-a.checkin.em>limQuieto && Date.now()-a.checkin.em<=limSumido).length;
   const semInst=vendas.filter(v=>v.status==='INSTALANDO').length;
   const pend=vendas.filter(v=>v.status==='ANALISE').length;
   const inad=carteira?(atraso/carteira*100):0;
@@ -1021,7 +1023,8 @@ PAGES.painel = async () => {
     <div class="kpi ${venceHoje?'':''}"><small>Vencem hoje</small><b>${venceHoje}</b><span>${brl(venceHojeV)}</span></div>
     <div class="kpi ${travados?'alert':''}"><small>Travados agora</small><b>${travados}</b></div>
   </div>
-  ${sumidos?`<div class="aviso-alerta" style="background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span>⚠ <b>${sumidos} aparelho(s) sumido(s)</b> — sem dar sinal há mais de ${Number(S.cfg.maxDiasOffline)||15} dias. Pode ser tentativa de burlar a trava.</span><button class="btn sm red" data-act="semSinal">Ver quais</button></div>`:''}
+  ${sumidos?`<div class="aviso-alerta" style="background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span>⚠ <b>${sumidos} aparelho(s) sumido(s)</b> — sem dar sinal há mais de ${maxOff} dias. Pode ser tentativa de burlar a trava.</span><button class="btn sm red" data-act="semSinal">Ver quais</button></div>`:''}
+  ${quietos?`<div class="aviso-alerta" style="background:#FFFBEB;border:1px solid #FCD34D;color:#92400E;border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span>👁 <b>${quietos} aparelho(s) ficando offline</b> — pararam de sincronizar há mais de ${Math.floor(maxOff/3)} dias, mas ainda não bloquearam. Fique de olho: pode ser alguém isolando o aparelho da internet.</span><button class="btn sm" data-act="go" data-tab="aparelhos">Ver aparelhos</button></div>`:''}
   <h2 class="mt" style="margin-bottom:8px">No mês</h2>
   <div class="grid g4">
     <div class="kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(doMes.reduce((s,v)=>s+v.valor,0))} em aparelhos</span></div>
