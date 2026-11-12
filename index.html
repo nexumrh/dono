@@ -445,6 +445,7 @@ details summary{cursor:pointer}
 /* selfie pelo app */
 .sf-box h3 svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
 .sf-fotos{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}.sf-fotos figure{margin:0;width:170px}.sf-fotos img{width:170px;height:200px;object-fit:cover;border-radius:12px;border:1px solid var(--line)}.sf-fotos figcaption{font-size:12px;color:var(--mut);margin-top:4px}
+.lv-lista{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="data:image/png;base64,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"><link rel="icon" href="favicon.ico" sizes="any"><link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -787,6 +788,10 @@ const IC = {
   listanegra:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   lojas:'<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
   auditoria:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  licencasLojas:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M7 10h6M7 14h4M16 6V4M8 6V4"/><circle cx="17" cy="13" r="2"/>',
+  resultado:'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>',
+  risco:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/>',
+  recompra:'<path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/>',
   licLoja:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h6M7 14h4"/><circle cx="16.5" cy="13" r="1.6"/>',
   comissoes:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .9-3 2s1 1.7 3 2 3 .9 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
   recolher:'<path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
@@ -5200,6 +5205,7 @@ async function pedirAtualizacao(lojaId){
   toast(ok?`Pedido enviado ao gerente (${ger.email})`:'Pedido registrado. Ligue o servidor para enviar o e-mail.','ok'); render();
 }
 /* Licenças de venda: 1 por venda de até 12 parcelas, 2 acima de 12. O gerente compra pelo portal (cobrança no Asaas) e o saldo entra quando o pagamento cai. */
+
 const licUsadas=vs=>vs.filter(v=>['ATIVA','QUITADA','INSTALANDO','RETOMADA','CANCELADA'].includes(v.status)).reduce((s,v)=>s+(+v.licencas||Math.max(1,Math.ceil((v.nParcelas||0)/12))),0);
 PAGES.licLoja=async()=>{
   const lojaId=S.me.lojaId, [l,vs,peds]=await Promise.all([DB.get('lojas',lojaId),DB.list('vendas',[['lojaId','==',lojaId]]),DB.list('licencasPedidos',[['lojaId','==',lojaId]]).catch(()=>[])]);
@@ -7959,6 +7965,53 @@ Object.assign(ACT,{
     const b=$('[data-act="cfgRisco"]')?.closest('.card'); if(!b) return;
     b.querySelector('.grid').insertAdjacentHTML('beforeend',`<label>Selfie pelo app da trava antes de entregar<select id="cfgSelfieApp"><option value="sim" ${S.cfg.selfieApp!=='nao'?'selected':''}>Obrigatória</option><option value="nao" ${S.cfg.selfieApp==='nao'?'selected':''}>Desligada</option></select></label>`); }; }
 { const _cr=ACT.cfgRisco; ACT.cfgRisco=async(d,b)=>{ const s=$('#cfgSelfieApp')?.value; if(s){ await DB.set('config','sistema',{selfieApp:s}); S.cfg.selfieApp=s; } return _cr(d,b); }; }
+
+/* ================= Dono: página Licenças — dar, cobrar ou retirar licenças das lojas ================= */
+TABS.push({id:'licencasLojas',label:'Licenças',roles:['DONO']});
+NAV_GRUPOS.find(g=>g[0]==='Lojas e equipe')?.[1].splice(2,0,'licencasLojas');
+PORTAIS.dono.tabs.push('licencasLojas');
+
+PAGES.licencasLojas=async()=>{
+  const [vendas,peds]=await Promise.all([loadVendas(),DB.list('licencasPedidos').catch(()=>[])]);
+  const ls=(S.lojas||[]).filter(l=>!l.encerrada).map(l=>{ const c=+l.licencasCompradas||0, u=licUsadas(vendas.filter(v=>v.lojaId===l.id)); return {...l,c,u,s:c-u}; }).sort((a,b)=>a.s-b.s);
+  const tot=ls.reduce((a,l)=>({c:a.c+l.c,u:a.u+l.u,s:a.s+l.s}),{c:0,u:0,s:0}), sem=ls.filter(l=>l.s<=0).length, pend=peds.filter(p=>p.status==='PENDENTE');
+  const obrig=S.cfg.licencaObrigatoria==='sim';
+  $('#view').innerHTML=`<div class="kpis"><div class="kpi"><small>Licenças dadas/vendidas</small><b>${tot.c}</b><span>em ${ls.length} loja(s)</span></div><div class="kpi"><small>Usadas em vendas</small><b>${tot.u}</b><span>1 licença a cada 12 parcelas</span></div>
+      <div class="kpi"><small>Saldo total</small><b>${tot.s}</b><span>${brl(+S.cfg.saasLicencaValor||54.99)} cada</span></div><div class="kpi ${sem?'alert':''}"><small>Lojas sem saldo</small><b style="color:${sem?'var(--bad)':'var(--ok)'}">${sem}</b><span>${obrig?'não conseguem vender':'licença não é obrigatória'}</span></div></div>
+    ${!obrig?`<div class="warn mt">Hoje a licença não é obrigatória: as lojas vendem mesmo sem saldo. Para exigir, ligue “Licença obrigatória para vender” em Configurações.</div>`:''}
+    ${pend.length?`<div class="card mt"><h2>Pedidos de licença aguardando pagamento <span class="badge b-amber">${pend.length}</span></h2><div class="tablewrap"><table><tr><th>Loja</th><th class="right">Qtd.</th><th class="right">Valor</th><th>Pedido</th></tr>${pend.map(p=>`<tr><td>${esc(p.lojaNome||(S.lojas.find(l=>l.id===p.lojaId)||{}).nome||'')}</td><td class="right">${p.q||p.quantidade||'—'}</td><td class="right">${brl(+p.valor||0)}</td><td>${fmtDT(p.criadoEm)}</td></tr>`).join('')}</table></div></div>`:''}
+    <div class="card mt"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Licenças por loja</h2><button class="btn gold" data-act="licVarias">Dar licenças para várias lojas</button></div>
+      <div class="tablewrap mt"><table><tr><th>Loja</th><th class="right">Adquiridas</th><th class="right">Usadas</th><th class="right">Saldo</th><th>Última movimentação</th><th></th></tr>
+      ${ls.map(l=>{ const h=(l.licencasHist||[]).slice(-1)[0]; return `<tr><td><b>${esc(l.nome)}</b><br><span class="small muted">${esc(l.empresaNome||'')}${l.cidade?' · '+esc(l.cidade):''}</span></td><td class="right">${l.c}</td><td class="right">${l.u}</td>
+        <td class="right">${badge(String(l.s),l.s<=0?'red':l.s<=5?'amber':'green')}</td><td class="small">${h?`${h.q>0?'+':''}${h.q} ${h.cortesia?'cortesia':h.retirada?'retirada':'compra'} · ${esc(h.por||'')} · ${fmtD(isoDate(new Date(h.em)))}`:'—'}</td>
+        <td class="right" style="white-space:nowrap"><button class="btn sm gold" data-act="licDar" data-id="${l.id}">Dar licenças</button> <button class="btn sm" data-act="addLicencas" data-id="${l.id}">Cobrar</button> <button class="btn sm" data-act="licTirar" data-id="${l.id}">Retirar</button></td></tr>`; }).join('')||'<tr><td colspan="6" class="empty">Nenhuma loja</td></tr>'}</table></div></div>`;
+};
+async function licMov(lojaId,q,tipo,motivo){
+  const l=await DB.get('lojas',lojaId), atual=+l.licencasCompradas||0, novo=Math.max(0,atual+q);
+  await DB.set('lojas',lojaId,{licencasCompradas:novo,licencasHist:[...(l.licencasHist||[]),{q,valor:0,[tipo]:true,motivo:motivo||'',em:Date.now(),por:S.me.nome}]});
+  await log(tipo==='retirada'?'Licenças retiradas':'Licenças em cortesia',lojaId,`${l.nome}: ${q>0?'+':''}${q}${motivo?' · '+motivo:''}`);
+  const loc=S.lojas.find(x=>x.id===lojaId); if(loc){ loc.licencasCompradas=novo; loc.licencasHist=[...(l.licencasHist||[]),{q,[tipo]:true,em:Date.now(),por:S.me.nome}]; } return {l,novo};
+}
+function licForm(titulo,sub,botao){ return `<h2>${titulo}</h2><p class="muted" style="margin-top:-6px">${sub}</p><div class="grid g2"><label>Quantidade<input id="lqQ" type="number" min="1" max="1000" value="10"></label><label>Motivo (opcional)<input id="lqM" placeholder="Ex.: bônus de lançamento"></label></div>
+  <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="lqOk">${botao}</button></div>`; }
+Object.assign(ACT,{
+  licDar:d=>{ const l=S.lojas.find(x=>x.id===d.id); openModal(licForm(`Dar licenças — ${esc(l?.nome||'')}`,'Entram na hora no saldo da loja, sem cobrança.','Dar licenças'));
+    $('#lqOk').onclick=async()=>{ const q=Math.floor(+$('#lqQ').value||0); if(q<1) return toast('Informe a quantidade','err'); const r=await licMov(d.id,q,'cortesia',$('#lqM').value.trim()); closeModal(); toast(`${q} licença(s) para ${r.l.nome}. Total adquirido: ${r.novo}.`,'ok'); render(); }; },
+  licTirar:d=>{ const l=S.lojas.find(x=>x.id===d.id); openModal(licForm(`Retirar licenças — ${esc(l?.nome||'')}`,`Adquiridas hoje: ${+l?.licencasCompradas||0}. Use para corrigir um lançamento errado.`,'Retirar'));
+    $('#lqOk').onclick=async()=>{ const q=Math.floor(+$('#lqQ').value||0); if(q<1) return toast('Informe a quantidade','err'); const m=$('#lqM').value.trim(); if(!m) return toast('Diga o motivo da retirada','err'); const r=await licMov(d.id,-q,'retirada',m); closeModal(); toast(`${q} licença(s) retiradas de ${r.l.nome}.`,'ok'); render(); }; },
+  licVarias:()=>{ const ls=(S.lojas||[]).filter(l=>!l.encerrada);
+    openModal(`<h2>Dar licenças para várias lojas</h2><p class="muted" style="margin-top:-6px">A mesma quantidade vai para cada loja marcada, sem cobrança.</p>
+      <div class="row" style="gap:8px"><button class="btn sm" id="lvTodas">Marcar todas</button><button class="btn sm" id="lvNenhuma">Desmarcar</button></div>
+      <div class="lv-lista mt">${ls.map(l=>`<label class="check"><input type="checkbox" class="lvL" value="${l.id}"> ${esc(l.nome)} <span class="small muted">· saldo atual ${+l.licencasCompradas||0} adquiridas</span></label>`).join('')}</div>
+      <div class="grid g2 mt"><label>Quantidade por loja<input id="lqQ" type="number" min="1" max="1000" value="10"></label><label>Motivo (opcional)<input id="lqM" placeholder="Ex.: campanha de novembro"></label></div>
+      <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="lqOk">Dar licenças</button></div>`,true);
+    $('#lvTodas').onclick=()=>document.querySelectorAll('.lvL').forEach(i=>i.checked=true); $('#lvNenhuma').onclick=()=>document.querySelectorAll('.lvL').forEach(i=>i.checked=false);
+    $('#lqOk').onclick=async e=>{ const ids=[...document.querySelectorAll('.lvL:checked')].map(i=>i.value), q=Math.floor(+$('#lqQ').value||0);
+      if(!ids.length) return toast('Marque ao menos uma loja','err'); if(q<1) return toast('Informe a quantidade','err');
+      if(!confirm(`Dar ${q} licença(s) para ${ids.length} loja(s)? Total: ${q*ids.length}.`)) return; e.target.disabled=true;
+      for(const id of ids) await licMov(id,q,'cortesia',$('#lqM').value.trim());
+      closeModal(); toast(`${q*ids.length} licença(s) distribuídas em ${ids.length} loja(s).`,'ok'); render(); }; },
+});
 
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
 </script>
