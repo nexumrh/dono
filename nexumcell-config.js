@@ -35,3 +35,4 @@ window.NEXUMCELL_URLS = {
 
 /* 4) Endereço do servidor (Cloudflare Workers). Não é segredo: usado no link público de credenciamento de lojas. */
 window.NEXUMCELL_SERVIDOR = "https://nexumcell-servidor.wevellenerrera21.workers.dev";
+window.NEXUMCELL_WHATS = "5545991187639"; // WhatsApp do site de vendas (DDI 55 + DDD + número)
