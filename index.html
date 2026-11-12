@@ -1790,7 +1790,7 @@ async function passoTrava(){
         <p class="small muted" style="text-align:center">Contrato nº ${v.numero} · IMEI <span class="mono">${esc(v.aparelho.imei)}</span></p>
         <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho confirmar a trava… <span id="instTempo"></span></div>
         <div id="instAjuda"></div>
-        <details class="mt" id="instPc"><summary class="btn sm" style="display:inline-flex">Instalar pelo computador (cabo USB)</summary>${blocoInstalarPc(v,tk)}</details>
+        <details class="mt" id="instPc"><summary class="btn sm" style="display:inline-flex">${marcaSemUsb(v)?'Cabo USB: não disponível para Xiaomi / Redmi / POCO':'Instalar pelo computador (cabo USB)'}</summary>${blocoInstalarPc(v,tk)}</details>
         ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
     </div>
     <div class="row mt" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
@@ -6294,16 +6294,17 @@ async function ligarCodigo(btn){
 Object.assign(ACT,{ ligarCodigo:(d,b)=>ligarCodigo(b) });
 
 /* ---- Instalação da trava pelo computador (ADB): proteção completa, igual ao QR ---- */
+const marcaSemUsb=v=>/xiaomi|redmi|poco/i.test(`${v?.aparelho?.marca||''} ${v?.aparelho?.modelo||''}`);
 function blocoInstalarPc(v,tk){
+  if(marcaSemUsb(v)) return `<div class="msg mt" style="border-color:var(--bad)"><b>Pelo cabo USB não funciona em Xiaomi, Redmi e POCO.</b> A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Por isso esta opção fica bloqueada para essas marcas.<br><br>Use o <b>QR Code</b>: restaure de fábrica, toque 6 vezes na tela de boas-vindas e leia o QR desta tela. Se o QR não abrir neste modelo, use "Instalar por link".</div>`;
   return `<ol class="steps small mt">
     <li>Restaure o celular de fábrica. Na configuração, <b>pule o Wi-Fi e NÃO coloque conta Google</b>.</li>
     <li>No celular: Configurações → Sobre o telefone → toque 7 vezes em <b>Número da versão</b> (ou "Versão"). Volte em Opções do desenvolvedor e ligue a <b>Depuração USB</b>.</li>
     <li>No computador (Windows), baixe o instalador abaixo e dê dois cliques nele.</li>
     <li>Ligue o celular no cabo USB e toque em <b>Permitir</b> na pergunta de depuração.</li>
     <li>O instalador confere o aparelho (conta, IMEI do contrato), instala e só mostra <b>PRONTO</b> quando o sistema recebe o sinal do celular. Aqui também fica verde.</li></ol>
-    <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">Baixar instalador deste contrato</button><button class="btn" data-act="baixarInstLoja">Instalador da loja (vários contratos)</button></div>
-    <div class="msg small mt"><b>Xiaomi, Redmi e POCO:</b> o cabo quase nunca funciona nessas marcas. A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Use o <b>QR Code</b> (restaurar de fábrica e tocar 6 vezes na tela de boas-vindas) ou, em último caso, "Instalar por link".</div>
-    <p class="hint">O instalador da loja traz todos os contratos que estão aguardando a trava: você escolhe o número e pode fazer um aparelho atrás do outro. Na primeira vez ele baixa sozinho as ferramentas do Google (ADB); precisa de internet no computador.</p>`;
+    <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">Baixar instalador para o computador</button></div>
+    <p class="hint">Na primeira vez o instalador baixa sozinho as ferramentas do Google (ADB); precisa de internet no computador. Não funciona em Xiaomi, Redmi e POCO.</p>`;
 }
 /* Instalador da trava pelo cabo USB (.bat, Windows). Recebe um ou vários contratos:
    confere o aparelho ANTES de instalar (Android, conta Google, outro administrador, IMEI), explica o erro por marca,
@@ -6361,8 +6362,7 @@ function scriptInstPc(lista){
 '"%ADB%" %D% shell getprop ro.product.model > "%TEMP%\\nx_a.txt" 2>nul','set /p MODELO=<"%TEMP%\\nx_a.txt"',
 '"%ADB%" %D% shell getprop ro.build.version.sdk > "%TEMP%\\nx_a.txt" 2>nul','set /p SDK=<"%TEMP%\\nx_a.txt"',
 'echo       Aparelho: %MARCA% %MODELO%',
-'echo %MARCA% | findstr /i "xiaomi redmi poco" >nul && goto xiaomi',
-':seguexiaomi',
+'echo %MARCA% %MODELO% | findstr /i "xiaomi redmi poco" >nul && goto xiaomi',
 'if %SDK% LSS 26 goto erroandroid',
 '"%ADB%" %D% shell dumpsys device_policy > "%TEMP%\\nx_dp.txt" 2>nul',
 'findstr /i /c:"br.com.nexumcell.trava/.AdminReceiver" "%TEMP%\\nx_dp.txt" >nul && findstr /c:"Device Owner:" "%TEMP%\\nx_dp.txt" >nul && goto jadono',
@@ -6419,12 +6419,11 @@ function scriptInstPc(lista){
 ':xiaomi','echo.',
 'echo ATENCAO - XIAOMI / REDMI / POCO:',
 'echo A Xiaomi so libera a instalacao pelo cabo com uma Conta Mi logada e chip no aparelho,',
-'echo e a trava nao pode ser ativada com conta no aparelho. Por isso o cabo quase nunca funciona nessa marca.',
+'echo e a trava nao pode ser ativada com conta no aparelho. Por isso o cabo NAO funciona nessa marca.',
 'echo.',
 'echo USE O QR CODE: restaure de fabrica, toque 6 vezes na tela de boas-vindas e leia o QR do sistema.',
 'echo Se o QR tambem nao funcionar, use "Instalar por link" na tela da venda.',
-'echo.','set "TENTA="','set /p TENTA=Digite T para tentar pelo cabo mesmo assim, ou ENTER para parar: ',
-'if /i "%TENTA%"=="T" goto seguexiaomi','goto fim',
+'echo.','echo A instalacao pelo cabo esta BLOQUEADA para esta marca. Nada foi instalado.','goto fim',
 ':erroandroid','echo.','echo NAO DA PARA INSTALAR: este celular tem Android antigo (anterior ao 8). A trava exige Android 8 ou mais novo.','goto fim',
 ':errooutrodono','echo.','echo NAO DA PARA INSTALAR: o celular ja tem OUTRO aplicativo administrador (de outra financeira ou empresa).','echo Restaure o celular de fabrica e rode o instalador de novo.','goto fim',
 ':erroconta','echo.','echo NAO DA PARA INSTALAR AINDA: o celular tem conta cadastrada (Google, Samsung, Xiaomi...).','echo No celular: Configuracoes - Contas - remova TODAS as contas. Depois rode o instalador de novo.','echo Se nao conseguir remover, restaure de fabrica e NAO coloque conta na configuracao inicial.','goto fim',
@@ -6453,12 +6452,9 @@ varios?'if /i "%DENOVO%"=="S" goto inicio':'',
 }
 function baixarBat(nome,txt){ const b=new Blob([txt],{type:'application/octet-stream'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=nome; document.body.appendChild(a); a.click(); a.remove(); }
 Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id); if(!v?.aparelhoToken) return toast('Trava ainda não gerada','err');
+  if(marcaSemUsb(v)) return toast('Pelo cabo USB não funciona em Xiaomi, Redmi e POCO. Use o QR Code.','err');
   baixarBat(`instalar-trava-contrato-${v.numero}.bat`,scriptInstPc(v));
-  await log('Instalador da trava (computador) baixado',v.id,`contrato ${v.numero}`); toast('Instalador baixado. Abra o arquivo no computador.','ok'); },
-  baixarInstLoja:async()=>{ const vs=(can('DONO','SUPORTE','FINANCEIRO')?await DB.list('vendas',[['status','==','INSTALANDO']]):(await DB.list('vendas',[['lojaId','==',S.me.lojaId]])).filter(v=>v.status==='INSTALANDO')).filter(v=>v.aparelhoToken&&!v.aparelho?.semTrava).sort((a,b)=>a.numero-b.numero).slice(0,60);
-    if(!vs.length) return toast('Nenhum contrato aguardando a instalação da trava','err');
-    baixarBat('instalar-trava-loja.bat',scriptInstPc(vs));
-    await log('Instalador da trava da loja (computador) baixado','',`${vs.length} contrato(s): ${vs.map(v=>v.numero).join(', ')}`); toast(`Instalador baixado com ${vs.length} contrato(s). Baixe de novo quando houver vendas novas.`,'ok'); } });
+  await log('Instalador da trava (computador) baixado',v.id,`contrato ${v.numero}`); toast('Instalador baixado. Abra o arquivo no computador.','ok'); } });
 
 /* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
 const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
