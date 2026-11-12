@@ -5500,14 +5500,18 @@ function baixarRemovedorUsb(){
 /* Remoção definitiva da trava (Dono/Suporte): gera o código do aparelho e o passo a passo. */
 async function apRemover(id){
   const a=await DB.get('aparelhos',id); if(!a) return;
-  if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nUse quando a remoção pela internet não funcionar. O código tira a proteção e desinstala o app. Não dá para desfazer.`)) return;
+  if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nSe o aparelho tiver internet, a trava sai sozinha em alguns minutos. O código de 10 números abaixo é só para quando ele estiver offline.\n\nNão dá para desfazer.`)) return;
   let ch=await DB.get('chavesTrava',id).catch(()=>null); if(!ch&&!fb) ch={k:'demo-'+id};
   if(!ch?.k) return openModal(`<h2>Remoção da trava</h2><p>Este aparelho ainda está com a versão antiga do app da trava. O código de remoção passa a funcionar depois que ele <b>atualizar sozinho</b>. Enquanto isso, remova pela internet (Liberar / cancelar o contrato).</p>`);
   const dia=diaBR(), cod=await removocaoOffline(ch.k,dia);
-  await DB.set('aparelhos',id,{removocao:{por:S.me.nome,em:Date.now(),dia}}); await log('Código de REMOÇÃO da trava gerado',id,`nº ${a.vendaNumero} · ${a.clienteNome}`);
-  openModal(`<h2>Remover a trava — código do aparelho</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)} · IMEI <span class="mono">${esc(a.imei||'')}</span></p>
-    <div style="font-size:40px;font-weight:800;letter-spacing:6px;text-align:center;margin:16px 0" class="mono">${cod.slice(0,5)} ${cod.slice(5)}</div>
-    <div class="warn"><b>No aparelho, mesmo sem internet:</b><ol style="margin:6px 0 0 18px;padding:0">
+  // 1) autoriza a remoção AUTOMÁTICA: o aparelho se remove sozinho assim que sincronizar (se tiver internet)
+  await DB.set('aparelhos',id,{removerRemoto:true,modo:'AUTO',removocao:{por:S.me.nome,em:Date.now(),dia}}); await log('Remoção da trava autorizada (automática + código)',id,`nº ${a.vendaNumero} · ${a.clienteNome}`);
+  const online=a.checkin?.em&&Date.now()-a.checkin.em<2*86400000;
+  openModal(`<h2>Remover a trava</h2><p class="muted" style="margin-top:-6px">Nº ${a.vendaNumero} · ${esc(a.clienteNome)} · ${esc(a.marca+' '+a.modelo)} · IMEI <span class="mono">${esc(a.imei||'')}</span></p>
+    <div class="msg" style="border-color:var(--ok)"><b>Remoção autorizada.</b> ${online?'O aparelho deu sinal há pouco: com internet ligada, a trava sai sozinha em alguns minutos — não precisa digitar nada.':'O aparelho está sem dar sinal. Ligue o Wi-Fi ou os dados dele e a trava sai sozinha; se não tiver como colocar internet, use o código abaixo.'}</div>
+    <p class="small muted" style="margin:10px 0 2px">Código para remover <b>sem internet</b> (só se precisar):</p>
+    <div style="font-size:40px;font-weight:800;letter-spacing:6px;text-align:center;margin:8px 0" class="mono">${cod.slice(0,5)} ${cod.slice(5)}</div>
+    <div class="warn"><b>No aparelho, sem internet:</b><ol style="margin:6px 0 0 18px;padding:0">
       <li>Se o aparelho não estiver na tela de bloqueio, trave agora pelo botão <b>“Travar agora”</b> deste painel — a tela de bloqueio aparece no aparelho.</li>
       <li>Na tela de bloqueio, toque em <b>“Tenho um código da loja”</b>.</li>
       <li>Digite estes <b>10 números</b> e confirme a remoção.</li>
