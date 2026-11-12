@@ -6264,7 +6264,7 @@ async function devolverCancelados(){
 { const _pp2=PAGES.painel; PAGES.painel=async()=>{ await _pp2(); if(!S._devCanc&&can('DONO','GERENTE')){ S._devCanc=1; devolverCancelados(); } }; }
 
 /* ---- Código de acesso por e-mail (Dono e Financeiro) ---- */
-const precisaCodigo=()=>fb&&S.cfg.doisFatores==='sim'&&['DONO','FINANCEIRO'].includes(S.me?.role)&&servidorPg().startsWith('https://');
+const precisaCodigo=()=>fb&&S.cfg.exigirCodigoEmail==='sim'&&['DONO','FINANCEIRO'].includes(S.me?.role)&&servidorPg().startsWith('https://');
 async function portaoCodigo(){
   if(!precisaCodigo()) return;
   const u=await DB.get('users',S.me.uid).catch(()=>null); if((u?.verificadoAte||0)>Date.now()) return;
@@ -6284,16 +6284,16 @@ async function portaoCodigo(){
 async function ligarCodigo(btn){
   if(!fb) return toast('Disponível só no sistema real','err');
   if(!servidorPg().startsWith('https://')) return toast('Configure o servidor primeiro','err');
-  if(S.cfg.doisFatores==='sim'){ if(!confirm('Desligar o código por e-mail na entrada?')) return; S.cfg.doisFatores='nao'; await DB.set('config','sistema',{doisFatores:'nao'}); await log('Código por e-mail desligado','',''); return render(); }
+  if(S.cfg.exigirCodigoEmail==='sim'){ if(!confirm('Desligar o código por e-mail na entrada?')) return; S.cfg.exigirCodigoEmail='nao'; await DB.set('config','sistema',{exigirCodigoEmail:'nao',doisFatores:'nao'}); await log('Código por e-mail desligado','',''); return render(); }
   btn.disabled=true;
   try{ const r=await apiServ('codigo',{acao:'enviar'}); const c=onlyDig(prompt(`Teste: digite o código enviado para ${r.email}`)||'');
     if(!c){ btn.disabled=false; return; } await apiServ('codigo',{acao:'verificar',codigo:c});
-    S.cfg.doisFatores='sim'; await DB.set('config','sistema',{doisFatores:'sim'}); await log('Código por e-mail ligado','',''); toast('Ligado: Dono e Financeiro confirmam a entrada com código por e-mail','ok'); render();
+    S.cfg.exigirCodigoEmail='sim'; await DB.set('config','sistema',{exigirCodigoEmail:'sim',doisFatores:'sim'}); await log('Código por e-mail ligado','',''); toast('Ligado: Dono e Financeiro confirmam a entrada com código por e-mail','ok'); render();
   }catch(e){ toast(e.message,'err'); btn.disabled=false; }
 }
 { const _pc=PAGES.config; PAGES.config=async()=>{ await _pc(); if(!can('DONO')||!$('#view')) return;
   $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b>🔐 Código por e-mail na entrada</b><br><span class="small muted">Dono e Financeiro digitam um código enviado ao e-mail a cada 12 horas. Protege o sistema mesmo se alguém descobrir a senha.</span></div>
-    ${badge(S.cfg.doisFatores==='sim'?'ligado':'desligado',S.cfg.doisFatores==='sim'?'green':'gray')}<button class="btn sm" data-act="ligarCodigo">${S.cfg.doisFatores==='sim'?'Desligar':'Ligar (faz um teste)'}</button></div>`); }; }
+    ${badge(S.cfg.exigirCodigoEmail==='sim'?'ligado':'desligado',S.cfg.exigirCodigoEmail==='sim'?'green':'gray')}<button class="btn sm" data-act="ligarCodigo">${S.cfg.exigirCodigoEmail==='sim'?'Desligar':'Ligar (faz um teste)'}</button></div>`); }; }
 Object.assign(ACT,{ ligarCodigo:(d,b)=>ligarCodigo(b) });
 
 /* ---- Instalação da trava pelo computador (ADB): proteção completa, igual ao QR ---- */
