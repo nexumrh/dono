@@ -355,6 +355,12 @@ service cloud.firestore {
     }
 
     // ---------- Metas do mês (ID: AAAA-MM) ----------
+    // ---------- Ranking do mês (resumo: só primeiro nome e nº de vendas) ----------
+    match /ranking/{id} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && id.matches('.*_' + me().lojaId));
+    }
+
     match /metas/{mes} {
       allow read: if staff();
       allow write: if hasRole(['DONO', 'GERENTE']);

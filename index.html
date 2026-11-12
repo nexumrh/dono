@@ -435,6 +435,13 @@ details summary{cursor:pointer}
 .lf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.lf-grid figure{margin:0}.lf-grid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;cursor:zoom-in}.lf-grid figcaption{font-size:13px;color:var(--mut);margin-top:4px}
 .lf-lb{position:fixed;inset:0;z-index:999;background:rgba(5,12,30,.9);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}.lf-lb img{max-width:100%;max-height:92vh;border-radius:12px}
 @media(max-width:900px){.lp-ks{grid-template-columns:repeat(4,1fr)}.lf-grid{grid-template-columns:1fr 1fr}}
+/* gestão: risco, resultado, recompra, ranking, backup */
+.rk-alerta td{background:#FFF5F5}
+.imei-cons{background:#F4F7FD;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px}
+.res-cur{background:#F2F6FF}.res-tot td{border-top:2px solid var(--line)}
+.rk{list-style:none;margin:0;padding:0}.rk li{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px}.rk li:nth-child(odd){background:#F7F9FD}.rk li span:nth-child(2){flex:1}.rk li.eu{background:#EAF1FF;font-weight:700}
+.rk-pos{width:30px;font-weight:800;color:var(--mut)}.rk li:nth-child(1) .rk-pos{color:#C9A227}.rk li:nth-child(2) .rk-pos{color:#8A94A6}.rk li:nth-child(3) .rk-pos{color:#B87333}
+.bk-banner{position:fixed;left:18px;bottom:18px;z-index:900;display:flex;gap:8px;align-items:center;background:#0A1733;color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25);cursor:pointer}.bk-banner svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="data:image/png;base64,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"><link rel="icon" href="favicon.ico" sizes="any"><link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -7655,6 +7662,262 @@ Object.assign(ACT,{
   statusCadastro:d=>statusCadastro(d.id,d.s), verFotosLoja:d=>verFotosLoja(d.id,d.i),
   lfAmpliar:(d,b)=>{ const w=document.createElement('div'); w.className='lf-lb'; w.innerHTML=`<img src="${b.src}" alt="">`; w.onclick=()=>w.remove(); document.body.appendChild(w); },
   editarLojaCad:d=>editarLojaCad(d.id), salvarLojaCad:d=>salvarLojaCad(d.id), validarPix:d=>validarPix(d.id),
+});
+
+/* ================= Gestão: risco da carteira (1ª parcela por vendedor/loja, safras), IMEI bloqueado, resultado e caixa,
+   backup automático, recompra de quitados e ranking ao vivo ================= */
+TABS.push({id:'risco',label:'Risco da carteira',roles:['DONO','FINANCEIRO']},{id:'resultado',label:'Resultado e caixa',roles:['DONO','FINANCEIRO']},{id:'recompra',label:'Recompra (quitados)',roles:['DONO','GERENTE','FINANCEIRO']});
+NAV_GRUPOS.find(g=>g[0]==='Cobrança')?.[1].push('risco'); NAV_GRUPOS.find(g=>g[0]==='Financeiro')?.[1].push('resultado'); NAV_GRUPOS.find(g=>g[0]==='Vendas')?.[1].push('recompra');
+PORTAIS.dono.tabs.push('risco','resultado','recompra'); PORTAIS.financeiro.tabs.push('risco','resultado','recompra'); PORTAIS.gerente.tabs.push('recompra');
+const VIVAS=['ATIVA','QUITADA','RETOMADA'];
+const pctF=(a,b)=>b?a/b*100:0, pctT=x=>x.toFixed(1).replace('.',',')+'%';
+const mesNomeG=k=>{ const [y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'numeric'}); };
+const mesDe=v=>isoDate(new Date(v.entradaPaga?.em||v.assinadoEm||v.criadoEm)).slice(0,7);
+function atrasoParcela(p,h){ if(p.pago) return Math.max(0,diasEntre(p.venc,String(p.pagoEm||p.venc).slice(0,10))); return Math.max(0,diasEntre(p.venc,h)); }
+
+/* ---------- 1ª parcela: o melhor sinal de venda ruim ou fraudulenta ---------- */
+function primeiraParcela(v,h=hoje()){
+  const p=(v.parcelas||[])[0]; if(!p||!VIVAS.includes(v.status)) return null;
+  const venceu=diasEntre(p.venc,h);
+  return {madura:venceu>=30, venceu, fpd30:venceu>=30&&atrasoParcela(p,h)>=30, atrasadaAgora:!p.pago&&venceu>5, pago:!!p.pago};
+}
+function riscoGrupo(vs,h){ const r={vendas:0,maduras:0,fpd:0,atrasoAgora:0,lista:[]};
+  vs.forEach(v=>{ const f=primeiraParcela(v,h); if(!f) return; r.vendas++; if(f.madura) r.maduras++; if(f.fpd30){ r.fpd++; r.lista.push(v); } else if(f.atrasadaAgora){ r.atrasoAgora++; r.lista.push(v); } });
+  r.pct=pctF(r.fpd,r.maduras); return r; }
+const fpdLimite=()=>Number(S.cfg.fpdAlertaPct)||10;
+function fpdBadge(r){ if(r.maduras<3) return badge(r.maduras?pctT(r.pct):'—','gray')+'<br><span class="small muted">poucas vendas</span>'; const l=fpdLimite(); return badge(pctT(r.pct),r.pct>=l?'red':r.pct>=l/2?'amber':'green'); }
+
+PAGES.risco=async()=>{
+  const vendas=await loadVendas(), h=hoje(), us=await DB.list('users').catch(()=>[]), lim=fpdLimite();
+  const porV={}, porL={};
+  vendas.forEach(v=>{ (porV[v.vendedorUid]=porV[v.vendedorUid]||{nome:v.vendedorNome,loja:v.lojaNome,vs:[]}).vs.push(v); (porL[v.lojaId]=porL[v.lojaId]||{nome:v.lojaNome,vs:[]}).vs.push(v); });
+  const rv=Object.entries(porV).map(([uid,o])=>({uid,...o,r:riscoGrupo(o.vs,h),ativo:us.find(u=>u.id===uid)?.ativo!==false})).filter(x=>x.r.vendas).sort((a,b)=>b.r.pct-a.r.pct||b.r.atrasoAgora-a.r.atrasoAgora);
+  const rl=Object.entries(porL).map(([id,o])=>({id,...o,r:riscoGrupo(o.vs,h)})).filter(x=>x.r.vendas).sort((a,b)=>b.r.pct-a.r.pct);
+  const geral=riscoGrupo(vendas,h), alertas=rv.filter(x=>x.r.maduras>=3&&x.r.pct>=lim);
+  // safras
+  const saf={}; vendas.filter(v=>VIVAS.includes(v.status)).forEach(v=>(saf[mesDe(v)]=saf[mesDe(v)]||[]).push(v));
+  const linhaSafra=k=>{ const vs=saf[k], r=riscoGrupo(vs,h), at30=vs.filter(v=>v.status==='ATIVA'&&(v.parcelas||[]).some(p=>!p.pago&&diasEntre(p.venc,h)>=30)).length,
+      ret=vs.filter(v=>v.status==='RETOMADA').length, qt=vs.filter(v=>v.status==='QUITADA').length, inad=inadimplencia(vs), pago=inad.venc?100-inad.pct:100;
+    const c=(x,a,b)=>badge(pctT(x),x>=b?'red':x>=a?'amber':'green');
+    return `<tr><td><b>${mesNomeG(k)}</b></td><td class="right">${vs.length}</td><td class="right">${brl(vs.reduce((s,v)=>s+(v.financiado||0),0))}</td>
+      <td class="right">${r.maduras?c(r.pct,lim/2,lim):'<span class="muted small">ainda não</span>'}</td><td class="right">${c(pctF(at30,vs.length),5,12)}</td><td class="right">${c(pctF(ret,vs.length),3,8)}</td>
+      <td class="right">${pctT(pctF(qt,vs.length))}</td><td class="right">${inad.venc?badge(pctT(pago),pago<85?'red':pago<93?'amber':'green'):'—'}</td></tr>`; };
+  const linhaV=x=>`<tr ${x.r.maduras>=3&&x.r.pct>=lim?'class="rk-alerta"':''}><td><b>${esc(x.nome||'—')}</b>${x.ativo?'':' '+badge('desativado','gray')}<br><span class="small muted">${esc(x.loja||'')}</span></td>
+    <td class="right">${x.r.vendas}</td><td class="right">${x.r.maduras}</td><td class="right">${x.r.fpd}</td><td class="right">${fpdBadge(x.r)}</td><td class="right">${x.r.atrasoAgora?badge(x.r.atrasoAgora,'amber'):'0'}</td>
+    <td class="right">${x.r.lista.length?`<button class="btn sm" data-act="rkLista" data-uid="${esc(x.uid)}">Ver vendas</button>`:''}</td></tr>`;
+  S._rk={porV,h};
+  $('#view').innerHTML=`<div class="kpis"><div class="kpi"><small>1ª parcela com 30+ dias de atraso</small><b style="color:${geral.pct>=lim?'var(--bad)':'var(--ok)'}">${pctT(geral.pct)}</b><span>${geral.fpd} de ${geral.maduras} vendas que já podiam ter pago</span></div>
+      <div class="kpi"><small>1ª parcela atrasada agora</small><b style="color:var(--warn,#B7791F)">${geral.atrasoAgora}</b><span>sinal de alerta: vendas recentes</span></div>
+      <div class="kpi"><small>Vendedores acima do limite</small><b style="color:${alertas.length?'var(--bad)':'var(--ok)'}">${alertas.length}</b><span>limite: ${lim}% (mude em Configurações)</span></div></div>
+    ${alertas.length?`<div class="err-box mt"><b>Atenção:</b> ${alertas.map(x=>esc(x.nome)).join(', ')} ${alertas.length>1?'têm':'tem'} muitos clientes que não pagaram nem a 1ª parcela. Isso costuma ser venda mal analisada ou fraude (cliente “laranja”). Revise as vendas e, se preciso, suspenda o vendedor.</div>`:''}
+    <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Por vendedor</h2><table><tr><th>Vendedor</th><th class="right">Vendas</th><th class="right">Já podiam ter pago</th><th class="right">Não pagaram a 1ª</th><th class="right">% 1ª parcela</th><th class="right">Atrasada agora</th><th></th></tr>
+      ${rv.map(linhaV).join('')||'<tr><td colspan="7" class="empty">Sem vendas</td></tr>'}</table></div>
+    <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Por loja</h2><table><tr><th>Loja</th><th class="right">Vendas</th><th class="right">Já podiam ter pago</th><th class="right">Não pagaram a 1ª</th><th class="right">% 1ª parcela</th><th class="right">Atrasada agora</th></tr>
+      ${rl.map(x=>`<tr><td><b>${esc(x.nome||'—')}</b></td><td class="right">${x.r.vendas}</td><td class="right">${x.r.maduras}</td><td class="right">${x.r.fpd}</td><td class="right">${fpdBadge(x.r)}</td><td class="right">${x.r.atrasoAgora}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Sem vendas</td></tr>'}</table></div>
+    <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Safras — como as vendas de cada mês estão se comportando</h2><table><tr><th>Mês da venda</th><th class="right">Vendas</th><th class="right">Financiado</th><th class="right">Não pagou a 1ª</th><th class="right">Com 30+ dias de atraso</th><th class="right">Retomadas</th><th class="right">Quitadas</th><th class="right">Pago do que venceu</th></tr>
+      ${Object.keys(saf).sort().reverse().slice(0,18).map(linhaSafra).join('')||'<tr><td colspan="8" class="empty">Sem vendas</td></tr>'}</table></div>
+    <p class="hint">“Não pagou a 1ª” só conta vendas cuja 1ª parcela venceu há 30 dias ou mais. Se uma safra nova está pior que as antigas, aperte a análise (entrada maior, limite menor) antes que vire prejuízo.</p>`;
+};
+function rkLista(uid){ const o=S._rk?.porV?.[uid]; if(!o) return; const h=S._rk.h, r=riscoGrupo(o.vs,h);
+  openModal(`<h2>${esc(o.nome)} — vendas com a 1ª parcela em risco</h2><div class="tablewrap"><table><tr><th>Nº</th><th>Cliente</th><th>Venda</th><th>1ª parcela</th><th>Situação</th></tr>
+    ${r.lista.map(v=>{ const p=v.parcelas[0], f=primeiraParcela(v,h); return `<tr class="click" data-act="abrirVenda" data-id="${v.id}"><td class="mono">${v.numero}</td><td>${esc(v.clienteNome)}<br><span class="small muted">${fmtCpf(v.clienteCpf)}</span></td><td>${fmtD(mesDe(v)+'-01').slice(3)}<br><span class="small muted">${esc(v.lojaNome||'')}</span></td>
+      <td>${fmtD(p.venc)} · ${brl(p.valor)}</td><td>${f.fpd30?badge(p.pago?`pagou com ${atrasoParcela(p,h)} dias de atraso`:`${f.venceu} dias sem pagar`,'red'):badge(`${f.venceu} dias em atraso`,'amber')}</td></tr>`; }).join('')}</table></div>
+    <p class="hint">Confira na análise: documento, selfie, referências e se o endereço existe. Vários clientes do mesmo vendedor sem pagar a 1ª parcela é o padrão de fraude mais comum.</p>`,true); }
+
+/* ---------- IMEI bloqueado (roubo/furto/perda) ---------- */
+const CONSULTA_IMEI=[['Consulta oficial (Anatel / ABR Telecom)','https://www.consultaaparelhoimpedido.com.br/'],['Celular Seguro (gov.br)','https://celularseguro.mj.gov.br/']];
+/** Bases do próprio sistema: lista negra, aparelho com roubo comunicado e contrato ativo com o mesmo IMEI. */
+async function imeiInterno(imei,{ignorarContrato}={}){
+  const r=[];
+  try{ if(await DB.get('listanegra','imei_'+imei)) r.push('está na lista negra da NexumCell'); }catch(e){}
+  try{ const aps=await DB.list('aparelhos',[['imei','==',imei]]);
+    if(aps.some(a=>a.roubo&&!a.roubo.liberadoEm)) r.push('tem roubo, furto ou perda comunicado no sistema');
+    if(!ignorarContrato&&aps.some(a=>!a.quitado&&a.status!=='CANCELADO'&&a.status!=='QUITADO')) r.push('tem contrato ativo (o aparelho não foi quitado)'); }catch(e){}
+  return r;
+}
+function caixaConsultaImei(id){ return `<div class="imei-cons" id="${id}"><b>Consulta de IMEI bloqueado</b>
+  <p class="small muted" style="margin:4px 0 8px">Antes de colocar no estoque, consulte cada IMEI na base oficial de aparelhos roubados, furtados ou perdidos. As consultas oficiais têm verificação “não sou robô”, por isso são feitas por você.</p>
+  <div class="row" style="gap:8px;flex-wrap:wrap">${CONSULTA_IMEI.map(([t,u])=>`<a class="btn sm" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('')}</div>
+  <label class="check mt"><input type="checkbox" class="imeiConsOk"> Consultei os IMEIs na base oficial e nenhum está impedido.</label></div>`; }
+const exigeConsultaImei=()=>S.cfg.exigirConsultaImei!=='nao';
+{ const _ce=cadEstoque; cadEstoque=async function(){ await _ce(); $('#esMsg')?.insertAdjacentHTML('beforebegin',caixaConsultaImei('esCons')); }; }
+{ const _se=salvarEstoque; salvarEstoque=async function(btn){
+    const linhas=($('#esImeis')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean), ruins=[];
+    if(exigeConsultaImei()&&linhas.length&&!$('#esCons .imeiConsOk')?.checked) return toast('Consulte os IMEIs na base oficial (Anatel) e marque a confirmação.','err');
+    for(const ln of linhas){ for(const im of ln.split(/[\s;,]+/).map(onlyDig).filter(imeiOk)){ const r=await imeiInterno(im); if(r.length) ruins.push(`${im}: ${r.join(' e ')}`); } }
+    if(ruins.length){ $('#esMsg').innerHTML=`<b style="color:var(--bad)">IMEI bloqueado — não cadastre:</b><div>${ruins.map(esc).join('<br>')}</div>`;
+      await log('Entrada no estoque barrada: IMEI bloqueado','',ruins.join(' | ')); return; }
+    S._imeiCons=exigeConsultaImei()?{consultaImei:{por:S.me.nome,em:Date.now(),resultado:'LIMPO'}}:null;
+    await _se(btn);
+    if(S._imeiCons){ for(const ln of linhas){ const im=onlyDig(ln.split(/[\s;,]+/)[0]); const e=await DB.get('estoque',im).catch(()=>null); if(e&&!e.consultaImei&&e.criadoEm>Date.now()-120000) DB.set('estoque',im,S._imeiCons).catch(()=>{}); } }
+    S._imeiCons=null; }; }
+{ const _sa=snAnalisar; snAnalisar=async function(id){ await _sa(id); const s=await DB.get('seminovos',id); const b=$('#snVoltar'); if(!b||!s?.imei) return;
+    b.closest('.row').insertAdjacentHTML('beforebegin',caixaConsultaImei('snCons'));
+    const orig=b.onclick; b.onclick=async ev=>{ if(exigeConsultaImei()&&!$('#snCons .imeiConsOk')?.checked) return toast('Consulte o IMEI na base oficial (Anatel) e marque a confirmação.','err');
+      const r=await imeiInterno(s.imei,{ignorarContrato:true}); if(r.length) return toast('IMEI bloqueado: '+r.join(' e ')+'. Não pode voltar ao estoque.','err');
+      await orig.call(b,ev); if(exigeConsultaImei()) DB.set('estoque',s.imei,{consultaImei:{por:S.me.nome,em:Date.now(),resultado:'LIMPO'}}).catch(()=>{}); }; }; }
+
+/* ---------- Resultado do mês (caixa) e previsão semanal ---------- */
+PAGES.resultado=async()=>{
+  const mes=S.filtro.resMes||hoje().slice(0,7), h=hoje();
+  const [vendas,desp,com]=await Promise.all([loadVendas(),DB.list('despesas').catch(()=>[]),DB.list('comissoesPagas').catch(()=>[])]);
+  const meses=Array.from({length:6},(_,i)=>{ const [y,m]=mes.split('-').map(Number); return isoDate(new Date(y,m-1-i,1)).slice(0,7); }).reverse();
+  const calc=k=>{ const vm=vendas.filter(v=>VIVAS.includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(k));
+    const entradas=r2(vm.reduce((s,v)=>s+(+v.entradaPaga.valor||+v.entrada||0),0));
+    const parcelas=r2(vendas.reduce((s,v)=>s+(v.parcelas||[]).filter(p=>p.pago&&String(p.pagoEm||'').startsWith(k)).reduce((a,p)=>a+Number(p.valorPago||p.valor),0),0));
+    const custo=r2(vm.reduce((s,v)=>s+(+v.custo||0),0)), semCusto=vm.filter(v=>!(+v.custo>0)).length;
+    const comissoes=r2(com.filter(p=>p.mes===k).reduce((s,p)=>s+(+p.valor||0),0));
+    const despesas=r2(desp.filter(d=>String(d.data||'').startsWith(k)&&d.categoria!=='Devolução ao cliente').reduce((s,d)=>s+(+d.valor||0),0));
+    const devol=r2(desp.filter(d=>String(d.data||'').startsWith(k)&&d.categoria==='Devolução ao cliente').reduce((s,d)=>s+(+d.valor||0),0));
+    const entrou=r2(entradas+parcelas), saiu=r2(custo+comissoes+despesas+devol);
+    const prot=vm.filter(v=>v.protecao).length;
+    return {k,vm,entradas,parcelas,entrou,custo,semCusto,comissoes,despesas,devol,saiu,res:r2(entrou-saiu),prot}; };
+  const R=meses.map(calc), A=R[R.length-1];
+  const perda90=r2(vendas.filter(v=>v.status==='ATIVA').reduce((s,v)=>s+(v.parcelas||[]).filter(p=>!p.pago&&diasEntre(p.venc,h)>90).reduce((a,p)=>a+p.valor,0),0));
+  // previsão das próximas 8 semanas
+  const inad=inadimplencia(vendas), taxa=inad.venc?Math.max(0.5,1-inad.pct/100):0.92, ini=new Date(h+'T12:00:00');
+  const sem=Array.from({length:8},(_,i)=>{ const a=isoDate(new Date(ini.getTime()+i*7*864e5)), b=isoDate(new Date(ini.getTime()+(i*7+6)*864e5));
+    const v=r2(vendas.filter(x=>x.status==='ATIVA').reduce((s,x)=>s+(x.parcelas||[]).filter(p=>!p.pago&&p.venc>=a&&p.venc<=b).reduce((q,p)=>q+p.valor,0),0)); return {a,b,v,esp:r2(v*taxa)}; });
+  const maxS=Math.max(1,...sem.map(s=>s.v));
+  const linha=(t,k,neg,sub)=>`<tr><td>${t}${sub?`<br><span class="small muted">${sub}</span>`:''}</td>${R.map(r=>`<td class="right ${r.k===mes?'res-cur':''}">${r[k]?(neg?'− ':'')+brl(r[k]):'—'}</td>`).join('')}</tr>`;
+  // adesão à proteção por vendedor (mês)
+  const pv={}; A.vm.forEach(v=>{ const o=pv[v.vendedorNome||'—']=pv[v.vendedorNome||'—']||{n:0,p:0}; o.n++; if(v.protecao) o.p++; });
+  $('#view').innerHTML=`<div class="row mb"><label style="flex-direction:row;align-items:center;gap:8px">Mês <input type="month" id="resMes" value="${mes}" style="width:180px"></label><span class="small muted">Regime de caixa: o que entrou e saiu de dinheiro no mês.</span></div>
+    <div class="kpis"><div class="kpi"><small>Entrou no mês</small><b style="color:var(--ok)">${brl(A.entrou)}</b><span>entradas ${brl(A.entradas)} + parcelas ${brl(A.parcelas)}</span></div>
+      <div class="kpi"><small>Saiu no mês</small><b style="color:var(--bad)">${brl(A.saiu)}</b><span>aparelhos, comissões e despesas</span></div>
+      <div class="kpi"><small>Resultado do mês</small><b style="color:${A.res>=0?'var(--ok)':'var(--bad)'}">${brl(A.res)}</b><span>${A.vm.length} venda(s) no mês</span></div>
+      <div class="kpi"><small>Perda provável</small><b style="color:var(--bad)">${brl(perda90)}</b><span>parcelas com mais de 90 dias de atraso</span></div></div>
+    ${A.semCusto?`<div class="warn mt">${A.semCusto} venda(s) do mês sem preço de custo do aparelho: o custo e o resultado estão menores que o real. Coloque o custo ao cadastrar o estoque.</div>`:''}
+    <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Resultado — últimos 6 meses</h2><table><tr><th></th>${R.map(r=>`<th class="right ${r.k===mes?'res-cur':''}">${mesNomeG(r.k)}</th>`).join('')}</tr>
+      ${linha('Entradas recebidas','entradas')}${linha('Parcelas recebidas','parcelas')}<tr class="res-tot"><td><b>Total que entrou</b></td>${R.map(r=>`<td class="right"><b>${brl(r.entrou)}</b></td>`).join('')}</tr>
+      ${linha('Custo dos aparelhos vendidos','custo',1)}${linha('Comissões pagas','comissoes',1)}${linha('Despesas das lojas','despesas',1)}${linha('Devoluções a clientes','devol',1)}
+      <tr class="res-tot"><td><b>Resultado</b></td>${R.map(r=>`<td class="right"><b style="color:${r.res>=0?'var(--ok)':'var(--bad)'}">${brl(r.res)}</b></td>`).join('')}</tr></table>
+      <p class="hint" style="padding:0 16px 14px">No começo da operação o resultado do mês costuma ser negativo: o aparelho é pago na hora e o dinheiro volta em parcelas. Acompanhe a linha “Resultado” subir mês a mês.</p></div>
+    <div class="card mt"><h2>Caixa das próximas 8 semanas</h2><p class="small muted" style="margin-top:-6px">Parcelas que vencem em cada semana e quanto deve entrar de fato (${Math.round(taxa*100)}%, taxa de pagamento da carteira).</p>
+      <div class="prev">${sem.map(s=>`<div class="prev-col"><span class="small">${s.v?brl(s.esp).replace('R$','').trim():''}</span><div class="prev-bar"><i style="height:${s.v/maxS*100}%"></i><b style="height:${s.esp/maxS*100}%"></b></div><small>${fmtD(s.a).slice(0,5)}</small></div>`).join('')}</div>
+      <p class="hint">Total previsto em 8 semanas: <b>${brl(sem.reduce((s,x)=>s+x.esp,0))}</b> (de ${brl(sem.reduce((s,x)=>s+x.v,0))} que vencem). Use para decidir quanto comprar de estoque.</p></div>
+    ${blocoPrevisao(vendas)}
+    <div class="card tablewrap mt"><h2 style="padding:16px 16px 0">Proteção NexumCell — adesão no mês</h2><table><tr><th>Vendedor</th><th class="right">Vendas</th><th class="right">Com proteção</th><th class="right">Adesão</th></tr>
+      ${Object.entries(pv).sort((a,b)=>pctF(b[1].p,b[1].n)-pctF(a[1].p,a[1].n)).map(([n,o])=>`<tr><td>${esc(n)}</td><td class="right">${o.n}</td><td class="right">${o.p}</td><td class="right">${pctT(pctF(o.p,o.n))}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Sem vendas no mês</td></tr>'}</table>
+      <p class="hint" style="padding:0 16px 14px">${Number(S.cfg.protecaoMensal)>0?`A proteção custa ${brl(S.cfg.protecaoMensal)} por parcela e entra na comissão do vendedor, porque a comissão é sobre a parcela paga.`:'A Proteção NexumCell está desligada. Ligue em Configurações (valor por parcela) para oferecer na venda.'}</p></div>`;
+  $('#resMes').onchange=e=>{ S.filtro.resMes=e.target.value; render(); };
+};
+
+/* ---------- Recompra: quem quitou em dia volta a comprar ---------- */
+PAGES.recompra=async()=>{
+  const vendas=await loadVendas(), h=hoje(), porCpf={};
+  vendas.forEach(v=>{ if(v.clienteCpf) (porCpf[v.clienteCpf]=porCpf[v.clienteCpf]||[]).push(v); });
+  const cands=[];
+  for(const [cpf,vs] of Object.entries(porCpf)){
+    if(vs.some(v=>['ATIVA','INSTALANDO','ANALISE','APROVADA','RETOMADA'].includes(v.status))) continue;
+    const qt=vs.filter(v=>v.status==='QUITADA'); if(!qt.length) continue;
+    const ult=qt.sort((a,b)=>(b.quitadoEm||0)-(a.quitadoEm||0)||b.numero-a.numero)[0];
+    const atrasos=qt.flatMap(v=>(v.parcelas||[]).map(p=>atrasoParcela(p,h))), maior=Math.max(0,...atrasos), med=atrasos.length?atrasos.reduce((a,b)=>a+b,0)/atrasos.length:0;
+    if(maior>30) continue;
+    const ultPag=(ult.parcelas||[]).map(p=>String(p.pagoEm||'')).sort().pop()||'';
+    const nivel=maior<=5?['Excelente','green',1.5]:maior<=15?['Bom','blue',1.25]:['Regular','amber',1];
+    const base=Math.max(+ult.financiado||0,+ult.analise?.limite||0);
+    cands.push({cpf,v:ult,nome:ult.clienteNome,tel:ult.cliente?.tel||ult.cliente?.telefones?.[0]||'',loja:ult.lojaNome,qt:qt.length,maior,med,nivel,credito:Math.round(base*nivel[2]/50)*50,ultPag,contato:ult.cliente?.recompra});
+  }
+  const cli=await Promise.all(cands.map(c=>DB.get('clientes',c.cpf).catch(()=>null))); cands.forEach((c,i)=>c.contato=cli[i]?.recompraContato||null);
+  const f=S.filtro.rcF||'todos', lista=cands.filter(c=>f==='todos'||(f==='novos'&&!c.contato)||(f==='contatados'&&c.contato)).sort((a,b)=>a.maior-b.maior||b.qt-a.qt);
+  S._rc=cands;
+  $('#view').innerHTML=`<div class="kpis"><div class="kpi"><small>Clientes para recompra</small><b>${cands.length}</b><span>quitaram e não têm contrato ativo</span></div>
+      <div class="kpi"><small>Excelentes</small><b style="color:var(--ok)">${cands.filter(c=>c.nivel[0]==='Excelente').length}</b><span>nunca atrasaram mais de 5 dias</span></div>
+      <div class="kpi"><small>Ainda não chamados</small><b>${cands.filter(c=>!c.contato).length}</b><span>oportunidade parada</span></div></div>
+    <div class="row mt" style="gap:8px">${[['todos','Todos'],['novos','Não chamados'],['contatados','Já chamados']].map(([k,t])=>`<button class="btn sm ${f===k?'gold':''}" data-act="rcFiltro" data-f="${k}">${t}</button>`).join('')}</div>
+    <div class="card tablewrap mt"><table><tr><th>Cliente</th><th>Histórico</th><th class="right">Crédito sugerido</th><th>Contato</th><th></th></tr>
+      ${lista.map(c=>`<tr><td><b>${esc(c.nome)}</b><br><span class="small muted">${fmtCpf(c.cpf)} · ${esc(c.loja||'')}</span></td>
+        <td>${badge(c.nivel[0],c.nivel[1])}<br><span class="small muted">${c.qt} contrato(s) quitado(s) · maior atraso ${c.maior} dia(s)${c.ultPag?' · quitou em '+fmtD(c.ultPag):''}</span></td>
+        <td class="right"><b>${c.credito?brl(c.credito):'—'}</b><br><span class="small muted">pré-aprovado*</span></td>
+        <td>${c.contato?`${badge(c.contato.resultado||'Chamado','gray')}<br><span class="small muted">${esc(c.contato.por||'')} ${relT(c.contato.em)}</span>`:'<span class="muted small">—</span>'}</td>
+        <td class="right" style="white-space:nowrap">${c.tel?`<button class="btn sm green" data-act="rcWa" data-cpf="${c.cpf}">WhatsApp</button> `:''}<button class="btn sm" data-act="rcMarcar" data-cpf="${c.cpf}">Registrar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhum cliente nesta lista ainda. Eles aparecem aqui quando quitam o contrato sem atrasos grandes.</td></tr>'}</table></div>
+    <p class="hint">* Sugestão pelo histórico (último valor financiado × 1,5 para excelente, × 1,25 para bom). A venda nova passa pela análise normal. Cliente que já pagou um contrato inteiro em dia é o cliente mais barato e seguro de vender de novo.</p>`;
+};
+function rcMsg(c){ return `Olá, ${primeiroNome(c.nome)}! Aqui é da ${c.loja||S.cfg.empresa||MARCA}. Você quitou seu celular com a gente${c.nivel[0]==='Excelente'?' certinho, sem atrasos':''} — obrigado pela confiança! 🎉\n\nPor isso você já tem crédito pré-aprovado${c.credito?` de até ${brl(c.credito)}`:''} para trocar de aparelho, sem cartão. Quer ver os modelos novos? É só responder aqui ou passar na loja.`; }
+async function rcMarcar(cpf,res){ const c=S._rc?.find(x=>x.cpf===cpf); if(!c) return;
+  if(!res){ openModal(`<h2>Contato com ${esc(c.nome)}</h2><div class="grid g2">${['Chamado, aguardando','Tem interesse','Não quer agora','Comprou de novo','Número errado'].map(t=>`<button class="btn" data-act="rcRes" data-cpf="${cpf}" data-r="${t}">${t}</button>`).join('')}</div>`); return; }
+  await DB.set('clientes',cpf,{recompraContato:{em:Date.now(),por:S.me.nome,resultado:res}}); await log('Recompra: contato registrado',cpf,`${c.nome} · ${res}`); closeModal(); toast('Contato registrado','ok'); render(); }
+
+/* ---------- Ranking ao vivo do mês (vendedor vê a posição dele) ---------- */
+async function publicarRanking(vendas){
+  try{ if(!can('DONO','FINANCEIRO','GERENTE')) return; const mes=hoje().slice(0,7), chave='nx_rk_'+mes+'_'+(S.me.lojaId||'rede');
+    if(Date.now()-(+localStorage.getItem(chave)||0)<10*60000) return;
+    const us=await DB.list('users',can('GERENTE')?[['lojaId','==',S.me.lojaId]]:undefined).catch(()=>[]), vend=us.filter(u=>u.role==='VENDEDOR'&&u.ativo!==false);
+    const conta={}; vendas.filter(v=>['ATIVA','QUITADA'].includes(v.status)&&v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes)).forEach(v=>{ const o=conta[v.vendedorUid]=conta[v.vendedorUid]||{n:0,valor:0}; o.n++; o.valor+=+v.valor||0; });
+    const lista=vend.map(u=>({uid:u.id,nome:primeiroNome(u.nome),lojaId:u.lojaId||'',n:conta[u.id]?.n||0,valor:r2(conta[u.id]?.valor||0)})).sort((a,b)=>b.n-a.n||b.valor-a.valor);
+    const grupos=can('GERENTE')?{[S.me.lojaId]:lista}:lista.reduce((g,x)=>((g[x.lojaId]=g[x.lojaId]||[]).push(x),g),{});
+    const ops=Object.entries(grupos).filter(([l])=>l).map(([l,ls])=>({c:'ranking',id:mes+'_'+l,data:{mes,lojaId:l,lista:ls.map(({valor,...x})=>x),em:Date.now()}}));
+    if(!can('GERENTE')) ops.push({c:'ranking',id:mes+'_rede',data:{mes,lista:lista.slice(0,30).map(({valor,...x})=>({...x,loja:(S.lojas.find(l=>l.id===x.lojaId)||{}).nome||''})),em:Date.now()}});
+    if(ops.length){ await DB.batch(ops); localStorage.setItem(chave,String(Date.now())); }
+  }catch(e){ console.warn('ranking',e.message); }
+}
+function htmlRanking(rl,rr){ const eu=S.me.uid, li=(l,i)=>`<li class="${l.uid===eu?'eu':''}"><span class="rk-pos">${i+1}º</span><span>${esc(l.nome)}${l.loja?` <small class="muted">${esc(l.loja)}</small>`:''}</span><b>${l.n}</b></li>`;
+  const pos=(r)=>{ const i=(r?.lista||[]).findIndex(x=>x.uid===eu); return i<0?null:i+1; };
+  return `<div class="card mt rk-card"><h2>Ranking do mês ${S._metaVend?`<span class="small muted" style="font-weight:500">· sua meta: ${S._metaVend} venda(s)</span>`:''}</h2>
+    <div class="grid g2">${rl?`<div><h3>Na sua loja ${pos(rl)?badge(pos(rl)+'º lugar','blue'):''}</h3><ol class="rk">${rl.lista.slice(0,10).map(li).join('')}</ol></div>`:''}
+      ${rr?`<div><h3>Na rede ${pos(rr)?badge(pos(rr)+'º lugar','blue'):''}</h3><ol class="rk">${rr.lista.slice(0,10).map(li).join('')}</ol></div>`:''}</div>
+    <p class="hint">Conta as vendas concluídas no mês (entrada paga). Atualiza ao longo do dia.</p></div>`; }
+{ const _pi=PAGES.inicio; PAGES.inicio=async()=>{ await _pi(); if(!$('#view')) return; const mes=hoje().slice(0,7);
+    try{ if(can('VENDEDOR')||can('GERENTE')){ const [rl,rr]=await Promise.all([S.me.lojaId?DB.get('ranking',mes+'_'+S.me.lojaId).catch(()=>null):null,DB.get('ranking',mes+'_rede').catch(()=>null)]);
+      if((rl?.lista||[]).length||(rr?.lista||[]).length) $('#view').insertAdjacentHTML('beforeend',htmlRanking(rl,rr)); } }catch(e){}
+    if(can('DONO','GERENTE')) loadVendas().then(publicarRanking).catch(()=>{}); }; }
+{ const _pp=PAGES.painel; PAGES.painel=async()=>{ await _pp(); loadVendas().then(publicarRanking).catch(()=>{}); }; }
+
+/* ---------- Backup automático (pasta do computador do dono) ---------- */
+const BK_DB='nx_backup', idb=()=>new Promise((ok,er)=>{ const r=indexedDB.open(BK_DB,1); r.onupgradeneeded=()=>r.result.createObjectStore('h'); r.onsuccess=()=>ok(r.result); r.onerror=()=>er(r.error); });
+async function bkHandle(set){ const d=await idb(); return new Promise((ok,er)=>{ const t=d.transaction('h',set===undefined?'readonly':'readwrite'), s=t.objectStore('h'); const r=set===undefined?s.get('pasta'):(set===null?s.delete('pasta'):s.put(set,'pasta')); r.onsuccess=()=>ok(r.result); r.onerror=()=>er(r.error); }); }
+async function dadosBackup(){ const cols=['config','users','lojas','empresas','clientes','vendas','aparelhos','catalogo','estoque','listanegra','metas','cobrancas','caixas','pedidos','seminovos','chamados','assinaturas','despesas','comissoesPagas','solicitacoesLoja','logs'];
+  const dados={geradoEm:new Date().toISOString(),projeto:FIREBASE_CONFIG.projectId||'demo',comFotos:false,automatico:true,colecoes:{}};
+  for(const c of cols){ try{ dados.colecoes[c]=(await DB.list(c)).map(x=>{ const y={...x}; ['foto','selfie','frente','verso','assinatura','video','comprovante'].forEach(k=>{ if(typeof y[k]==='string'&&y[k].startsWith('data:')) y[k]='[omitido]'; }); return y; }); }catch(e){ dados.colecoes[c]={erro:String(e.message||e)}; } }
+  return JSON.stringify(dados); }
+async function backupAuto(manual){
+  if(!can('DONO')||!window.showDirectoryPicker) return false;
+  let h; try{ h=await bkHandle(); }catch(e){ return false; } if(!h) return false;
+  let p=await h.queryPermission({mode:'readwrite'}); if(p!=='granted'&&manual) p=await h.requestPermission({mode:'readwrite'});
+  if(p!=='granted'){ S._bkPermissao=true; return false; }
+  const nome=`nexumcell-backup-${hoje()}.json`;
+  if(!manual){ try{ await h.getFileHandle(nome); return true; }catch(e){} }
+  const f=await h.getFileHandle(nome,{create:true}), w=await f.createWritable(); await w.write(await dadosBackup()); await w.close();
+  // guarda só as 30 cópias mais novas
+  try{ const nomes=[]; for await (const [n] of h.entries()) if(/^nexumcell-backup-\d{4}-\d{2}-\d{2}\.json$/.test(n)) nomes.push(n); nomes.sort().reverse().slice(30).forEach(n=>h.removeEntry(n).catch(()=>{})); }catch(e){}
+  await DB.set('config','sistema',{ultimoBackup:Date.now(),backupAuto:{pasta:h.name,em:Date.now()}}); S.cfg.ultimoBackup=Date.now(); S.cfg.backupAuto={pasta:h.name,em:Date.now()};
+  await log('Backup automático salvo na pasta','',h.name); S._bkPermissao=false; return true;
+}
+{ const _cf=PAGES.config; PAGES.config=async()=>{ await _cf(); if(!can('DONO')||!$('#view')) return;
+    const ok=!!window.showDirectoryPicker; let h=null; try{ h=ok?await bkHandle():null; }catch(e){}
+    const card=`<div class="card mt" id="bkAuto"><h2>Backup automático ${h?badge('ligado','green'):badge('desligado','gray')}</h2>
+      ${ok?`<p class="small muted" style="margin-top:-6px">Escolha uma pasta do computador (de preferência dentro do Google Drive ou OneDrive, para ir para a nuvem). Todo dia, ao abrir o painel, o sistema salva sozinho uma cópia lá e guarda as 30 mais novas.</p>
+        ${h?`<p>Pasta: <b>${esc(h.name)}</b>${S.cfg.backupAuto?.em?` · última cópia ${relT(S.cfg.backupAuto.em)}`:''}</p>`:''}
+        <div class="row" style="gap:8px"><button class="btn gold" data-act="bkPasta">${h?'Trocar a pasta':'Escolher a pasta e ligar'}</button>${h?'<button class="btn" data-act="bkAgora">Fazer cópia agora</button><button class="btn" data-act="bkDesligar">Desligar</button>':''}</div>
+        <p class="hint">Na primeira vez o Chrome pergunta se pode salvar na pasta: marque “Permitir em todas as visitas”. Fotos e vídeos não entram (use “Baixar cópia completa” quando precisar).</p>`
+        :'<p class="muted">Este navegador não deixa salvar em pasta automaticamente. Use o Google Chrome ou o Edge no computador.</p>'}</div>`;
+    const alvo=$('#bkMsg')?.closest('.card'); if(alvo) alvo.insertAdjacentHTML('afterend',card); else $('#view').insertAdjacentHTML('beforeend',card);
+    // limites de risco e consulta de IMEI
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>Risco e estoque</h2><div class="grid g2">
+      <label>Alerta da 1ª parcela: vendedor com mais de (%)<input type="number" id="cfgFpd" min="1" max="100" value="${fpdLimite()}"></label>
+      <label>Consulta de IMEI bloqueado na entrada do estoque<select id="cfgImei"><option value="sim" ${exigeConsultaImei()?'selected':''}>Obrigatória</option><option value="nao" ${exigeConsultaImei()?'':'selected'}>Opcional</option></select></label></div>
+      <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="cfgRisco">Salvar</button></div></div>`); }; }
+let _bkFeito=false;
+async function bkAoEntrar(){ if(_bkFeito||!can('DONO')) return; _bkFeito=true;
+  try{ const feito=await backupAuto(false); if(!feito&&S._bkPermissao&&!$('#bkBanner')) document.body.insertAdjacentHTML('beforeend',`<button id="bkBanner" class="bk-banner" data-act="bkAgora">${svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>')} Clique para fazer o backup automático de hoje</button>`); }catch(e){ console.warn('backup auto',e); } }
+{ const _rd=render; render=async function(){ const r=await _rd.apply(this,arguments); if(S.me&&can('DONO')&&PORTAL==='dono') setTimeout(bkAoEntrar,4000); return r; }; }
+
+/* ---------- Sino: vendedor com muita 1ª parcela sem pagar ---------- */
+{ const _nt2=notificacoes; notificacoes=async function(){ const n=await _nt2();
+    try{ if(can('DONO','FINANCEIRO')){ const vs=await loadVendas(), h=hoje(), lim=fpdLimite(), pv={}; vs.forEach(v=>(pv[v.vendedorUid]=pv[v.vendedorUid]||[]).push(v));
+      const al=Object.values(pv).map(x=>riscoGrupo(x,h)).filter(r=>r.maduras>=3&&r.pct>=lim).length;
+      if(al) n.push({q:al,t:'Vendedor com 1ª parcela sem pagar',d:`acima de ${lim}% — possível fraude`,tab:'risco',k:'fpd'}); } }catch(e){}
+    return n; }; }
+
+Object.assign(ACT,{
+  rkLista:d=>rkLista(d.uid), rcFiltro:d=>{ S.filtro.rcF=d.f; render(); }, rcMarcar:d=>rcMarcar(d.cpf), rcRes:d=>rcMarcar(d.cpf,d.r),
+  rcWa:async d=>{ const c=S._rc?.find(x=>x.cpf===d.cpf); if(!c) return; window.open(`https://wa.me/${telWa(c.tel)}?text=${encodeURIComponent(rcMsg(c))}`,'_blank');
+    if(!c.contato){ await DB.set('clientes',c.cpf,{recompraContato:{em:Date.now(),por:S.me.nome,resultado:'Chamado, aguardando'}}).catch(()=>{}); await log('Recompra: cliente chamado no WhatsApp',c.cpf,c.nome); render(); } },
+  bkPasta:async()=>{ try{ const h=await window.showDirectoryPicker({id:'nexumcell-backup',mode:'readwrite'}); await bkHandle(h); toast('Pasta escolhida. Fazendo a primeira cópia…','ok'); await backupAuto(true); toast('Backup automático ligado','ok'); render(); }catch(e){ if(e.name!=='AbortError') toast('Não foi possível usar a pasta: '+e.message,'err'); } },
+  bkAgora:async(d,b)=>{ if(b) b.disabled=true; try{ const ok=await backupAuto(true); if(ok){ toast('Cópia salva na pasta','ok'); $('#bkBanner')?.remove(); avisoTravas(); } else toast('Ligue o backup automático em Configurações (escolha a pasta).','err'); }catch(e){ toast('Falhou: '+e.message,'err'); } if(b) b.disabled=false; },
+  bkDesligar:async()=>{ if(!confirm('Desligar o backup automático?')) return; await bkHandle(null); await DB.set('config','sistema',{backupAuto:null}); S.cfg.backupAuto=null; toast('Backup automático desligado','ok'); render(); },
+  cfgRisco:async()=>{ const f=Math.min(100,Math.max(1,+$('#cfgFpd').value||10)), im=$('#cfgImei').value; await DB.set('config','sistema',{fpdAlertaPct:f,exigirConsultaImei:im}); Object.assign(S.cfg,{fpdAlertaPct:f,exigirConsultaImei:im}); await log('Configuração de risco alterada','config',`1ª parcela ${f}% · IMEI ${im}`); toast('Salvo','ok'); },
 });
 
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
