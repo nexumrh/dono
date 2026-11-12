@@ -21,8 +21,9 @@ import { codigo, acordo } from '../api/seguranca.js';
 import instalacao from '../api/instalacao.js';
 import clienteApp from '../api/cliente-app.js';
 import { rotinas } from '../api/cron.js';
+import ios from '../api/ios.js';
 
-const ROTAS = { codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota };
+const ROTAS = { ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };

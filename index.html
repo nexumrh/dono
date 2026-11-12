@@ -402,6 +402,39 @@ details summary{cursor:pointer}
 .pulse{display:inline-block;width:9px;height:9px;border-radius:50%;background:#15803D;margin-left:6px;box-shadow:0 0 0 0 rgba(21,128,61,.6);animation:pulse 1.8s infinite}@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(21,128,61,0)}100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}}
 @media(max-width:640px){.tv-palco{flex-direction:column;min-height:0;padding:16px}.tv-apres{flex:0 0 auto}.tv-robo{width:130px;height:130px}.tv-robo svg{width:124px;height:142px}}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* iPhone */
+.iph-ic{width:38px;height:38px;border-radius:11px;background:#0A1733;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none}.iph-ic svg{width:20px;height:20px;fill:currentColor;stroke:none}.iph-ic.big{width:54px;height:54px;border-radius:15px}.iph-ic.big svg{width:28px;height:28px}
+.iph-aviso{display:flex;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#F4F7FD,#fff);border-color:#D6E0F5}
+.iph-head{display:flex;gap:14px;align-items:center;margin-bottom:6px}
+.iph-regras{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:12px}.iph-regras div{display:flex;gap:8px;align-items:center;font-size:13.5px}.iph-regras svg{width:18px;height:18px;flex:none;border-radius:50%;padding:2px;stroke-width:3}
+.iph-regras .ok svg{background:var(--ok-s);color:var(--ok)}.iph-regras .no{color:var(--bad);font-weight:600}.iph-regras .no svg{background:var(--bad-s);color:var(--bad)}
+.iph-roteiro{background:#0A1733;color:#E6ECFA;border-radius:12px;padding:14px 16px;font-size:15px;line-height:1.5;margin:8px 0}
+.iph-grava{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start}.iph-tela{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3}.iph-tela video{width:100%;height:100%;object-fit:cover;display:block}#iphCam{transform:scaleX(-1)}
+.iph-rec{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:700;display:flex;gap:6px;align-items:center}.iph-rec i{width:9px;height:9px;border-radius:50%;background:#EF4444;animation:iphPisca 1s infinite}
+@keyframes iphPisca{50%{opacity:.2}}
+.iph-bts{display:flex;flex-direction:column;gap:8px}
+.iph-espera{text-align:center;padding:36px 24px}.iph-anel{width:150px;height:150px;border-radius:50%;margin:0 auto 18px;background:conic-gradient(var(--pri) var(--a),#E3E8F2 0);display:flex;align-items:center;justify-content:center}
+.iph-anel>div{width:122px;height:122px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}.iph-anel b{font-size:40px;line-height:1}.iph-anel span{color:var(--mut);font-size:13px}
+.iph-passos{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}.iph-passos span{display:inline-flex;gap:6px;align-items:center;border-radius:99px;padding:6px 12px;font-size:13px;font-weight:600;background:#F1F4FA;color:var(--mut)}
+.iph-passos span svg{width:15px;height:15px}.iph-passos .ok{background:var(--ok-s);color:var(--ok)}.iph-passos .on{background:#EAF1FF;color:var(--pri)}
+.iph-fila{border-color:#0A1733;box-shadow:0 10px 30px rgba(10,23,51,.08)}
+.iph-video{background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3}.iph-video video{width:100%;height:100%;display:block}
+.iph-doc{width:120px;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.iph-kv{width:100%;border-collapse:collapse;font-size:14px}.iph-kv th{text-align:left;color:var(--mut);font-weight:500;width:110px;padding:6px 8px 6px 0;vertical-align:top}.iph-kv td{padding:6px 0;border-bottom:1px solid var(--line)}
+.iph-bad{color:var(--bad);font-weight:700}
+.iph-checks{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.iph-mdm{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;align-items:start}.iph-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.iph-step>span{width:30px;height:30px;border-radius:9px;background:#0A1733;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.iph-step p{margin:2px 0 0;color:var(--mut);font-size:13.5px}.iph-vinc{background:#F4F7FD;border-radius:14px;padding:18px}
+@media(max-width:800px){.iph-grava,.iph-mdm,.iph-regras,.iph-checks{grid-template-columns:1fr}}
+/* lojas: painel e análise */
+.lp-ks{display:grid;grid-template-columns:repeat(8,1fr);gap:10px}.lp-k{background:#F4F7FD;border-radius:12px;padding:12px}.lp-k b{display:block;font-size:24px;line-height:1.1}.lp-k span{font-size:12px;color:var(--mut)}
+.lp-k.amber{background:#FFF4DB}.lp-k.green{background:var(--ok-s)}.lp-k.red{background:var(--bad-s)}
+.lp-busca{display:flex;gap:10px;margin-top:14px}.lp-busca input{flex:1}.lp-busca select{width:220px}
+.lc-box{background:#F7F9FD;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:12px 0}.lc-row{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:14px;flex-wrap:wrap}.lc-row>b{width:120px;flex:none;color:var(--mut);font-weight:600}
+.lc-loja{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.lf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.lf-grid figure{margin:0}.lf-grid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;cursor:zoom-in}.lf-grid figcaption{font-size:13px;color:var(--mut);margin-top:4px}
+.lf-lb{position:fixed;inset:0;z-index:999;background:rgba(5,12,30,.9);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}.lf-lb img{max-width:100%;max-height:92vh;border-radius:12px}
+@media(max-width:900px){.lp-ks{grid-template-columns:repeat(4,1fr)}.lf-grid{grid-template-columns:1fr 1fr}}
 </style>
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAGi0lEQVR4Xu1ZTWxcVxX+zr33vTczHtvxD44bNzSBpKH8KE0j7P5INSggKqhQBRtY8buBHWJVCcQGCQkh1iyQqFjAAiGxQ0ggTEtbJaU06p/ihlakSe3arqfxzNjv795z0H0zjpKJa+YlaeuR+kmzmHl35n3fOd8599w3hF1Q239Sdrv+XmFr5Vl6p3vteGGvEO/FTkJU76K9St5jJ27XCNjL5LfRy/GKgEEgv5OIQsAgke8VcV0NDBpoEKN/NQY+Ax8IeL8x8BkwtzSCRA5KCUQIzLrUb/vveoiU+t6tEiAgT5w1XIcHQN1BUN5xEOssIweBKkt8GzdvIVLsaUBYyfQnn3df/uHjfOLzT6IgLtS9fj2IuHgVERfi6ROn+ejDC11RfU/BN5cBpZy3CoFsfv/3nrSnvjkvEwoUfx3BwVNn9F9+ehRpe6wT5autQd5mRfB49PBz9tAp5tsfnNNrZ1/pRNQL+D+Z6+LGBZCyYDao7b+YPvTjhpu9dx7WMpYs8waQ7//crPvsvsVw4dEUydvTIOUKi22Tq06+YG+bi/PJE7OIqkDzDZb0rbjDq+8E3JCFBPCpZ8OHHziTfus3NffgvcdJ5VYSrdA0hpowsrac2/rhY+l9jyZUGbtUkCed+sjK0PTTyaEvfiobOjgr8aqguZyJTRTZfPd62QFla8CHxntb0V2PLMgjP5rVc1MTNMGOE22oAUgbQJ4AkgdoLVmuTB1Kjn9fqDJ2AeIi73sXjllON0DtSynyNiHf1JS2IFnpBJQS4CMvIL1pR+88nayvfcb+6juMn3xXwqcXtDYKkjFgBWIdxCYgzgw2V5yrjB1MPvHtQKoT5wvv51vA1rpI1tKINyBpE5K1UHxeEv1noOjTorgy9UwefmjOtZYy51hl585R9vMfIPrbr6GHNWBzwMYgawGXQQSa4oZzpnogPfa1calN/lfiNUdpk5A0QT4TaRuUXr4hAaWLWKLRUMKqQ21EIQtApCFpiPhPv0QUB5Aj3wBvxQJOCc6LyAFxGmnTsdIT6R1fSvXFJ8altQxUh5WIBYkDKQPKymegtADSoVAwpGG3LFihIGkspD6O9K+/QJAize94OELcYHCm4FKIXwPRlLZFmA7IzAMHzJvPwrVeV1SbhAiDtYHitKSBUF6AmAoQDEO8X1mBxNvEAlJzUlVa/vmzf4fpRpbNPDQvyYot6kD8NpADzAQXi7Wx6IljKoAgby6DagqgJmDfgwxAh5CwXviV/AaMDGAHYh9lAqIR0i/+dj5w9ql86tP3I96w4NyQsxDOfGETuZxcFoNGDiEwBlnj1aIzg5N3PwPQFSAcAWWbAHniPrLWRxdCfqSJCRyLOfe7ORZ3xg0fmcXm21ZcbnyBFyK85zmHTTdg6rcjDANkby6CglJzXIH+u9D2M7CuhRDUIKYGmDpgqsV7CusgFXTGAAGixT8cD9aefw66ZpDHlnx3yn2XSgG3VQix7QZ49C5EB+8RbF3eHgD7zkQJAd3h0dRBlX2QaKhTC1EdEg0D4RDE1J0Yb+hiymQRjoLX/3ynbv7nJZAxsLGDL1T2tuu8CA62tS7y4a+QPvqFTgqof1r9r9xGOApUpoBoDIhGCzshqDPMMFNtWmutt42sPDthOxReXNhvtlZfEzJabOzE7w95AvIdyqYMpY1rXEjUxopvQ/2Hv1QXIj9BAAj2gaozQH7Ze17gHEMHGrqpTOOl0zpZ+VixY/sZ3/vOh5izyXD1qZQn7n6DWc1Q3nYiufbyoKpKJRtbwepj55BePtmds/oObOl9ALUAMlQB0nFLFBgEo1qvPrNolv++oVoX564zr0AXu7jLZqLGC6+mwx9pCLtx2DhloUiDN8P2K+fJxfeAyEKkFKdSi4tBt+JAIyLChytq/eV1s/jHF/XS4/dBXNg9oPiJ8tqp0p8FCL6IPxo1z7+cBbcJw0yorN2KZOk1QO6+EfLlLLRdxPW6oTGi4Ozvn9BnHzuCZH2+W7Q9h5YeSBEsRy77eMSXLjlEC5rjaZAcB1A68lf49P1kzh8dhRVOfvUf8taFOl3418lux/A7lO8efc7yfsfqnMa6fa3nfTn0L6AX/oTlifgnEKVRkOZOv7xaTHmUroEiE36bKvvY5BoUpD358ox7UF6At9HN3/eWoe9+u1fxgYD3G4Ofgd3+RN7r8NwHPwM+yoOYhW3OVzIwSCKu5nqNhQZBRC/H62pgL4vYiduug1jfk+q7jN2C+j+lM1hCj7D1iwAAAABJRU5ErkJggg=="><link rel="icon" href="favicon.ico" sizes="any"><link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -1723,7 +1756,7 @@ async function confirmarEntrada(btn){
       lojaId:v.lojaId,lojaNome:v.lojaNome,lojaTelefone:loja.telefone||'',chavePix:cfg.chavePix||'',servidorPix:cfg.servidorPagamentos||'',recebedor:cfg.empresa||'NexumCell',cidadeRecebedor:cfg.cidadePix||'FOZ DO IGUACU',
       telefoneSuporte:cfg.telefoneSuporte||'',status:'ATIVO',modo:'AUTO',liberadoAte:0,toleranciaDias:+cfg.toleranciaDias||0,maxDiasOffline:+cfg.maxDiasOffline||15,...camposEtapas(cfg),
       descontoPct:+cfg.descontoAntecipadoPct||0,multaPct:+cfg.multaPct||0,moraDiaPct:+cfg.moraDiaPct||0,financiado:v.financiado,nParcelas:v.nParcelas,jurosPct:v.juros,
-      mensagem:cfg.mensagemTrava||'',vip:v.vip?.nivel||'',trocaDias:+cfg.trocaDias||7,parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,quitado:false,protecao:v.protecao?{cobertura:v.protecao.cobertura||''}:null,frpContas:cfg.frpContas||'',portal:urlCliente(),servidor:servidorPg(),criadoEm:agora};
+      mensagem:cfg.mensagemTrava||'',vip:v.vip?.nivel||'',trocaDias:+cfg.trocaDias||7,parcelas:parcelasAparelho(v.parcelas),semTrava:!!v.aparelho.semTrava,ios:ehIphone(v.aparelho),quitado:false,protecao:v.protecao?{cobertura:v.protecao.cobertura||''}:null,frpContas:cfg.frpContas||'',portal:urlCliente(),servidor:servidorPg(),criadoEm:agora};
     const st=v.aparelho.semTrava?{status:'ATIVA',instaladoEm:agora}:{status:'INSTALANDO',instalacao:{tentativas:1,inicio:agora}};
     const extras=[]; if(v.usado) extras.push({c:'seminovos',id:'t_'+v.id,data:{origem:'TROCA',marca:v.usado.marca,modelo:v.usado.modelo,capacidade:'',imei:v.usado.imei,imei2:'',vendaId:v.id,vendaNumero:v.numero,cliente:v.clienteNome,estado:v.usado.estado,avaliacao:v.usado.valor,precoVenda:r2(v.usado.valor*1.35),status:'DISPONIVEL',lojaId:v.lojaId,lojaNome:v.lojaNome,criadoEm:agora,por:S.me.nome}});
     if(v.usado?.fotos?.length) extras.push({c:'docs',id:'u_'+v.id,data:{tipo:'USADO',vendaId:v.id,fotos:v.usado.fotos,criadoEm:agora,vendedorUid:S.me.uid}});
@@ -4714,7 +4747,7 @@ async function salvarConfig(){
 async function editarItem(id){
   const x=id?await DB.get('catalogo',id):{marca:'Samsung',modelo:'',capacidade:'128 GB',preco:'',ativo:true};
   openModal(`<h2>${id?'Editar':'Adicionar'} aparelho</h2><div class="grid g2">
-    <label>Marca<input id="ctMarca" list="dlMarcas" value="${esc(x.marca)}"><datalist id="dlMarcas">${MARCAS.map(m=>`<option>${m}</option>`).join('')}</datalist></label>
+    <label>Marca<input id="ctMarca" list="dlMarcas" value="${esc(x.marca)}"><datalist id="dlMarcas">${[...MARCAS,'Xiaomi','POCO','Apple'].map(m=>`<option>${m}</option>`).join('')}</datalist></label>
     <label>Modelo<input id="ctModelo" value="${esc(x.modelo)}" placeholder="Galaxy A16"></label>
     <label>Memória (armazenamento)<select id="ctCap">${['—','32 GB','64 GB','128 GB','256 GB','512 GB','1 TB'].map(m=>`<option ${m===x.capacidade?'selected':''}>${m}</option>`).join('')}</select></label>
     <label>Valor à vista (R$)<input id="ctPreco" type="number" step="0.01" min="0" value="${x.preco}"></label></div>
@@ -4723,7 +4756,7 @@ async function editarItem(id){
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarItem" data-id="${id||''}">Salvar</button></div>`);
 }
 async function salvarItem(id){
-  const d={marca:$('#ctMarca').value.trim()||'Outra',modelo:$('#ctModelo').value.trim(),capacidade:$('#ctCap').value,preco:r2(+$('#ctPreco').value),ativo:$('#ctAtivo').checked,semTrava:$('#ctSemTrava').checked,atualizadoEm:Date.now(),por:S.me.nome};
+  const d={marca:(m=>/^(apple|iphone)$/i.test(m)?'Apple':m)($('#ctMarca').value.trim()||'Outra'),modelo:$('#ctModelo').value.trim(),capacidade:$('#ctCap').value,preco:r2(+$('#ctPreco').value),ativo:$('#ctAtivo').checked,semTrava:$('#ctSemTrava').checked,atualizadoEm:Date.now(),por:S.me.nome};
   if(!d.modelo||!(d.preco>0)){ toast('Informe modelo e valor','err'); return; }
   await DB.set('catalogo',id||slugCat(d.marca,d.modelo,d.capacidade),d);
   await log('Catálogo alterado',id||'novo',`${d.marca} ${d.modelo} ${d.capacidade} = ${brl(d.preco)}`); closeModal(); render();
@@ -5023,7 +5056,7 @@ async function aprovarLoja(id){
           await DB.set('lojas',lojaId,{encerrada:false,nome:l.nome,cidade:l.cidade||'',uf:l.uf||'',telefone:fmtFone(l.telefone||''),cnpj:l.cnpj||'',endereco:l.endereco||'',cep:l.cep||'',empresaId,empresaNome:s.fantasia,filial:filial||i>0,criadoEm:Date.now(),solicitacaoId:id});
           S.lojas=await listarLojas();
           const a=await criarAcesso({nome:l.gerente.nome,email:l.gerente.email,tel:l.gerente.telefone,senha:SENHA_PADRAO,role:'GERENTE',lojaId,extra:{cpf:l.gerente.cpf||'',empresaId}});
-          enviarAcessoEmail(a.email,a.assunto,a.corpo); lojasNovas[i]={...l,status:'APROVADO',lojaId,gerenteUid:a.uid}; feitos.push(`${l.nome}: ${a.nome} · ${a.codigo}`);
+          const _env=await emailAuto(a.email,a.assunto,a.corpo); lojasNovas[i]={...l,status:'APROVADO',lojaId,gerenteUid:a.uid,acessoCriadoEm:Date.now(),emailEnviadoEm:_env?Date.now():null}; feitos.push(`${l.nome}: ${a.nome} · ${a.codigo}`);
           }catch(e){ if(nova){ await DB.set('lojas',lojaId,{encerrada:true,encerradaEm:Date.now(),encerradaMotivo:'Aprovação não concluída'}).catch(()=>{}); S.lojas=await listarLojas(); } throw e; }
         }catch(e){ erros.push(`${l.nome}: ${e.code==='auth/email-already-in-use'?'o e-mail do gerente já tem acesso':e.message}`); }
       }
@@ -7162,6 +7195,466 @@ $('#lOlho').addEventListener('click',()=>{ const i=$('#lSenha'), v=i.type==='pas
   if(FB_ON){ try{ await fbInit(); }catch(e){ console.error(e); mostrarLogin(); $('#lMsg').textContent='Não foi possível conectar ao servidor. Verifique a internet e recarregue.'; } }
   else mostrarLogin();
 })();
+/* ================= iPhone: só em lojas liberadas pela NexumCell, análise rígida em até 20 min e trava pelo MDM ================= */
+const IPH_PADRAO={entradaPct:40,maxParcelas:10,scoreMin:650,idadeMin:21,rendaParcelaPct:30,prazoMin:20,exigirSerasa:'sim',refsMin:2,videoMaxS:20};
+const iphRegras=()=>({...IPH_PADRAO,...(S.cfg.iphone||{})});
+const ehIphone=x=>!!x&&(String(x.marca||'').toLowerCase()==='apple'||/iphone/i.test(String(x.modelo||'')));
+const lojaIphone=id=>!!(S.lojas||[]).find(l=>l.id===id)?.iphone;
+const iphIdade=c=>c?.nasc?Math.floor((Date.now()-new Date(c.nasc))/31557600000):0;
+const iphFalta=ip=>Math.round(((ip?.prazoEm||0)-Date.now())/60000);
+function iphRelogio(ip){ const m=iphFalta(ip); return m>=0?badge(`${m} min restantes`,m<=5?'red':m<=10?'amber':'green'):badge(`${-m} min atrasada`,'red'); }
+const ICI={apple:'<path d="M16.5 3.5c0 1.6-1.3 3-2.9 3 0-1.6 1.3-3 2.9-3zM19 16.6c-.8 1.9-1.9 3.9-3.4 3.9-1.4 0-1.8-.8-3.4-.8s-2.1.8-3.4.8C7.3 20.5 4 16 4 11.9 4 8.9 6 7.3 8 7.3c1.4 0 2.5.9 3.4.9.8 0 2.2-1 3.8-.9 1.1.1 2.6.5 3.5 1.9-3 1.8-2.5 6 .3 7.4z"/>',
+  cam:'<path d="M23 7 16 12l7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',rel:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
+  ok:'<path d="M20 6 9 17l-5-5"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',escudo:'<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'};
+
+/* checagem das regras rígidas antes de mandar para análise */
+function iphChecar(v,item,entrada,n,parcela){
+  const R=iphRegras(), c=v.cliente||{}, r=[];
+  const ok=(b,t)=>r.push({ok:!!b,t});
+  ok(lojaIphone(v.lojaId),'Loja liberada pela NexumCell para vender iPhone');
+  ok(entrada>=r2(item.preco*R.entradaPct/100),`Entrada de pelo menos ${R.entradaPct}% (${brl(item.preco*R.entradaPct/100)})`);
+  ok(n<=R.maxParcelas,`No máximo ${R.maxParcelas} parcelas`);
+  ok(iphIdade(c)>=R.idadeMin,`Cliente com ${R.idadeMin} anos ou mais`);
+  ok(!c.renda||parcela<=c.renda*R.rendaParcelaPct/100,`Parcela de até ${R.rendaParcelaPct}% da renda${c.renda?` (${brl(c.renda*R.rendaParcelaPct/100)})`:''}`);
+  ok(refsCliente(c).length>=R.refsMin,`${R.refsMin} referências com nome e parentesco`);
+  if(v.motor?.score!=null) ok(v.motor.score>=R.scoreMin,`Nota interna ${R.scoreMin}+ (cliente: ${v.motor.score})`);
+  ok(!(v.alertasFraude||[]).length,'Sem alerta de fraude entre lojas');
+  return r;
+}
+
+/* ---- escolha do aparelho: iPhone some nas lojas não liberadas e vira análise especial ---- */
+{ const _pa=passoAparelho; passoAparelho=async function(){
+    const v=await DB.get('vendas',S.w.vendaId);
+    if(v?.iphone?.status==='ANALISE') return iphEspera(v.id);
+    await _pa();
+    if(!$('#wz')) return;
+    const lib=lojaIphone(v.lojaId);
+    // loja sem liberação: tira a Apple da lista
+    document.querySelectorAll('#wz [data-act="selMarca"]').forEach(b=>{ if(!lib&&String(b.dataset.v).toLowerCase()==='apple') b.remove(); });
+    if(!lib&&String(S.w.sel?.marca||'').toLowerCase()==='apple'){ S.w.sel={}; return _pa(); }
+    const it=S.w.sel?.itemId?await DB.get('catalogo',S.w.sel.itemId).catch(()=>null):null;
+    if(it&&ehIphone(it)){ const R=iphRegras(), ip=v.iphone||{};
+      const box=`<div class="card mt iph-aviso"><div class="iph-ic">${svg(ICI.apple)}</div><div><b>Venda de iPhone — análise especial</b>
+        <p class="small" style="margin:4px 0 0">${ip.status==='APROVADA'?`<span style="color:var(--ok);font-weight:700">Aprovado pela central ${relT(ip.analisadoEm)}.</span> Condições: ${esc(ip.modelo)} · entrada mínima ${brl(ip.entrada)} · até ${ip.n}x. Pode gerar o contrato.`
+          :ip.status==='REPROVADA'?`<span style="color:var(--bad);font-weight:700">Reprovado:</span> ${esc(ip.motivo||'')}. Escolha um aparelho Android.`
+          :`Entrada mínima ${R.entradaPct}% · até ${R.maxParcelas}x · nome limpo (sem restrições) · vídeo do cliente na loja. A central responde em até <b>${R.prazoMin} minutos</b>.`}</p></div></div>`;
+      $('#nSim')?.closest('.card')?.insertAdjacentHTML('afterbegin',box);
+      const b=$('#wz [data-act="salvarAparelho"]'); if(b&&ip.status!=='APROVADA'&&ip.status!=='REPROVADA') b.innerHTML=`Enviar para análise do iPhone ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}`;
+      if(b&&ip.status==='REPROVADA'){ b.disabled=true; }
+      const ps=$('#nParc'); if(ps) [...ps.options].forEach(o=>{ if(+o.value>R.maxParcelas) o.remove(); });
+      const en=$('#nEntrada'); if(en&&ip.status!=='APROVADA'){ const min=r2(it.preco*R.entradaPct/100); en.min=min; if(+en.value<min) en.value=min; en.closest('label').firstChild.textContent=`Entrada total (iPhone: mín. ${R.entradaPct}%)`; simular(); }
+    }
+  }; }
+
+{ const _sa=salvarAparelho; salvarAparelho=async function(btn){
+    const w=S.w, x=w.sel?.itemId?await DB.get('catalogo',w.sel.itemId):null;
+    if(!ehIphone(x)) return _sa(btn);
+    guardarCampos();
+    const v=await DB.get('vendas',w.vendaId), ip=v.iphone||{};
+    const entrada=r2(+$('#nEntrada').value||0), n=+$('#nParc').value, imei=onlyDig($('#nImei').value);
+    if(!lojaIphone(v.lojaId)) return toast('Esta loja não está liberada para vender iPhone.','err');
+    if(ip.status==='APROVADA'){
+      if(ip.catalogoId!==x.id) return toast(`O iPhone aprovado foi o ${ip.modelo}. Para outro modelo, peça nova análise.`,'err');
+      if(ip.imei&&imei!==ip.imei) return toast('O IMEI é diferente do iPhone que foi aprovado.','err');
+      if(entrada<ip.entrada) return toast(`A central aprovou com entrada de pelo menos ${brl(ip.entrada)}.`,'err');
+      if(n>ip.n) return toast(`A central aprovou em até ${ip.n}x.`,'err');
+      return _sa(btn);
+    }
+    if(ip.status==='REPROVADA') return toast('A venda de iPhone foi reprovada para este cliente.','err');
+    if(!imeiOk(imei)) return toast('Digite o IMEI do iPhone (Ajustes › Geral › Sobre).','err');
+    if(S.cfg.exigirEstoque!=='nao'){ const e=await DB.get('estoque',imei).catch(()=>null);
+      if(!e||e.lojaId!==v.lojaId||e.status!=='DISPONIVEL'||e.catalogoId!==x.id) return toast('Este IMEI não está disponível no estoque desta loja para o modelo escolhido.','err'); }
+    const juros=jurosVip(jurosFreq(x,'MENSAL'),v.vip), parcela=parcelaPlano(x.preco,entrada,juros,n);
+    const regras=iphChecar(v,x,entrada,n,parcela), falhou=regras.filter(r=>!r.ok);
+    iphPedido(v,x,{entrada,n,parcela,imei,imei2:onlyDig($('#nImei2').value),regras,falhou});
+  }; }
+
+/* ---- pedido: regras + vídeo de declaração do cliente ---- */
+let _iphRec=null, _iphVid=null, _iphUnw=null;
+function iphRoteiro(v,x,o){ const c=v.cliente||{};
+  return `Eu, ${c.nome||v.clienteNome}, CPF terminado em ${String(v.clienteCpf||'').slice(-3)}, estou hoje, ${new Date().toLocaleDateString('pt-BR')}, na loja ${v.lojaNome}, comprando um ${x.marca} ${x.modelo} ${x.capacidade} em ${o.n} parcelas de ${brl(o.parcela)}. Sei que o aparelho fica com a trava até eu quitar o contrato.`; }
+function iphPedido(v,x,o){
+  const R=iphRegras(); _iphVid=null; S.w._iph={v,x,o,roteiro:iphRoteiro(v,x,o)};
+  openModal(`<div class="iph-head"><div class="iph-ic big">${svg(ICI.apple)}</div><div><h2 style="margin:0">Análise especial para iPhone</h2><p class="small muted" style="margin:2px 0 0">${esc(x.marca+' '+x.modelo+' '+x.capacidade)} · ${brl(x.preco)} · entrada ${brl(o.entrada)} · ${o.n}x de ${brl(o.parcela)}</p></div></div>
+    <div class="iph-regras">${o.regras.map(r=>`<div class="${r.ok?'ok':'no'}">${svg(r.ok?ICI.ok:ICI.x)}<span>${esc(r.t)}</span></div>`).join('')}</div>
+    ${o.falhou.length?`<div class="err-box mt"><b>Esta venda não atende às regras do iPhone.</b><br><span class="small">Ajuste a entrada ou as parcelas, ou escolha um aparelho Android.</span></div><div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Voltar</button></div>`:`
+    <h3 class="mt" style="display:flex;gap:8px;align-items:center">${svg(ICI.cam)} Vídeo do cliente na loja <span class="badge b-blue">obrigatório</span></h3>
+    <p class="small muted" style="margin-top:-4px">O cliente olha para a câmera e lê o texto abaixo, com o rosto inteiro aparecendo. De 5 a ${R.videoMaxS} segundos.</p>
+    <div class="iph-roteiro">“${esc(S.w._iph.roteiro)}”</div>
+    <div class="iph-grava"><div class="iph-tela"><video id="iphCam" playsinline muted autoplay></video><video id="iphPrev" playsinline controls hidden></video><div id="iphRec" class="iph-rec" hidden><i></i><span>0s</span></div></div>
+      <div class="iph-bts"><button class="btn gold" id="iphGravar" data-act="iphGravar">${svg(ICI.cam)} Gravar aqui</button>
+        <button class="btn" data-act="iphQr">Gravar pelo celular (QR Code)</button><div id="iphQrBox"></div>
+        <p class="small muted" id="iphMsg"></p></div></div>
+    <div class="row mt" style="justify-content:space-between"><button class="btn" data-act="iphFechar">Cancelar</button><button class="btn gold lg" id="iphEnviar" data-act="iphEnviar" disabled>Enviar para a central (até ${R.prazoMin} min)</button></div>`}`,true);
+  if(!o.falhou.length) iphAbrirCam();
+}
+async function iphAbrirCam(){
+  try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:true}); const c=$('#iphCam'); if(!c){ st.getTracks().forEach(t=>t.stop()); return; } c.srcObject=st; S.w._iphSt=st; }
+  catch(e){ const m=$('#iphMsg'); if(m) m.textContent='Não foi possível abrir a câmera e o microfone deste computador ('+(e.name||e.message)+'). Use “Gravar pelo celular”.'; const b=$('#iphGravar'); if(b) b.disabled=true; }
+}
+function iphPararCam(){ try{ S.w?._iphSt?.getTracks().forEach(t=>t.stop()); }catch(e){} if(S.w) S.w._iphSt=null; _iphUnw&&_iphUnw(); _iphUnw=null; }
+const lerBlob=b=>new Promise((ok,er)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=er; r.readAsDataURL(b); });
+async function iphGravar(btn){
+  const R=iphRegras(), st=S.w._iphSt; if(!st) return;
+  if(_iphRec&&_iphRec.state==='recording'){ _iphRec.stop(); return; }
+  const tipo=['video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
+  if(!tipo) return toast('Este navegador não grava vídeo. Use “Gravar pelo celular”.','err');
+  const partes=[], rec=new MediaRecorder(st,{mimeType:tipo,videoBitsPerSecond:170000,audioBitsPerSecond:32000}); _iphRec=rec;
+  const t0=Date.now(); $('#iphRec').hidden=false; $('#iphPrev').hidden=true; $('#iphCam').hidden=false; btn.innerHTML=svg(ICI.x)+' Parar'; btn.classList.remove('gold');
+  const tk=setInterval(()=>{ const s=Math.floor((Date.now()-t0)/1000); const e=$('#iphRec span'); if(e) e.textContent=s+'s / '+R.videoMaxS+'s'; if(s>=R.videoMaxS&&rec.state==='recording') rec.stop(); },250);
+  rec.ondataavailable=e=>e.data.size&&partes.push(e.data);
+  rec.onstop=async()=>{ clearInterval(tk); $('#iphRec').hidden=true; btn.innerHTML=svg(ICI.cam)+' Gravar de novo'; btn.classList.add('gold');
+    const dur=Math.round((Date.now()-t0)/100)/10;
+    if(dur<5){ $('#iphMsg').textContent='Vídeo muito curto: o cliente precisa ler o texto inteiro.'; return; }
+    const blob=new Blob(partes,{type:tipo.split(';')[0]});
+    if(blob.size>720000){ $('#iphMsg').textContent='O vídeo ficou grande demais. Grave de novo, um pouco mais curto.'; return; }
+    _iphVid={data:await lerBlob(blob),mime:blob.type,dur,via:'COMPUTADOR',tam:blob.size};
+    const p=$('#iphPrev'); p.src=URL.createObjectURL(blob); p.hidden=false; $('#iphCam').hidden=true;
+    $('#iphMsg').innerHTML=`<b style="color:var(--ok)">Vídeo gravado (${dur}s).</b> Assista e confira antes de enviar.`; $('#iphEnviar').disabled=false; };
+  rec.start(500);
+}
+async function iphQr(btn){
+  const tk=token(24), agora=Date.now(), url=urlCliente()+'?vid='+tk+(DEMO?'&demo':''), I=S.w._iph;
+  try{ await DB.set('videosQr',tk,{status:'PENDENTE',criadoEm:agora,expiraEm:agora+15*60000,vendedorUid:S.me.uid,lojaId:S.me.lojaId||'',empresa:S.cfg.empresa||MARCA,roteiro:I.roteiro,maxS:iphRegras().videoMaxS}); }
+  catch(e){ return toast('Não foi possível gerar o QR Code: '+e.message,'err'); }
+  let qr=''; try{ const q=qrcode(0,'M'); q.addData(url); q.make(); qr=q.createSvgTag({cellSize:4,margin:2,scalable:true}); }catch(e){}
+  $('#iphQrBox').innerHTML=`<div class="qr" style="max-width:170px;margin:8px 0">${qr}</div><div id="iphQrSt" class="inst-status"><span class="spin"></span> Aguardando o vídeo do celular…</div>`;
+  _iphUnw&&_iphUnw(); _iphUnw=DB.watch('videosQr',tk,async x=>{ if(!x||x.status!=='ENVIADA'||!$('#iphQrSt')) return; _iphUnw&&_iphUnw(); _iphUnw=null;
+    _iphVid={data:x.video,mime:x.mime||'video/webm',dur:x.dur||0,via:'CELULAR',tam:x.tam||0};
+    DB.set('videosQr',tk,{status:'USADA',video:'',usadaEm:Date.now()}).catch(()=>{});
+    $('#iphQrSt').className='inst-status ok'; $('#iphQrSt').textContent='Vídeo recebido do celular.';
+    const p=$('#iphPrev'); p.src=_iphVid.data; p.hidden=false; $('#iphCam').hidden=true; $('#iphEnviar').disabled=false; });
+}
+async function iphEnviar(btn){
+  const I=S.w._iph; if(!I||!_iphVid) return toast('Grave o vídeo do cliente primeiro.','err');
+  btn.disabled=true; btn.textContent='Enviando…';
+  const R=iphRegras(), agora=Date.now(), {v,x,o}=I;
+  try{
+    await DB.set('videos',v.id,{vendaId:v.id,tipo:'DECLARACAO_IPHONE',video:_iphVid.data,mime:_iphVid.mime,dur:_iphVid.dur,via:_iphVid.via,roteiro:I.roteiro,criadoEm:agora,vendedorUid:S.me.uid,lojaId:v.lojaId});
+    await DB.set('vendas',v.id,{iphone:{status:'ANALISE',pedidoEm:agora,prazoEm:agora+R.prazoMin*60000,catalogoId:x.id,modelo:`${x.marca} ${x.modelo} ${x.capacidade}`,preco:x.preco,entrada:o.entrada,n:o.n,parcela:o.parcela,imei:o.imei,imei2:o.imei2||'',roteiro:I.roteiro,video:true,videoVia:_iphVid.via,vendedorNome:S.me.nome,lojaNome:v.lojaNome}});
+    await log('iPhone enviado para análise',v.id,`${x.modelo} · ${o.n}x de ${brl(o.parcela)}`);
+    iphPararCam(); closeModal(); iphEspera(v.id);
+  }catch(e){ btn.disabled=false; btn.textContent='Enviar para a central'; toast('Não foi possível enviar: '+e.message,'err'); }
+}
+
+/* ---- vendedor aguarda a central (contagem regressiva ao vivo) ---- */
+function iphEspera(id){
+  unwatch&&unwatch();
+  const desenhar=v=>{ if(!v||!$('#wz')) return; const ip=v.iphone||{}, R=iphRegras();
+    if(ip.status==='APROVADA'){ $('#wz').innerHTML=`<div class="card resultado ok"><div class="res-ic">${svg(ICI.ok)}</div><h2 style="justify-content:center;font-size:24px">iPhone aprovado!</h2>
+      <p class="muted">${esc(ip.modelo)} · entrada mínima ${brl(ip.entrada)} · até ${ip.n}x · análise em ${ip.tempoMin} min por ${esc(ip.analisadoPor||'')}${ip.obs?`<br>${esc(ip.obs)}`:''}</p>
+      <button class="btn gold lg" data-act="iphContinuar">Continuar e gerar o contrato</button></div>`; return; }
+    if(ip.status==='REPROVADA'){ $('#wz').innerHTML=`<div class="card resultado bad"><div class="res-ic">${svg(ICI.x)}</div><h2 style="justify-content:center;font-size:24px">iPhone não aprovado</h2>
+      <p class="muted">${esc(ip.motivo||'')}<br>O crédito continua valendo para aparelhos Android, dentro do limite aprovado.</p><button class="btn gold lg" data-act="iphContinuar">Escolher outro aparelho</button></div>`; return; }
+    const tot=(ip.prazoEm-ip.pedidoEm)||R.prazoMin*60000, passou=Math.min(1,(Date.now()-ip.pedidoEm)/tot), ang=Math.round(passou*360);
+    $('#wz').innerHTML=`<div class="card iph-espera"><div class="iph-anel" style="--a:${ang}deg"><div><b id="iphMin">${Math.max(0,iphFalta(ip))}</b><span>min</span></div></div>
+      <h2 style="justify-content:center">Central analisando o iPhone</h2><p class="muted" style="text-align:center">${esc(ip.modelo)} · ${ip.n}x de ${brl(ip.parcela)}<br>Prazo de resposta: até ${R.prazoMin} minutos (${new Date(ip.prazoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}). Esta tela atualiza sozinha.</p>
+      <div class="iph-passos"><span class="ok">${svg(ICI.ok)} Regras conferidas</span><span class="ok">${svg(ICI.ok)} Vídeo enviado</span><span class="on">${svg(ICI.rel)} Consulta de restrições e análise</span></div>
+      ${iphFalta(ip)<0?'<div class="warn mt">Passou do prazo: a central já foi avisada. Aguarde mais um pouco ou fale com o suporte.</div>':''}
+      <div class="row mt" style="justify-content:center"><button class="btn sm" data-act="iphCancelar" data-id="${v.id}">Desistir do iPhone</button></div></div>`; };
+  unwatch=DB.watch('vendas',id,desenhar);
+  const t=setInterval(()=>{ if(!$('#iphMin')&&!$('.iph-espera')){ clearInterval(t); return; } DB.get('vendas',id).then(desenhar).catch(()=>{}); },30000);
+}
+
+/* ---- central (Dono/Financeiro): fila com prazo e análise ---- */
+async function iphFila(){ return (await DB.list('vendas',[['status','==','APROVADA']]).catch(()=>[])).filter(v=>v.iphone?.status==='ANALISE').sort((a,b)=>a.iphone.prazoEm-b.iphone.prazoEm); }
+{ const _an=PAGES.analise; PAGES.analise=async()=>{ await _an(); if(!can('DONO','FINANCEIRO')||!$('#view')) return;
+    const fila=await iphFila(); if(!fila.length) return;
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="card iph-fila"><h2 style="display:flex;gap:10px;align-items:center"><span class="iph-ic">${svg(ICI.apple)}</span>iPhone aguardando análise <span class="badge b-red">${fila.length}</span><span class="small muted" style="margin-left:auto;font-weight:500">responder em até ${iphRegras().prazoMin} min</span></h2>
+      <div class="tablewrap"><table><tr><th>Nº</th><th>Prazo</th><th>Cliente</th><th>iPhone</th><th>Plano</th><th></th></tr>${fila.map(v=>`<tr class="click" data-act="iphAnalisar" data-id="${v.id}"><td class="mono">${v.numero}</td><td>${iphRelogio(v.iphone)}</td>
+        <td><b>${esc(v.clienteNome)}</b><br><span class="small muted">${esc(v.lojaNome)} · ${esc(v.iphone.vendedorNome||'')}</span></td><td>${esc(v.iphone.modelo)}</td><td>${brl(v.iphone.entrada)} + ${v.iphone.n}x ${brl(v.iphone.parcela)}</td>
+        <td class="right"><button class="btn sm gold" data-act="iphAnalisar" data-id="${v.id}">Analisar</button></td></tr>`).join('')}</table></div></div>`);
+  }; }
+async function iphAnalisar(id){
+  const v=await DB.get('vendas',id), ip=v.iphone||{}, c=v.cliente||{}, R=iphRegras();
+  const [vid,docs]=await Promise.all([DB.get('videos',id).catch(()=>null),DB.get('docs',id).catch(()=>null)]);
+  const pr=c.renda?Math.round(ip.parcela/c.renda*100):null, serasaOk=!!v.serasa;
+  openModal(`<div class="iph-head"><div class="iph-ic big">${svg(ICI.apple)}</div><div><h2 style="margin:0">Análise de iPhone · nº ${v.numero}</h2><p class="small muted" style="margin:2px 0 0">${esc(v.lojaNome)} · ${esc(ip.vendedorNome||'')} · pedido ${relT(ip.pedidoEm)} · ${iphRelogio(ip)}</p></div></div>
+    <div class="grid g2 mt" style="align-items:start">
+      <div><div class="iph-video">${vid?.video?`<video src="${vid.video}" controls playsinline></video>`:'<div class="empty">Vídeo não encontrado</div>'}</div>
+        <div class="iph-roteiro small">Texto que o cliente devia ler: “${esc(ip.roteiro||'')}”</div>
+        ${docs?.selfie||docs?.frente?`<div class="row mt" style="gap:8px">${docs.selfie?`<img src="${docs.selfie}" class="iph-doc" title="Selfie da proposta">`:''}${docs.frente?`<img src="${docs.frente}" class="iph-doc" title="Documento">`:''}</div><p class="hint">Compare o rosto do vídeo com a selfie e o documento.</p>`:''}</div>
+      <div><table class="iph-kv"><tr><th>Cliente</th><td><b>${esc(c.nome||v.clienteNome)}</b><br>${fmtCpf(v.clienteCpf)} · ${iphIdade(c)} anos</td></tr>
+        <tr><th>Renda</th><td>${brl(c.renda||0)} ${c.profissao?'· '+esc(c.profissao):''}</td></tr>
+        <tr><th>iPhone</th><td>${esc(ip.modelo)} · ${brl(ip.preco)}<br><span class="small muted">IMEI ${esc(ip.imei||'')}</span></td></tr>
+        <tr><th>Plano</th><td>Entrada ${brl(ip.entrada)} (${Math.round(ip.entrada/ip.preco*100)}%) · ${ip.n}x de ${brl(ip.parcela)}${pr!=null?`<br><span class="small ${pr>R.rendaParcelaPct?'iph-bad':'muted'}">parcela = ${pr}% da renda</span>`:''}</td></tr>
+        <tr><th>Motor</th><td>${v.motor?`nota ${v.motor.score} (${esc(v.motor.faixa||'')})`:'—'}</td></tr>
+        <tr><th>Referências</th><td>${refsHtml(c)}</td></tr></table>
+        <div id="serasaBox">${asaasLigado()?(serasaOk?`<div class="msg mt">Serasa consultado ${relT(v.serasa.em)}${v.serasa.link?` · <a href="${esc(v.serasa.link)}" target="_blank" rel="noopener">Abrir relatório</a>`:''}</div>`:`<button class="btn mt" data-act="consultarSerasa" data-id="${v.id}">Consultar Serasa (nome limpo)</button>`):'<p class="hint">Asaas não ligado: confira as restrições do CPF no seu bureau (Serasa/SPC) antes de aprovar.</p>'}</div></div></div>
+    <h3 class="mt">Conferência obrigatória</h3>
+    <div class="iph-checks">${[['limpo','Nome limpo: sem negativação, protesto ou restrição no CPF'],['video','Vídeo: é a mesma pessoa do documento e leu o texto, dentro da loja'],['renda','Renda compatível com a parcela'],['refs','Referências conferidas (ligação ou WhatsApp)']].map(([k,t])=>`<label class="check"><input type="checkbox" class="iphChk" value="${k}"> ${t}</label>`).join('')}</div>
+    <label class="mt">Observação (vai para o vendedor)<input id="iphObs" placeholder="Ex.: aprovado com entrada maior"></label>
+    <div class="grid g2 mt"><label>Entrada mínima aprovada<input id="iphEnt" type="number" step="0.01" value="${ip.entrada}"></label><label>Parcelas (no máximo)<input id="iphN" type="number" min="1" max="${R.maxParcelas}" value="${ip.n}"></label></div>
+    <div class="row mt" style="justify-content:space-between"><button class="btn red" data-act="iphDecidir" data-id="${id}" data-r="REPROVADA">Reprovar</button><button class="btn gold lg" data-act="iphDecidir" data-id="${id}" data-r="APROVADA">Aprovar iPhone</button></div>`,true);
+}
+async function iphDecidir(id,res,btn){
+  const v=await DB.get('vendas',id), ip=v.iphone||{}, R=iphRegras();
+  if(ip.status!=='ANALISE') return toast('Esta análise já foi respondida.','err');
+  const chk=[...document.querySelectorAll('.iphChk:checked')].map(i=>i.value), obs=($('#iphObs')?.value||'').trim(), agora=Date.now();
+  let upd;
+  if(res==='APROVADA'){
+    if(chk.length<4) return toast('Marque toda a conferência obrigatória para aprovar.','err');
+    if(R.exigirSerasa==='sim'&&asaasLigado()&&!v.serasa) return toast('Consulte o Serasa antes de aprovar (nome limpo é obrigatório para iPhone).','err');
+    const ent=r2(+$('#iphEnt').value||0), n=Math.min(+$('#iphN').value||ip.n,R.maxParcelas);
+    if(ent<ip.entrada*0.999&&ent<r2(ip.preco*R.entradaPct/100)) return toast(`A entrada não pode ficar abaixo de ${R.entradaPct}%.`,'err');
+    upd={...ip,status:'APROVADA',entrada:Math.max(ent,r2(ip.preco*R.entradaPct/100)),n,obs,checklist:chk};
+  } else {
+    const m=obs||prompt('Motivo da reprovação (o vendedor vê):'); if(!m) return;
+    upd={...ip,status:'REPROVADA',motivo:m,checklist:chk};
+  }
+  btn.disabled=true;
+  Object.assign(upd,{analisadoEm:agora,analisadoPor:S.me.nome,tempoMin:Math.max(1,Math.round((agora-ip.pedidoEm)/60000)),noPrazo:agora<=ip.prazoEm});
+  await DB.set('vendas',id,{iphone:upd});
+  await log(res==='APROVADA'?'iPhone aprovado':'iPhone reprovado',id,`${ip.modelo} · ${upd.tempoMin} min${upd.motivo?' · '+upd.motivo:''}`);
+  toast(res==='APROVADA'?'iPhone aprovado: o vendedor já vê na tela.':'Reprovado: o vendedor já vê na tela.','ok'); closeModal(); PAGES.analise();
+}
+
+/* ---- sino: iPhone na fila ---- */
+{ const _nt=notificacoes; notificacoes=async function(){ const n=await _nt();
+    try{ if(can('DONO','FINANCEIRO')){ const f=await iphFila(); if(f.length){ const atr=f.filter(v=>iphFalta(v.iphone)<0).length;
+      n.unshift({q:f.length,t:'iPhone aguardando análise',d:atr?`${atr} passou do prazo de ${iphRegras().prazoMin} min`:`responder em até ${iphRegras().prazoMin} min`,tab:'analise',k:'iph'}); } } }catch(e){}
+    return n; }; }
+
+/* ---- trava do iPhone: vincular ao MDM (Apple Business Manager) ---- */
+{ const _pt=passoTrava; passoTrava=async function(){ const v=await DB.get('vendas',S.w.vendaId); if(v?.aparelho&&ehIphone(v.aparelho)&&!v.aparelho.semTrava) return passoTravaIos(v); return _pt(); }; }
+async function passoTravaIos(v){
+  const tk=v.aparelhoToken; publicarContrato(v);
+  if(!tk){ $('#wz').innerHTML='<div class="card empty"><b>Trava ainda não gerada</b>Confirme a entrada primeiro.</div>'; return; }
+  const a=await DB.get('aparelhos',tk).catch(()=>null), feito=!!a?.mdmId&&v.status!=='INSTALANDO';
+  let mdmOn=null; try{ mdmOn=(await apiServ('ios',{acao:'status'})).ligado; }catch(e){}
+  $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Trava do ${esc(apNome(v))}</h2>
+    ${mdmOn===false?'<div class="err-box"><b>Trava do iPhone não configurada no servidor.</b><br><span class="small">A NexumCell precisa ligar o MDM (chave SIMPLEMDM_API_KEY). Não entregue o iPhone sem a trava.</span></div>':''}
+    <div class="iph-mdm"><div class="iph-steps">
+      ${[['O iPhone precisa estar no Apple Business Manager','Comprado de revendedor autorizado com o número de cliente ABM da empresa, ou adicionado pelo Apple Configurator, e atribuído ao servidor MDM.'],
+        ['Ligue e configure com internet','Na tela “Gerenciamento remoto”, toque em Inscrever. O iPhone fica supervisionado e o cliente não consegue tirar a trava.'],
+        ['Digite o número de série','No iPhone: Ajustes › Geral › Sobre › Número de série. O sistema confere a supervisão e o IMEI do contrato.']].map((s,i)=>`<div class="iph-step"><span>${i+1}</span><div><b>${s[0]}</b><p>${s[1]}</p></div></div>`).join('')}</div>
+      <div class="iph-vinc">${feito?`<div class="inst-status ok">${svg(ICI.ok)} iPhone vinculado (série ${esc(a.serial||'')}). Trava ativa pelo MDM — pode entregar.</div>`
+        :`<label>Número de série do iPhone<input id="iosSerie" placeholder="Ex.: F2LXK0ABCD12" style="text-transform:uppercase" autocomplete="off"></label>
+        <button class="btn gold lg mt" data-act="iosVincular" data-tk="${tk}" data-id="${v.id}" ${mdmOn===false?'disabled':''}>${svg(ICI.escudo)} Vincular e ativar a trava</button><div id="iosSt" class="mt"></div>`}</div></div>
+    <p class="hint mt">Atrasou: o iPhone entra em <b>Modo Perdido</b> com a mensagem e o telefone da loja. Pagou: libera sozinho. Quitou: a trava sai e o aparelho deve ser liberado no Apple Business Manager.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" id="btnConcluir" data-act="novaProposta" ${feito?'':'disabled'}>Concluir venda</button></div></div>`;
+}
+async function iosVincular(d,btn){
+  const s=String($('#iosSerie')?.value||'').toUpperCase().replace(/[^A-Z0-9]/g,''), st=$('#iosSt');
+  if(s.length<8) return toast('Digite o número de série completo.','err');
+  btn.disabled=true; st.className='inst-status'; st.innerHTML='<span class="spin"></span> Conferindo o iPhone no MDM…';
+  try{ const r=await apiServ('ios',{acao:'vincular',token:d.tk,serial:s});
+    if(r.concluida){ sincronizarAsaas(d.id); nfAuto(d.id); }
+    await log('Trava do iPhone ativada',d.id,'série '+s);
+    toast('iPhone vinculado: trava ativa.','ok'); const v=await DB.get('vendas',d.id); passoTravaIos(v);
+  }catch(e){ st.className='inst-status bad'; st.textContent=e.message; btn.disabled=false; }
+}
+
+/* ---- Dono: regras do iPhone ---- */
+{ const _ci=PAGES.config; PAGES.config=async()=>{ await _ci(); if(!can('DONO')||!$('#view')) return; const R=iphRegras();
+    let mdmOn=null; try{ mdmOn=(await apiServ('ios',{acao:'status'})).ligado; }catch(e){}
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2 style="display:flex;gap:10px;align-items:center"><span class="iph-ic">${svg(ICI.apple)}</span>Venda de iPhone ${mdmOn?badge('MDM ligado','green'):mdmOn===false?badge('MDM não configurado','red'):''}</h2>
+      <p class="small muted" style="margin-top:-6px">Só as lojas que você liberar (em Lojas) vendem iPhone. Toda venda passa pela central com vídeo do cliente e consulta de restrições.</p>
+      <div class="grid g4">${[['entradaPct','Entrada mínima (%)'],['maxParcelas','Máximo de parcelas'],['scoreMin','Nota interna mínima'],['idadeMin','Idade mínima'],['rendaParcelaPct','Parcela até (% da renda)'],['prazoMin','Prazo da central (min)'],['refsMin','Referências mínimas'],['videoMaxS','Vídeo: máximo (s)']]
+        .map(([k,t])=>`<label>${t}<input type="number" id="iph_${k}" value="${R[k]}"></label>`).join('')}
+        <label>Serasa obrigatório<select id="iph_exigirSerasa"><option value="sim" ${R.exigirSerasa==='sim'?'selected':''}>Sim</option><option value="nao" ${R.exigirSerasa!=='sim'?'selected':''}>Não (confere manual)</option></select></label></div>
+      <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="iphSalvarRegras">Salvar regras do iPhone</button></div>
+      <p class="hint">Trava: Apple Business Manager + MDM (SimpleMDM). Coloque a chave em SIMPLEMDM_API_KEY no servidor (wrangler secret put SIMPLEMDM_API_KEY).</p></div>`); }; }
+
+/* ---- Dono: liberar iPhone por loja ---- */
+{ const _li=PAGES.lojas; PAGES.lojas=async()=>{ await _li(); if(!can('DONO')||!$('#view')) return;
+    const ls=(S.lojas||[]).filter(l=>!l.encerrada);
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt" id="iphLojas"><h2 style="display:flex;gap:10px;align-items:center"><span class="iph-ic">${svg(ICI.apple)}</span>Venda de iPhone por loja <span class="badge b-blue">${ls.filter(l=>l.iphone).length} liberada(s)</span></h2>
+      <p class="small muted" style="margin-top:-6px">Libere só lojas de confiança. A loja passa a ver iPhones no catálogo; cada venda ainda passa pela análise da central.</p>
+      <div class="tablewrap"><table><tr><th>Loja</th><th>Situação</th><th></th></tr>${ls.map(l=>`<tr><td><b>${esc(l.nome)}</b><br><span class="small muted">${esc(l.empresaNome||'')} ${l.cidade?'· '+esc(l.cidade):''}</span></td>
+        <td>${l.iphone?badge('iPhone liberado','green')+`<br><span class="small muted">${esc(l.iphonePor||'')} ${l.iphoneEm?relT(l.iphoneEm):''}</span>`:badge('Só Android','gray')}</td>
+        <td class="right"><button class="btn sm ${l.iphone?'':'gold'}" data-act="iphLoja" data-id="${l.id}">${l.iphone?'Bloquear iPhone':'Liberar iPhone'}</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nenhuma loja</td></tr>'}</table></div></div>`); }; }
+
+Object.assign(ACT,{
+  iphGravar:(d,b)=>iphGravar(b), iphQr:(d,b)=>iphQr(b), iphEnviar:(d,b)=>iphEnviar(b),
+  iphFechar:()=>{ iphPararCam(); closeModal(); },
+  iphContinuar:async()=>{ const v=await DB.get('vendas',S.w.vendaId); if(v.iphone?.status==='REPROVADA') S.w.sel={}; unwatch&&unwatch(); unwatch=null; passoAparelho(); },
+  iphCancelar:async d=>{ if(!confirm('Desistir da venda do iPhone? O pedido sai da fila da central e você escolhe outro aparelho.')) return; const v=await DB.get('vendas',d.id);
+    await DB.set('vendas',d.id,{iphone:{...v.iphone,status:'CANCELADA',canceladaEm:Date.now()}}); await log('Pedido de iPhone cancelado',d.id,'pelo vendedor'); S.w.sel={}; unwatch&&unwatch(); unwatch=null; passoAparelho(); },
+  iphAnalisar:d=>iphAnalisar(d.id), iphDecidir:(d,b)=>iphDecidir(d.id,d.r,b),
+  iosVincular:(d,b)=>iosVincular(d,b),
+  iphSalvarRegras:async()=>{ const o={}; Object.keys(IPH_PADRAO).forEach(k=>{ const e=$('#iph_'+k); if(e) o[k]=k==='exigirSerasa'?e.value:Math.max(0,+e.value||0); });
+    if(o.entradaPct<10||o.maxParcelas<1||o.prazoMin<5) return toast('Confira os valores: entrada de pelo menos 10%, 1 parcela e prazo de 5 min.','err');
+    await DB.set('config','sistema',{iphone:o}); S.cfg.iphone=o; await log('Regras do iPhone alteradas','config',JSON.stringify(o)); toast('Regras do iPhone salvas','ok'); },
+  iphLoja:async d=>{ const l=S.lojas.find(x=>x.id===d.id); if(!l) return; const lib=!l.iphone;
+    if(!confirm(lib?`Liberar a venda de iPhone na loja ${l.nome}?`:`Bloquear a venda de iPhone na loja ${l.nome}? Pedidos em análise continuam.`)) return;
+    const upd={iphone:lib,iphoneEm:Date.now(),iphonePor:S.me.nome}; await DB.set('lojas',l.id,upd); Object.assign(l,upd);
+    await log(lib?'Loja liberada para iPhone':'iPhone bloqueado na loja',l.id,l.nome); toast(lib?'iPhone liberado para a loja':'iPhone bloqueado','ok'); PAGES.lojas(); },
+});
+
+/* ================= Cadastro e gestão de lojas: status, análise documental, fotos, repasses e painel ================= */
+function cnpjOk(c){ c=onlyDig(c); if(c.length!==14||/^(\d)\1+$/.test(c)) return false; const calc=n=>{ const w=n===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2]; const s=w.reduce((a,x,i)=>a+x*+c[i],0)%11; return s<2?0:11-s; }; return calc(12)===+c[12]&&calc(13)===+c[13]; }
+const ST_LOJA={INCOMPLETO:['Cadastro incompleto','amber'],PENDENTE:['Aguardando análise','amber'],EM_ANALISE:['Em análise documental','blue'],APROVADA:['Aprovada','green'],RECUSADA:['Reprovada','red'],BLOQUEADA:['Bloqueada','red'],INATIVA:['Inativa','gray']};
+const stLoja=s=>badge(...(ST_LOJA[s]||[s||'—','gray']));
+const FOTOS_NOMES={fachada:'Fachada',entrada:'Entrada',interior:'Interior',atendimento:'Espaço de atendimento',mesas:'Mesas de atendimento',ambiente:'Ambiente completo'};
+const MARCAS_LOJA=['Samsung','Motorola','Xiaomi','Redmi','POCO','Realme','Tecno','Honor','Infinix','Outras Android'];
+const situacaoLoja=l=>l.encerrada?'INATIVA':l.bloqueada?'BLOQUEADA':'APROVADA';
+const mapaLink=g=>g?.lat!=null?`https://www.google.com/maps?q=${g.lat},${g.lng}`:'';
+
+/* --- muda o status do cadastro (análise documental / pedir correção) com histórico e e-mail --- */
+async function statusCadastro(id,novo){
+  const s=await DB.get('solicitacoesLoja',id); if(!s) return;
+  let obs='';
+  if(novo==='INCOMPLETO'){ obs=prompt(`O que a ${s.fantasia} precisa corrigir? (vai por e-mail e aparece no site)`); if(!obs||!obs.trim()) return; obs=obs.trim(); }
+  const hist=[...(s.historico||[]),{em:Date.now(),status:novo,por:S.me.nome,obs:obs||(novo==='EM_ANALISE'?'Análise documental iniciada':'')}];
+  await DB.set('solicitacoesLoja',id,{status:novo,historico:hist,...(obs?{resposta:obs}:{}),[novo==='EM_ANALISE'?'analiseEm':'correcaoEm']:Date.now()});
+  await log(novo==='EM_ANALISE'?'Cadastro de loja em análise documental':'Cadastro de loja: pedido de correção',id,`${s.fantasia}${obs?' · '+obs:''}`);
+  if(novo==='INCOMPLETO'){ const ok=await emailAuto(s.respEmail,`Cadastro ${MARCA} — correção necessária`,`Olá, ${primeiroNome(s.respNome)}.\n\nAnalisamos o cadastro da ${s.fantasia} e falta corrigir:\n\n${obs}\n\nAjuste e envie de novo pelo site (mesmo CNPJ): ${urlSite()}#cadastro\n\nEquipe ${MARCA}`); toast('Correção pedida'+(ok?' e e-mail enviado':''),'ok'); }
+  else toast('Status atualizado','ok');
+  closeModal(); render();
+}
+
+/* --- galeria das fotos de uma loja do cadastro (só o Dono vê) --- */
+async function verFotosLoja(solId,i){
+  openModal('<h2>Fotos da loja</h2><p class="muted"><span class="spin"></span> Carregando…</p>',true);
+  let fs=[]; try{ fs=(await DB.list('lojaFotos',[['solicitacaoId','==',solId]])).filter(f=>+f.loja===+i).sort((a,b)=>Object.keys(FOTOS_NOMES).indexOf(a.tipo)-Object.keys(FOTOS_NOMES).indexOf(b.tipo)||a.n-b.n); }catch(e){ console.warn(e); }
+  const s=await DB.get('solicitacoesLoja',solId), l=unidadesDe(s)[+i]||{};
+  $('#mbody').innerHTML=`<h2>Fotos — ${esc(l.nome||'')}</h2><p class="small muted" style="margin-top:-6px">${esc(l.endereco||'')} ${esc(l.cidade||'')}${l.uf?'/'+esc(l.uf):''}${l.geo?` · <a href="${mapaLink(l.geo)}" target="_blank" rel="noopener">ver no mapa</a>`:''}</p>
+    ${fs.length?`<div class="lf-grid">${fs.map(f=>`<figure><img src="${f.foto}" data-act="lfAmpliar" alt=""><figcaption>${esc(FOTOS_NOMES[f.tipo]||f.tipo)}</figcaption></figure>`).join('')}</div>`:'<div class="empty"><b>Nenhuma foto</b>Cadastro feito antes das fotos obrigatórias, ou pelo link antigo.</div>'}
+    <p class="hint">Confira se a fachada bate com o endereço e o mapa, e se há espaço de atendimento de verdade.</p>`;
+}
+
+/* --- análise: detalhes novos dentro do modal de aprovação --- */
+{ const _al=aprovarLoja; aprovarLoja=async function(id){
+    await _al(id);
+    const s=await DB.get('solicitacoesLoja',id); if(!s||!$('#mbody')) return; const u=unidadesDe(s), r=s.receita||{}, b=s.banco;
+    const det=`<div class="lc-box">
+      <div class="lc-row"><b>Situação</b> ${stLoja(s.status)} ${s.status!=='EM_ANALISE'?`<button class="btn sm" data-act="statusCadastro" data-id="${id}" data-s="EM_ANALISE">Iniciar análise documental</button>`:''} <button class="btn sm" data-act="statusCadastro" data-id="${id}" data-s="INCOMPLETO">Pedir correção</button></div>
+      <div class="lc-row"><b>Receita Federal</b> ${r.indisponivel?badge('não consultado','gray')+' <span class="small muted">confira em <a href="https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noopener">CNPJ (Receita)</a></span>':r.situacao?badge(r.situacao,r.situacao==='ATIVA'?'green':'red')+` <span class="small muted">${esc(r.razao||'')}${r.abertura?' · aberta em '+fmtD(r.abertura):''}${r.atividade?' · '+esc(r.atividade):''}</span>`:'—'}</div>
+      ${s.endereco||s.rua?`<div class="lc-row"><b>Sede</b> <span>${esc(s.endereco||'')} · ${esc(s.cidade||'')}/${esc(s.uf||'')} · CEP ${esc(s.cep||'')}${s.emailCorp?` · ${esc(s.emailCorp)}`:''}</span></div>`:''}
+      ${b?`<div class="lc-row"><b>Repasses</b> <span>${esc(b.banco)} · ag. ${esc(b.agencia)} · conta ${esc(b.conta)} (${esc({CORRENTE:'corrente',PAGAMENTO:'pagamento',POUPANCA:'poupança'}[b.tipoConta]||b.tipoConta)}) · titular ${esc(b.titular)} · PIX CNPJ ${esc(fmtCnpj(b.pixChave))} ${b.pixChave===s.cnpj?badge('chave = CNPJ da empresa','green'):badge('chave diferente do CNPJ','red')}</span></div>`:''}
+      ${(s.historico||[]).length?`<div class="lc-row"><b>Histórico</b> <span class="small">${s.historico.map(h=>`${fmtDT(h.em)} · ${esc((ST_LOJA[h.status]||[h.status])[0])} · ${esc(h.por||'')}${h.obs?' — '+esc(h.obs):''}`).join('<br>')}</span></div>`:''}
+      </div>
+      <h3 class="mt">Detalhes de cada loja</h3>
+      ${u.map((l,i)=>`<div class="lc-loja"><div class="row" style="justify-content:space-between"><b>${esc(l.nome)} ${badge(l.tipo==='FILIAL'||i>0||s.tipo==='FILIAL'?'Filial':'Matriz','navy')}</b>
+          ${l.fotos?`<button class="btn sm" data-act="verFotosLoja" data-id="${id}" data-i="${i}">Ver fotos (${Object.values(l.fotos).reduce((a,n)=>a+(+n||0),0)})</button>`:''}</div>
+        <div class="small">${esc(l.endereco||'')} · ${esc(l.cidade||'')}/${esc(l.uf||'')}${l.cep?' · CEP '+esc(l.cep):''}${l.cnpj?' · CNPJ '+esc(fmtCnpj(l.cnpj)):''}${l.geo?` · <a href="${mapaLink(l.geo)}" target="_blank" rel="noopener">📍 mapa (${l.geo.via==='GPS'?'GPS':'link'})</a>`:' · '+badge('sem GPS','amber')}</div>
+        ${l.marcas?`<div class="small mt">Marcas: ${l.marcas.map(m=>badge(m,'gray')).join(' ')}</div>`:''}
+        ${l.fotos?`<div class="small mt">Fotos: ${Object.keys(FOTOS_NOMES).map(t=>badge(FOTOS_NOMES[t],(+l.fotos[t]||0)>0?'green':'red')).join(' ')}</div>`:''}
+        <div class="small mt">Gerente: <b>${esc(l.gerente?.nome||'')}</b> · ${esc(l.gerente?.cargo||'Gerente')}</div>
+        ${l.vendedores?.length?`<div class="small mt">Vendedores (recebem o acesso na aprovação): ${l.vendedores.map(v=>`${esc(v.nome)} · ${esc(v.email)}${cpfOk(v.cpf)?'':' '+badge('CPF inválido','red')}${v.status==='APROVADO'?' '+badge('acesso criado','green'):''}`).join('<br>')}</div>`:''}</div>`).join('')}`;
+    const h=$('#mbody h3'); if(h) h.insertAdjacentHTML('beforebegin',det);
+  }; }
+
+/* --- depois de aprovar: completa a loja (endereço, GPS, marcas, PIX) e cria os vendedores --- */
+{ const _al2=aprovarLoja; aprovarLoja=async function(id){
+    await _al2(id);
+    const ok=$('#alOk'); if(!ok) return; const orig=ok.onclick;
+    ok.onclick=async ev=>{
+      const s0=await DB.get('solicitacoesLoja',id);
+      if(s0.receita?.situacao&&s0.receita.situacao!=='ATIVA'&&!confirm(`O CNPJ está ${s0.receita.situacao} na Receita Federal. Aprovar mesmo assim?`)) return;
+      const faltaFoto=unidadesDe(s0).some(l=>l.fotos&&Object.keys(FOTOS_NOMES).some(t=>!(+l.fotos[t]>0)));
+      if(faltaFoto&&!confirm('Há loja com foto obrigatória faltando. Aprovar mesmo assim?')) return;
+      await orig.call(ok,ev);
+      // pós-aprovação
+      try{
+        const s=await DB.get('solicitacoesLoja',id); if(!s||s.status!=='APROVADA') return;
+        const u=unidadesDe(s), novas=[...u], criados=[], erros=[], agora=Date.now();
+        if(s.tipo!=='FILIAL'&&s.empresaId) await DB.set('empresas',s.empresaId,{emailCorp:s.emailCorp||'',endereco:s.endereco||'',cep:s.cep||'',bairro:s.bairro||'',receita:s.receita||null,...(s.banco?{banco:{...s.banco,validado:false}}:{})});
+        const emp=s.empresaId?await DB.get('empresas',s.empresaId).catch(()=>null):null, banco=s.banco||emp?.banco||null;
+        for(const [i,l] of u.entries()){
+          if(l.status!=='APROVADO'||!l.lojaId) continue;
+          await DB.set('lojas',l.lojaId,{tipo:l.tipo||(i>0||s.tipo==='FILIAL'?'FILIAL':'MATRIZ'),status:'APROVADA',rua:l.rua||'',numero:l.numero||'',complemento:l.complemento||'',bairro:l.bairro||'',
+            ...(l.geo?{lat:l.geo.lat,lng:l.geo.lng,raio:150,geoVia:l.geo.via}:{}),marcas:l.marcas||[],fotosSolicitacao:id,fotosIdx:i,gerenteCargo:l.gerente?.cargo||'Gerente',aprovadaEm:agora,aprovadaPor:S.me.nome,
+            ...(banco?{pixTipo:'CNPJ',pixChave:banco.pixChave||s.cnpj,pixValidado:false,banco:{banco:banco.banco,agencia:banco.agencia,conta:banco.conta,tipoConta:banco.tipoConta,titular:banco.titular}}:{})});
+          const vs=[...(l.vendedores||[])];
+          for(const [j,v] of vs.entries()){ if(v.status==='APROVADO') continue;
+            try{ const a=await criarAcesso({nome:v.nome,email:v.email,tel:v.telefone,senha:SENHA_PADRAO,role:'VENDEDOR',lojaId:l.lojaId,extra:{cpf:v.cpf||'',empresaId:s.empresaId||''}});
+              const env=await emailAuto(a.email,a.assunto,a.corpo); vs[j]={...v,status:'APROVADO',uid:a.uid,acessoCriadoEm:Date.now(),emailEnviadoEm:env?Date.now():null}; criados.push(`${l.nome}: vendedor ${a.nome} · ${a.codigo}`); }
+            catch(e){ erros.push(`${v.nome}: ${e.code==='auth/email-already-in-use'?'o e-mail já tem acesso':e.message}`); vs[j]={...v,status:'ERRO',erro:String(e.message||e).slice(0,120)}; } }
+          novas[i]={...l,vendedores:vs};
+        }
+        await DB.set('solicitacoesLoja',id,{lojas:novas,historico:[...(s.historico||[]),{em:agora,status:'APROVADA',por:S.me.nome,obs:`${novas.filter(x=>x.status==='APROVADO').length} loja(s) aprovada(s)`}]});
+        S.lojas=await listarLojas();
+        if(criados.length||erros.length) $('#mbody')?.insertAdjacentHTML('beforeend',`<h3 class="mt">Vendedores</h3>${criados.length?`<ul>${criados.map(x=>`<li class="mono small">${esc(x)}</li>`).join('')}</ul>`:''}${erros.length?`<div class="warn">${erros.map(esc).join('<br>')}</div>`:''}<p class="hint">Senha provisória ${SENHA_PADRAO}: no primeiro acesso o sistema obriga a criar uma senha nova.</p>`);
+        await log('Lojas aprovadas: dados completos e vendedores',id,`${criados.length} vendedor(es)`);
+      }catch(e){ console.warn('pós-aprovação',e); toast('Lojas aprovadas, mas não consegui completar os dados: '+e.message,'err'); }
+    };
+  }; }
+
+/* --- recusa vira "Reprovada" com histórico --- */
+{ const _rc=recusarLoja; recusarLoja=async function(id){ const s0=await DB.get('solicitacoesLoja',id); await _rc(id); const s=await DB.get('solicitacoesLoja',id);
+    if(s?.status==='RECUSADA'&&s0?.status!=='RECUSADA') await DB.set('solicitacoesLoja',id,{historico:[...(s.historico||[]),{em:Date.now(),status:'RECUSADA',por:S.me.nome,obs:s.resposta||''}]}); }; }
+
+/* --- página de Lojas: painel com totais, busca e cadastros em todos os status --- */
+{ const _pl=PAGES.lojas; PAGES.lojas=async()=>{ await _pl(); if(!can('DONO')||!$('#view')) return;
+    const [sol,us]=await Promise.all([DB.list('solicitacoesLoja'),DB.list('users')]), ls=S.lojas||[];
+    const ativas=ls.filter(l=>!l.encerrada);
+    const cont={lojas:ativas.length,matrizes:ativas.filter(l=>!l.filial&&l.tipo!=='FILIAL').length,filiais:ativas.filter(l=>l.filial||l.tipo==='FILIAL').length,
+      vendedores:us.filter(u=>u.role==='VENDEDOR'&&u.ativo).length,gerentes:us.filter(u=>u.role==='GERENTE'&&u.ativo).length,
+      aguardando:sol.filter(s=>['PENDENTE','EM_ANALISE','INCOMPLETO'].includes(s.status)).length,aprovadas:ativas.filter(l=>!l.bloqueada).length,bloqueadas:ativas.filter(l=>l.bloqueada).length,
+      semPix:ativas.filter(l=>l.pixChave&&l.pixValidado!==true).length};
+    const kpi=(n,t,c='')=>`<div class="lp-k ${c}"><b>${n}</b><span>${t}</span></div>`;
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="card lp"><div class="lp-ks">${kpi(cont.lojas,'Lojas cadastradas')}${kpi(cont.matrizes,'Matrizes')}${kpi(cont.filiais,'Filiais')}${kpi(cont.gerentes,'Gerentes')}${kpi(cont.vendedores,'Vendedores ativos')}${kpi(cont.aguardando,'Aguardando aprovação',cont.aguardando?'amber':'')}${kpi(cont.aprovadas,'Aprovadas','green')}${kpi(cont.bloqueadas,'Bloqueadas',cont.bloqueadas?'red':'')}</div>
+      <div class="lp-busca"><input id="lpQ" placeholder="Buscar por CNPJ, nome fantasia, gerente ou cidade…"><select id="lpS"><option value="">Todos os status</option>${Object.entries(ST_LOJA).map(([k,[t]])=>`<option value="${k}">${t}</option>`).join('')}</select></div>
+      ${cont.semPix?`<div class="warn mt">${cont.semPix} loja(s) com chave PIX ainda sem titularidade validada: os repasses delas ficam suspensos até você validar (botão “Validar PIX”).</div>`:''}<div id="lpRes"></div></div>`);
+    // cadastros em análise documental e incompletos também aparecem na fila
+    const extra=sol.filter(s=>['EM_ANALISE','INCOMPLETO'].includes(s.status));
+    const fila=[...document.querySelectorAll('#view .card h2')].find(h=>h.textContent.startsWith('Cadastros para aprovar'))?.closest('.card');
+    if(fila){ const tb=fila.querySelector('table'); if(extra.length){ tb.querySelector('.empty')?.closest('tr')?.remove();
+      tb.insertAdjacentHTML('beforeend',extra.map(s=>{ const u=unidadesDe(s); return `<tr><td><b>${esc(s.fantasia)}</b><div class="small muted">${esc(s.razao||'')}</div><div class="mt">${stLoja(s.status)}</div></td><td class="mono">${esc(fmtCnpj(s.cnpj))}</td><td>${u.length} loja(s)<div class="small muted">${u.map(x=>esc(x.nome)).join(', ')}</div></td><td>${esc(s.planoNome||'—')}</td><td>${esc(s.respNome)}<div class="small muted">${esc(s.respEmail)}</div></td><td>${fmtDT(s.criadoEm)}</td>
+        <td class="right"><button class="btn sm gold" data-act="aprovarLoja" data-id="${s.id}">Analisar e aprovar</button> <button class="btn sm" data-act="recusarLoja" data-id="${s.id}">Reprovar</button></td></tr>`; }).join('')); }
+      tb.querySelectorAll('tr').forEach(tr=>{ const id=tr.querySelector('[data-act="aprovarLoja"]')?.dataset.id, s=sol.find(x=>x.id===id); if(s?.status==='PENDENTE'&&!tr.querySelector('.badge.b-amber.st0')) tr.cells[0].insertAdjacentHTML('beforeend',`<div class="mt">${stLoja('PENDENTE')}</div>`); });
+      fila.querySelectorAll('[data-act="recusarLoja"]').forEach(b=>b.textContent='Reprovar'); }
+    // tabela de empresas e lojas: status, PIX e marcas
+    const tabLojas=[...document.querySelectorAll('#view .card h2')].find(h=>h.textContent.startsWith('Empresas e lojas'))?.closest('.card');
+    tabLojas?.querySelectorAll('[data-act="pessoasLoja"]').forEach(b=>{ const l=ls.find(x=>x.id===b.dataset.id); if(!l) return; const td=b.closest('td');
+      td.insertAdjacentHTML('afterbegin',`<button class="btn sm" data-act="editarLojaCad" data-id="${l.id}">Dados</button> ${l.pixChave&&l.pixValidado!==true?`<button class="btn sm gold" data-act="validarPix" data-id="${l.id}">Validar PIX</button> `:''}`);
+      const tr=b.closest('tr'); tr.dataset.busca=[l.nome,l.cidade,l.uf,l.cnpj,l.empresaNome,(S._empCnpj||{})[l.empresaId]||'',us.filter(u=>u.lojaId===l.id&&u.role==='GERENTE').map(u=>u.nome).join(' ')].join(' ').toLowerCase();
+      tr.dataset.st=situacaoLoja(l); if(l.pixChave) tr.cells[0].insertAdjacentHTML('beforeend',`<div class="small">${l.pixValidado?badge('PIX validado','green'):badge('PIX a validar','amber')}${(l.marcas||[]).length?' · '+l.marcas.length+' marca(s)':''}${l.iphone?' · iPhone':''}</div>`); });
+    const filtrar=()=>{ const q=($('#lpQ').value||'').toLowerCase().replace(/[.\-\/]/g,''), st=$('#lpS').value; let n=0;
+      tabLojas?.querySelectorAll('tr[data-busca]').forEach(tr=>{ const ok=(!q||tr.dataset.busca.replace(/[.\-\/]/g,'').includes(q))&&(!st||tr.dataset.st===st); tr.hidden=!ok; if(ok) n++; });
+      const sf=sol.filter(s=>(!st||s.status===st)&&(!q||[s.fantasia,s.razao,s.cnpj,s.respNome,s.cidade,...unidadesDe(s).flatMap(l=>[l.nome,l.cidade,l.gerente?.nome])].join(' ').toLowerCase().replace(/[.\-\/]/g,'').includes(q)));
+      $('#lpRes').innerHTML=q||st?`<p class="small muted mt">${n} loja(s) na lista abaixo · ${sf.length} cadastro(s) encontrados${sf.length?': '+sf.slice(0,8).map(s=>`<a href="#" data-act="aprovarLoja" data-id="${s.id}">${esc(s.fantasia)}</a> ${stLoja(s.status)}`).join(' · '):''}</p>`:''; };
+    $('#lpQ').oninput=filtrar; $('#lpS').onchange=filtrar;
+  }; }
+
+/* --- dados da loja (marcas, status) e validação da titularidade do PIX --- */
+async function editarLojaCad(id){
+  const l=S.lojas.find(x=>x.id===id); if(!l) return; const marcas=l.marcas||[];
+  openModal(`<h2>${esc(l.nome)} ${stLoja(situacaoLoja(l))}</h2><p class="small muted" style="margin-top:-6px">${esc(l.empresaNome||'')} · ${l.tipo==='FILIAL'||l.filial?'Filial':'Matriz'}${l.cnpj?' · CNPJ '+esc(fmtCnpj(l.cnpj)):''}</p>
+    <div class="grid g2 small"><div><b>Endereço</b><br>${esc([l.rua&&(l.rua+', '+(l.numero||'')),l.complemento,l.bairro].filter(Boolean).join(' · ')||l.endereco||'—')}<br>${esc(l.cidade||'')}/${esc(l.uf||'')} ${l.cep?'· CEP '+esc(l.cep):''}</div>
+      <div><b>Localização</b><br>${l.lat!=null?`<a href="${mapaLink({lat:l.lat,lng:l.lng})}" target="_blank" rel="noopener">${(+l.lat).toFixed(5)}, ${(+l.lng).toFixed(5)}</a>`:'—'}</div>
+      <div><b>Repasse</b><br>${l.pixChave?`PIX ${esc(l.pixTipo||'')} ${esc(l.pixTipo==='CNPJ'?fmtCnpj(l.pixChave):l.pixChave)} ${l.pixValidado?badge('validado','green')+`<br><span class="muted">${esc(l.pixValidadoPor||'')} ${l.pixValidadoEm?fmtDT(l.pixValidadoEm):''}</span>`:badge('a validar','amber')}`:'—'}${l.banco?`<br>${esc(l.banco.banco)} · ag. ${esc(l.banco.agencia)} · conta ${esc(l.banco.conta)}`:''}</div>
+      <div><b>Fotos</b><br>${l.fotosSolicitacao?`<a href="#" data-act="verFotosLoja" data-id="${l.fotosSolicitacao}" data-i="${l.fotosIdx||0}">ver as fotos do cadastro</a>`:'—'}</div></div>
+    <h3 class="mt">Marcas que a loja vende</h3><div class="marcas-ck">${MARCAS_LOJA.map(m=>`<label class="check" style="margin:0 14px 6px 0"><input type="checkbox" class="lcMarca" value="${m}" ${marcas.includes(m)?'checked':''}> ${m}</label>`).join('')}</div>
+    <p class="hint">iPhone é liberado à parte, no quadro “Venda de iPhone por loja”.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="salvarLojaCad" data-id="${id}">Salvar</button></div>`,true);
+}
+async function salvarLojaCad(id){ const l=S.lojas.find(x=>x.id===id); const marcas=[...document.querySelectorAll('.lcMarca:checked')].map(i=>i.value);
+  if(!marcas.length) return toast('Marque ao menos uma marca','err');
+  await DB.set('lojas',id,{marcas,marcasEm:Date.now(),marcasPor:S.me.nome}); await log('Marcas da loja alteradas',id,`${l?.nome||''}: ${marcas.join(', ')}`);
+  S.lojas=await listarLojas(); closeModal(); toast('Loja atualizada','ok'); render(); }
+async function validarPix(id){
+  const l=S.lojas.find(x=>x.id===id); if(!l) return; const emp=l.empresaId?await DB.get('empresas',l.empresaId).catch(()=>null):null;
+  const raiz=[l.cnpj,emp?.cnpj].map(onlyDig).filter(c=>c.length===14).map(c=>c.slice(0,8)), ch=onlyDig(l.pixChave);
+  if(l.pixTipo!=='CNPJ') return toast('A chave PIX desta loja não é CNPJ. Troque por uma chave CNPJ da empresa em “Editar loja”.','err');
+  if(raiz.length&&!raiz.includes(ch.slice(0,8))) return toast('A chave PIX não é do CNPJ da empresa cadastrada. Não pode receber repasse.','err');
+  openModal(`<h2>Validar titularidade do PIX</h2><p>Loja <b>${esc(l.nome)}</b> · chave PIX CNPJ <b class="mono">${esc(fmtCnpj(ch))}</b>${emp?` · empresa ${esc(emp.razao||emp.fantasia)}`:''}</p>
+    <p class="small muted">Confira no app do banco, em “Pagar com PIX”, que a chave mostra como recebedor a razão social da empresa (ou peça o comprovante de titularidade da conta). Só depois marque abaixo.</p>
+    <label class="check"><input type="checkbox" id="vpOk"> Conferi: a chave ${esc(fmtCnpj(ch))} está em nome da própria empresa (CNPJ), não de pessoa física nem de terceiros.</label>
+    <label class="mt">Como conferiu<input id="vpComo" placeholder="Ex.: consulta da chave no app Sicredi em ${new Date().toLocaleDateString('pt-BR')}"></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="vpBtn">Validar e liberar repasses</button></div>`);
+  $('#vpBtn').onclick=async()=>{ if(!$('#vpOk').checked) return toast('Marque a conferência','err'); const como=$('#vpComo').value.trim(); if(como.length<5) return toast('Diga como conferiu a titularidade','err');
+    await DB.set('lojas',id,{pixValidado:true,pixValidadoEm:Date.now(),pixValidadoPor:S.me.nome,pixValidacao:como});
+    await log('Titularidade do PIX validada',id,`${l.nome} · ${fmtCnpj(ch)} · ${como}`); S.lojas=await listarLojas(); closeModal(); toast('PIX validado: repasses liberados para esta loja','ok'); render(); };
+}
+/* PIX do repasse: só CNPJ da empresa; trocar a chave exige validar de novo */
+PIX_TIPOS.splice(0,PIX_TIPOS.length,['CNPJ','CNPJ da empresa']);
+{ const _sl3=salvarLoja; salvarLoja=async id=>{ const ch=onlyDig($('#lgPix')?.value||''), l=id?S.lojas.find(x=>x.id===id):null;
+    if($('#lgPix')&&ch){ if(!cnpjOk(ch)) return toast('A chave PIX do repasse precisa ser um CNPJ válido (o da empresa).','err');
+      const emp=l?.empresaId?await DB.get('empresas',l.empresaId).catch(()=>null):null, raiz=[l?.cnpj,emp?.cnpj].map(onlyDig).filter(c=>c.length===14).map(c=>c.slice(0,8));
+      if(raiz.length&&!raiz.includes(ch.slice(0,8))) return toast('A chave PIX precisa ser do CNPJ da empresa cadastrada. CPF ou terceiros não são aceitos.','err');
+      $('#lgPix').value=ch; }
+    const mudou=l&&onlyDig(l.pixChave||'')!==ch; await _sl3(id);
+    if(id&&mudou&&ch){ await DB.set('lojas',id,{pixValidado:false,pixValidadoEm:null}); await log('Chave PIX da loja trocada (validar de novo)',id,fmtCnpj(ch)); S.lojas=await listarLojas(); } }; }
+
+Object.assign(ACT,{
+  statusCadastro:d=>statusCadastro(d.id,d.s), verFotosLoja:d=>verFotosLoja(d.id,d.i),
+  lfAmpliar:(d,b)=>{ const w=document.createElement('div'); w.className='lf-lb'; w.innerHTML=`<img src="${b.src}" alt="">`; w.onclick=()=>w.remove(); document.body.appendChild(w); },
+  editarLojaCad:d=>editarLojaCad(d.id), salvarLojaCad:d=>salvarLojaCad(d.id), validarPix:d=>validarPix(d.id),
+});
+
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
 </script>
 </body>

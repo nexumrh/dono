@@ -5,6 +5,7 @@
 //   ASAAS_URL                 -> https://api.asaas.com/v3 (produção) ou https://api-sandbox.asaas.com/v3 (testes)
 //   PORTAL_ORIGEM             -> https://nexumrh.github.io
 import admin from 'firebase-admin';
+import { sincronizarIos } from './_ios.js';
 
 // Na Vercel é o firebase-admin de verdade; no Cloudflare o wrangler.toml troca por worker/firebase-rest.js
 if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
@@ -111,6 +112,7 @@ export async function pushAparelho(token) {
   try {
     if (!token) return false;
     const a = (await db.collection('aparelhos').doc(String(token)).get()).data();
+    if (a?.ios) return !!(await sincronizarIos(db, token, a));   // iPhone: a trava é pelo MDM (Modo Perdido)
     const t = a?.checkin?.push; if (!t) return false;
     await admin.messaging().send({ token: t, data: { acao: 'sync', em: String(Date.now()) }, android: { priority: 'high', ttl: 3600 * 1000 } });
     return true;

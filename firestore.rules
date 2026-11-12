@@ -71,6 +71,12 @@ service cloud.firestore {
     }
 
     // ---------- Credenciamento de loja (link público → servidor grava; só o Dono vê e aprova) ----------
+    // ---------- Fotos das lojas no cadastro (gravadas pelo servidor; só o Dono vê) ----------
+    match /lojaFotos/{id} {
+      allow read: if hasRole(['DONO']);
+      allow write: if false;
+    }
+
     match /solicitacoesLoja/{id} {
       allow read, update: if hasRole(['DONO']);
       allow create, delete: if false;
@@ -169,6 +175,14 @@ service cloud.firestore {
                     // vendedor: escolher aparelho (preço do catálogo, entrada mínima)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
                         && semMexer(['analise', 'cliente', 'clienteCpf', 'vendedorUid', 'lojaId', 'vip'])
+                        // iPhone: só com a aprovação da central e em loja liberada (o vendedor não mexe no pedido aqui)
+                        && semMexer(['iphone'])
+                        && (!(get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('marca', '') in ['Apple', 'APPLE', 'apple'])
+                            || (resource.data.get('iphone', {}).get('status', '') == 'APROVADA'
+                                && resource.data.iphone.catalogoId == request.resource.data.aparelho.catalogoId
+                                && request.resource.data.entrada >= resource.data.iphone.entrada
+                                && request.resource.data.parcelas.size() <= resource.data.iphone.n
+                                && get(/databases/$(database)/documents/lojas/$(resource.data.lojaId)).data.get('iphone', false) == true))
                         // valor = preço do catálogo + acessórios (no máximo 50% do aparelho)
                         && request.resource.data.valor == catalogoPreco(request.resource.data) + request.resource.data.get('acessoriosValor', 0)
                         && request.resource.data.get('acessoriosValor', 0) >= 0
@@ -202,6 +216,14 @@ service cloud.firestore {
                                 && request.resource.data.cashbackUsado <= get(/databases/$(database)/documents/clientes/$(resource.data.clienteCpf)).data.get('cashback', {}).get('saldo', 0)))
                     // vendedor: anota que chamou o cliente aprovado de volta (propostas para retomar)
                     || (minhaVenda() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retomada']))
+                    // vendedor: pede a análise do iPhone (nasce EM ANÁLISE, prazo da central) ou desiste do pedido
+                    || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'APROVADA'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['iphone'])
+                        && get(/databases/$(database)/documents/lojas/$(resource.data.lojaId)).data.get('iphone', false) == true
+                        && ((request.resource.data.iphone.status == 'ANALISE'
+                             && resource.data.get('iphone', {}).get('status', '') in ['', 'CANCELADA']
+                             && request.resource.data.iphone.prazoEm > request.time.toMillis())
+                            || (request.resource.data.iphone.status == 'CANCELADA' && resource.data.get('iphone', {}).get('status', '') == 'ANALISE')))
                     // vendedor: venda reprovada automaticamente por IMEI irregular (Anatel)
                     || (minhaVenda() && resource.data.status == 'APROVADA' && request.resource.data.status == 'REPROVADA'
                         && request.resource.data.reprovadoPorImei == true && semMexer(['analise', 'cliente', 'valor', 'entrada', 'parcelas']))
@@ -345,6 +367,26 @@ service cloud.firestore {
     }
 
     // ---------- Biometria facial feita no celular pelo QR Code (ID = token secreto, vale 15 min) ----------
+    // ---------- Vídeo de declaração do cliente (venda de iPhone) — 1 por venda ----------
+    match /videos/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO']);
+      allow create, update: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']) && request.resource.data.vendedorUid == request.auth.uid
+                            && request.resource.data.video is string && request.resource.data.video.size() < 1000000;
+      allow delete: if hasRole(['DONO']);
+    }
+    // gravação pelo celular do cliente (QR Code, vale 15 min; o vídeo é apagado do link depois de usado)
+    match /videosQr/{tk} {
+      allow get: if signed();
+      allow list: if false;
+      allow create: if staff() && request.resource.data.status == 'PENDENTE' && request.resource.data.vendedorUid == request.auth.uid;
+      allow update: if (staff() && resource.data.vendedorUid == request.auth.uid)
+                    || (anon() && resource.data.status == 'PENDENTE' && request.resource.data.status == 'ENVIADA'
+                        && request.time.toMillis() < resource.data.expiraEm
+                        && request.resource.data.video is string && request.resource.data.video.size() < 1000000
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'video', 'mime', 'dur', 'tam', 'enviadaEm', 'dispositivo']));
+      allow delete: if staff() && resource.data.vendedorUid == request.auth.uid;
+    }
+
     match /bios/{tk} {
       allow get: if signed();
       allow list: if false;

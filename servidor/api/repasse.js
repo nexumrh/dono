@@ -15,6 +15,13 @@ export async function repassar(vendaId, por) {
   if (!['ATIVA', 'QUITADA'].includes(v.status)) throw new Error(`venda nº ${v.numero} não está ativa`);
   const loja = (await db.collection('lojas').doc(v.lojaId).get()).data() || {};
   if (!loja.pixChave) throw new Error(`a loja ${loja.nome || v.lojaNome} não tem chave PIX cadastrada`);
+  // REGRA: só lojas aprovadas, com chave PIX do CNPJ da empresa e titularidade validada pela NexumCell
+  if (loja.bloqueada || loja.encerrada) throw new Error(`a loja ${loja.nome || v.lojaNome} está bloqueada ou inativa: repasse suspenso`);
+  if (loja.pixTipo !== 'CNPJ') throw new Error(`a chave PIX da loja ${loja.nome || ''} não é CNPJ: o repasse só vai para a chave PIX do CNPJ da empresa`);
+  { const dg = (x) => String(x || '').replace(/\D/g, ''), emp = loja.empresaId ? (await db.collection('empresas').doc(loja.empresaId).get()).data() : null;
+    const raizes = [loja.cnpj, emp?.cnpj].map(dg).filter((c) => c.length === 14).map((c) => c.slice(0, 8));
+    if (raizes.length && !raizes.includes(dg(loja.pixChave).slice(0, 8))) throw new Error(`a chave PIX da loja ${loja.nome || ''} não é do CNPJ da empresa cadastrada`);
+    if (loja.pixValidado !== true) throw new Error(`a titularidade da conta da loja ${loja.nome || ''} ainda não foi validada pela NexumCell`); }
   const valor = valorRepasse(v); if (!(valor > 0)) throw new Error('valor do repasse zerado');
   await ref.set({ repasse: { status: 'PROCESSANDO', valor, em: Date.now(), por } }, { merge: true });
   try {
