@@ -328,6 +328,34 @@ service cloud.firestore {
       allow delete: if hasRole(['DONO']);
     }
 
+    // Suporte NexumCell dentro do app: conversa cliente <-> equipe (funciona com o aparelho bloqueado)
+    match /suporteApp/{tk} {
+      allow get:  if signed();
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE']);
+      allow create: if anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
+                    && request.resource.data.keys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']);
+      allow update: if (anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']))
+                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['naoLidoSuporte','naoLidoCliente','atendidoPor','atendidoEm','atualizadoEm']));
+      allow delete: if hasRole(['DONO']);
+
+      match /msgs/{mid} {
+        allow get, list: if staff() || (anon() && exists(/databases/$(database)/documents/aparelhos/$(tk)));
+        allow create: if (anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
+                          && request.resource.data.keys().hasOnly(['de','texto','em'])
+                          && request.resource.data.de == 'cliente'
+                          && request.resource.data.texto is string
+                          && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() < 2000)
+                      || (hasRole(['DONO','FINANCEIRO','SUPORTE','GERENTE'])
+                          && request.resource.data.keys().hasOnly(['de','texto','em','porNome'])
+                          && request.resource.data.de == 'suporte'
+                          && request.resource.data.texto is string
+                          && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() < 2000);
+        allow update: if false;
+        allow delete: if hasRole(['DONO']);
+      }
+    }
+
     match /chavesTrava/{token} {
       allow get: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                  || (hasRole(['GERENTE']) && get(/databases/$(database)/documents/aparelhos/$(token)).data.lojaId == me().lojaId);

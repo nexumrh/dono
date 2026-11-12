@@ -8013,6 +8013,54 @@ Object.assign(ACT,{
       closeModal(); toast(`${q*ids.length} licença(s) distribuídas em ${ids.length} loja(s).`,'ok'); render(); }; },
 });
 
+/* ======================= Suporte no app (coleção suporteApp) ======================= */
+TABS.push({id:'suporteApp',label:'Suporte no app',roles:['DONO','FINANCEIRO','SUPORTE']});
+NAV_GRUPOS.find(g=>g[0]==='Atendimento')?.[1].splice(0,0,'suporteApp');
+PORTAIS.dono.tabs.push('suporteApp'); PORTAIS.suporte.tabs.splice(1,0,'suporteApp'); PORTAIS.financeiro.tabs.push('suporteApp');
+IC.suporteApp='<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>';
+
+let _saSel=null, _saUn=null;
+function _saCSS(){ if($('#saCSS')) return; const s=document.createElement('style'); s.id='saCSS';
+  s.textContent='.sa-conv{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:#F4F6FB;border-radius:12px}.sa-b{max-width:82%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.35;word-break:break-word}.sa-b .h{display:block;font-size:11px;opacity:.65;margin-top:4px}.sa-cli{align-self:flex-start;background:#fff;border:1px solid #E1E6F0}.sa-sup{align-self:flex-end;background:#1D4ED8;color:#fff}.sa-item{display:block;width:100%;text-align:left;border:1px solid #E1E6F0;background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}.sa-item.on{border-color:#1D4ED8;background:#F2F6FF}.sa-item.nl{border-left:4px solid var(--bad)}';
+  document.head.appendChild(s); }
+PAGES.suporteApp=async()=>{
+  _saCSS();
+  const convs=(await DB.list('suporteApp').catch(()=>[])).sort((a,b)=>(b.atualizadoEm||0)-(a.atualizadoEm||0));
+  const nl=convs.filter(c=>c.naoLidoSuporte).length;
+  $('#view').innerHTML=`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><h2 style="margin:0">Suporte no app</h2><p class="muted" style="margin:2px 0 0">Mensagens que os clientes mandam de dentro do app NexumCell — funciona até com o aparelho bloqueado por falta de pagamento.</p></div>
+      ${nl?`<span class="badge b-amber">${nl} sem resposta</span>`:'<span class="badge b-green">tudo respondido</span>'}</div>
+    <div class="grid g2 mt" style="gap:14px;align-items:start">
+      <div id="saLista">${convs.length?convs.map(saCard).join(''):'<p class="empty">Nenhuma conversa ainda.</p>'}</div>
+      <div id="saConversa"><p class="muted">Escolha uma conversa à esquerda para ver e responder.</p></div>
+    </div></div>`;
+  if(_saSel && convs.some(c=>c.id===_saSel)) saAbrirConv(_saSel);
+};
+function saCard(c){ return `<button class="sa-item ${c.id===_saSel?'on':''} ${c.naoLidoSuporte?'nl':''}" data-act="saAbrir" data-id="${esc(c.id)}">
+    <div class="row" style="justify-content:space-between;gap:8px"><b>${esc(c.clienteNome||'Cliente')}</b><span class="small muted">${fmtDT(c.atualizadoEm)}</span></div>
+    <span class="small muted">Contrato ${esc(c.vendaNumero||'—')} · ${esc(c.marca||'')} ${esc(c.modelo||'')}${c.bloqueado?' · <b style="color:var(--bad)">bloqueado</b>':''}</span></button>`; }
+async function saDesenhar(tk){
+  const [cab,msgs]=await Promise.all([DB.get('suporteApp',tk).catch(()=>null),DB.list('suporteApp/'+tk+'/msgs').catch(()=>[])]);
+  msgs.sort((a,b)=>(a.em||0)-(b.em||0));
+  const box=$('#saConversa'); if(!box||_saSel!==tk) return;
+  box.innerHTML=`<div class="card" style="margin:0"><div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+      <b>${esc(cab?.clienteNome||'Cliente')} · contrato ${esc(cab?.vendaNumero||'—')}</b>
+      <button class="btn sm" data-act="go" data-tab="aparelhos">Ver aparelhos</button></div>
+    <div class="sa-conv mt" id="saMsgs">${msgs.length?msgs.map(m=>`<div class="sa-b ${m.de==='cliente'?'sa-cli':'sa-sup'}">${esc(m.texto)}<span class="h">${fmtDT(m.em)}${m.de==='suporte'&&m.porNome?' · '+esc(m.porNome):''}</span></div>`).join(''):'<p class="muted">Sem mensagens ainda.</p>'}</div>
+    <div class="row mt" style="gap:8px"><input id="saTxt" placeholder="Responder como Suporte NexumCell" style="flex:1" maxlength="2000"><button class="btn pri" data-act="saEnviar" data-id="${esc(tk)}">Enviar</button></div></div>`;
+  const m=$('#saMsgs'); if(m) m.scrollTop=m.scrollHeight;
+  const t=$('#saTxt'); if(t) t.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ACT.saEnviar({id:tk}); } };
+  if(cab?.naoLidoSuporte) DB.set('suporteApp',tk,{naoLidoSuporte:false}).catch(()=>{});
+}
+function saAbrirConv(tk){ _saSel=tk; try{_saUn&&_saUn();}catch(e){} _saUn=DB.watch('suporteApp',tk,()=>{ if(_saSel===tk) saDesenhar(tk); }); }
+Object.assign(ACT,{
+  saAbrir:d=>{ saAbrirConv(d.id); $('#saLista')?.querySelectorAll('.sa-item').forEach(b=>b.classList.toggle('on',b.dataset.id===d.id)); },
+  saEnviar:async d=>{ const i=$('#saTxt'); const t=(i?.value||'').trim(); if(!t) return; i.value='';
+    try{ await DB.add('suporteApp/'+d.id+'/msgs',{de:'suporte',texto:t.slice(0,2000),em:Date.now(),porNome:(S.me?.nome||'Suporte').split(' ')[0]});
+      await DB.set('suporteApp',d.id,{naoLidoCliente:true,atendidoPor:S.me?.nome||'',atendidoEm:Date.now(),atualizadoEm:Date.now(),naoLidoSuporte:false});
+      saDesenhar(d.id); }catch(e){ toast('Não foi possível enviar: '+(e.message||e),'err'); } },
+});
+
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
 </script>
 </body>
