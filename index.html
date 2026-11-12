@@ -6302,6 +6302,7 @@ function blocoInstalarPc(v,tk){
     <li>Ligue o celular no cabo USB e toque em <b>Permitir</b> na pergunta de depuração.</li>
     <li>O instalador confere o aparelho (conta, IMEI do contrato), instala e só mostra <b>PRONTO</b> quando o sistema recebe o sinal do celular. Aqui também fica verde.</li></ol>
     <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="baixarInstPc" data-id="${v.id}">Baixar instalador deste contrato</button><button class="btn" data-act="baixarInstLoja">Instalador da loja (vários contratos)</button></div>
+    <div class="msg small mt"><b>Xiaomi, Redmi e POCO:</b> o cabo quase nunca funciona nessas marcas. A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Use o <b>QR Code</b> (restaurar de fábrica e tocar 6 vezes na tela de boas-vindas) ou, em último caso, "Instalar por link".</div>
     <p class="hint">O instalador da loja traz todos os contratos que estão aguardando a trava: você escolhe o número e pode fazer um aparelho atrás do outro. Na primeira vez ele baixa sozinho as ferramentas do Google (ADB); precisa de internet no computador.</p>`;
 }
 /* Instalador da trava pelo cabo USB (.bat, Windows). Recebe um ou vários contratos:
@@ -6360,6 +6361,8 @@ function scriptInstPc(lista){
 '"%ADB%" %D% shell getprop ro.product.model > "%TEMP%\\nx_a.txt" 2>nul','set /p MODELO=<"%TEMP%\\nx_a.txt"',
 '"%ADB%" %D% shell getprop ro.build.version.sdk > "%TEMP%\\nx_a.txt" 2>nul','set /p SDK=<"%TEMP%\\nx_a.txt"',
 'echo       Aparelho: %MARCA% %MODELO%',
+'echo %MARCA% | findstr /i "xiaomi redmi poco" >nul && goto xiaomi',
+':seguexiaomi',
 'if %SDK% LSS 26 goto erroandroid',
 '"%ADB%" %D% shell dumpsys device_policy > "%TEMP%\\nx_dp.txt" 2>nul',
 'findstr /i /c:"br.com.nexumcell.trava/.AdminReceiver" "%TEMP%\\nx_dp.txt" >nul && findstr /c:"Device Owner:" "%TEMP%\\nx_dp.txt" >nul && goto jadono',
@@ -6413,6 +6416,15 @@ function scriptInstPc(lista){
 ':semsinal','echo.','echo A trava foi instalada, mas o aparelho ainda NAO deu sinal no sistema.','echo Ligue o Wi-Fi ou coloque o chip no celular, abra o app NexumCell e confira no sistema','echo se a instalacao ficou verde ANTES de entregar o aparelho.','goto fim',
 ':seminternetpc','echo.','echo A trava foi instalada, mas este computador nao conseguiu consultar o sistema (sem internet?).','echo Confira no sistema se a instalacao ficou verde antes de entregar.','goto fim',
 ':semdono','echo.','echo ATENCAO: o app abriu, mas SEM a protecao completa. Nao entregue o aparelho.','echo Restaure de fabrica e rode o instalador de novo.','goto fim',
+':xiaomi','echo.',
+'echo ATENCAO - XIAOMI / REDMI / POCO:',
+'echo A Xiaomi so libera a instalacao pelo cabo com uma Conta Mi logada e chip no aparelho,',
+'echo e a trava nao pode ser ativada com conta no aparelho. Por isso o cabo quase nunca funciona nessa marca.',
+'echo.',
+'echo USE O QR CODE: restaure de fabrica, toque 6 vezes na tela de boas-vindas e leia o QR do sistema.',
+'echo Se o QR tambem nao funcionar, use "Instalar por link" na tela da venda.',
+'echo.','set "TENTA="','set /p TENTA=Digite T para tentar pelo cabo mesmo assim, ou ENTER para parar: ',
+'if /i "%TENTA%"=="T" goto seguexiaomi','goto fim',
 ':erroandroid','echo.','echo NAO DA PARA INSTALAR: este celular tem Android antigo (anterior ao 8). A trava exige Android 8 ou mais novo.','goto fim',
 ':errooutrodono','echo.','echo NAO DA PARA INSTALAR: o celular ja tem OUTRO aplicativo administrador (de outra financeira ou empresa).','echo Restaure o celular de fabrica e rode o instalador de novo.','goto fim',
 ':erroconta','echo.','echo NAO DA PARA INSTALAR AINDA: o celular tem conta cadastrada (Google, Samsung, Xiaomi...).','echo No celular: Configuracoes - Contas - remova TODAS as contas. Depois rode o instalador de novo.','echo Se nao conseguir remover, restaure de fabrica e NAO coloque conta na configuracao inicial.','goto fim',
