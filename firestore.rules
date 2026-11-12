@@ -261,8 +261,10 @@ service cloud.firestore {
       allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'VENDEDOR'])
                   || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']);
-      allow update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
-                    || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
+      // remover a trava de vez (removerRemoto) é só do Dono; quitação/cancelamento removem sozinhos pelo sistema
+      allow update: if (hasRole(['DONO'])
+                    || ((hasRole(['FINANCEIRO', 'SUPORTE']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId))
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['removerRemoto', 'removocao'])))
                     // o celular só pode atualizar o próprio "checkin"
                     || (anon() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkin']))
                     // portal do cliente: comunicar roubo, furto ou perda (uma vez; só a loja desfaz)

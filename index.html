@@ -4467,7 +4467,7 @@ PAGES.aparelhos = async () => {
   const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal(), exterior:a=>!a.quitado&&a.status==='ATIVO'&&!!foraDoPais(a)};
   const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
   const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['exterior','Fora do Brasil'],['fim','Quitados/cancelados']];
-  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO','SUPORTE')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
+  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
   $('#aq').addEventListener('input',e=>{ S.filtro.aq=e.target.value; clearTimeout(S._aqT); S._aqT=setTimeout(()=>{ PAGES.aparelhos().then(()=>{ const el=$('#aq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }); },250); });
@@ -4491,7 +4491,7 @@ function apCard(a){
     ${ativo&&gerencia?`<button class="btn sm" data-act="apMsg" data-id="${a.id}">Mensagem</button>`:''}
     ${ativo&&!ck.em?`<button class="btn sm navy" data-act="apQR" data-id="${a.id}">QR de instalação</button>`:''}
     ${ativo&&can('DONO','SUPORTE')&&ck.em?`<button class="btn sm" data-act="apCodigo" data-id="${a.id}">Código sem internet</button>`:''}
-    ${can('DONO','SUPORTE')&&a.status!=='CANCELADO'?`<button class="btn sm red" data-act="apRemover" data-id="${a.id}">Remover a trava</button>`:''}
+    ${can('DONO')&&a.status!=='CANCELADO'?`<button class="btn sm red" data-act="apRemover" data-id="${a.id}">Remover a trava</button>`:''}
     <button class="btn sm" data-act="apLog" data-id="${a.id}">Histórico</button>
   </div></div>`;
 }
@@ -5534,6 +5534,7 @@ function baixarRemovedorUsb(){
 
 /* Remoção definitiva da trava (Dono/Suporte): gera o código do aparelho e o passo a passo. */
 async function apRemover(id){
+  if(!can('DONO')) return toast('Só o administrador (Dono) pode remover a trava. A trava sai sozinha quando o contrato é quitado ou cancelado.','err');
   const a=await DB.get('aparelhos',id); if(!a) return;
   if(!confirm(`REMOVER DE VEZ a trava da NexumCell do aparelho de ${a.clienteNome} (contrato nº ${a.vendaNumero})?\n\nO sistema tenta remover pela internet primeiro. Só se não der certo é que aparece o código de digitar no aparelho.\n\nNão dá para desfazer.`)) return;
   let ch=await DB.get('chavesTrava',id).catch(()=>null); if(!ch&&!fb) ch={k:'demo-'+id};
@@ -5600,8 +5601,9 @@ async function apCodigo(id){
 Object.assign(ACT,{ pedirTransf:(d,b)=>pedirTransf(d.id,d.loja,b), respTransf:d=>responderTransf(d.id,d.v==='1'), sino:()=>{ const p=$('#sinoP'); p.hidden=!p.hidden; if(!p.hidden){ desenharSino(); atualizarSino(true); } }, sinoAtualizar:()=>atualizarSino(true), sinoIr:d=>{ $('#sinoP').hidden=true; S.tab=d.tab; render(); }, audCsv:()=>audCsv(), limitesLoja:d=>limitesLoja(d.id), faturaLoja:d=>faturaLoja(d.id), senhaPadrao:(d,b)=>senhaPadrao(d.id,b), licComprar:(d,b)=>licComprar(b), snAnalisar:d=>snAnalisar(d.id), excluirLoja:(d,b)=>excluirLoja(d.id,b), navGrupo:d=>navGrupo(d.g), apCodigo:d=>apCodigo(d.id), apRemover:d=>apRemover(d.id), removedorUsb:()=>baixarRemovedorUsb(), removerMassa:()=>removerEmMassa(), semSinal:()=>{ S.filtro.ap='offline'; S.tab='aparelhos'; render(); },
   atualizarPainel:()=>{ PAGES.painel(); toast('Atualizado','ok'); } });
 
-/* Remoção da trava em massa (Dono/Suporte): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
+/* Remoção da trava em massa (só Dono): marca os aparelhos da lista atual para remover; cada um tira a trava sozinho no próximo contato. */
 async function removerEmMassa(){
+  if(!can('DONO')) return toast('Só o administrador (Dono) pode remover travas.','err');
   const base=(S._apLista||[]).filter(a=>a.status==='ATIVO'&&!a.quitado&&!a.semTrava&&!a.removerRemoto);
   if(!base.length) return toast('Nenhum aparelho com trava ativa na lista atual para remover.','err');
   const travados=base.filter(a=>avaliar(a).travar).length, online=base.filter(a=>a.checkin?.em&&Date.now()-a.checkin.em<2*86400000).length;
