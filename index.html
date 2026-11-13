@@ -6372,8 +6372,10 @@ Object.assign(ACT,{ ligarCodigo:(d,b)=>ligarCodigo(b) });
 /* ---- Instalação da trava pelo computador (ADB): proteção completa, igual ao QR ---- */
 const marcaSemUsb=v=>/xiaomi|redmi|poco/i.test(`${v?.aparelho?.marca||''} ${v?.aparelho?.modelo||''}`);
 function blocoInstalarPc(v,tk){
-  if(marcaSemUsb(v)) return `<div class="msg mt" style="border-color:var(--bad)"><b>Pelo cabo USB não funciona em Xiaomi, Redmi e POCO.</b> A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Por isso esta opção fica bloqueada para essas marcas.<br><br>Use o <b>QR Code</b>: restaure de fábrica, toque 6 vezes na tela de boas-vindas e leia o QR desta tela. Se o QR não abrir neste modelo, use "Instalar por link".</div>`;
-  return `<ol class="steps small mt">
+  if(marcaSemUsb(v)) return `<div class="msg mt" style="border-color:var(--bad)"><b>Pelo cabo USB não funciona em Xiaomi, Redmi e POCO.</b> A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Por isso esta opção fica bloqueada para essas marcas.<br><br>Use o <b>QR Code</b>: restaure de fábrica, toque 6 vezes na tela de boas-vindas e leia o QR desta tela. Se o QR não abrir neste modelo, chame o suporte.</div>`;
+  return `<video controls preload="metadata" playsinline style="width:100%;border-radius:12px;margin:4px 0 12px;background:#000" src="nexumcell-instalacao-usb-completo.mp4">Seu navegador não mostra o vídeo.</video>
+    <p class="small muted" style="margin:0 0 8px">Veja o vídeo e siga os passos:</p>
+    <ol class="steps small mt">
     <li>Restaure o celular de fábrica. Na configuração, <b>pule o Wi-Fi e NÃO coloque conta Google</b>.</li>
     <li>No celular: Configurações → Sobre o telefone → toque 7 vezes em <b>Número da versão</b> (ou "Versão"). Volte em Opções do desenvolvedor e ligue a <b>Depuração USB</b>.</li>
     <li>No computador (Windows), baixe o instalador abaixo e dê dois cliques nele.</li>
