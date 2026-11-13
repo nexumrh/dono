@@ -6477,7 +6477,7 @@ function scriptInstPc(lista){
 'echo       Ligando ao contrato %NUM%...',
 `powershell -NoProfile -Command "try{ $a=Invoke-RestMethod -Method Post -Uri ('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${k}') -ContentType 'application/json' -Body '{\\"returnSecureToken\\":true}'; $d=Invoke-RestMethod -Uri ('https://firestore.googleapis.com/v1/projects/${p}/databases/(default)/documents/aparelhos/%TK%') -Headers @{Authorization='Bearer '+$a.idToken}; $d.updateTime }catch{}" > "%TEMP%\\nx_b.txt" 2>nul`,
 'set "BASE="','set /p BASE=<"%TEMP%\\nx_b.txt"',
-`"%ADB%" %D% shell am start -a android.intent.action.VIEW -d "'nexumcell://ativar?t=%TK%&k=${k}&p=${p}&pc=%COMPUTERNAME%'" br.com.nexumcell.trava >nul 2>&1`,
+`"%ADB%" %D% shell am start -a android.intent.action.VIEW -d "nexumcell://ativar?t=%TK%\\&k=${k}\\&p=${p}\\&pc=%COMPUTERNAME%" br.com.nexumcell.trava >nul 2>&1`,
 'rem ---------- 5. espera o aparelho dar sinal no sistema ----------',
 'echo [5/5] Aguardando o aparelho aparecer no sistema (ate 2 minutos). O celular precisa de internet (Wi-Fi ou chip)...',
 `powershell -NoProfile -Command "$k='${k}'; $p='${p}'; $t='%TK%'; try{ $a=Invoke-RestMethod -Method Post -Uri ('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+$k) -ContentType 'application/json' -Body '{\\"returnSecureToken\\":true}' }catch{ exit 2 }; $u='https://firestore.googleapis.com/v1/projects/'+$p+'/databases/(default)/documents/aparelhos/'+$t; $h=@{Authorization='Bearer '+$a.idToken}; $b='%BASE%'; for($i=0;$i -lt 40;$i++){ try{ $d=Invoke-RestMethod -Uri $u -Headers $h; $c=$d.fields.checkin.mapValue.fields; if($c -and ([string]$d.updateTime) -ne $b){ if($c.deviceOwner.booleanValue){ exit 0 } else { exit 3 } } }catch{}; Start-Sleep 3 }; exit 1"`,
