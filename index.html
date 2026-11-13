@@ -1844,7 +1844,7 @@ async function passoTrava(){
         <div id="instStatus" class="inst-status"><span class="spin"></span> Aguardando o aparelho confirmar a trava… <span id="instTempo"></span></div>
         <div id="instAjuda"></div>
         <details class="mt" id="instPc"><summary class="btn sm" style="display:inline-flex">${marcaSemUsb(v)?'Cabo USB: não disponível para Xiaomi / Redmi / POCO':'Instalar pelo computador (cabo USB)'}</summary>${blocoInstalarPc(v,tk)}</details>
-        ${S.cfg.instalacaoLink!=='nao'?`<details class="mt" id="instLink"><summary class="btn sm" style="display:inline-flex">O QR não funciona neste aparelho? Instalar por link</summary>${blocoInstalarLink(v,tk)}</details>`:''}</div>
+        </div>
     </div>
     <div class="row mt" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="imprimirContrato" data-id="${v.id}">Imprimir contrato</button>
       ${can('DONO','FINANCEIRO','GERENTE')?`<button class="btn red" data-act="deixarPendente" data-id="${v.id}">Cancelar venda (cliente fica pendente)</button>`:'<span class="small muted" style="align-self:center">Para cancelar esta venda, chame o gerente.</span>'}</div>
@@ -1987,6 +1987,7 @@ async function verVenda(id){
   const c=v.cliente, a=v.analise;
   const podeContinuar=['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ANALISE'].includes(v.status) && P.tabs.includes('nova') && (can('DONO','GERENTE')||v.vendedorUid===S.me.uid);
   const docs=can('DONO','FINANCEIRO')?await DB.get('docs',id).catch(()=>null):null;
+  const selfieApp=can('DONO')&&v.aparelhoToken?await DB.get('selfiesApp',v.aparelhoToken).catch(()=>null):null;
   const podeBaixar=v.status==='ATIVA' && can('DONO','FINANCEIRO');
   const podeCancelar=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status) && can('DONO','GERENTE');
   openModal(`
@@ -2004,6 +2005,7 @@ async function verVenda(id){
         ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
+    ${selfieApp?.foto?`<h3>Selfie pelo app da trava</h3><div class="docs-grid"><figure><img src="${selfieApp.foto}"><figcaption>Selfie do app · ${relT(selfieApp.em)}${selfieApp.modelo?' · '+esc(selfieApp.modelo):''}</figcaption></figure>${docs?.selfie?`<figure><img src="${docs.selfie}"><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}"><figcaption>Documento</figcaption></figure>`:''}</div>${selfieApp.conferida?`<div class="msg"><small>Conferida por ${esc(selfieApp.conferidaPor||'')} · ${fmtDT(selfieApp.conferidaEm)}</small>É o mesmo cliente da proposta.</div>`:`<p class="small muted">É a mesma pessoa do documento e da proposta?</p><div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`}`:''}
     ${v.obsVendedor?`<div class="msg"><small>Obs. do vendedor</small>${esc(v.obsVendedor)}</div>`:''}
     ${a?`<h3>Análise de crédito</h3><div class="msg"><small>${esc(a.porNome)} · ${fmtDT(a.em)}</small><b>${a.resultado==='APROVADA'?'Aprovada':'Reprovada'}</b> · score ${a.score||'—'}${a.obs?' · '+esc(a.obs):''}</div>`:''}
     ${['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
@@ -6370,8 +6372,10 @@ Object.assign(ACT,{ ligarCodigo:(d,b)=>ligarCodigo(b) });
 /* ---- Instalação da trava pelo computador (ADB): proteção completa, igual ao QR ---- */
 const marcaSemUsb=v=>/xiaomi|redmi|poco/i.test(`${v?.aparelho?.marca||''} ${v?.aparelho?.modelo||''}`);
 function blocoInstalarPc(v,tk){
-  if(marcaSemUsb(v)) return `<div class="msg mt" style="border-color:var(--bad)"><b>Pelo cabo USB não funciona em Xiaomi, Redmi e POCO.</b> A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Por isso esta opção fica bloqueada para essas marcas.<br><br>Use o <b>QR Code</b>: restaure de fábrica, toque 6 vezes na tela de boas-vindas e leia o QR desta tela. Se o QR não abrir neste modelo, use "Instalar por link".</div>`;
-  return `<ol class="steps small mt">
+  if(marcaSemUsb(v)) return `<div class="msg mt" style="border-color:var(--bad)"><b>Pelo cabo USB não funciona em Xiaomi, Redmi e POCO.</b> A Xiaomi só libera a instalação por USB com uma Conta Mi logada e chip no aparelho, e a trava não pode ser ativada com conta no aparelho. Por isso esta opção fica bloqueada para essas marcas.<br><br>Use o <b>QR Code</b>: restaure de fábrica, toque 6 vezes na tela de boas-vindas e leia o QR desta tela. Se o QR não abrir neste modelo, chame o suporte.</div>`;
+  return `<video controls preload="metadata" playsinline style="width:100%;border-radius:12px;margin:4px 0 12px;background:#000" src="nexumcell-instalacao-usb-completo.mp4">Seu navegador não mostra o vídeo.</video>
+    <p class="small muted" style="margin:0 0 8px">Veja o vídeo e siga os passos:</p>
+    <ol class="steps small mt">
     <li>Restaure o celular de fábrica. Na configuração, <b>pule o Wi-Fi e NÃO coloque conta Google</b>.</li>
     <li>No celular: Configurações → Sobre o telefone → toque 7 vezes em <b>Número da versão</b> (ou "Versão"). Volte em Opções do desenvolvedor e ligue a <b>Depuração USB</b>.</li>
     <li>No computador (Windows), baixe o instalador abaixo e dê dois cliques nele.</li>
@@ -6496,7 +6500,7 @@ function scriptInstPc(lista){
 'echo e a trava nao pode ser ativada com conta no aparelho. Por isso o cabo NAO funciona nessa marca.',
 'echo.',
 'echo USE O QR CODE: restaure de fabrica, toque 6 vezes na tela de boas-vindas e leia o QR do sistema.',
-'echo Se o QR tambem nao funcionar, use "Instalar por link" na tela da venda.',
+'echo Se o QR tambem nao funcionar, chame o suporte NexumCell.',
 'echo.','echo A instalacao pelo cabo esta BLOQUEADA para esta marca. Nada foi instalado.','goto fim',
 ':erroandroid','echo.','echo NAO DA PARA INSTALAR: este celular tem Android antigo (anterior ao 8). A trava exige Android 8 ou mais novo.','goto fim',
 ':errooutrodono','echo.','echo NAO DA PARA INSTALAR: o celular ja tem OUTRO aplicativo administrador (de outra financeira ou empresa).','echo Restaure o celular de fabrica e rode o instalador de novo.','goto fim',
@@ -6530,27 +6534,10 @@ Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id);
   baixarBat(`instalar-trava-contrato-${v.numero}.bat`,scriptInstPc(v));
   await log('Instalador da trava (computador) baixado',v.id,`contrato ${v.numero}`); toast('Instalador baixado. Abra o arquivo no computador.','ok'); } });
 
-/* ---- Instalação da trava por link (aparelhos em que o QR não funciona) ---- */
-const linkInstalar=tk=>urlCliente()+'?instalar='+encodeURIComponent(tk)+'&k='+encodeURIComponent(FIREBASE_CONFIG.apiKey||'DEMO')+'&p='+encodeURIComponent(FIREBASE_CONFIG.projectId||'DEMO')+(DEMO?'&demo':'');
-function blocoInstalarLink(v,tk){
-  const url=linkInstalar(tk); let qr='';
-  try{ if(typeof qrcode==='function'){ const q=qrcode(0,'M'); q.addData(url,'Byte'); q.make(); qr=q.createSvgTag({cellSize:3,margin:2,scalable:true}); } }catch(e){}
-  return `<div class="warn mt small"><b>Proteção menor que a do QR.</b> Pelo link, o cliente consegue desativar a proteção nas Configurações. Se ele fizer isso, o aparelho trava na hora e o painel avisa, mas depois ele pode desinstalar o app. Use só quando o QR não funcionar, e de preferência para clientes com bom histórico.</div>
-    <ol class="steps small mt"><li>Ligue o aparelho e configure normalmente (pode colocar a conta Google). Conecte no Wi-Fi.</li>
-      <li>Abra a câmera (ou o Google Lens) e leia o QR abaixo. O app começa a baixar sozinho.</li>
-      <li>Toque em <b>Instalar</b> (se pedir, permita “instalar apps desconhecidos” para o Chrome) e depois em <b>Abrir</b>.</li>
-      <li>O app se liga sozinho ao contrato. Se pedir, leia este mesmo QR com o leitor que abre no app.</li>
-      <li>Siga os botões do app: administrador, sobrepor apps e bateria.</li>
-      <li>Espere aqui ficar verde. Só entregue o aparelho depois disso.</li></ol>
-    <div class="row mt" style="gap:12px;align-items:center"><div class="qr" style="margin:0;width:170px">${qr}</div>
-      <div style="flex:1;min-width:200px"><input readonly value="${esc(url)}" class="mono small" style="width:100%">
-</div></div>`;
-}
+/* Instalação por link REMOVIDA do fluxo de venda — somente QR e USB (Device Owner). */
 { const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
   const l=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.modo==='link'&&x.checkin?.adminAtivo===false);
   if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`); }catch(e){} }; }
-Object.assign(ACT,{ instLinkWa:async d=>{ const v=await DB.get('vendas',d.id); if(!v) return; const tel=(v.cliente?.telefones||[])[0]||'';
-  window.open(`https://wa.me/${tel?telWa(tel):''}?text=${encodeURIComponent('Link para instalar o app NexumCell no seu aparelho (abra no próprio celular novo): '+linkInstalar(v.aparelhoToken))}`,'_blank','noopener'); await log('Instalação da trava por link',v.id,'link enviado'); } });
 
 /* ======================= LOTE: venda a distância, assistente, retorno, saúde, seminovos online, repasse Asaas, vendedor de risco, implantação ======================= */
 VENDA_ST.REMOTA=['Aguardando o cliente','amber'];
@@ -7932,33 +7919,10 @@ Object.assign(ACT,{
 });
 
 /* ================= Selfie pelo app da trava: a venda só é entregue depois que a selfie tirada no app chega e o vendedor confere ================= */
-let _selfieUnw=null;
-{ const _pt2=passoTrava; passoTrava=async function(){
-    _selfieUnw&&_selfieUnw(); _selfieUnw=null; if(S.w) S.w._selfiePend=false;
-    await _pt2();
-    const v=await DB.get('vendas',S.w?.vendaId).catch(()=>null); if(!v?.aparelhoToken||!$('#wz')) return;
-    const ap=await DB.get('aparelhos',v.aparelhoToken).catch(()=>null); if(!ap?.selfieApp||ap.ios) return;
-    const docs=await DB.get('docs',v.id).catch(()=>null);
-    S.w._selfiePend=true;
-    const alvo=$('#btnConcluir')?.closest('.row'); if(!alvo) return;
-    alvo.insertAdjacentHTML('beforebegin',`<div class="card mt sf-box" id="sfBox"><h3 style="margin:0;display:flex;gap:8px;align-items:center">${svg('<path d="M3 8a2 2 0 0 1 2-2h3l2-2.5h4L16 6h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>')} Selfie pelo app da trava <span class="badge b-blue">obrigatória</span></h3>
-      <div id="sfCorpo"><p class="small muted">Depois que a trava subir, o app NexumCell abre no celular do cliente com o botão <b>“Tirar selfie agora”</b>. Peça para o cliente tirar a selfie ali, olhando para a câmera. Ela aparece aqui sozinha.</p><div class="inst-status"><span class="spin"></span> Aguardando a selfie do app…</div></div></div>`);
-    const desenhar=x=>{ const c=$('#sfCorpo'); if(!c) return;
-      if(!x?.foto){ return; }
-      if(x.conferida){ S.w._selfiePend=false; c.innerHTML=`<div class="inst-status ok">${svg('<path d="M20 6 9 17l-5-5"/>')} Selfie conferida por ${esc(x.conferidaPor||'')} ${relT(x.conferidaEm)}. Pode concluir.</div>`; return; }
-      c.innerHTML=`<div class="sf-fotos"><figure><img src="${x.foto}" alt=""><figcaption>Selfie do app · ${relT(x.em)}${x.modelo?' · '+esc(x.modelo):''}</figcaption></figure>
-        ${docs?.selfie?`<figure><img src="${docs.selfie}" alt=""><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}" alt=""><figcaption>Documento</figcaption></figure>`:''}</div>
-        <p class="small muted">É a mesma pessoa do documento e da proposta? Se a foto ficou ruim, peça para o cliente tocar em “Tirar outra selfie” no app.</p>
-        <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`; };
-    _selfieUnw=DB.watch('selfiesApp',v.aparelhoToken,desenhar);
-    // demonstração: simula a selfie chegando do app
-    if(!fb) setTimeout(async()=>{ if(!(await DB.get('selfiesApp',v.aparelhoToken).catch(()=>null))) DB.set('selfiesApp',v.aparelhoToken,{foto:FOTO_DEMO('ROSTO'),em:Date.now(),modelo:'Demonstração'}); },6000);
-  }; }
-// enquanto a selfie não for conferida, o "Concluir venda" não passa
-document.addEventListener('click',e=>{ const b=e.target.closest('#btnConcluir'); if(!b||!S.w?._selfiePend) return;
-  e.stopImmediatePropagation(); e.preventDefault(); toast('Falta a selfie pelo app da trava: peça ao cliente para tirar no app NexumCell e confira aqui.','err'); $('#sfBox')?.scrollIntoView({behavior:'smooth',block:'center'}); },true);
+// A selfie pelo app da trava NÃO aparece mais no assistente de venda.
+// Ela é mostrada só para o DONO, no detalhe da venda (verVenda), para conferência.
 Object.assign(ACT,{
-  sfOk:async(d,b)=>{ b.disabled=true; try{ await DB.set('selfiesApp',d.tk,{conferida:true,conferidaPor:S.me.nome,conferidaEm:Date.now()}); await log('Selfie do app conferida',d.id,'mesma pessoa da proposta'); }catch(e){ b.disabled=false; toast('Não foi possível salvar: '+e.message,'err'); } },
+  sfOk:async(d,b)=>{ b.disabled=true; try{ await DB.set('selfiesApp',d.tk,{conferida:true,conferidaPor:S.me.nome,conferidaEm:Date.now()}); await log('Selfie do app conferida',d.id,'mesma pessoa da proposta'); verVenda(d.id); }catch(e){ b.disabled=false; toast('Não foi possível salvar: '+e.message,'err'); } },
   sfNao:()=>{ openModal(`<h2>A selfie não é do cliente</h2><p>Não entregue o aparelho. Peça para o próprio cliente tirar a selfie no app (botão “Tirar outra selfie”). Se houver suspeita de fraude (outra pessoa usando os documentos), cancele a venda e avise a análise de crédito.</p><div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Entendi</button></div>`); },
 });
 { const _cf2=PAGES.config; PAGES.config=async()=>{ await _cf2(); if(!can('DONO')||!$('#view')) return;
