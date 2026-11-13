@@ -1987,6 +1987,7 @@ async function verVenda(id){
   const c=v.cliente, a=v.analise;
   const podeContinuar=['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ANALISE'].includes(v.status) && P.tabs.includes('nova') && (can('DONO','GERENTE')||v.vendedorUid===S.me.uid);
   const docs=can('DONO','FINANCEIRO')?await DB.get('docs',id).catch(()=>null):null;
+  const selfieApp=can('DONO')&&v.aparelhoToken?await DB.get('selfiesApp',v.aparelhoToken).catch(()=>null):null;
   const podeBaixar=v.status==='ATIVA' && can('DONO','FINANCEIRO');
   const podeCancelar=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status) && can('DONO','GERENTE');
   openModal(`
@@ -2004,6 +2005,7 @@ async function verVenda(id){
         ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
+    ${selfieApp?.foto?`<h3>Selfie pelo app da trava</h3><div class="docs-grid"><figure><img src="${selfieApp.foto}"><figcaption>Selfie do app · ${relT(selfieApp.em)}${selfieApp.modelo?' · '+esc(selfieApp.modelo):''}</figcaption></figure>${docs?.selfie?`<figure><img src="${docs.selfie}"><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}"><figcaption>Documento</figcaption></figure>`:''}</div>${selfieApp.conferida?`<div class="msg"><small>Conferida por ${esc(selfieApp.conferidaPor||'')} · ${fmtDT(selfieApp.conferidaEm)}</small>É o mesmo cliente da proposta.</div>`:`<p class="small muted">É a mesma pessoa do documento e da proposta?</p><div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`}`:''}
     ${v.obsVendedor?`<div class="msg"><small>Obs. do vendedor</small>${esc(v.obsVendedor)}</div>`:''}
     ${a?`<h3>Análise de crédito</h3><div class="msg"><small>${esc(a.porNome)} · ${fmtDT(a.em)}</small><b>${a.resultado==='APROVADA'?'Aprovada':'Reprovada'}</b> · score ${a.score||'—'}${a.obs?' · '+esc(a.obs):''}</div>`:''}
     ${['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
@@ -7932,33 +7934,10 @@ Object.assign(ACT,{
 });
 
 /* ================= Selfie pelo app da trava: a venda só é entregue depois que a selfie tirada no app chega e o vendedor confere ================= */
-let _selfieUnw=null;
-{ const _pt2=passoTrava; passoTrava=async function(){
-    _selfieUnw&&_selfieUnw(); _selfieUnw=null; if(S.w) S.w._selfiePend=false;
-    await _pt2();
-    const v=await DB.get('vendas',S.w?.vendaId).catch(()=>null); if(!v?.aparelhoToken||!$('#wz')) return;
-    const ap=await DB.get('aparelhos',v.aparelhoToken).catch(()=>null); if(!ap?.selfieApp||ap.ios) return;
-    const docs=await DB.get('docs',v.id).catch(()=>null);
-    S.w._selfiePend=true;
-    const alvo=$('#btnConcluir')?.closest('.row'); if(!alvo) return;
-    alvo.insertAdjacentHTML('beforebegin',`<div class="card mt sf-box" id="sfBox"><h3 style="margin:0;display:flex;gap:8px;align-items:center">${svg('<path d="M3 8a2 2 0 0 1 2-2h3l2-2.5h4L16 6h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>')} Selfie pelo app da trava <span class="badge b-blue">obrigatória</span></h3>
-      <div id="sfCorpo"><p class="small muted">Depois que a trava subir, o app NexumCell abre no celular do cliente com o botão <b>“Tirar selfie agora”</b>. Peça para o cliente tirar a selfie ali, olhando para a câmera. Ela aparece aqui sozinha.</p><div class="inst-status"><span class="spin"></span> Aguardando a selfie do app…</div></div></div>`);
-    const desenhar=x=>{ const c=$('#sfCorpo'); if(!c) return;
-      if(!x?.foto){ return; }
-      if(x.conferida){ S.w._selfiePend=false; c.innerHTML=`<div class="inst-status ok">${svg('<path d="M20 6 9 17l-5-5"/>')} Selfie conferida por ${esc(x.conferidaPor||'')} ${relT(x.conferidaEm)}. Pode concluir.</div>`; return; }
-      c.innerHTML=`<div class="sf-fotos"><figure><img src="${x.foto}" alt=""><figcaption>Selfie do app · ${relT(x.em)}${x.modelo?' · '+esc(x.modelo):''}</figcaption></figure>
-        ${docs?.selfie?`<figure><img src="${docs.selfie}" alt=""><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}" alt=""><figcaption>Documento</figcaption></figure>`:''}</div>
-        <p class="small muted">É a mesma pessoa do documento e da proposta? Se a foto ficou ruim, peça para o cliente tocar em “Tirar outra selfie” no app.</p>
-        <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`; };
-    _selfieUnw=DB.watch('selfiesApp',v.aparelhoToken,desenhar);
-    // demonstração: simula a selfie chegando do app
-    if(!fb) setTimeout(async()=>{ if(!(await DB.get('selfiesApp',v.aparelhoToken).catch(()=>null))) DB.set('selfiesApp',v.aparelhoToken,{foto:FOTO_DEMO('ROSTO'),em:Date.now(),modelo:'Demonstração'}); },6000);
-  }; }
-// enquanto a selfie não for conferida, o "Concluir venda" não passa
-document.addEventListener('click',e=>{ const b=e.target.closest('#btnConcluir'); if(!b||!S.w?._selfiePend) return;
-  e.stopImmediatePropagation(); e.preventDefault(); toast('Falta a selfie pelo app da trava: peça ao cliente para tirar no app NexumCell e confira aqui.','err'); $('#sfBox')?.scrollIntoView({behavior:'smooth',block:'center'}); },true);
+// A selfie pelo app da trava NÃO aparece mais no assistente de venda.
+// Ela é mostrada só para o DONO, no detalhe da venda (verVenda), para conferência.
 Object.assign(ACT,{
-  sfOk:async(d,b)=>{ b.disabled=true; try{ await DB.set('selfiesApp',d.tk,{conferida:true,conferidaPor:S.me.nome,conferidaEm:Date.now()}); await log('Selfie do app conferida',d.id,'mesma pessoa da proposta'); }catch(e){ b.disabled=false; toast('Não foi possível salvar: '+e.message,'err'); } },
+  sfOk:async(d,b)=>{ b.disabled=true; try{ await DB.set('selfiesApp',d.tk,{conferida:true,conferidaPor:S.me.nome,conferidaEm:Date.now()}); await log('Selfie do app conferida',d.id,'mesma pessoa da proposta'); verVenda(d.id); }catch(e){ b.disabled=false; toast('Não foi possível salvar: '+e.message,'err'); } },
   sfNao:()=>{ openModal(`<h2>A selfie não é do cliente</h2><p>Não entregue o aparelho. Peça para o próprio cliente tirar a selfie no app (botão “Tirar outra selfie”). Se houver suspeita de fraude (outra pessoa usando os documentos), cancele a venda e avise a análise de crédito.</p><div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Entendi</button></div>`); },
 });
 { const _cf2=PAGES.config; PAGES.config=async()=>{ await _cf2(); if(!can('DONO')||!$('#view')) return;
