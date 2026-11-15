@@ -833,6 +833,7 @@ const TABS = [
   {id:'trocas',label:'Trocas e devoluções',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'repasses',label:'Repasses às lojas',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'lojas',label:'Lojas parceiras',roles:['DONO']},
+  {id:'comercial',label:'Comercial (leads)',roles:['DONO','FINANCEIRO']},
   {id:'comissoes',label:'Comissões',roles:['DONO','GERENTE','VENDEDOR','FINANCEIRO']},
   {id:'licLoja',label:'Licenças',roles:['GERENTE']},
   {id:'auditoria',label:'Auditoria',roles:['DONO']},
@@ -1018,7 +1019,7 @@ const NAV_GRUPOS=[
   ['Aparelhos',['aparelhos','estoque','catalogo','seminovos']],
   ['Atendimento',['pedidos','atendimentos','chamados']],
   ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','licLoja','relatorios','relDono']],
-  ['Lojas e equipe',['aprovacoes','lojas','equipe','escala','treinamento','tv']],
+  ['Lojas e equipe',['aprovacoes','lojas','comercial','equipe','escala','treinamento','tv']],
   ['Sistema',['auditoria','saas','config','ajuda']],
 ];
 function navGrupo(g){ let f={}; try{ f=JSON.parse(localStorage.getItem('nx_nav_'+PORTAL)||'{}'); }catch(e){} f[g]=!f[g]; try{ localStorage.setItem('nx_nav_'+PORTAL,JSON.stringify(f)); }catch(e){} renderNav(); }
@@ -2063,6 +2064,38 @@ async function configMetas(){
   };
 }
 Object.assign(ACT,{ configMetas:()=>configMetas() });
+
+/* ======================= P8: CRM Comercial (leads do site de vendas) ======================= */
+const LEAD_ST=[['NOVO','Novo','amber'],['CONTATO','Em contato','blue'],['PROPOSTA','Proposta','amber'],['FECHADO','Fechado','green'],['PERDIDO','Perdido','red']];
+PAGES.comercial = async () => {
+  if(!$('#view')) return;
+  const leads=(await DB.list('leads').catch(()=>[])).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
+  const nome=Object.fromEntries(LEAD_ST.map(s=>[s[0],s[1]])), cor=Object.fromEntries(LEAD_ST.map(s=>[s[0],s[2]]));
+  const encerrado=l=>['FECHADO','PERDIDO'].includes(l.status);
+  const cont=LEAD_ST.map(([k,n])=>`${n}: <b>${leads.filter(l=>l.status===k).length}</b>`).join(' · ');
+  const card=l=>{ const wa=(l.whatsapp||'').replace(/\D/g,'');
+    return `<div class="card" style="margin-bottom:10px"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:10px">
+      <div><b>${esc(l.loja||l.nome||'Lead')}</b> <span class="badge b-${cor[l.status]||'blue'}">${esc(nome[l.status]||l.status)}</span>
+        <div class="small muted" style="margin-top:2px">${[esc(l.nome||''),esc(l.cidade||''),esc(l.origem||'site'),(typeof relT==='function'?relT(l.criadoEm):'')].filter(Boolean).join(' · ')}</div>
+        ${l.whatsapp?`<div class="small">WhatsApp: ${esc(l.whatsapp)}</div>`:''}
+        ${l.mensagem?`<div class="small" style="margin-top:4px;color:#334">"${esc(l.mensagem)}"</div>`:''}
+        ${(l.historico||[]).filter(h=>h.obs&&h.obs!=='Veio pelo site de vendas').slice(-2).map(h=>`<div class="small muted" style="margin-top:3px">· ${esc(h.obs)}</div>`).join('')}</div>
+      <div style="text-align:right;white-space:nowrap">${wa?`<a class="btn sm gold" target="_blank" rel="noopener" href="https://wa.me/55${wa}?text=${encodeURIComponent('Olá! Aqui é da NexumCell, sobre o seu interesse em ser loja parceira.')}">WhatsApp</a>`:''}</div></div>
+      <div class="row mt" style="gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="small muted">Situação <select data-leadst="${l.id}" style="min-height:34px;margin-left:4px">${LEAD_ST.map(([k,n])=>`<option value="${k}" ${l.status===k?'selected':''}>${n}</option>`).join('')}</select></label>
+        <button class="btn sm" data-act="leadNota" data-id="${l.id}">Anotação</button></div></div>`; };
+  const abertos=leads.filter(l=>!encerrado(l)), fechados=leads.filter(encerrado);
+  $('#view').innerHTML=`<h1>Comercial — leads do site</h1><p class="muted">${cont}</p>
+    <p class="small muted">Lojas que pediram contato pelo site/chat. Mova pela situação até fechar. Quem faz o cadastro completo aparece em <b>Lojas parceiras</b>.</p>
+    ${abertos.length?abertos.map(card).join(''):'<div class="card"><div class="empty"><b>Nenhum lead em aberto</b>Os contatos do site aparecem aqui.</div></div>'}
+    ${fechados.length?`<details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Encerrados (${fechados.length})</summary><div style="margin-top:10px">${fechados.map(card).join('')}</div></details>`:''}`;
+  document.querySelectorAll('[data-leadst]').forEach(sel=>sel.addEventListener('change',async e=>{
+    const id=e.target.dataset.leadst, st=e.target.value, l=await DB.get('leads',id).catch(()=>null);
+    const hist=[...((l&&l.historico)||[]),{em:Date.now(),status:st,por:S.me.nome,obs:'Situação: '+(nome[st]||st)}];
+    await DB.set('leads',id,{status:st,historico:hist,atualizadoEm:Date.now()}); await log('Lead atualizado',id,nome[st]||st); toast('Situação atualizada','ok'); }));
+};
+Object.assign(ACT,{ leadNota:async d=>{ const t=(prompt('Anotação sobre este lead:')||'').trim(); if(!t) return; const l=await DB.get('leads',d.id).catch(()=>null);
+  const hist=[...((l&&l.historico)||[]),{em:Date.now(),status:(l&&l.status)||'NOVO',por:S.me.nome,obs:t}]; await DB.set('leads',d.id,{historico:hist,atualizadoEm:Date.now()}); toast('Anotação salva','ok'); if(typeof PAGES.comercial==='function') PAGES.comercial(); } });
 
 async function avisoTravas(){
   const box=$('#avisoTrava'); if(!box||!S.me) return;

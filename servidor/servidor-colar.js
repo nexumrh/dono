@@ -3257,8 +3257,27 @@ async function handlerRemoverCodigo(req, res) {
   return res.status(200).json({ codigo: await codigoDoDia_REM(), dia: diaSP_REM() });
 }
 
+// api/lead.js — lead do site de vendas → coleção leads (CRM do Dono)
+var txtLead = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n || 120);
+var digLead = (s) => String(s || "").replace(/\D/g, "");
+async function handlerLead(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).json({ erro: "M\xE9todo n\xE3o permitido" });
+  try {
+    const b = req.body || {};
+    const whatsapp = digLead(b.whatsapp);
+    const lead = { nome: txtLead(b.nome, 80), loja: txtLead(b.loja, 80), cidade: txtLead(b.cidade, 80),
+      whatsapp, mensagem: txtLead(b.mensagem, 500), origem: txtLead(b.origem, 40) || "site",
+      status: "NOVO", criadoEm: Date.now(), historico: [{ em: Date.now(), status: "NOVO", obs: "Veio pelo site de vendas" }] };
+    if (!whatsapp && !lead.loja && !lead.nome) return res.status(400).json({ erro: "Informe ao menos o WhatsApp ou o nome da loja." });
+    const id = "lead_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    await db.collection("leads").doc(id).set({ id, ...lead });
+    return res.status(200).json({ ok: true, id });
+  } catch (e) { console.error(e); return res.status(e.status || 500).json({ erro: e.message }); }
+}
+
 // worker/index.js
-var ROTAS = { ios: handler19, codigo, acordo, instalacao: handler8, "cliente-app": handler18, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler10, nf: handler11, assinatura: handler12, "zapsign-webhook": handler13, preanalise: handler14, credenciamento: handler15, push: handler16, saas: handler4, motor: handler9, repasse: handler7, remota: handler17, "remover-codigo": handlerRemoverCodigo };
+var ROTAS = { ios: handler19, codigo, acordo, instalacao: handler8, "cliente-app": handler18, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler10, nf: handler11, assinatura: handler12, "zapsign-webhook": handler13, preanalise: handler14, credenciamento: handler15, push: handler16, saas: handler4, motor: handler9, repasse: handler7, remota: handler17, "remover-codigo": handlerRemoverCodigo, lead: handlerLead };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};

@@ -64,6 +64,12 @@ service cloud.firestore {
       allow write: if hasRole(['DONO']);
     }
 
+    // ---------- Leads do site de vendas (CRM comercial; criados pelo servidor) ----------
+    match /leads/{id} {
+      allow read, update: if hasRole(['DONO','FINANCEIRO']);
+      allow create, delete: if false;
+    }
+
     // ---------- Pedidos de licenças de venda (só o servidor grava; o Asaas confirma o pagamento) ----------
     match /licencasPedidos/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
