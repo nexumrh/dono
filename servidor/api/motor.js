@@ -17,7 +17,15 @@ export const MOTOR_PADRAO = {
   fraudeDias: 7,              // procura o mesmo CPF/telefone/e-mail em outra loja nesse período
   fraudeReprova: false,       // true = reprova; false = manda para análise manual
   serasaAuto: false,          // consulta Serasa (Asaas, paga) para cliente novo antes de aprovar
+  comprometimentoMax: 30,     // a parcela não pode passar deste % da renda do cliente
+  comprPrazoRef: 10,          // prazo de referência (parcelas) para calcular o comprometimento
+  entOuroPct: 20, entPrataPct: 20, entBronzePct: 35, entRiscoPct: 50, // entrada mínima sugerida por faixa de risco
 };
+// entrada mínima sugerida pela faixa de risco
+function entradaDaFaixa(R, faixa) {
+  const m = { Ouro: R.entOuroPct, Prata: R.entPrataPct, Bronze: R.entBronzePct, Risco: R.entRiscoPct };
+  return Math.max(0, Math.min(90, Number(m[faixa]) || 0));
+}
 const r2 = (x) => Math.round(x * 100) / 100;
 const dias = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
 const sem = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -108,14 +116,31 @@ export async function avaliarVenda(vendaId) {
     }
   } catch (e) { console.warn('limite da loja', e.message); }
   // ---- decisão ----
-  const limite = preOk ? Math.max(pre.valor, N.limite) : Math.max(0, hist.length ? N.limite : Math.min(Math.round((c.renda || 0) * R.fatorRendaNovo / 50) * 50, R.limiteMaxNovo, N.limite || Infinity));
+  let limite = preOk ? Math.max(pre.valor, N.limite) : Math.max(0, hist.length ? N.limite : Math.min(Math.round((c.renda || 0) * R.fatorRendaNovo / 50) * 50, R.limiteMaxNovo, N.limite || Infinity));
+  // ---- comprometimento de renda: a parcela não pode passar de X% da renda ----
+  const comprMax = Math.max(0, Number(R.comprometimentoMax) || 0);
+  const prazoRef = Math.max(1, Number(R.comprPrazoRef) || 10);
+  const parcelaMax = comprMax > 0 ? r2((Number(c.renda) || 0) * comprMax / 100) : 0;
+  if (parcelaMax > 0 && limite > 0) {
+    const limiteComp = Math.floor((parcelaMax * prazoRef) / 50) * 50; // teto do financiado p/ a parcela caber
+    if (limiteComp < limite) {
+      limite = Math.max(0, limiteComp);
+      manual.push(`limite reduzido pelo comprometimento de renda (parcela máx. R$ ${parcelaMax} = ${comprMax}% da renda, em até ${prazoRef}x)`);
+    } else {
+      ok.push(`parcela cabe no comprometimento (máx. R$ ${parcelaMax} = ${comprMax}% da renda)`);
+    }
+  }
+  // ---- entrada mínima sugerida pela faixa de risco ----
+  const entradaMin = entradaDaFaixa(R, N.faixa);
   const resultado = reprova.length ? 'REPROVAR' : manual.length ? 'MANUAL' : 'APROVAR';
-  const parecer = { resultado, modo: R.modo, score: N.score, faixa: N.faixa, limite, reprova, manual, ok: [...ok, ...N.motivos], alertas, em: Date.now() };
+  const parecer = { resultado, modo: R.modo, score: N.score, faixa: N.faixa, limite, entradaMin, parcelaMax, comprometimentoMax: comprMax, reprova, manual, ok: [...ok, ...N.motivos], alertas, em: Date.now() };
   const upd = { motor: parecer, ...(alertas.length ? { alertasFraude: alertas } : {}), ...(serasa ? { serasa } : {}) };
   if (R.modo === 'automatico' && resultado !== 'MANUAL') {
     const status = resultado === 'APROVAR' ? 'APROVADA' : 'REPROVADA';
+    const entBase = Number((cfg.entradaPct)) || 30;
+    const contra = (status === 'APROVADA' && entradaMin > entBase) ? { entradaPct: entradaMin, limite: limite || null } : null;
     Object.assign(upd, { status, analise: { resultado: status, por: 'motor', porNome: 'Motor de crédito', em: Date.now(), score: N.score, limite: status === 'APROVADA' ? limite : 0,
-      obs: status === 'APROVADA' ? 'Aprovado automaticamente pelas regras de crédito.' : 'Reprovado pelas regras: ' + reprova.join('; '), checklist: { cpf: true, bio: true, doc: true }, automatico: true } });
+      obs: status === 'APROVADA' ? ('Aprovado automaticamente pelas regras de crédito.' + (contra ? ` Entrada mínima ${entradaMin}% pela faixa ${N.faixa}.` : '')) : 'Reprovado pelas regras: ' + reprova.join('; '), checklist: { cpf: true, bio: true, doc: true }, automatico: true, ...(contra ? { contraproposta: contra } : {}) } });
   }
   await ref.set(upd, { merge: true });
   await db.collection('logs').add({ em: Date.now(), acao: 'Motor de crédito: ' + (upd.status || resultado), alvo: vendaId, det: [...reprova, ...manual].join('; ').slice(0, 400), por: 'Motor de crédito' });
@@ -133,7 +158,10 @@ export default async function handler(req, res) {
     if (quem.role === 'VENDEDOR' && v.vendedorUid !== quem.uid) throw Object.assign(new Error('sem permissão'), { status: 403 });
     if (quem.role === 'GERENTE' && v.lojaId !== quem.lojaId) throw Object.assign(new Error('sem permissão'), { status: 403 });
     const cfg = (await db.collection('config').doc('sistema').get()).data() || {}; if ((cfg.motor?.modo || MOTOR_PADRAO.modo) === 'desligado') return res.status(200).json({ resultado: 'DESLIGADO' });
-    return res.status(200).json(await avaliarVenda(id));
+    const out = await avaliarVenda(id);
+    // Crédito/risco é só da Nexum: loja parceira (gerente/vendedor) não recebe a nota nem o parecer.
+    if (quem.role === 'GERENTE' || quem.role === 'VENDEDOR') return res.status(200).json({ ok: true, status: out.status });
+    return res.status(200).json(out);
   } catch (e) {
     console.error(e);
     return res.status(e.status || 500).json({ erro: e.message });
