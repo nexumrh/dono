@@ -3163,8 +3163,71 @@ async function handler19(req, res) {
   }
 }
 
+// api/remover-codigo.js
+var SEG_REM = () => String(process.env.MESTRE_REMOCAO || "");
+var LINK_REM = () => String(process.env.LINK_SECRET || process.env.MESTRE_REMOCAO || "");
+var diaSP_REM = (d = /* @__PURE__ */ new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+async function hmac_REM(secret, msg) {
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
+}
+async function codigoDoDia_REM(dia = diaSP_REM()) {
+  const h = await hmac_REM(SEG_REM(), `REMOVER-USB|${dia}`);
+  let v = 0;
+  for (let i = 0; i < 5; i++) v = v * 256 + h[i];
+  return String(v % 1e10).padStart(10, "0");
+}
+var b64url_REM = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function assinarLink_REM(expMs) {
+  const exp = String(expMs);
+  const mac = await hmac_REM(LINK_REM(), "LINK|" + exp);
+  return b64url_REM(new TextEncoder().encode(exp)) + "." + b64url_REM(mac);
+}
+async function conferirLink_REM(tok) {
+  const [a, b] = String(tok || "").split(".");
+  if (!a || !b) return false;
+  let exp;
+  try {
+    exp = new TextDecoder().decode(Uint8Array.from(atob(a.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)));
+  } catch (e) {
+    return false;
+  }
+  if (!/^\d+$/.test(exp) || Date.now() > Number(exp)) return false;
+  const mac = await hmac_REM(LINK_REM(), "LINK|" + exp);
+  return b64url_REM(mac) === b;
+}
+function pagina_REM(cod, erro) {
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexumCell — Remover a trava</title>
+<style>body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0B1E35;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+.card{background:#071424;border:1px solid #1b3350;border-radius:14px;padding:24px;max-width:460px;width:100%}
+h1{font-size:18px;margin:0 0 6px}.cod{font-size:42px;letter-spacing:6px;font-weight:800;color:#C9A84C;text-align:center;margin:18px 0}
+ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9FB0C3;font-size:13px}.err{color:#E07A5F}</style></head>
+<body><div class="card">${erro ? `<h1>Remover a trava</h1><p class="err">${erro}</p>` : `<h1>NexumCell — Remover a trava</h1>
+<p class="muted">No aparelho, na tela do app NexumCell, toque em “Problema? Inserir c\xF3digo de remo\xE7\xE3o da loja” e digite o c\xF3digo:</p>
+<div class="cod">${cod}</div>
+<ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
+<p class="muted">C\xF3digo v\xE1lido s\xF3 hoje. D\xFAvidas: fale com o Dono/Suporte Nexum.</p>`}</div></body></html>`;
+}
+async function handlerRemoverCodigo(req, res) {
+  if (cors(req, res)) return;
+  if (!SEG_REM()) return res.status(500).json({ erro: "MESTRE_REMOCAO n\xE3o configurado no servidor." });
+  if (req.method === "GET") {
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    if (!await conferirLink_REM(req.query.t)) return res.status(410).send(pagina_REM(null, "Link expirado ou inv\xE1lido. Pe\xE7a um novo ao Dono/Suporte."));
+    return res.status(200).send(pagina_REM(await codigoDoDia_REM(), null));
+  }
+  if (req.method !== "POST") return res.status(405).end();
+  await exigirEquipe(req, ["DONO", "SUPORTE"]);
+  const acao = (req.body || {}).acao || "codigo";
+  if (acao === "link") {
+    const exp = Date.now() + 3 * 3600 * 1e3;
+    return res.status(200).json({ token: await assinarLink_REM(exp), expira: exp });
+  }
+  return res.status(200).json({ codigo: await codigoDoDia_REM(), dia: diaSP_REM() });
+}
+
 // worker/index.js
-var ROTAS = { ios: handler19, codigo, acordo, instalacao: handler8, "cliente-app": handler18, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler10, nf: handler11, assinatura: handler12, "zapsign-webhook": handler13, preanalise: handler14, credenciamento: handler15, push: handler16, saas: handler4, motor: handler9, repasse: handler7, remota: handler17 };
+var ROTAS = { ios: handler19, codigo, acordo, instalacao: handler8, "cliente-app": handler18, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler10, nf: handler11, assinatura: handler12, "zapsign-webhook": handler13, preanalise: handler14, credenciamento: handler15, push: handler16, saas: handler4, motor: handler9, repasse: handler7, remota: handler17, "remover-codigo": handlerRemoverCodigo };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
