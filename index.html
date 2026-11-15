@@ -6981,7 +6981,8 @@ Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id);
 /* Instalação por link REMOVIDA do fluxo de venda — somente QR e USB (Device Owner). */
 { const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
   const l=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.modo==='link'&&x.checkin?.adminAtivo===false);
-  if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`); }catch(e){} }; }
+  if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`);
+  if(can('DONO','FINANCEIRO')&&!String(S.cfg.frpContas||'').trim()) box.insertAdjacentHTML('afterbegin',`<div class="aviso-trava bad" data-act="go" data-tab="config"><span style="font-size:20px;line-height:1">🔒</span><b>Proteção contra reset de fábrica DESLIGADA</b><span>O campo FRP está vazio. Sem o ID da conta Google da loja, o cliente consegue zerar o aparelho pelos botões (recovery) e tirar a trava. Toque para configurar em “Lojas e configurações”.</span></div>`); }catch(e){} }; }
 
 /* ======================= LOTE: venda a distância, assistente, retorno, saúde, seminovos online, repasse Asaas, vendedor de risco, implantação ======================= */
 VENDA_ST.REMOTA=['Aguardando o cliente','amber'];
