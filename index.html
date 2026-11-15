@@ -656,6 +656,15 @@ function apSituacao(ap){
   if(!ap.checkin?.em) return ['Aguardando instalação','blue'];
   const r=avaliar(ap); return r.travar ? ['Travado','red'] : r.nivel===2 ? ['Funções limitadas','amber'] : r.nivel===1 ? ['Aviso de atraso na tela','amber'] : ap.confianca?.ate>Date.now() ? ['Liberação de confiança (24 h)','blue'] : ['Liberado','green'];
 }
+/** Selo de proteção contra reset de fábrica (FRP), item 2. '' quando não se aplica ou o app é antigo. */
+function apSeloFrp(ap){
+  const ck=ap?.checkin;
+  if(!ck?.em||ap.quitado||ap.status==='QUITADO'||ap.status==='CANCELADO'||ap.semTrava||ck.finalizado) return '';
+  if(ck.deviceOwner===false) return ''; // modo link: FRP não se aplica
+  if(ck.frpOk===true) return badge('🔒 Reset protegido','green');
+  if(ck.frpOk===false) return badge('⚠️ Vulnerável a reset','red');
+  return ''; // app antigo ainda não reporta o FRP
+}
 function stParc(p){ if(p.pago) return 'pago'; return diasEntre(p.venc,hoje())>0 ? 'atraso' : 'aberto'; }
 const atrasoDias = p => p.pago ? 0 : Math.max(0, diasEntre(p.venc, hoje()));
 function pBadge(p){ const s=stParc(p); return s==='pago'?badge('Paga','green'):s==='atraso'?badge(atrasoDias(p)+' dias em atraso','red'):badge('Em aberto','blue'); }
@@ -1884,6 +1893,13 @@ async function passoTrava(){
     if(e.k==='ESPERA') return;
     if(e.k!=='OK'){ el.className='inst-status bad'; el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} ${esc(e.msg)}`; $('#instAjuda').innerHTML=ajuda('A instalação falhou — refaça o processo.','bad');
       const vv=await DB.get('vendas',v.id); if(vv.instalacao?.falha!==e.k){ await DB.set('vendas',v.id,{instalacao:{...(vv.instalacao||{}),falha:e.k,falhaEm:Date.now()}}); await alertaTrava(vv,e.msg); } return; }
+    // Item 1: não conclui a venda se a proteção de reset (FRP) era esperada e não está ativa no aparelho
+    const _ck=a.checkin||{}, _frpEsperado=String(S.cfg.frpContas||'').trim()&&_ck.deviceOwner===true&&(parseInt(_ck.android)||99)>=11;
+    if(_frpEsperado&&_ck.frpOk===false){ el.className='inst-status bad';
+      el.innerHTML=`${svg('<path d="M18 6 6 18M6 6l12 12"/>')} A trava subiu, mas a <b>proteção contra reset de fábrica (FRP) não está ativa</b>. <b>Não entregue o aparelho</b> — confira o FRP nas configurações e refaça a instalação.`;
+      $('#instAjuda').innerHTML=ajuda('Proteção de reset ausente — não entregue o aparelho.','bad');
+      const bb=$('#btnConcluir'); if(bb){ bb.disabled=true; bb.title='Bloqueado: proteção de reset (FRP) ausente'; }
+      const vf=await DB.get('vendas',v.id); if(vf.instalacao?.falha!=='FRP'){ await DB.set('vendas',v.id,{instalacao:{...(vf.instalacao||{}),falha:'FRP',falhaEm:Date.now()}}); await alertaTrava(vf,'A trava subiu, mas o aparelho está SEM proteção de reset (FRP).'); } return; }
     ok=true; clearInterval(tick);
     const vv=await DB.get('vendas',v.id);
     if(vv.status==='INSTALANDO'&&vv.aparelho?.estoqueId){ try{ await DB.set('estoque',vv.aparelho.estoqueId,{status:'VENDIDO',vendaId:v.id,vendidoEm:Date.now()}); }catch(e){ console.warn('estoque',e); } }
@@ -2316,7 +2332,7 @@ async function verVenda(id){
         ${v.reprovadoPorImei?`<dt>Reprovada</dt><dd style="color:var(--bad)">${esc(v.motivoReprovacao)} · IMEI ${esc(v.aparelhoRecusado?.imei||'')}</dd>`:''}
         ${v.entradaPaga?`<dt>Entrada paga</dt><dd>${brl(v.entradaPaga.valor)} · ${esc(v.entradaPaga.forma)} · ${fmtDT(v.entradaPaga.em)}</dd>`:''}
         <dt>Valor</dt><dd>${brl(v.valor)}</dd><dt>Entrada</dt><dd>${brl(v.entrada)}</dd><dt>Plano</dt><dd>${v.nParcelas}x ${brl(v.valorParcela)}${can('DONO','FINANCEIRO')?` (juros ${v.juros}% sobre o financiado)`:''}</dd><dt>Total a prazo</dt><dd>${brl(v.total+v.entrada)}</dd>
-        ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
+        ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} ${apSeloFrp(ap)} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
     ${selfieApp?.foto?`<h3>Selfie pelo app da trava</h3><div class="docs-grid"><figure><img src="${selfieApp.foto}"><figcaption>Selfie do app · ${relT(selfieApp.em)}${selfieApp.modelo?' · '+esc(selfieApp.modelo):''}</figcaption></figure>${docs?.selfie?`<figure><img src="${docs.selfie}"><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}"><figcaption>Documento</figcaption></figure>`:''}</div>${selfieApp.conferida?`<div class="msg"><small>Conferida por ${esc(selfieApp.conferidaPor||'')} · ${fmtDT(selfieApp.conferidaEm)}</small>É o mesmo cliente da proposta.</div>`:`<p class="small muted">É a mesma pessoa do documento e da proposta?</p><div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`}`:''}
@@ -4815,7 +4831,7 @@ function apCard(a){
   const ativo=a.status==='ATIVO'&&!a.quitado;
   const gerencia=can('DONO','SUPORTE','FINANCEIRO');
   return `<div class="card ap"><div>
-    <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}${foraDoPais(a)?badge('🌎 '+foraDoPais(a)+(a.foraDesde?' há '+Math.max(0,Math.round((Date.now()-a.foraDesde)/86400000))+' dia(s)':''),'amber'):''}</div>
+    <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${apSeloFrp(a)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}${foraDoPais(a)?badge('🌎 '+foraDoPais(a)+(a.foraDesde?' há '+Math.max(0,Math.round((Date.now()-a.foraDesde)/86400000))+' dia(s)':''),'amber'):''}</div>
     <div class="small muted mt" style="margin-top:4px">IMEI <span class="mono">${esc(a.imei)}</span> · chave <span class="mono">${chaveTrava(a.id)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
     <div class="small mt" style="margin-top:6px">Regra: <b>${esc(av.motivo)}</b>${ck.em?` · último contato <b>${relT(ck.em)}</b> (bateria ${ck.bateria??'—'}%, Android ${esc(ck.android||'—')}, app ${esc(ck.versao||'—')})`:''}
       ${reportDiverge?`<br><span style="color:var(--amber)">O aparelho ainda está ${ck.travado?'travado':'liberado'} — muda no próximo contato.</span>`:''}${ck.imei&&imeiDiverge?`<br><span style="color:var(--red)">Aparelho informou IMEI ${esc(ck.imei)}.</span>`:''}</div>
