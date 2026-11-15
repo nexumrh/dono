@@ -810,6 +810,7 @@ const TABS = [
   {id:'confirmacoes',label:'Confirmações',roles:['DONO','FINANCEIRO','SUPORTE']},
   {id:'cobranca',label:'Parcelas e cobrança',roles:['DONO','FINANCEIRO','GERENTE']},
   {id:'aparelhos',label:'Aparelhos e trava',roles:['DONO','SUPORTE','FINANCEIRO','GERENTE']},
+  {id:'suporteTrava',label:'Suporte da Trava',roles:['DONO','SUPORTE']},
   {id:'chamados',label:'Suporte',roles:ALL},
   {id:'equipe',label:'Equipe',roles:['DONO','GERENTE']},
   {id:'catalogo',label:'Aparelhos à venda',roles:['DONO']},
@@ -5529,6 +5530,17 @@ async function removocaoOffline(segredo, dia){
   let v=0; for(let i=0;i<5;i++) v=v*256+h[i];
   return String(v%10000000000).padStart(10,'0');
 }
+/* Código MESTRE de remoção (aparelho travado / sem internet / sem contrato).
+   NÃO usa o segredo do aparelho. MESMA conta do app (Remocao.kt MESTRE) — troque os dois juntos.
+   HMAC-SHA256(MESTRE_USB, "REMOVER-USB|dia") -> 10 dígitos. Vale ontem/hoje/amanhã. */
+const MESTRE_USB='NEXUMCELL-REMOVER-USB-mude-este-segredo-2026';
+async function codigoMestreUsb(dia){
+  dia=dia||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(MESTRE_USB),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const h=new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(`REMOVER-USB|${dia}`)));
+  let v=0; for(let i=0;i<5;i++) v=v*256+h[i];
+  return String(v%10000000000).padStart(10,'0');
+}
 /* Programa .bat (Windows) que finaliza a remoção por USB: desinstala só o app da NexumCell depois que o código tirou a trava. Baixa o ADB sozinho. */
 function baixarRemovedorUsb(){
   const bat=[
@@ -5551,6 +5563,60 @@ function baixarRemovedorUsb(){
   ].join('\r\n')+'\r\n';
   baixarArquivo('remover-trava-nexumcell.bat',bat,'application/octet-stream');
 }
+
+/* ====== Suporte Técnico da Trava (aba do Dono/Suporte) ====== */
+function diagTrava(t,causa,acao){
+  return `<details class="card" style="margin:8px 0"><summary style="cursor:pointer"><b>${esc(t)}</b></summary>
+    <p class="small" style="margin:8px 0 2px"><b>Causa:</b> ${esc(causa)}</p>
+    <p class="small" style="margin:0"><b>O que fazer:</b> ${esc(acao)}</p></details>`;
+}
+PAGES.suporteTrava = async () => {
+  if(!can('DONO','SUPORTE')){ $('#view').innerHTML='<div class="err-box">Sem acesso.</div>'; return; }
+  const cod = await codigoMestreUsb();
+  const hojeTxt = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+  $('#view').innerHTML = `
+  <div class="card"><h2 style="margin:0 0 4px">Suporte Técnico da Trava</h2>
+    <p class="muted small" style="margin:0">Ferramentas para quando a trava trava, não sobe, ou precisa ser removida e reinstalada. Uso do Dono/Suporte.</p></div>
+
+  <div class="card"><h3 style="margin:0 0 4px">1. Remover uma trava com problema</h3>
+    <p class="muted small">Funciona mesmo com o aparelho preso em "Configurando", sem internet e sem depuração USB — é só digitar o código no próprio aparelho. Não apaga os dados do cliente.</p>
+    <div style="text-align:center;margin:14px 0">
+      <div class="muted small">Código de remoção de hoje · ${esc(hojeTxt)}</div>
+      <div style="font-size:40px;letter-spacing:6px;font-weight:800;color:var(--gold,#C9A84C)">${esc(cod)}</div>
+    </div>
+    <ol class="steps small">
+      <li>No aparelho, na tela do app NexumCell, toque em <b>"Problema? Inserir código de remoção da loja"</b> (aparece também na tela de bloqueio e na tela "Configurando").</li>
+      <li>Digite o código acima e toque em <b>Remover</b>.</li>
+      <li>A trava sai e o app se desinstala. Depois é só reinstalar normalmente.</li>
+    </ol>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn gold" data-act="stCopiarRemocao">Copiar instruções + código (mandar ao vendedor/gerente)</button>
+      <button class="btn" data-act="stRemovedorUsb">Baixar removedor por USB</button>
+    </div>
+    <p class="muted small" style="margin-top:8px">O removedor por USB só serve se a depuração USB ainda estiver ligada (ex.: logo após um install que travou). Com a trava já ativa, use o código acima.</p></div>
+
+  <div class="card"><h3 style="margin:0 0 4px">2. Reinstalar a trava</h3>
+    <p class="muted small" style="margin:0">Depois de remover, volte na venda e refaça a instalação: <b>QR</b> (aparelho zerado de fábrica) ou <b>"Instalar pelo computador (cabo USB)"</b>. O vídeo do passo a passo está no mesmo lugar.</p></div>
+
+  <div class="card"><h3 style="margin:0 0 8px">3. Diagnóstico de problemas comuns</h3>
+    ${diagTrava('O app fica em "Configurando…" e não sai','O aparelho está sem internet ou não recebeu o contrato na ativação.','Conecte o Wi-Fi (ou ponha o chip). Se continuar, remova com o código acima e reinstale.')}
+    ${diagTrava('A trava não sobe / a venda não fica verde','Sem internet no aparelho, ou a ativação falhou.','Confira o Wi-Fi da loja. Se não subir, use "Refazer instalação" na venda. Persistindo, remova e reinstale.')}
+    ${diagTrava('Aparelho travado e sem Opções de desenvolvedor','A própria trava desliga a depuração USB, então o cabo/adb não conecta.','Use o código de remoção no próprio aparelho — não precisa de cabo.')}
+    ${diagTrava('Cliente trocou o chip','A trava detecta e reporta no painel.','Veja o aparelho em "Aparelhos e trava"; bloqueie ou fale com o cliente conforme o caso.')}
+    ${diagTrava('Aparelho sumido (dias sem dar sinal)','Desligado, sem rede, ou tentativa de burlar.','Acompanhe em "Aparelhos e trava"; passando do limite, trave e acione a cobrança.')}
+    ${diagTrava('Preciso remover sem ter o aparelho em mãos','Remoção remota pela internet.','Use "Aparelhos e trava" → Remover a trava (remoção remota) — só funciona se o aparelho estiver online.')}
+  </div>`;
+};
+Object.assign(ACT,{
+  stCopiarRemocao: async ()=>{
+    const cod=await codigoMestreUsb();
+    const hojeTxt=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+    const msg=`NexumCell — Remover a trava do aparelho\n\n1) No celular, no app NexumCell, toque em "Problema? Inserir código de remoção da loja".\n2) Digite o código: ${cod}\n3) Toque em Remover — a trava sai e o app se desinstala.\n4) Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.\n\nCódigo válido só hoje (${hojeTxt}). Dúvidas: fale com o Suporte Nexum.`;
+    try{ await navigator.clipboard.writeText(msg); toast('Instruções copiadas — cole no chat/WhatsApp do vendedor ou gerente.'); }
+    catch(e){ prompt('Copie as instruções e mande ao vendedor/gerente:',msg); }
+  },
+  stRemovedorUsb: ()=>{ if(typeof baixarRemovedorUsb==='function') baixarRemovedorUsb(); else toast('Removedor USB indisponível aqui.','err'); }
+});
 
 /* Remoção definitiva da trava (Dono/Suporte): gera o código do aparelho e o passo a passo. */
 async function apRemover(id){
