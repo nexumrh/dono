@@ -834,6 +834,7 @@ const TABS = [
   {id:'repasses',label:'Repasses às lojas',roles:['DONO','GERENTE','FINANCEIRO']},
   {id:'lojas',label:'Lojas parceiras',roles:['DONO']},
   {id:'comercial',label:'Comercial (leads)',roles:['DONO','FINANCEIRO']},
+  {id:'equipeNexum',label:'Comissão Nexum',roles:['DONO','FINANCEIRO']},
   {id:'comissoes',label:'Comissões',roles:['DONO','GERENTE','VENDEDOR','FINANCEIRO']},
   {id:'licLoja',label:'Licenças',roles:['GERENTE']},
   {id:'auditoria',label:'Auditoria',roles:['DONO']},
@@ -1018,7 +1019,7 @@ const NAV_GRUPOS=[
   ['Cobrança',['cobranca','fila','recolher','listanegra']],
   ['Aparelhos',['aparelhos','estoque','catalogo','seminovos']],
   ['Atendimento',['pedidos','atendimentos','chamados']],
-  ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','licLoja','relatorios','relDono']],
+  ['Financeiro',['caixa','despesas','conciliacao','repasses','comissoes','equipeNexum','licLoja','relatorios','relDono']],
   ['Lojas e equipe',['aprovacoes','lojas','comercial','equipe','escala','treinamento','tv']],
   ['Sistema',['auditoria','saas','config','ajuda']],
 ];
@@ -2097,6 +2098,64 @@ PAGES.comercial = async () => {
 Object.assign(ACT,{ leadNota:async d=>{ const t=(prompt('Anotação sobre este lead:')||'').trim(); if(!t) return; const l=await DB.get('leads',d.id).catch(()=>null);
   const hist=[...((l&&l.historico)||[]),{em:Date.now(),status:(l&&l.status)||'NOVO',por:S.me.nome,obs:t}]; await DB.set('leads',d.id,{historico:hist,atualizadoEm:Date.now()}); toast('Anotação salva','ok'); if(typeof PAGES.comercial==='function') PAGES.comercial(); } });
 
+/* ======================= P10: Comissão da equipe Nexum (automática pelos dados) ======================= */
+const COM_NEXUM_PADRAO={loja:0,chamado:0,upgrade:0,recuperacaoPct:0};
+function ym(ts){ try{ return new Date(ts).toISOString().slice(0,7); }catch(e){ return ''; } }
+function p10Metricas(mes,leads,chamados,vendas,pedidos){
+  const fech={}, cham={}, upg={};
+  leads.forEach(l=>{ if(l.status==='FECHADO'){ const h=(l.historico||[]).slice().reverse().find(x=>x.status==='FECHADO'); if(h&&ym(h.em)===mes){ const n=h.por||'—'; fech[n]=(fech[n]||0)+1; } } });
+  chamados.forEach(c=>{ if(c.resolvidoPor&&c.resolvidoEm&&ym(c.resolvidoEm)===mes) cham[c.resolvidoPor]=(cham[c.resolvidoPor]||0)+1; });
+  pedidos.forEach(p=>{ if(p.tipo==='UPGRADE'&&p.status==='ENTREGUE'&&p.resolvidoPor&&p.resolvidoEm&&ym(p.resolvidoEm)===mes) upg[p.resolvidoPor]=(upg[p.resolvidoPor]||0)+1; });
+  let recuperado=0;
+  vendas.forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&p.pagoEm&&String(p.pagoEm).startsWith(mes)&&p.pagoEm>p.venc&&!p.acordo) recuperado+=Number(p.valorPago||p.valor)||0; }));
+  return {fech,cham,upg,recuperado:r2(recuperado)};
+}
+PAGES.equipeNexum = async () => {
+  if(!$('#view')||!can('DONO','FINANCEIRO')) return;
+  const mes=S.filtro.enMes||hoje().slice(0,7); S.filtro.enMes=mes;
+  const [leads,chamados,vendas,users,pedidos]=await Promise.all([DB.list('leads').catch(()=>[]),DB.list('chamados').catch(()=>[]),loadVendas().catch(()=>[]),DB.list('users').catch(()=>[]),DB.list('pedidos').catch(()=>[])]);
+  const R={...COM_NEXUM_PADRAO,...(S.cfg.comissaoNexum||{})};
+  const M=p10Metricas(mes,leads,chamados,vendas,pedidos);
+  const internos=users.filter(u=>['FINANCEIRO','SUPORTE','DONO'].includes(u.role)&&u.ativo!==false).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const nFin=internos.filter(u=>u.role==='FINANCEIRO').length||1;
+  const recShare=r2((M.recuperado*(+R.recuperacaoPct||0)/100)/nFin);
+  const somaPessoa=u=>{ const lf=M.fech[u.nome]||0,cr=M.cham[u.nome]||0,ug=M.upg[u.nome]||0;
+    return r2(lf*(+R.loja||0)+cr*(+R.chamado||0)+ug*(+R.upgrade||0)+(u.role==='FINANCEIRO'?recShare:0)); };
+  const linha=u=>{ const lf=M.fech[u.nome]||0,cr=M.cham[u.nome]||0,ug=M.upg[u.nome]||0,fin=u.role==='FINANCEIRO';
+    return `<tr><td><b>${esc(u.nome)}</b></td><td>${badge(ROLES[u.role]||u.role,'navy')}</td>
+      <td>${lf?`${lf} · ${brl(r2(lf*(+R.loja||0)))}`:'—'}</td>
+      <td>${cr?`${cr} · ${brl(r2(cr*(+R.chamado||0)))}`:'—'}</td>
+      <td>${ug?`${ug} · ${brl(r2(ug*(+R.upgrade||0)))}`:'—'}</td>
+      <td>${fin?brl(recShare):'—'}</td>
+      <td><b>${brl(somaPessoa(u))}</b></td></tr>`; };
+  const totalGeral=r2(internos.reduce((a,u)=>a+somaPessoa(u),0));
+  const soma=o=>Object.values(o).reduce((a,b)=>a+b,0);
+  $('#topActions').innerHTML=can('DONO')?'<button class="btn gold" data-act="configComNexum">Regras de comissão</button>':'';
+  $('#view').innerHTML=`<div class="row mb"><label style="flex-direction:row;align-items:center;gap:8px;font-weight:600">Mês<select id="enMes" style="min-height:34px">${mesesOpc(mes)}</select></label></div>
+    <div class="grid g4">
+      <div class="card kpi"><div class="small muted">Lojas fechadas</div><div class="big">${soma(M.fech)}</div><span>R$ ${(+R.loja||0)} cada</span></div>
+      <div class="card kpi"><div class="small muted">Upgrades entregues</div><div class="big">${soma(M.upg)}</div><span>R$ ${(+R.upgrade||0)} cada</span></div>
+      <div class="card kpi"><div class="small muted">Chamados resolvidos</div><div class="big">${soma(M.cham)}</div><span>R$ ${(+R.chamado||0)} cada</span></div>
+      <div class="card kpi"><div class="small muted">Comissão total</div><div class="big">${brl(totalGeral)}</div><span>equipe Nexum</span></div></div>
+    <div class="card mt tablewrap"><h2>Comissão por pessoa — ${typeof mesNome==='function'?mesNome(mes):mes}</h2>
+    <table><tr><th>Pessoa</th><th>Perfil</th><th>Lojas</th><th>Chamados</th><th>Upgrades</th><th>Recup.</th><th>Comissão</th></tr>
+    ${internos.map(linha).join('')||'<tr><td colspan="7" class="empty">Nenhum funcionário interno.</td></tr>'}</table>
+    <p class="small muted mt">Automático: <b>comercial</b> = lojas fechadas no CRM (quem fechou) × valor; <b>upgrade</b> = upgrades entregues (pedido do cliente concluído: cliente aceitou, pagou no PIX e o aparelho foi por Sedex com a trava) × valor, para quem concluiu; <b>suporte</b> = chamados resolvidos × valor; <b>financeiro</b> = ${(+R.recuperacaoPct||0)}% da recuperação do mês (${brl(M.recuperado)}), dividido entre os financeiros ativos.</p></div>`;
+  const sel=$('#enMes'); if(sel) sel.onchange=()=>{ S.filtro.enMes=sel.value; PAGES.equipeNexum(); };
+};
+function configComNexum(){
+  const R={...COM_NEXUM_PADRAO,...(S.cfg.comissaoNexum||{})};
+  openModal(`<h2>Regras de comissão — equipe Nexum</h2><p class="muted" style="margin-top:-6px">Valores que a Nexum paga à própria equipe interna.</p>
+    <div class="grid g2"><label>R$ por loja parceira fechada<input id="cnLoja" type="number" min="0" value="${+R.loja||0}"></label>
+    <label>R$ por upgrade entregue<input id="cnUpg" type="number" min="0" value="${+R.upgrade||0}"></label>
+    <label>R$ por chamado resolvido<input id="cnCham" type="number" min="0" value="${+R.chamado||0}"></label>
+    <label>% da recuperação de atraso<input id="cnRec" type="number" min="0" max="100" value="${+R.recuperacaoPct||0}"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="cnOk">Salvar</button></div>`,true);
+  $('#cnOk').onclick=async()=>{ const c={loja:+$('#cnLoja').value||0,upgrade:+$('#cnUpg').value||0,chamado:+$('#cnCham').value||0,recuperacaoPct:+$('#cnRec').value||0};
+    await DB.set('config','sistema',{comissaoNexum:c}); S.cfg.comissaoNexum=c; await log('Comissão da equipe Nexum configurada','',JSON.stringify(c)); closeModal(); toast('Regras salvas','ok'); PAGES.equipeNexum(); };
+}
+Object.assign(ACT,{ configComNexum:()=>configComNexum() });
+
 async function avisoTravas(){
   const box=$('#avisoTrava'); if(!box||!S.me) return;
   try{
@@ -2972,7 +3031,7 @@ async function salvarPedido(id,btn){
     await log('Dados do cliente atualizados (pedido do app)',x.vendaId,tels.join(' / ')); }
   if(x.tipo==='PROTECAO'&&st==='ENTREGUE'&&x.status!=='ENTREGUE'){ const v=await DB.get('vendas',x.vendaId); const n=(v.protecaoUsada===true?1:+v.protecaoUsada||0)+1; await DB.set('vendas',x.vendaId,{protecaoUsada:n});
     if(v.aparelhoToken) await DB.set('aparelhos',v.aparelhoToken,{protecao:{...(v.protecao?{cobertura:v.protecao.cobertura||''}:{}),usada:true}}).catch(()=>{}); }
-  await DB.set('pedidos',id,{status:st,naoTravar:nt,respostas:[...(x.respostas||[]),resp],atualizadoEm:Date.now(),ultimaResposta:resp.texto});
+  await DB.set('pedidos',id,{status:st,naoTravar:nt,respostas:[...(x.respostas||[]),resp],atualizadoEm:Date.now(),ultimaResposta:resp.texto,...(['ENTREGUE','ATENDIDO','RECUSADO'].includes(st)?{resolvidoPor:S.me.nome,resolvidoEm:Date.now()}:{})});
   if(x.token){ const ap=await DB.get('aparelhos',x.token).catch(()=>null);
     if(ap){ const dados={pedidos:{...(ap.pedidos||{}),[id]:{tipo:x.tipo,status:st,resposta:resp.texto,criadoEm:x.criadoEm,atualizadoEm:Date.now()}}};
       if(['ASSISTENCIA','PROTECAO'].includes(x.tipo)){ const fim=['ENTREGUE','RECUSADO'].includes(st); if(nt&&!fim&&ap.modo!=='TRAVAR') dados.modo='LIBERAR'; if((fim||!nt)&&x.naoTravar&&ap.modo==='LIBERAR') dados.modo='AUTO'; }
