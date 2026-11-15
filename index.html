@@ -1318,6 +1318,20 @@ async function docOk(){
   w.editados=Object.keys(d).filter(k=>w.lidos&&!w.ia?.manual&&String(w.lidos[k]||'')!==String(d[k]||''));
   const vs=(await DB.list('vendas',[['clienteCpf','==',d.cpf]]).catch(()=>[])).filter(v=>['ANALISE','APROVADA','AGUARDANDO_ENTRADA'].includes(v.status));
   if(vs.length){ toast(`Este CPF já tem uma proposta em andamento (nº ${vs[0].numero}).`,'err'); return; }
+  const financiados=(await DB.list('vendas',[['clienteCpf','==',d.cpf]]).catch(()=>[])).filter(v=>['ATIVA','INSTALANDO'].includes(v.status));
+  if(financiados.length && !w.libera2){
+    const a=financiados[0], desc=a.aparelho?(`${a.aparelho.marca||''} ${a.aparelho.modelo||''}`.trim()||'aparelho'):'aparelho';
+    if(can('DONO')){
+      if(!confirm(`Este CPF já tem um aparelho financiado em aberto (nº ${a.numero} · ${desc}).\n\nA regra é 1 aparelho por CPF enquanto o anterior não for quitado. Como dono, você pode liberar um 2º aparelho para este cliente.\n\nLiberar assim mesmo?`)) return;
+      const motivo=(prompt('Motivo da liberação (fica registrado no histórico):','Cliente bom pagador')||'').trim();
+      w.libera2={por:S.me.nome,motivo:motivo||'(sem motivo)',em:Date.now(),refNumero:a.numero};
+      await log('2º aparelho liberado (CPF com financiamento ativo)',d.cpf,`${d.nome} · ref nº ${a.numero}${motivo?' · '+motivo:''}`);
+    }else{
+      await log('Venda bloqueada: 1 aparelho por CPF',d.cpf,`${d.nome} · já tem o nº ${a.numero} ativo`);
+      toast(`Este CPF já tem um aparelho financiado em aberto (nº ${a.numero}). É permitido 1 aparelho por CPF até quitar o anterior. Para liberar, fale com o dono.`,'err');
+      return;
+    }
+  }
   const ln=await naListaNegra(d.cpf,[]);
   if(ln.length){ await log('Tentativa de venda para cliente da lista negra',d.cpf,`${d.nome} · ${ln.map(x=>x.motivo).join(', ')}`); bloqueadoLN(); return; }
   try{ const pre=(await DB.get('clientes',d.cpf))?.preAprovado; if(pre&&pre.ate>=hoje()&&pre.valor>0){ w.preAprovado=pre; toast(`🎉 Cliente PRÉ-APROVADO até ${brl(pre.valor)} (bom pagador). A análise sai mais rápida.`,'ok'); } }catch(e){}
@@ -1484,7 +1498,7 @@ async function enviarAnalise(btn){
     const w=S.w, d=w.dados, numero=await DB.nextNum(), id='v'+numero+'_'+token(5), agora=Date.now();
     const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',nacionalidade:d.nacionalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',docDigital:!!w.digital,...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:proprios,referencias:[{tel:t2,nome:c.ref1Nome,parentesco:c.ref1Par},...(t3?[{tel:t3,nome:c.ref2Nome,parentesco:c.ref2Par}]:[])],refNome:c.ref1Nome,refTel:fmtFone(t2),email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
     const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
-      cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,
+      cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,...(w.libera2?{liberacao2oAparelho:w.libera2}:{}),
       verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,docDigital:!!w.digital,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
       confirmacaoDados:{status:'PENDENTE',prazo:agora+3*86400000}};
     await DB.batch([
