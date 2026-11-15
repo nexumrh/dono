@@ -849,12 +849,13 @@ let _restr=null;
 function telaRestrito(p){
   try{ unwatch&&unwatch(); }catch(e){} try{ _meWatch&&_meWatch(); _meWatch=null; }catch(e){}
   const ger=p.role==='GERENTE', vend=p.role==='VENDEDOR', loja=p.lojaBloqueada&&(ger||vend);
-  const quem=vend?'Contate o gerente da sua loja.':ger?'Contate o suporte.':`Contate a administração da ${MARCA}.`;
+  const quem=vend?'Contate o gerente da sua loja.':ger?'Contate o suporte.':`Contate a administração da ${MARCA}.`; const cod=loja?1001:(p.bloqueadoPeloDono?900:314);
   document.querySelector('#restrito')?.remove(); $('#trilha')?.remove(); $('#tvPlayer')?.remove(); $('#atB')?.remove(); $('#atP')?.remove(); $('#app').hidden=true; $('#login').hidden=true; $('#modal').hidden=true;
   document.body.insertAdjacentHTML('beforeend',`<div id="restrito" style="position:fixed;inset:0;z-index:5000;background:#fff;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto">
     <div style="max-width:460px;text-align:center;color:#0A1733">
       <div style="width:76px;height:76px;border-radius:50%;background:#FDECEC;color:#C0392B;display:grid;place-items:center;margin:0 auto 18px">${svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>').replace('<svg','<svg style="width:36px;height:36px"')}</div>
       <h1 style="font-size:26px;margin:0 0 8px">Acesso restrito ao sistema</h1>
+      <div style="display:inline-block;margin:0 0 8px;background:#FDECEC;color:#C0392B;border-radius:8px;padding:4px 12px;font-weight:700;font-size:14px">Código ${cod}</div>
       <p style="font-size:17px;margin:0 0 6px"><b>${quem}</b></p>
       <p style="color:#5B6478;font-size:14px;margin:0 0 4px">${esc(primeiroNome(p.nome||''))}${p.codigo?' · '+esc(p.codigo):''}${loja?' · o acesso da loja foi suspenso':' · seu acesso foi desativado'}</p>
       ${ger&&p.motivoBloqueio?`<p style="color:#5B6478;font-size:13px;margin:6px 0 0">Motivo informado: ${esc(p.motivoBloqueio)}</p>`:''}
@@ -1328,7 +1329,7 @@ async function docOk(){
       await log('2º aparelho liberado (CPF com financiamento ativo)',d.cpf,`${d.nome} · ref nº ${a.numero}${motivo?' · '+motivo:''}`);
     }else{
       await log('Venda bloqueada: 1 aparelho por CPF',d.cpf,`${d.nome} · já tem o nº ${a.numero} ativo`);
-      toast(`Este CPF já tem um aparelho financiado em aberto (nº ${a.numero}). É permitido 1 aparelho por CPF até quitar o anterior. Para liberar, fale com o dono.`,'err');
+      toast(`Este CPF já tem um aparelho financiado em aberto (nº ${a.numero}). É permitido 1 aparelho por CPF até quitar o anterior. Para liberar, fale com o dono. (cód. 409)`,'err');
       return;
     }
   }
@@ -1836,7 +1837,7 @@ function estadoInstalacao(a){
   const ck=a?.checkin;
   if(!ck?.em) return {k:'ESPERA'};
   const lista=[a.imei,a.imei2].filter(Boolean);
-  if(ck.imeiConfere===false || (ck.imei && !lista.includes(ck.imei) && !lista.includes(ck.imei2))) return {k:'IMEI',msg:`O IMEI do aparelho (${ck.imei||'?'}) não é o do contrato. O aparelho foi bloqueado. Não entregue ao cliente e confira se pegou o aparelho certo.`};
+  if(ck.imeiConfere===false || (ck.imei && !lista.includes(ck.imei) && !lista.includes(ck.imei2))) return {k:'IMEI',msg:`O IMEI do aparelho (${ck.imei||'?'}) não é o do contrato. O aparelho foi bloqueado (cód. 1011). Não entregue ao cliente e confira se pegou o aparelho certo.`};
   if(ck.deviceOwner===false&&ck.modo==='link') return ck.adminAtivo?{k:'OK',link:true}:{k:'ESPERA'};
   if(ck.deviceOwner===false) return {k:'SEM_ADMIN',msg:'O app abriu, mas SEM permissão de administrador (não foi instalado pelo QR na primeira tela). A trava não funciona assim: restaure de fábrica e leia o QR de novo.'};
   return {k:'OK'};
@@ -6048,7 +6049,9 @@ async function atHumano(resumo,pedido={},extra=''){
 /* ---- IA: assistente de autoajuda (Groq). Só chama humano em último caso. ---- */
 const PROMPT_AT=()=>`Você é o assistente virtual de suporte da ${MARCA}, sistema de venda de celular parcelado com trava do aparelho. Fala com um ${S.me.role==='GERENTE'?'gerente':'vendedor'} de loja parceira (${lojaNome(S.me.lojaId)}). Responda em português do Brasil, curto, cordial e com passos numerados quando for “como faço”. Nunca invente valores, prazos ou regras: se não souber, diga que não tem certeza.
 Como o sistema funciona: Nova venda (cadastro do cliente, foto do documento, selfie/biometria, proposta vai para análise de crédito da ${MARCA}); depois de aprovada, escolher aparelho, entrada mínima, gerar contrato, cliente assina, receber a entrada e instalar a trava pelo QR code (o celular precisa estar restaurado de fábrica; na tela de boas-vindas tocar 6 vezes no espaço vazio para abrir o leitor de QR, conectar no Wi-Fi). O cliente paga as parcelas por PIX no app ${MARCA} do celular ou no portal do cliente; pagando, libera sozinho. Com atraso: aviso, depois redes sociais limitadas, depois bloqueio total. Liberação manual (24 h, código sem internet) é só pelo suporte da ${MARCA}. Comissão: o gerente paga e registra com comprovante; o vendedor confirma em Comissões.
-Se o pedido exigir alguém da equipe (liberar aparelho, mudar dado de contrato, erro no sistema que você não sabe resolver, reclamação, cancelamento, estorno), ou se o usuário insistir que não resolveu, responda só: [ATENDENTE] e um resumo de uma linha do problema.`;
+Se o pedido exigir alguém da equipe (liberar aparelho, mudar dado de contrato, erro no sistema que você não sabe resolver, reclamação, cancelamento, estorno), ou se o usuário insistir que não resolveu, responda só: [ATENDENTE] e um resumo de uma linha do problema.
+Quando o cliente estiver com o aparelho bloqueado ou com um dos problemas abaixo, oriente o gerente/vendedor assim e ofereça a mensagem pronta para ele encaminhar ao cliente (não cite números de código internos):
+${errosParaIA()}`;
 async function atIA(t){
   const d=CH.doc, n=(d.fluxo?.ia||0)+1;
   if(!iaChave()) return n>=2?atHumano('Dúvida: '+t.slice(0,200)):atBot(atFaq(t),[{id:'resolvido',t:'✅ Resolveu'},{id:'atendente',t:'Não resolveu'},...VOLTAR],{fluxo:{passo:'ia',ia:n}});
@@ -6337,6 +6340,55 @@ function recRota(){
 Object.assign(ACT,{ recMarcar:d=>recMarcar(d.id), recStatus:d=>recStatus(d.id,d.q), recRota:()=>recRota(), verExterior:()=>{ S.filtro.ap='exterior'; S.tab='aparelhos'; render(); } });
 
 /* ======================= CENTRAL DE AJUDA E STATUS DO SISTEMA ======================= */
+/* ======================= CÓDIGOS DE ERRO DO SISTEMA (P12) =======================
+   Lista completa só para DONO e SUPORTE (Nexum). Cada código traz: o que é,
+   o que fazer quando o cliente chama no chat, e a mensagem pronta para o cliente. */
+const ERROS={
+  314:{t:'Vendedor/gerente suspenso',g:'acesso',x:'Acesso desativado pela loja ou pela Nexum.',chat:'Confirme quem desativou. Se foi a Nexum, oriente o gerente a falar pelo chat da tela de bloqueio; se foi a loja, com o gerente dela.'},
+  315:{t:'Treinamento obrigatório pendente',g:'acesso',x:'A pessoa não concluiu os módulos obrigatórios.',chat:'Oriente a concluir o Treinamento (aba Treinamento). As vendas liberam ao terminar.'},
+  316:{t:'Sessão encerrada',g:'acesso',x:'Sessão expirada ou aberta em outro aparelho.',chat:'Peça para entrar de novo. Se persistir, confira a internet.'},
+  403:{t:'Venda fora da loja',g:'venda',x:'A localização não bate com a loja.',chat:'Oriente a fazer a venda dentro da loja, com GPS ligado.'},
+  409:{t:'1 aparelho por CPF',g:'venda',x:'O CPF já tem um aparelho financiado em aberto.',chat:'Explique a regra. Só com o anterior quitado, ou liberação do dono para bom pagador.',cliente:'Olá! No momento não é possível um novo financiamento porque já existe um aparelho em aberto neste CPF. Assim que ele for quitado, você pode financiar outro. Qualquer dúvida, estamos à disposição.'},
+  410:{t:'Cliente na lista negra',g:'venda',x:'CPF ou telefone na lista negra.',chat:'Não prometa venda. Encaminhe ao dono/financeiro se o cliente contestar.'},
+  411:{t:'Cliente menor de 18 anos',g:'venda',x:'Não é possível contratar crédito para menor de idade.',chat:'Explique com educação que o crédito exige maioridade.',cliente:'Olá! Para o financiamento é necessário ter 18 anos ou mais. Assim que possível, teremos prazer em atender você.'},
+  412:{t:'Proposta já em andamento',g:'venda',x:'Já existe proposta em análise/aprovada para o CPF.',chat:'Oriente a continuar a proposta que já existe, pelo número informado.'},
+  413:{t:'Telefone da equipe no cadastro',g:'venda',x:'O telefone informado é de alguém da equipe.',chat:'Peça dois telefones do próprio cliente. Isso é tratado como fraude.'},
+  420:{t:'Aparelho fora do estoque',g:'venda',x:'O IMEI não está no estoque da loja.',chat:'Oriente o gerente a cadastrar o aparelho no estoque antes de vender.'},
+  421:{t:'Fora da área atendida',g:'venda',x:'A cidade do cliente está fora da área configurada.',chat:'A proposta vai para análise manual da Nexum; aguarde o parecer.'},
+  515:{t:'Parcela em atraso — aparelho bloqueado',g:'pagamento',x:'Há parcela vencida além da tolerância.',chat:'Confirme a parcela em atraso. Oriente a pagar pelo PIX no app; ao registrar, o aparelho libera sozinho. Se já pagou, peça para abrir o app com internet e tocar em “Já paguei”.',cliente:'Olá! Seu aparelho foi bloqueado porque há uma parcela em atraso. Assim que o pagamento for registrado, ele é liberado automaticamente. Você pode pagar pelo PIX direto no app NexumCell. Precisando, estamos aqui para ajudar.'},
+  516:{t:'Aparelho offline há muitos dias',g:'pagamento',x:'O aparelho ficou dias sem internet e bloqueou por proteção.',chat:'Peça para ligar o Wi-Fi ou os dados e abrir o app uma vez. Se não liberar, gere um código de liberação temporária.',cliente:'Olá! Seu aparelho ficou muitos dias sem conexão e foi bloqueado por segurança. É só ligar o Wi-Fi ou os dados móveis e abrir o app NexumCell uma vez: ele desbloqueia sozinho.'},
+  517:{t:'Promessa de pagamento quebrada',g:'pagamento',x:'A data prometida passou sem pagamento.',chat:'Oriente a pagar. Não há segunda promessa no mesmo contrato sem autorização.',cliente:'Olá! A data de pagamento que combinamos passou e o aparelho foi bloqueado novamente. Assim que a parcela for paga, ele é liberado na hora.'},
+  600:{t:'Crédito reprovado',g:'credito',x:'O motor reprovou pelas regras.',chat:'Explique com educação que pode tentar de novo depois de 30 dias.',cliente:'Olá! Infelizmente não foi possível aprovar o financiamento desta vez. Você pode tentar novamente após 30 dias. Agradecemos o interesse!'},
+  601:{t:'Renda insuficiente para a parcela',g:'credito',x:'A parcela passa do limite de comprometimento de renda.',chat:'Sugira aumentar a entrada, mais parcelas ou um aparelho mais barato.'},
+  602:{t:'Documento irregular',g:'credito',x:'Documento ilegível, editado ou vencido.',chat:'Peça novas fotos do documento original; a proposta vai para análise manual.'},
+  900:{t:'Pessoa bloqueada pela Nexum',g:'acesso',x:'O dono bloqueou este acesso.',chat:'Oriente a falar com a Nexum pelo chat da tela de bloqueio.'},
+  1001:{t:'Loja bloqueada',g:'loja',x:'A Nexum bloqueou a loja.',chat:'O gerente fala com a Nexum pelo chat da tela de bloqueio. Os contratos dos clientes continuam normalmente.'},
+  1002:{t:'Loja bloqueada por mensalidade',g:'loja',x:'Mensalidade da loja atrasada.',chat:'Oriente o pagamento da mensalidade; a loja desbloqueia na hora.'},
+  1003:{t:'Loja acima do limite de carteira',g:'loja',x:'A loja passou do teto de carteira em aberto.',chat:'Novas vendas vão para análise manual até reduzir a carteira.'},
+  1004:{t:'Loja acima da inadimplência',g:'loja',x:'A inadimplência da loja passou do teto.',chat:'Novas vendas vão para análise manual; oriente a loja a cobrar os atrasos.'},
+  1010:{t:'Trava não subiu',g:'trava',x:'A instalação da trava não concluiu.',chat:'Oriente a refazer pelo QR ou instalar pelo computador (USB). Nunca entregar o aparelho sem a trava.'},
+  1011:{t:'IMEI irregular',g:'trava',x:'O IMEI lido não é o do contrato.',chat:'O aparelho foi bloqueado. Oriente a conferir se pegou o aparelho certo do estoque.'},
+  1012:{t:'Trava não confirmou',g:'trava',x:'O aparelho não confirmou a trava a tempo.',chat:'Peça para conferir o Wi-Fi e abrir o app uma vez; a tela da venda fica verde ao confirmar.'},
+  1013:{t:'Sem resposta do servidor',g:'trava',x:'O servidor não respondeu durante a operação.',chat:'Peça para tentar de novo em alguns minutos; confira o Status do sistema na Ajuda.'},
+};
+const ERROS_GRP={acesso:'Acesso e equipe',venda:'Venda e cadastro',credito:'Crédito',pagamento:'Pagamento e bloqueio do aparelho',loja:'Loja parceira',trava:'Trava e instalação'};
+// Só DONO e SUPORTE veem a lista completa.
+function cardCodigos(){
+  if(!can('DONO','SUPORTE')) return '';
+  const grp={}; Object.keys(ERROS).forEach(c=>{ const e=ERROS[c]; (grp[e.g]=grp[e.g]||[]).push([c,e]); });
+  const sec=Object.keys(ERROS_GRP).filter(g=>grp[g]).map(g=>`<div class="small" style="font-weight:700;margin:10px 0 4px">${esc(ERROS_GRP[g])}</div>`+grp[g].map(([c,e])=>`<div style="border-top:1px solid #EEF1F7;padding:8px 0">
+    <div><span class="mono" style="background:#FDECEC;color:#C0392B;border-radius:6px;padding:1px 7px;font-weight:700">${c}</span> <b>${esc(e.t)}</b></div>
+    <div class="small muted" style="margin-top:2px">${esc(e.x)}</div>
+    <div class="small" style="margin-top:3px"><b>No chat:</b> ${esc(e.chat)}</div>
+    ${e.cliente?`<div class="small" style="margin-top:3px;background:#F5F7FB;border-radius:8px;padding:6px 8px"><b>Mensagem pro cliente:</b> ${esc(e.cliente)} <button class="btn sm" data-act="copiarErro" data-cod="${c}" style="margin-left:4px">Copiar</button></div>`:''}
+  </div>`).join('')).join('');
+  return `<div class="card mt"><h2>Códigos do sistema</h2><p class="small muted" style="margin-top:-6px">Quando aparecer um número numa tela de erro ou bloqueio, procure aqui o que é, o que fazer no chat e a mensagem pronta pro cliente.</p>${sec}</div>`;
+}
+// texto compacto dos códigos de cliente para a IA do atendimento (sem expor os números ao gerente/vendedor)
+function errosParaIA(){
+  return Object.keys(ERROS).filter(c=>ERROS[c].cliente).map(c=>`- ${ERROS[c].t}: quando acontecer, oriente assim — ${ERROS[c].chat} Mensagem pronta para o cliente: "${ERROS[c].cliente}"`).join('\n');
+}
+
 const AJUDA_PADRAO=[
   {t:'Como fazer uma venda do começo ao fim',p:['VENDEDOR','GERENTE'],x:'1. Nova venda → fotografe o documento (frente e verso) e confira os campos em amarelo.\n2. Faça a selfie do cliente (biometria com prova de vida).\n3. Preencha contato, endereço e renda e envie para a análise.\n4. Aprovado: escolha o aparelho, leia o IMEI pela câmera (📷 Ler), a entrada e o dia de pagamento.\n5. Gere o contrato, o cliente assina na tela, receba a entrada.\n6. Instale a trava pelo QR code e confirme a entrega com a foto.'},
   {t:'Como instalar a trava pelo QR code',p:['VENDEDOR','GERENTE','SUPORTE'],x:'1. O celular precisa estar restaurado de fábrica, sem conta Google.\n2. Na tela de boas-vindas, toque 6 vezes no mesmo lugar vazio: abre o leitor de QR.\n3. Leia o QR da venda e conecte no Wi-Fi.\n4. Aguarde: o celular baixa e instala o app sozinho. A tela da venda confirma.\nSe o leitor não abrir: confira se é Android 7 ou mais novo e se a restauração foi feita.'},
@@ -6375,8 +6427,8 @@ PAGES.ajuda = async () => {
         ${yt(a.v)?`<div style="position:relative;padding-top:56%;margin-top:10px"><iframe src="https://www.youtube-nocookie.com/embed/${yt(a.v)}" style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:10px" allowfullscreen loading="lazy" title="${esc(a.t)}"></iframe></div>`:a.v?`<a href="${esc(a.v)}" target="_blank" rel="noopener">Ver vídeo</a>`:''}
         ${a.id&&can('DONO')?`<div class="row mt"><button class="btn sm" data-act="ajudaNovo" data-id="${a.id}">Editar</button></div>`:''}</details>`).join('')||'<p class="empty">Nada encontrado. Tente outra palavra ou fale com o suporte.</p>'}
       ${['VENDEDOR','GERENTE'].includes(S.me.role)?'<div class="card"><b>Não achou?</b> Abra o chat de atendimento no botão azul do canto da tela: o assistente responde na hora.</div>':''}
-    </div><div class="card"><h2>Status do sistema</h2><div id="stBox" class="small muted">Conferindo…</div><button class="btn sm mt" data-act="ajudaStatus">Conferir de novo</button>
-      <p class="small muted mt">Se algo estiver vermelho, tente de novo em alguns minutos. Continuando, avise o suporte pelo chat.</p></div></div>`;
+    </div><div><div class="card"><h2>Status do sistema</h2><div id="stBox" class="small muted">Conferindo…</div><button class="btn sm mt" data-act="ajudaStatus">Conferir de novo</button>
+      <p class="small muted mt">Se algo estiver vermelho, tente de novo em alguns minutos. Continuando, avise o suporte pelo chat.</p></div>${cardCodigos()}</div></div>`;
   $('#ajq').addEventListener('input',e=>{ S.filtro.ajq=e.target.value; clearTimeout(S._ajT); S._ajT=setTimeout(()=>{ const pos=e.target.selectionStart; render().then?.(()=>{ const i=$('#ajq'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }); },350); });
   desenharStatus();
 };
@@ -6393,6 +6445,7 @@ async function ajudaNovo(id){
   $('#ajDel')?.addEventListener('click',async()=>{ if(!confirm('Apagar este artigo?')) return; await DB.set('ajuda',id,{ativo:false}); closeModal(); render(); });
 }
 Object.assign(ACT,{ ajudaNovo:d=>ajudaNovo(d.id), ajudaStatus:()=>desenharStatus() });
+Object.assign(ACT,{ copiarErro:d=>{ const e=ERROS[d.cod]; if(e&&e.cliente){ (navigator.clipboard?.writeText(e.cliente)||Promise.reject()).then(()=>toast('Mensagem copiada','ok')).catch(()=>toast('Copie o texto manualmente','err')); } } });
 
 { const _c2=PAGES.config; PAGES.config=async()=>{ await _c2(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
   const f=(k,l,pad)=>`<label>${l}<input data-cfg="${k}" type="number" min="0" value="${esc(c[k]??pad)}"></label>`;
