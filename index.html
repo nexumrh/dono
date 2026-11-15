@@ -2156,6 +2156,51 @@ function configComNexum(){
 }
 Object.assign(ACT,{ configComNexum:()=>configComNexum() });
 
+/* ======================= Fluxo de upgrade por Sedex (equipe Nexum) ======================= */
+async function montarUpgrade(pedidoId){
+  const x=await DB.get('pedidos',pedidoId); if(!x) return;
+  const vOld=x.vendaId?await DB.get('vendas',x.vendaId).catch(()=>null):null;
+  const cli=(vOld&&vOld.cliente)||{}, tel=(cli.telefones||[])[0]||'';
+  openModal(`<h2>Montar upgrade por Sedex</h2>
+    <p class="muted" style="margin-top:-6px">Cliente <b>${esc(x.clienteNome)}</b> · aparelho atual ${esc(((x.marca||'')+' '+(x.modelo||'')).trim())}${x.vendaNumero?` (contrato nº ${x.vendaNumero})`:''}.</p>
+    <div class="grid g2">
+      <label>Aparelho novo<input id="upNovo" placeholder="ex.: Samsung A56"></label>
+      <label>Valor do aparelho novo (R$)<input id="upValor" type="number" min="0"></label>
+      <label>Abatimento do aparelho usado (R$)<input id="upAbat" type="number" min="0" value="0"></label>
+      <label>Entrada no PIX que o cliente paga (R$)<input id="upEntrada" type="number" min="0"></label>
+      <label>WhatsApp do cliente<input id="upTel" value="${esc(fmtFone?fmtFone(tel):tel)}" inputmode="tel"></label></div>
+    <p class="small muted">Vai ser criado um link de venda a distância para o cliente <b>pagar o PIX e assinar</b>. Depois você prepara o aparelho novo <b>com a trava instalada</b> e envia por Sedex.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="upOk">Criar upgrade e enviar link</button></div>`,true);
+  $('#upOk').onclick=async()=>{
+    const novo=$('#upNovo').value.trim(), valor=+$('#upValor').value||0, abat=+$('#upAbat').value||0, entrada=+$('#upEntrada').value||0, t=onlyDig($('#upTel').value);
+    if(!novo||!valor){ toast('Informe o aparelho novo e o valor','err'); return; }
+    $('#upOk').disabled=true;
+    try{
+      const numero=await DB.nextNum(), id='v'+numero+'_'+token(5), lojaId=(vOld&&vOld.lojaId)||S.me.lojaId||(S.lojas[0]&&S.lojas[0].id)||'';
+      const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),vendedorUid:S.me.uid,vendedorNome:S.me.nome,
+        cliente:cli,clienteCpf:(vOld&&vOld.clienteCpf)||'',clienteNome:x.clienteNome||'Cliente',
+        aparelho:{marca:'',modelo:novo},valor,entrada,
+        upgrade:{dePedido:pedidoId,deVenda:x.vendaId||'',deToken:x.token||'',deModelo:((x.marca||'')+' '+(x.modelo||'')).trim(),abatimento:abat},
+        envio:{tipo:'SEDEX',status:'PREPARANDO'},
+        remota:{token:token(24),criadoEm:Date.now(),tel:t}};
+      await DB.set('vendas',id,v);
+      await DB.set('pedidos',pedidoId,{vendaUpgrade:id,status:'ATENDIDO',atualizadoEm:Date.now(),respostas:[...(x.respostas||[]),{em:Date.now(),por:S.me.nome,status:'ATENDIDO',texto:`Upgrade montado: ${novo} por ${brl(valor)} (entrada ${brl(entrada)}). Link de pagamento enviado ao cliente.`}]});
+      await log('Upgrade montado (venda a distância)',id,`${x.clienteNome} → ${novo}`);
+      enviarLinkRemoto(v,t); closeModal(); toast('Upgrade criado e link enviado ao cliente','ok');
+    }catch(e){ console.error(e); toast('Não foi possível: '+e.message,'err'); $('#upOk').disabled=false; }
+  };
+}
+async function registrarEnvioUpgrade(vendaId){
+  const v=await DB.get('vendas',vendaId); if(!v) return;
+  if(!confirm('Confirme: o aparelho novo está com a TRAVA NexumCell instalada e testada antes de enviar?')) return;
+  const cod=(prompt('Código de rastreio do Sedex/Correios:')||'').trim(); if(!cod) return;
+  await DB.set('vendas',vendaId,{envio:{...(v.envio||{}),tipo:'SEDEX',transportadora:'Sedex',rastreio:cod,enviadoEm:Date.now(),status:'ENVIADO',travaConferida:true}});
+  await log('Upgrade enviado por Sedex',vendaId,cod);
+  if(v.upgrade&&v.upgrade.dePedido){ const p=await DB.get('pedidos',v.upgrade.dePedido).catch(()=>null); if(p) await DB.set('pedidos',v.upgrade.dePedido,{respostas:[...(p.respostas||[]),{em:Date.now(),por:S.me.nome,status:p.status||'ATENDIDO',texto:'Aparelho enviado por Sedex (rastreio '+cod+') com a trava instalada.'}]}); }
+  toast('Envio registrado. Marque o pedido como Entregue quando chegar.','ok'); closeModal();
+}
+Object.assign(ACT,{ montarUpgrade:d=>montarUpgrade(d.id), envioUpgrade:d=>registrarEnvioUpgrade(d.id) });
+
 async function avisoTravas(){
   const box=$('#avisoTrava'); if(!box||!S.me) return;
   try{
@@ -2995,7 +3040,7 @@ PAGES.pedidos = async () => {
 async function verPedido(id){
   const x=await DB.get('pedidos',id), v=x.vendaId?await DB.get('vendas',x.vendaId).catch(()=>null):null;
   const encerrado=v&&['QUITADA','CANCELADA','RETOMADA','REPROVADA'].includes(v.status);
-  const sts=['ASSISTENCIA','PROTECAO'].includes(x.tipo)?['ABERTO','RECEBIDO','EM_REPARO','PRONTO','ENTREGUE','RECUSADO']:['VENCIMENTO','ACORDO','DADOS'].includes(x.tipo)?['ABERTO','ATENDIDO','RECUSADO']:['ABERTO','ATENDIDO'];
+  const sts=['ASSISTENCIA','PROTECAO'].includes(x.tipo)?['ABERTO','RECEBIDO','EM_REPARO','PRONTO','ENTREGUE','RECUSADO']:x.tipo==='UPGRADE'?['ABERTO','ATENDIDO','ENTREGUE','RECUSADO']:['VENCIMENTO','ACORDO','DADOS'].includes(x.tipo)?['ABERTO','ATENDIDO','RECUSADO']:['ABERTO','ATENDIDO'];
   openModal(`<h2>${(PED_TIPO[x.tipo]||[x.tipo])[0]} — ${esc(x.clienteNome)}</h2>
     <p class="muted" style="margin-top:-6px">Contrato nº ${x.vendaNumero} · ${esc((x.marca||'')+' '+(x.modelo||''))} · IMEI <span class="mono">${esc(x.imei||'')}</span> · aberto em ${fmtDT(x.criadoEm)}</p>
     ${x.descricao?`<div class="msg"><small>Cliente</small>${esc(x.descricao)}</div>`:''}
@@ -3010,6 +3055,8 @@ async function verPedido(id){
     ${x.tipo==='LGPD_COPIA'?`<div class="warn mt">Baixe a cópia dos dados e envie ao cliente pelo e-mail ou WhatsApp cadastrado. Prazo da LGPD: até 15 dias.</div><div class="row mt"><button class="btn sm" data-act="copiaLgpd" data-id="${id}">Baixar cópia dos dados do cliente</button></div>`:''}
     ${x.tipo==='LGPD_EXCLUSAO'?`<div class="warn mt">${encerrado?'O contrato está encerrado: você pode apagar as fotos do documento e a biometria. Os dados do contrato (nome, CPF, valores) continuam guardados pelo prazo legal.':'O contrato está ativo: os dados precisam ser mantidos para cumprir o contrato e obrigações legais (LGPD, art. 7º, V e art. 16). Explique isso ao cliente; os dados podem ser apagados depois do encerramento e do prazo legal.'}</div>
       ${encerrado&&can('DONO')?`<div class="row mt"><button class="btn sm red" data-act="apagarBiometria" data-id="${id}">Apagar fotos do documento e biometria</button></div>`:''}`:''}
+    ${x.tipo==='UPGRADE'?`<div class="warn mt"><b>Upgrade do cliente.</b> ${x.vendaUpgrade?`Upgrade montado${x.envio&&x.envio.status==='ENVIADO'?' e <b>enviado por Sedex</b>':''}. Prepare o aparelho novo com a trava, registre o envio e marque <b>Entregue</b> quando chegar.`:'O cliente quer trocar por um aparelho novo. Monte a proposta: ele paga o PIX e o aparelho vai por Sedex com a trava instalada.'}</div>
+      <div class="row mt">${x.vendaUpgrade?`<button class="btn sm gold" data-act="envioUpgrade" data-id="${x.vendaUpgrade}">Registrar envio (Sedex)</button>`:`<button class="btn sm gold" data-act="montarUpgrade" data-id="${id}">Montar upgrade por Sedex</button>`}</div>`:''}
     <div class="grid g2 mt"><label>Situação<select id="pdSt">${sts.map(s=>`<option value="${s}" ${x.status===s?'selected':''}>${s==='RECUSADO'&&x.tipo!=='ASSISTENCIA'?'Recusado':(PED_ST[s]||[s])[0]}</option>`).join('')}</select></label>
       ${['ASSISTENCIA','PROTECAO'].includes(x.tipo)?`<label class="check" style="align-self:end"><input type="checkbox" id="pdNT" ${x.naoTravar?'checked':''}> <span>Não travar o aparelho enquanto estiver no conserto</span></label>`:''}</div>
     <label class="mt">Resposta para o cliente (aparece no portal)<textarea id="pdTxt" rows="2"></textarea></label>
