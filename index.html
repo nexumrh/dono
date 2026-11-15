@@ -1864,6 +1864,15 @@ async function passoTrava(){
   const tent=v.instalacao?.tentativas||1;
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">8</span>Instalar a trava no ${esc(apNome(v))} ${tent>1?badge('tentativa '+tent,'amber'):''}</h2>
     <div class="warn mb"><b>A venda só é concluída quando a trava subir no aparelho.</b> Não entregue o celular antes da confirmação abaixo ficar verde.</div>
+    <details class="mb"><summary class="btn sm" style="display:inline-flex">✓ Checklist antes de instalar</summary>
+      <ol class="steps small" style="margin-top:8px">
+        <li><b>Restaure de fábrica</b> e, na configuração inicial, <b>pule a conta Google</b> (não faça login).</li>
+        <li>Conecte no <b>Wi-Fi da loja</b> — precisa de internet para baixar o app.</li>
+        <li>Na primeira tela, <b>toque 6 vezes</b> no mesmo ponto e leia o QR ao lado.</li>
+        <li><b>Não pule etapas</b> nem adicione conta Google antes do app terminar de instalar.</li>
+        <li>Espere a confirmação ficar <b>verde</b> antes de entregar ao cliente.</li>
+        ${String(S.cfg.frpContas||'').trim()?'<li style="color:var(--good)">Proteção contra reset (FRP) configurada na loja.</li>':'<li style="color:var(--bad)"><b>FRP não configurado</b> — o aparelho ficará vulnerável a reset de fábrica. Avise o dono antes de vender.</li>'}
+      </ol></details>
     <div class="grid g2" style="align-items:start">
       <div>${videoMarca(marca)}</div>
       <div><div class="qr" style="margin:0 auto">${qrHtml||'<span class="small muted">QR indisponível sem internet.</span>'}</div>
@@ -5894,6 +5903,20 @@ function diagTrava(t,causa,acao){
     <p class="small" style="margin:8px 0 2px"><b>Causa:</b> ${esc(causa)}</p>
     <p class="small" style="margin:0"><b>O que fazer:</b> ${esc(acao)}</p></details>`;
 }
+/** Reset de fábrica assistido por fabricante (item 7). Combinações de botões do recovery. */
+function blocoReset(){
+  const b=(marca,passos,nota)=>`<details class="mt"><summary class="btn sm" style="display:inline-flex">${marca}</summary><div class="small" style="padding:8px 2px">${passos}${nota?`<p class="muted" style="margin-top:6px">${nota}</p>`:''}</div></details>`;
+  return `<div class="card"><h3 style="margin:0 0 4px">4. Reset de fábrica assistido (último recurso)</h3>
+    <p class="muted small">Use só quando o código de remoção não resolver e o aparelho estiver preso/bugado. <b>Apaga tudo do aparelho.</b> Se o FRP estiver ativo, depois do reset o aparelho pede a conta Google da loja.</p>
+    ${b('Samsung Galaxy','<ol class="steps"><li>Desligue o aparelho.</li><li>Conecte o cabo USB no computador ou carregador.</li><li>Segure <b>Volume Cima + Power</b> até aparecer o recovery.</li><li>Com Volume, desça até <b>Wipe data/factory reset</b> e confirme com Power.</li><li><b>Reboot system now</b>.</li></ol>')}
+    ${b('Motorola','<ol class="steps"><li>Desligue o aparelho.</li><li>Segure <b>Volume Baixo + Power</b> ~3s e solte.</li><li>Com Volume Baixo, vá até <b>Recovery mode</b> e confirme com Power.</li><li>Na tela do robô, segure Power e toque <b>Volume Cima</b> 1 vez.</li><li>Escolha <b>Wipe data/factory reset</b> → <b>Reboot</b>.</li></ol>')}
+    ${b('Xiaomi / Redmi / POCO','<ol class="steps"><li>Desligue o aparelho.</li><li>Segure <b>Volume Cima + Power</b> até vibrar e solte.</li><li>Escolha <b>Wipe Data</b> → <b>Wipe All Data</b> → confirmar.</li><li><b>Back to main menu</b> → <b>Reboot</b>.</li></ol>','Pode pedir a senha da conta Mi.')}
+    ${b('Realme / Oppo','<ol class="steps"><li>Desligue o aparelho.</li><li>Segure <b>Volume Baixo + Power</b> ~8-10s até o logo.</li><li>Escolha o idioma, toque <b>Wipe data</b> → <b>Format data</b>.</li><li>Se pedir, digite a senha de desbloqueio do aparelho.</li><li>Confirme e <b>Reboot</b>.</li></ol>')}
+    ${b('LG','<ol class="steps"><li>Desligue o aparelho.</li><li>Segure <b>Volume Baixo + Power</b>. Ao ver o logo, solte o Power 1s e segure de novo (mantendo o Volume Baixo).</li><li>Escolha <b>Yes</b> → <b>Yes</b> para apagar tudo.</li></ol>')}
+    ${b('Outra marca','<ol class="steps"><li>Desligue o aparelho.</li><li>Teste <b>Volume Baixo + Power</b> ou <b>Volume Cima + Power</b> até abrir o recovery.</li><li>Procure <b>Wipe data / factory reset</b> → confirme → <b>Reboot</b>.</li></ol>','Na dúvida, pesquise "recovery mode" junto do modelo exato do aparelho.')}
+  </div>`;
+}
+
 PAGES.suporteTrava = async () => {
   if(!can('DONO','SUPORTE')){ $('#view').innerHTML='<div class="err-box">Sem acesso.</div>'; return; }
   const hojeTxt = new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
@@ -5931,15 +5954,17 @@ PAGES.suporteTrava = async () => {
     ${diagTrava('Cliente trocou o chip','A trava detecta e reporta no painel.','Veja o aparelho em "Aparelhos e trava"; bloqueie ou fale com o cliente conforme o caso.')}
     ${diagTrava('Aparelho sumido (dias sem dar sinal)','Desligado, sem rede, ou tentativa de burlar.','Acompanhe em "Aparelhos e trava"; passando do limite, trave e acione a cobrança.')}
     ${diagTrava('Preciso remover sem ter o aparelho em mãos','Remoção remota pela internet.','Use "Aparelhos e trava" → Remover a trava (remoção remota) — só funciona se o aparelho estiver online.')}
-  </div>`;
+  </div>
+  ${blocoReset()}`;
 };
 Object.assign(ACT,{
-  stGerarCodigo: async ()=>{ try{ const j=await apiServ('remover-codigo',{acao:'codigo'}); const el=$('#stCod'); if(el) el.textContent=j.codigo; const m=$('#stCodMsg'); if(m) m.textContent='Válido só hoje. Digite no aparelho, em "Inserir código de remoção".'; }
+  stGerarCodigo: async ()=>{ try{ const j=await apiServ('remover-codigo',{acao:'codigo'}); const el=$('#stCod'); if(el) el.textContent=j.codigo; const m=$('#stCodMsg'); if(m) m.textContent='Válido só hoje. Digite no aparelho, em "Inserir código de remoção".'; await log('Código mestre de remoção gerado','suporteTrava','código do dia'); }
     catch(e){ toast(e.message||'Falha ao gerar o código','err'); } },
   stGerarLink: async ()=>{ try{ const j=await apiServ('remover-codigo',{acao:'link'}); const url=servidorPg()+'/api/remover-codigo?t='+encodeURIComponent(j.token);
+      await log('Link de remoção gerado','suporteTrava','vale 3h');
       try{ await navigator.clipboard.writeText(url); toast('Link copiado — mande ao vendedor/gerente. Vale 3 horas.'); }catch(e){ prompt('Link de remoção (vale 3h):',url); } }
     catch(e){ toast(e.message||'Falha ao gerar o link','err'); } },
-  stCopiarRemocao: async ()=>{ try{ const j=await apiServ('remover-codigo',{acao:'codigo'});
+  stCopiarRemocao: async ()=>{ try{ const j=await apiServ('remover-codigo',{acao:'codigo'}); await log('Código mestre de remoção gerado','suporteTrava','instruções copiadas');
       const hojeTxt=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
       const msg=`NexumCell — Remover a trava do aparelho\n\n1) No celular, no app NexumCell, toque em "Problema? Inserir código de remoção da loja".\n2) Digite o código: ${j.codigo}\n3) Toque em Remover — a trava sai e o app se desinstala.\n4) Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.\n\nCódigo válido só hoje (${hojeTxt}).`;
       try{ await navigator.clipboard.writeText(msg); toast('Instruções copiadas — cole no chat/WhatsApp do vendedor ou gerente.'); }catch(e){ prompt('Copie e mande ao vendedor/gerente:',msg); } }
@@ -6998,7 +7023,9 @@ Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id);
 { const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
   const l=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.modo==='link'&&x.checkin?.adminAtivo===false);
   if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`);
-  if(can('DONO','FINANCEIRO')&&!String(S.cfg.frpContas||'').trim()) box.insertAdjacentHTML('afterbegin',`<div class="aviso-trava bad" data-act="go" data-tab="config"><span style="font-size:20px;line-height:1">🔒</span><b>Proteção contra reset de fábrica DESLIGADA</b><span>O campo FRP está vazio. Sem o ID da conta Google da loja, o cliente consegue zerar o aparelho pelos botões (recovery) e tirar a trava. Toque para configurar em “Lojas e configurações”.</span></div>`); }catch(e){} }; }
+  if(can('DONO','FINANCEIRO')&&!String(S.cfg.frpContas||'').trim()) box.insertAdjacentHTML('afterbegin',`<div class="aviso-trava bad" data-act="go" data-tab="config"><span style="font-size:20px;line-height:1">🔒</span><b>Proteção contra reset de fábrica DESLIGADA</b><span>O campo FRP está vazio. Sem o ID da conta Google da loja, o cliente consegue zerar o aparelho pelos botões (recovery) e tirar a trava. Toque para configurar em “Lojas e configurações”.</span></div>`);
+  const cb=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.codigoBloqueado===true);
+  if(cb.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${cb.length} aparelho(s) com muitas tentativas de código de remoção</b><span>${cb.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. Pode ser tentativa de burlar a trava — confira.</span></div>`); }catch(e){} }; }
 
 /* ======================= LOTE: venda a distância, assistente, retorno, saúde, seminovos online, repasse Asaas, vendedor de risco, implantação ======================= */
 VENDA_ST.REMOTA=['Aguardando o cliente','amber'];
