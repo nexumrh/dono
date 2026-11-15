@@ -1907,6 +1907,7 @@ async function alertaTrava(v,motivo){
 }
 
 /* Alerta em todos os portais: vendas paradas esperando a trava */
+var ACT = {}; /* bootstrap ACT (handlers abaixo usam ACT antes da definição principal) */
 /* ======================= P6: COMUNICADOS DA NEXUM + CENTRAL DE AVISOS =======================
    O dono publica um comunicado que aparece no topo do painel do gerente/vendedor/dono-alvo. */
 function comLidos(){ try{ return new Set(JSON.parse(localStorage.getItem('nxc_com_lidos')||'[]')); }catch(e){ return new Set(); } }
@@ -5111,7 +5112,7 @@ async function salvarLoja(id){
 }
 
 /* ======================= EVENTOS ======================= */
-const ACT = {
+Object.assign(ACT, {
   refazerInstalacao:d=>refazerInstalacao(d.id), avisarSuporteTrava:async d=>{ const v=await DB.get('vendas',d.id); await alertaTrava(v,'Vendedor pediu ajuda: a trava não sobe.'); toast('Suporte avisado — chamado aberto','ok'); }, verAvisoTrava:()=>verAvisoTrava(),
   quitar:d=>quitar(d.id), confirmarQuitacao:(d,b)=>confirmarQuitacao(d.id,b), renegociar:d=>renegociar(d.id), confirmarAcordo:(d,b)=>confirmarAcordo(d.id,b),
   retomar:d=>retomar(d.id), confirmarRetomada:(d,b)=>confirmarRetomada(d.id,b), snVender:d=>snVender(d.id),
@@ -5158,7 +5159,7 @@ const ACT = {
   catTodos:d=>catTodos(d.v==='1'), catSugerir:()=>catSugerir(), catUsar:(d,b)=>catAplicar(b.closest('tr').querySelector('[data-preco]'),+d.v), testarIA:async()=>{ const el=$('#iaTeste'), k=$('[data-cfg=iaChave]').value.trim(); if(!k){ el.textContent='Cole a chave primeiro.'; return; } el.textContent='Testando…';
     try{ const r=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+k}}); el.innerHTML=r.ok?'<b style="color:var(--ok)">Chave funcionando.</b> Clique em Salvar configurações.':'<b style="color:var(--bad)">Chave recusada ('+r.status+').</b>'; }catch(e){ el.textContent='Não foi possível testar: '+e.message; } },
   salvarConfig:()=>salvarConfig(), editarItem:d=>editarItem(d.id), salvarItem:d=>salvarItem(d.id), copiarTexto:d=>navigator.clipboard?.writeText(d.t).then(()=>toast('Copiado','ok')), editarLoja:d=>editarLoja(d.id), salvarLoja:d=>salvarLoja(d.id),
-};
+});
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
   if(el.tagName==='A'&&el.getAttribute('href')==='#') e.preventDefault();
