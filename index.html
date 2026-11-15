@@ -1941,6 +1941,129 @@ async function comunicadosGestao(){
 }
 Object.assign(ACT,{ comunicadoNovo:()=>comunicadoNovo(), comGestao:()=>comunicadosGestao(), comLido:d=>{ comMarcarLido(d.id); avisoTravas(); }, comEncerrar:async d=>{ await DB.set('comunicados',d.id,{ativo:false}); await log('Comunicado encerrado',d.id,''); comunicadosGestao(); } });
 
+/* ======================= P9: MINHAS METAS (metas, bônus, projeção) =======================
+   Indicadores por vendedor, com bônus em camadas definido pela Nexum. Vale para a equipe
+   da Nexum e das lojas parceiras. */
+const MET_IND=[
+  {k:'aparelhos',lbl:'Aparelhos'},
+  {k:'faturamento',lbl:'Faturamento',money:true},
+  {k:'acessorios',lbl:'Acessórios'},
+  {k:'capinha',lbl:'Capinha'},
+  {k:'pelicula',lbl:'Película'},
+  {k:'seguros',lbl:'Seguros'},
+  {k:'parcelas',lbl:'Parcelas em dia'},
+];
+const METAS_BONUS_PADRAO={aparelhos:0,acessoriosSeguros:0,parcelas:0,integral:0};
+function metasDefAtivos(){ return {aparelhos:true,faturamento:true,acessorios:true,capinha:false,pelicula:false,seguros:true,parcelas:true}; }
+async function metasDoc(mes){
+  const d=await DB.get('metas',mes).catch(()=>null)||{};
+  const metasV=JSON.parse(JSON.stringify(d.metasV||{}));
+  if(d.vendedores) for(const u in d.vendedores){ metasV[u]=metasV[u]||{}; if(metasV[u].faturamento==null) metasV[u].faturamento=+d.vendedores[u]||0; }
+  return {ativos:d.ativos||metasDefAtivos(), metasV, bonus:{...METAS_BONUS_PADRAO,...(d.bonusRegras||{})}, lojas:d.lojas||{}, raw:d};
+}
+function calcMetas(uid,mes,vendas){
+  const ok=v=>['ATIVA','QUITADA','RETOMADA','INSTALANDO'].includes(v.status)&&v.entradaPaga;
+  const dt=v=>isoDate(new Date(v.entradaPaga.em));
+  const meus=vendas.filter(v=>v.vendedorUid===uid&&ok(v)&&dt(v).startsWith(mes));
+  const tem=(v,re)=>(v.acessorios||[]).some(a=>re.test((a.nome||'').toLowerCase()));
+  let parcelas=0;
+  vendas.filter(v=>v.vendedorUid===uid).forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&p.pagoEm&&String(p.pagoEm).startsWith(mes)&&p.pagoEm<=p.venc&&!p.acordo) parcelas++; }));
+  return { aparelhos:meus.length, faturamento:r2(meus.reduce((s,v)=>s+(+v.valor||0),0)),
+    acessorios:meus.filter(v=>(v.acessorios||[]).length).length,
+    capinha:meus.filter(v=>tem(v,/cap(a|inha)/)).length,
+    pelicula:meus.filter(v=>tem(v,/pel.?cula/)).length,
+    seguros:meus.filter(v=>v.protecao).length, parcelas };
+}
+function metasProj(feito,mes){ const h=new Date(); if(mes!==hoje().slice(0,7)) return null;
+  const dia=h.getDate(), dim=new Date(h.getFullYear(),h.getMonth()+1,0).getDate(); return dia>0?Math.round(feito/dia*dim):null; }
+function metasBonus(feito,metaV,ativos,bonus){
+  const exig=k=>!!ativos[k]&&(+metaV[k]>0), bate=k=>(+feito[k]||0)>=(+metaV[k]||0);
+  const grupo=(...ks)=>{ const e=ks.filter(exig); return e.length>0&&e.every(bate); };
+  const r={ aparelhos:(exig('aparelhos')&&bate('aparelhos'))?(+bonus.aparelhos||0):0,
+    acessoriosSeguros:grupo('acessorios','seguros')?(+bonus.acessoriosSeguros||0):0,
+    parcelas:(exig('parcelas')&&bate('parcelas'))?(+bonus.parcelas||0):0 };
+  const todos=MET_IND.map(m=>m.k).filter(exig); const integralBate=todos.length>0&&todos.every(bate);
+  r.integral=integralBate?(+bonus.integral||0):0; r.total=r.aparelhos+r.acessoriosSeguros+r.parcelas+r.integral;
+  r.exig=exig; r.bate=bate; r.integralBate=integralBate; r.todos=todos;
+  return r;
+}
+function metaRing(feito,meta,lbl,money){
+  const fr=meta>0?feito/meta:0, pct=Math.min(100,Math.round(fr*100)), R=37,C=2*Math.PI*R, off=C*(1-Math.min(1,fr));
+  const cor=fr>=1?'#15754A':fr>=.5?'#A97B23':'#9A2A2A';
+  const vt=money?(Math.round(feito/1000)+'k'):feito, mt=money?brl(meta):meta;
+  const pz=fr>=1?['#E7F3EC','#15754A','Batida']:fr>=.5?['#FBF3DD','#8A6400','No ritmo']:['#F6E8E8','#9A2A2A','Abaixo'];
+  return `<div style="border:1px solid #E4E8F0;border-radius:12px;padding:12px 6px;text-align:center">
+    <div style="position:relative;width:84px;height:84px;margin:0 auto">
+      <svg viewBox="0 0 84 84" style="width:84px;height:84px;transform:rotate(-90deg)"><circle cx="42" cy="42" r="${R}" fill="none" stroke="#EDF0F6" stroke-width="8"/><circle cx="42" cy="42" r="${R}" fill="none" stroke="${cor}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:19px;font-weight:800;color:${cor}">${vt}</div><div style="font-size:11px;font-weight:700;color:#64708A">${pct}%</div></div></div>
+    <div style="font-weight:700;font-size:13px;margin-top:8px">${esc(lbl)}</div>
+    <div style="color:#64708A;font-size:11.5px">de ${mt}</div>
+    <div style="font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 8px;display:inline-block;margin-top:7px;text-transform:uppercase;background:${pz[0]};color:${pz[1]}">${pz[2]}</div>
+  </div>`;
+}
+async function cardMinhasMetas(uid,mes,vendas){
+  const {ativos,metasV,bonus}=await metasDoc(mes);
+  const mv=metasV[uid]||{}, feito=calcMetas(uid,mes,vendas);
+  const ind=MET_IND.filter(m=>ativos[m.k]);
+  if(!ind.length) return '';
+  const rings=ind.map(m=>metaRing(feito[m.k]||0, +mv[m.k]||0, m.lbl, m.money)).join('');
+  const b=metasBonus(feito,mv,ativos,bonus);
+  // projeção
+  const pj=metasProj(feito.aparelhos,mes), pf=metasProj(feito.faturamento,mes);
+  const alvos=b.todos.length, batidos=b.todos.filter(b.bate).length;
+  const proj=pj!=null?`<div style="display:flex;align-items:center;gap:12px;background:#0B1E3F;color:#fff;border-radius:12px;padding:14px 16px;margin-top:12px">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C8992F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>
+    <div style="font-size:13.5px">No ritmo atual, você fecha o mês com <b style="color:#C8992F">${pj} aparelhos</b>${ativos.faturamento?` e <b style="color:#C8992F">${brl(pf)}</b>`:''}.<div style="color:#B7C2D9;font-size:12px">Mantendo o ritmo, você bate <b style="color:#fff">${batidos} de ${alvos}</b> metas.</div></div></div>`:'';
+  // bônus
+  const regra=(on,titulo,sub,valor)=>`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #E4E8F0">
+    <div style="width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid ${on?'#15754A':'#E4E8F0'};background:${on?'#15754A':'#fff'}">${on?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+    <div style="flex:1"><b style="font-size:13.5px">${titulo}</b><div style="color:#64708A;font-size:12px">${sub}</div></div>
+    <div style="font-weight:800;font-size:14px;color:${on?'#15754A':'#0B1E3F'}">${brl(valor)}</div></div>`;
+  let bonusHtml='';
+  if(bonus.aparelhos>0&&ativos.aparelhos) bonusHtml+=regra(b.aparelhos>0,'Meta de aparelhos',`${feito.aparelhos} de ${+mv.aparelhos||0}`,bonus.aparelhos);
+  if(bonus.acessoriosSeguros>0&&(ativos.acessorios||ativos.seguros)) bonusHtml+=regra(b.acessoriosSeguros>0,'Acessórios + seguros',`Acessórios ${feito.acessorios}/${+mv.acessorios||0} · Seguros ${feito.seguros}/${+mv.seguros||0}`,bonus.acessoriosSeguros);
+  if(bonus.parcelas>0&&ativos.parcelas) bonusHtml+=regra(b.parcelas>0,'Parcelas dos clientes em dia',`${feito.parcelas} de ${+mv.parcelas||0} no prazo`,bonus.parcelas);
+  if(bonus.integral>0) bonusHtml+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-top:6px;background:#FBF7EC;border:1px solid #EAD9A8;border-radius:10px">
+    <div style="width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid ${b.integralBate?'#15754A':'#EAD9A8'};background:${b.integralBate?'#15754A':'#fff'}">${b.integralBate?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+    <div style="flex:1"><b style="font-size:13.5px">Bateu TODAS as metas</b><div style="color:#64708A;font-size:12px">Bônus integral do mês</div></div>
+    <div style="font-weight:800;font-size:14px;color:#A97B23">${brl(bonus.integral)}</div></div>`;
+  const totalPoss=(+bonus.aparelhos||0)+(+bonus.acessoriosSeguros||0)+(+bonus.parcelas||0)+(+bonus.integral||0);
+  const barra=totalPoss>0?`<div style="height:7px;background:#EDF0F6;border-radius:6px;overflow:hidden;margin-top:10px"><i style="display:block;height:100%;width:${Math.min(100,Math.round(b.total/totalPoss*100))}%;background:#A97B23;border-radius:6px"></i></div>
+    <div style="color:#64708A;font-size:12px;margin-top:5px">Você já garantiu <b style="color:#15754A">${brl(b.total)}</b> de ${brl(totalPoss)} em bônus este mês.</div>`:'';
+  const colab=ativos.parcelas?`<div style="background:#F0F4FA;border:1px solid #D7E1F0;border-radius:10px;padding:11px 14px;font-size:13px;color:#2B3A57;margin-top:12px">As parcelas em dia contam para o seu bônus. Acompanhe seus clientes e ajude a lembrar do vencimento — cliente em dia soma para você.</div>`:'';
+  const bonusCard=bonusHtml?`<div class="card" style="margin-top:14px"><h2 style="font-size:15px;margin:0 0 2px">Bônus do mês</h2><div class="muted" style="font-size:12px;margin-bottom:4px">Regras definidas pela Nexum</div>${bonusHtml}${barra}${colab}</div>`:'';
+  return `<div class="card"><div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="font-size:15px;margin:0">Minhas Metas</h2><span class="muted" style="font-size:12px">${mesNome(mes)}</span></div>
+    <div class="muted" style="font-size:12px;margin:2px 0 0">Seu progresso no mês — conta automático das suas vendas.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px;margin-top:12px">${rings}</div>${proj}</div>${bonusCard}`;
+}
+function mesNome(mes){ try{ const [a,m]=mes.split('-'); return new Date(a,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); }catch(e){ return mes; } }
+async function configMetas(){
+  const mes=(S.filtro&&S.filtro.relMes)||hoje().slice(0,7);
+  const doc=await metasDoc(mes), ehDono=can('DONO');
+  const us=(await DB.list('users').catch(()=>[])).filter(u=>u.role==='VENDEDOR'&&u.ativo!==false&&(ehDono||u.lojaId===S.me.lojaId));
+  const ativos=doc.ativos, bonus=doc.bonus, metasV=doc.metasV;
+  const on=()=>MET_IND.filter(m=>ativos[m.k]);
+  const togg=MET_IND.map(m=>`<label class="check" style="display:flex;align-items:center;gap:8px;padding:5px 0"><input type="checkbox" data-mind="${m.k}" ${ativos[m.k]?'checked':''} ${ehDono?'':'disabled'}> <span>${m.lbl}${m.money?' (R$)':''}</span></label>`).join('');
+  const tabela=()=>`<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th style="text-align:left;padding:6px">Vendedor</th>${on().map(m=>`<th style="padding:6px">${m.lbl}</th>`).join('')}</tr>
+    ${us.map(u=>`<tr><td style="padding:6px"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span></td>${on().map(m=>`<td style="padding:4px"><input type="number" min="0" data-mv="${u.uid}|${m.k}" value="${(metasV[u.uid]||{})[m.k]||''}" style="width:76px;min-height:30px"></td>`).join('')}</tr>`).join('')||`<tr><td colspan="9" class="muted" style="padding:8px">Nenhum vendedor nesta visão.</td></tr>`}</table>`;
+  const regras=ehDono?`<div class="grid g2">${[['aparelhos','Bater aparelhos'],['acessoriosSeguros','Bater acessórios + seguros'],['parcelas','Parcelas em dia'],['integral','Bater TODAS (bônus integral)']].map(([k,l])=>`<label>${l} (R$)<input type="number" min="0" data-mb="${k}" value="${+bonus[k]||0}"></label>`).join('')}</div>`
+    :`<p class="muted">As regras e valores de bônus são definidos pela Nexum.</p>`;
+  openModal(`<h2>Minhas Metas — ${mesNome(mes)}</h2><p class="muted" style="margin-top:-6px">As regras valem para a equipe da Nexum e das lojas parceiras.</p>
+    <h3>Indicadores do mês</h3><p class="muted" style="margin:0 0 4px;font-size:12px">O que estiver desligado não aparece para o vendedor.</p><div style="columns:2;-webkit-columns:2">${togg}</div>
+    <h3 class="mt">Regras de bônus</h3>${regras}
+    <h3 class="mt">Metas por vendedor</h3><div style="overflow-x:auto" id="mtTab">${tabela()}</div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="mtSalvar">Salvar</button></div>`,true);
+  document.querySelectorAll('[data-mind]').forEach(c=>c.addEventListener('change',e=>{ ativos[e.target.dataset.mind]=e.target.checked; $('#mtTab').innerHTML=tabela(); }));
+  $('#mtSalvar').onclick=async()=>{
+    const nv=JSON.parse(JSON.stringify(doc.raw.metasV||{}));
+    document.querySelectorAll('[data-mv]').forEach(i=>{ const [u,k]=i.dataset.mv.split('|'); nv[u]=nv[u]||{}; nv[u][k]=+i.value||0; });
+    const patch={metasV:nv, atualizadoEm:Date.now(), por:S.me.nome};
+    if(ehDono){ const br={...doc.bonus}; document.querySelectorAll('[data-mb]').forEach(i=>br[i.dataset.mb]=+i.value||0); patch.bonusRegras=br; patch.ativos={...ativos}; }
+    await DB.set('metas',mes,patch); await log('Minhas Metas configuradas',mes,''); closeModal(); toast('Metas salvas','ok'); render();
+  };
+}
+Object.assign(ACT,{ configMetas:()=>configMetas() });
+
 async function avisoTravas(){
   const box=$('#avisoTrava'); if(!box||!S.me) return;
   try{
@@ -4914,6 +5037,7 @@ document.addEventListener('input',e=>{ if(['rgEntrada','rgN','rgJuros'].includes
 { const _vc=verChamado; verChamado=async(...a)=>{ await _vc(...a); respostasProntas('#chResp'); }; }
 { const _vp=verPedido; verPedido=async(...a)=>{ await _vp(...a); respostasProntas('#pdTxt'); }; }
 { const _ch=PAGES.chamados; PAGES.chamados=async()=>{ await _ch(); if(can('DONO','SUPORTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn sm" data-act="gerenciarRespostas">Respostas prontas</button></div>'); }; }
+{ const _r=PAGES.relatorios; if(_r) PAGES.relatorios=async(...a)=>{ await _r(...a); if(can('DONO','GERENTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn" data-act="configMetas">Configurar Minhas Metas</button></div>'); }; }
 { const _pc=passoContato; passoContato=async(...a)=>{ const r=await _pc(...a); restaurarContato(); return r; }; }
 { const _nv=PAGES.nova; PAGES.nova=async()=>{ if(precisaTreino()){ await PAGES.treinamento(); $('#view').insertAdjacentHTML('afterbegin','<div class="warn mb"><b>Antes de vender, faça o treinamento.</b> Assista às aulas obrigatórias do treinamento.</div>'); return; } return _nv(); }; }
 { const _i2=PAGES.inicio; PAGES.inicio=async()=>{ await _i2(); if(!can('VENDEDOR','GERENTE')) return; const vs=await loadVendas(), av=await DB.list('avaliacoes').catch(()=>[]), m=can('VENDEDOR')?medalhasDe(vs,av,S.me.uid):[];
