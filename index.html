@@ -2893,7 +2893,7 @@ async function itensFila(){
   const itens=[];
   for(const v of vendas){
     const abertas=(v.parcelas||[]).filter(p=>!p.pago), atr=abertas.filter(p=>p.venc<h);
-    const lembrete=abertas.filter(p=>p.venc>=h&&diasEntre(h,p.venc)<=1);
+    const lembrete=abertas.filter(p=>p.venc>=h&&diasEntre(h,p.venc)<=(+S.cfg.lembreteDiasAntes||2));
     const c=cobs[v.id]||{contatos:[],promessas:[]}, proms=c.promessas||[];
     const pa=proms.find(p=>p.status==='ABERTA');
     if(pa){ let mudou=false;
@@ -2909,10 +2909,26 @@ async function itensFila(){
   }
   return itens.sort((a,b)=>b.prio-a.prio);
 }
+/* PIX copia-e-cola (BR Code) com valor exato — para a régua de cobrança */
+const emvCob = (id,v) => id+String(v.length).padStart(2,'0')+v;
+function crc16Cob(s){ let c=0xFFFF; for(let i=0;i<s.length;i++){ c^=s.charCodeAt(i)<<8; for(let j=0;j<8;j++) c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF; } return c.toString(16).toUpperCase().padStart(4,'0'); }
+function pixCobranca(valor, txid){
+  const chave=String(S.cfg.chavePix||'').trim(); if(!chave||!(valor>0)) return '';
+  const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9 ]/g,'').toUpperCase().trim();
+  let p=emvCob('00','01')+emvCob('26',emvCob('00','br.gov.bcb.pix')+emvCob('01',chave))+emvCob('52','0000')+emvCob('53','986')+emvCob('54',(+valor).toFixed(2))+emvCob('58','BR')
+    +emvCob('59',norm(S.cfg.empresa||'NEXUMCELL').slice(0,25)||'NEXUMCELL')+emvCob('60',norm(S.cfg.cidadePix||'FOZ DO IGUACU').slice(0,15)||'FOZ DO IGUACU')
+    +emvCob('62',emvCob('05',String(txid||'***').replace(/[^A-Za-z0-9]/g,'').slice(0,25)||'***'))+'6304';
+  return p+crc16Cob(p);
+}
+function quandoVence(venc){ const d=diasEntre(hoje(),venc); return d<=0?'hoje':d===1?'amanhã':'em '+d+' dias'; }
 function msgCobranca(it){
-  const v=it.v, nome=primeiroNome(v.clienteNome), pix=S.cfg.chavePix?` pelo PIX ${S.cfg.chavePix}`:'';
-  if(!it.atr.length){ const p=it.lembrete[0]; return `Olá, ${nome}! Aqui é da ${S.cfg.empresa}. Lembrete: a parcela ${p.n} do seu ${apNome(v)} vence ${p.venc===hoje()?'hoje':'amanhã'} (${brl(p.valor)}). Pague${pix} ou pelo portal ${urlCliente()} e evite o bloqueio do aparelho.`; }
-  return `Olá, ${nome}! Aqui é da ${S.cfg.empresa}. Consta em aberto ${it.atr.length>1?it.atr.length+' parcelas':'a parcela '+it.atr[0].n} do seu ${apNome(v)}, com ${it.dias} dia(s) de atraso: ${brl(it.valor)} já com multa e juros. Você pode pagar${pix} ou pelo portal ${urlCliente()}. Se já pagou, desconsidere e envie o comprovante, por favor.`;
+  const v=it.v, nome=primeiroNome(v.clienteNome);
+  const valor = it.atr.length ? it.valor : it.lembrete[0].valor;
+  const pix = pixCobranca(valor, 'NC'+v.numero);
+  const comoPagar = pix ? `\n\nPIX copia e cola (valor exato — ${brl(valor)}):\n${pix}\n\nOu pague pelo portal ${urlCliente()}.`
+    : (S.cfg.chavePix ? ` Pague pelo PIX ${S.cfg.chavePix} ou pelo portal ${urlCliente()}.` : ` Pague pelo portal ${urlCliente()}.`);
+  if(!it.atr.length){ const p=it.lembrete[0]; return `Olá, ${nome}! Aqui é da ${S.cfg.empresa}. Lembrete: a parcela ${p.n} do seu ${apNome(v)} vence ${quandoVence(p.venc)} (${brl(p.valor)}).${comoPagar} Assim você evita o bloqueio do aparelho.`; }
+  return `Olá, ${nome}! Aqui é da ${S.cfg.empresa}. Consta em aberto ${it.atr.length>1?it.atr.length+' parcelas':'a parcela '+it.atr[0].n} do seu ${apNome(v)}, com ${it.dias} dia(s) de atraso: ${brl(it.valor)} já com multa e juros.${comoPagar} Se já pagou, desconsidere e envie o comprovante, por favor.`;
 }
 PAGES.fila = async () => {
   const itens=await itensFila(), f=S.filtro.fila||'chamar', h=hoje();
@@ -2927,17 +2943,18 @@ PAGES.fila = async () => {
   const campHtml=await blocoCampanha(itens);
   $('#view').innerHTML=`${campHtml}<div class="kpis">
     <div class="kpi"><small>Para chamar hoje</small><b style="color:var(--bad)">${grupos.chamar.length}</b><span>${brl(grupos.chamar.reduce((s,i)=>s+i.valor,0))} em atraso</span></div>
-    <div class="kpi"><small>Lembretes</small><b>${grupos.lembrar.length}</b><span>vencem hoje ou amanhã</span></div>
+    <div class="kpi"><small>Lembretes</small><b>${grupos.lembrar.length}</b><span>a vencer (até ${+S.cfg.lembreteDiasAntes||2} dia(s))</span></div>
     <div class="kpi"><small>Promessas em aberto</small><b>${grupos.promessas.length}</b><span>${brl(grupos.promessas.reduce((s,i)=>s+(+i.promAberta.valor||0),0))} prometidos</span></div>
     <div class="kpi"><small>Contatados hoje</small><b style="color:var(--ok)">${grupos.feitos.length}</b><span>${itens.filter(i=>i.atr.length).length} clientes em atraso no total</span></div></div>
   <div class="tabs">${[['chamar','Chamar agora'],['lembrar','Lembretes'],['promessas','Promessas'],['feitos','Feitos hoje'],['quebradas','Promessas quebradas']].map(([k,t])=>`<button data-act="filtro" data-k="fila" data-v="${k}" class="${f===k?'on':''}">${t} (${grupos[k].length})</button>`).join('')}</div>
   <div class="card" style="padding:0">${lista.map((i,n)=>{ const v=i.v, tel=(v.cliente?.telefones||[])[0]||v.cliente?.tel||'';
     return `<div class="fila-item ${i.contatoHoje?'feito':''}"><div><div><span class="prio">${f==='chamar'?n+1:i.dias||'•'}</span><b>${esc(v.clienteNome)}</b> <span class="small muted">nº ${v.numero} · ${esc(apNome(v))} · ${esc(v.lojaNome)}</span></div>
-      <div class="meta">${i.atr.length?`<b style="color:var(--bad)">${i.dias} dia(s) de atraso · ${brl(i.valor)}</b>`:`Vence ${i.lembrete[0].venc===h?'hoje':'amanhã'} · ${brl(i.lembrete[0].valor)}`}
+      <div class="meta">${i.atr.length?`<b style="color:var(--bad)">${i.dias} dia(s) de atraso · ${brl(i.valor)}</b>`:`Vence ${quandoVence(i.lembrete[0].venc)} · ${brl(i.lembrete[0].valor)}`}
         ${i.promAberta?` · ${badge('prometeu '+fmtD(i.promAberta.data)+(i.promAberta.valor?' · '+brl(i.promAberta.valor):''),i.promAberta.data<h?'red':'blue')}`:''}${i.quebradas?` · ${badge(i.quebradas+' promessa(s) quebrada(s)','red')}`:''}${v.roboVoz?.ligado?` · ${badge('🤖 robô de voz ligado','blue')}`:''}</div>
       <div class="meta">${i.ult?`Último contato ${relT(i.ult.em)}: ${esc(i.ult.resultado)} (${esc(i.ult.canal)}, ${esc(i.ult.por)})${i.ult.obs?' — '+esc(i.ult.obs):''}`:'Nenhum contato registrado'}</div></div>
       <div class="row" style="gap:6px;justify-content:flex-end">
         <a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(tel)}?text=${encodeURIComponent(msgCobranca(i))}">WhatsApp</a>
+        <button class="btn sm" data-act="copiarCobranca" data-id="${v.id}">Copiar</button>
         <a class="btn sm" href="tel:${onlyDig(tel)}">Ligar</a>${servLigado()&&S.cfg.brevoCanal&&S.cfg.brevoCanal!=='nenhum'?`<button class="btn sm" data-act="brevoCliente" data-id="${v.id}" data-t="${i.atr.length?'atraso':'lembrete'}" title="Mensagem automática pelo Brevo">Lembrete automático</button>`:''}
         <button class="btn sm gold" data-act="registrarContato" data-id="${v.id}">Registrar contato</button>
         ${asaasLigado()&&i.dias>=30&&can('DONO','FINANCEIRO')?(v.negativacao&&v.negativacao.status!=='CANCELADA'?badge('Serasa: '+({PENDING:'pedido',AWAITING_APPROVAL:'em análise',PROCESSED:'negativado'}[v.negativacao.status]||v.negativacao.status||'pedido'),'red'):`${i.dias>=60?`<button class="btn sm red" data-act="negativar" data-id="${v.id}">Negativar</button>`:''}${S.cfg.negativarAuto==='sim'?`<button class="btn sm" data-act="naoNegativar" data-id="${v.id}" title="A rotina automática não negativa este contrato">${v.naoNegativar?'Liberar negativação automática':'Não negativar automático'}</button>`:''}`):''}</div></div>`; }).join('')||'<div class="empty">Nada aqui agora 🎉</div>'}</div>
@@ -5156,6 +5173,7 @@ Object.assign(ACT, {
   novoLN:()=>novoLN(), salvarLN:()=>salvarLN(), removerLN:d=>removerLN(d.id), cadEstoque:()=>cadEstoque(), salvarEstoque:(d,b)=>salvarEstoque(b), baixarEstoque:d=>baixarEstoque(d.id),
   salvarMetas:()=>salvarMetas(), verRoubos:()=>verRoubos(), rouboTratado:d=>rouboTratado(d.id), rouboLiberar:d=>rouboLiberar(d.id),
   registrarContato:d=>registrarContato(d.id), salvarContato:(d,b)=>salvarContato(d.id,b), fecharCaixa:(d,b)=>fecharCaixa(b),
+  copiarCobranca:d=>{ const it=(S._fila||[]).find(i=>i.v.id===d.id); if(!it) return; const t=msgCobranca(it); navigator.clipboard.writeText(t).then(()=>toast('Mensagem + PIX copiados','ok'),()=>prompt('Copie a mensagem:',t)); },
   transferirEstoque:d=>transferirEstoque(d.id), receberEstoque:d=>receberEstoque(d.id), verPedido:d=>verPedido(d.id), salvarPedido:(d,b)=>salvarPedido(d.id,b),
   copiaLgpd:d=>copiaLgpd(d.id), apagarBiometria:d=>apagarBiometria(d.id), csvContador:()=>csvContador(), aplicarRegras:(d,b)=>aplicarRegras(b), backup:(d,b)=>backup(d.fotos==='1',b),
   ofertaTroca:d=>ofertaTroca(d.id), darBonus:d=>darBonus(d.id), ativarAvisos:()=>ativarAvisos(), verEntrega:d=>verEntrega(d.id),
