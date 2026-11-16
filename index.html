@@ -5632,13 +5632,27 @@ PAGES.auditoria=async()=>{
 function audCsv(){ const q=s=>`"${String(s??'').replace(/"/g,'""')}"`, l=S._aud||[];
   baixarArquivo('auditoria-'+(S.filtro.audDia||hoje())+'.csv','\uFEFF'+[['Quando','Quem','Ação','Detalhe','Alvo'].map(q).join(';'),...l.map(x=>[fmtDT(x.em),x.por,x.acao,x.det,x.alvo].map(q).join(';'))].join('\r\n'),'text/csv;charset=utf-8'); }
 /* Limite por loja: teto de carteira em aberto e de inadimplência. O motor de crédito (servidor) manda para análise manual quando a loja passa do teto. */
+/* Limite dinâmico: sugere os tetos da loja pela performance (inadimplência + carteira em aberto). */
+function sugestaoLimiteLoja(vs){
+  const h=hoje(); let aberto=0, venc=0, vencAb=0;
+  vs.filter(v=>['ATIVA','INSTALANDO'].includes(v.status)).forEach(v=>(v.parcelas||[]).forEach(p=>{ const val=+p.valor||0; if(!p.pago) aberto+=val; if(p.venc<h){ venc+=val; if(!p.pago) vencAb+=val; } }));
+  const inad = venc? vencAb/venc*100 : 0;
+  const fator = inad<5?1.5 : inad<8?1.25 : inad<12?1 : inad<20?0.8 : 0.6;
+  const carteira = Math.max(1000, Math.round(aberto*fator/500)*500);
+  const tetoInad = inad<10?12 : 10;
+  return {aberto, inad, fator, carteira, tetoInad};
+}
 async function limitesLoja(lojaId){
-  const l=await DB.get('lojas',lojaId);
+  const [l,vs]=await Promise.all([DB.get('lojas',lojaId), DB.list('vendas',[['lojaId','==',lojaId]]).catch(()=>[])]);
+  const sg=sugestaoLimiteLoja(vs);
   openModal(`<h2>Limites — ${esc(l.nome)}</h2><p class="muted" style="margin-top:-6px">Quando a loja passa de um dos tetos, as novas vendas dela não são aprovadas sozinhas: caem na análise manual com o motivo. Deixe 0 para não limitar.</p>
+    <div class="msg" style="border-left:4px solid #0A1733"><b>Sugestão pela performance</b><div class="small" style="margin-top:3px">Inadimplência atual <b>${sg.inad.toFixed(1)}%</b> · carteira em aberto ${brl(sg.aberto)} → teto sugerido <b>${brl(sg.carteira)}</b> (fator ${sg.fator}×) e inadimplência até <b>${sg.tetoInad}%</b>.</div><button class="btn sm" id="llSug" style="margin-top:8px">Aplicar sugestão</button></div>
     <div class="grid g2"><label>Teto de carteira em aberto (R$)<input id="llC" type="number" min="0" step="100" value="${+l.limiteCarteira||0}"></label><label>Teto de inadimplência (%)<input id="llI" type="number" min="0" max="100" step="0.5" value="${+l.limiteInad||0}"></label></div>
+    <label class="check mt"><input type="checkbox" id="llAuto" ${l.limiteAuto?'checked':''}> <span>Ajustar estes tetos <b>automaticamente toda noite</b>, pela performance da loja (limite dinâmico).</span></label>
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="llOk">Salvar</button></div>`);
-  $('#llOk').onclick=async()=>{ const d={limiteCarteira:Math.max(0,r2(+$('#llC').value||0)),limiteInad:Math.max(0,Math.min(100,+$('#llI').value||0))};
-    await DB.set('lojas',lojaId,d); await log('Limites da loja alterados',lojaId,`${l.nome}: carteira ${brl(d.limiteCarteira)} · inadimplência ${d.limiteInad}%`); toast('Limites salvos','ok'); pessoasLoja(lojaId); };
+  $('#llSug').onclick=()=>{ $('#llC').value=sg.carteira; $('#llI').value=sg.tetoInad; };
+  $('#llOk').onclick=async()=>{ const d={limiteCarteira:Math.max(0,r2(+$('#llC').value||0)),limiteInad:Math.max(0,Math.min(100,+$('#llI').value||0)),limiteAuto:!!$('#llAuto').checked};
+    await DB.set('lojas',lojaId,d); await log('Limites da loja alterados',lojaId,`${l.nome}: carteira ${brl(d.limiteCarteira)} · inadimplência ${d.limiteInad}%${d.limiteAuto?' · auto':''}`); toast('Limites salvos','ok'); pessoasLoja(lojaId); };
 }
 /* Fatura da loja: o que a loja deve à NexumCell no mês (mensalidade + licenças) e o movimento dela. */
 async function faturaLoja(lojaId,mes){

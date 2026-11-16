@@ -2158,6 +2158,26 @@ async function resumoDoDia(cfg) {
   }
   return r;
 }
+async function limitesDinamicos() {
+  const h = hoje();
+  const lojas = (await db.collection("lojas").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.limiteAuto);
+  if (!lojas.length) return 0;
+  let n = 0;
+  for (const l of lojas) {
+    const vs = (await db.collection("vendas").where("lojaId", "==", l.id).get()).docs.map((d) => d.data());
+    let aberto = 0, venc = 0, vencAb = 0;
+    vs.filter((v) => ["ATIVA", "INSTALANDO"].includes(v.status)).forEach((v) => (v.parcelas || []).forEach((p) => { const val = Number(p.valor) || 0; if (!p.pago) aberto += val; if (p.venc < h) { venc += val; if (!p.pago) vencAb += val; } }));
+    const inad = venc ? vencAb / venc * 100 : 0;
+    const fator = inad < 5 ? 1.5 : inad < 8 ? 1.25 : inad < 12 ? 1 : inad < 20 ? 0.8 : 0.6;
+    const carteira = Math.max(1e3, Math.round(aberto * fator / 500) * 500);
+    const tetoInad = inad < 10 ? 12 : 10;
+    if (Number(l.limiteCarteira) === carteira && Number(l.limiteInad) === tetoInad) continue;
+    await db.collection("lojas").doc(l.id).set({ limiteCarteira: carteira, limiteInad: tetoInad, limiteAutoEm: Date.now() }, { merge: true });
+    await db.collection("logs").add({ em: Date.now(), acao: "Limite din\xE2mico da loja", alvo: l.id, det: `${l.nome || l.id}: carteira R$ ${carteira} \xB7 inad ${tetoInad}% (atual ${inad.toFixed(1)}%)`, por: "Sistema" });
+    n++;
+  }
+  return n;
+}
 async function rotinas(qual) {
   const cfg = await config();
   let ios = {};
@@ -2207,6 +2227,11 @@ async function rotinas(qual) {
       r.cashback = await cashbackRotina(cfg);
     } catch (e) {
       console.error("cashback", e.message);
+    }
+    try {
+      r.limites = await limitesDinamicos();
+    } catch (e) {
+      console.error("limites", e.message);
     }
     return { ...r, ...ios };
   }
