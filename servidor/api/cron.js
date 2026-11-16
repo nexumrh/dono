@@ -204,10 +204,32 @@ export async function resumoDoDia(cfg) {
   return r;
 }
 
+// ---------- Limite dinâmico da loja (só lojas com limiteAuto ligado) ----------
+export async function limitesDinamicos() {
+  const h = hoje();
+  const lojas = (await db.collection('lojas').get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.limiteAuto);
+  if (!lojas.length) return 0;
+  let n = 0;
+  for (const l of lojas) {
+    const vs = (await db.collection('vendas').where('lojaId', '==', l.id).get()).docs.map((d) => d.data());
+    let aberto = 0, venc = 0, vencAb = 0;
+    vs.filter((v) => ['ATIVA', 'INSTALANDO'].includes(v.status)).forEach((v) => (v.parcelas || []).forEach((p) => { const val = Number(p.valor) || 0; if (!p.pago) aberto += val; if (p.venc < h) { venc += val; if (!p.pago) vencAb += val; } }));
+    const inad = venc ? (vencAb / venc) * 100 : 0;
+    const fator = inad < 5 ? 1.5 : inad < 8 ? 1.25 : inad < 12 ? 1 : inad < 20 ? 0.8 : 0.6;
+    const carteira = Math.max(1000, Math.round((aberto * fator) / 500) * 500);
+    const tetoInad = inad < 10 ? 12 : 10;
+    if (Number(l.limiteCarteira) === carteira && Number(l.limiteInad) === tetoInad) continue;
+    await db.collection('lojas').doc(l.id).set({ limiteCarteira: carteira, limiteInad: tetoInad, limiteAutoEm: Date.now() }, { merge: true });
+    await db.collection('logs').add({ em: Date.now(), acao: 'Limite dinâmico da loja', alvo: l.id, det: `${l.nome || l.id}: carteira R$ ${carteira} · inad ${tetoInad}% (atual ${inad.toFixed(1)}%)`, por: 'Sistema' });
+    n++;
+  }
+  return n;
+}
+
 export async function rotinas(qual) {
   const cfg = await config();
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } return { ...r, ...ios }; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();
   let aniv = {}; try { aniv = await aniversarioRotina(cfg); } catch (e) { console.error('aniversario', e.message); }
   try { Object.assign(aniv, await relatorioSemanal(cfg)); } catch (e) { console.error('relsemanal', e.message); }
