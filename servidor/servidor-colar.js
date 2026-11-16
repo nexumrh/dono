@@ -420,6 +420,7 @@ function encargos(p, ap, data = hoje()) {
 }
 async function baixarParcela(vendaId, n, valorPago, forma, obs) {
   const ref = db.collection("vendas").doc(vendaId);
+  let acabouDeQuitar = false;
   await db.runTransaction(async (t) => {
     const s = await t.get(ref);
     if (!s.exists) throw new Error("venda n\xE3o encontrada");
@@ -428,6 +429,7 @@ async function baixarParcela(vendaId, n, valorPago, forma, obs) {
       (p) => p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por: "Asaas (autom\xE1tico)", baixadoEm: Date.now() } : p
     );
     const quitado = parcelas.every((p) => p.pago);
+    acabouDeQuitar = quitado && !v2.quitadoEm;
     t.update(ref, { parcelas, status: quitado ? "QUITADA" : v2.status, ...quitado ? { quitadoEm: Date.now() } : {} });
     if (v2.aparelhoToken) {
       t.update(db.collection("aparelhos").doc(v2.aparelhoToken), {
@@ -440,6 +442,27 @@ async function baixarParcela(vendaId, n, valorPago, forma, obs) {
   });
   const v = (await ref.get()).data();
   if (v?.aparelhoToken) await pushAparelho(v.aparelhoToken);
+  if (acabouDeQuitar && v) { v.id = vendaId; await preAprovarAoQuitar(v); }
+}
+async function preAprovarAoQuitar(v) {
+  try {
+    const cpf = v.clienteCpf; const renda = Number(v.cliente?.renda) || 0;
+    if (!cpf || !(renda > 0)) return;
+    const h = hoje();
+    const hist = (await db.collection("vendas").where("clienteCpf", "==", cpf).get()).docs.map((d) => d.data());
+    if (hist.some((x) => ["ATIVA", "INSTALANDO"].includes(x.status) && (x.parcelas || []).some((p) => !p.pago && p.venc < h))) return;
+    const cfg = (await db.collection("config").doc("sistema").get()).data() || {};
+    const mult = Number(cfg.preAprovadoMult) || 2.5;
+    const valor = Math.round(Math.min(renda * mult, Number(cfg.preAprovadoMax) || 6e3) / 50) * 50;
+    if (!(valor > 0)) return;
+    const ate = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+    const atual = (await db.collection("clientes").doc(cpf).get()).data()?.preAprovado;
+    if (atual && atual.ate >= h && Number(atual.valor) >= valor) return;
+    const pre = { valor, ate, em: Date.now(), vendaId: v.id, loja: v.lojaNome || "", motivo: "quitou um contrato" };
+    await db.collection("clientes").doc(cpf).set({ preAprovado: pre }, { merge: true });
+    if (v.aparelhoToken) await db.collection("aparelhos").doc(v.aparelhoToken).set({ preAprovado: { valor, ate, em: pre.em, loja: pre.loja } }, { merge: true });
+    await db.collection("logs").add({ em: Date.now(), acao: "Pr\xE9-aprova\xE7\xE3o do Bom Pagador (quita\xE7\xE3o)", alvo: cpf, det: `R$ ${valor} at\xE9 ${ate}`, por: "Sistema" });
+  } catch (e) { console.warn("preAprovarAoQuitar", e.message); }
 }
 async function pushNotificacao(token, titulo, texto) {
   try {

@@ -72,6 +72,7 @@ export function encargos(p, ap, data = hoje()) {
 // Dá baixa numa parcela e sincroniza venda + aparelho (igual salvarParcelas do portal)
 export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
   const ref = db.collection('vendas').doc(vendaId);
+  let acabouDeQuitar = false;
   await db.runTransaction(async (t) => {
     const s = await t.get(ref);
     if (!s.exists) throw new Error('venda não encontrada');
@@ -80,6 +81,7 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
       p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por: 'Asaas (automático)', baixadoEm: Date.now() } : p
     );
     const quitado = parcelas.every((p) => p.pago);
+    acabouDeQuitar = quitado && !v.quitadoEm; // só na primeira vez que quita
     t.update(ref, { parcelas, status: quitado ? 'QUITADA' : v.status, ...(quitado ? { quitadoEm: Date.now() } : {}) });
     if (v.aparelhoToken) {
       t.update(db.collection('aparelhos').doc(v.aparelhoToken), {
@@ -93,6 +95,32 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
   // libera o aparelho na hora (se estava travado por atraso)
   const v = (await ref.get()).data();
   if (v?.aparelhoToken) await pushAparelho(v.aparelhoToken);
+  // Bom Pagador: quitou → pré-aprovação na hora (não espera a rotina da noite)
+  if (acabouDeQuitar && v) { v.id = vendaId; await preAprovarAoQuitar(v); }
+}
+
+// Concede a pré-aprovação do Bom Pagador assim que o cliente quita um contrato.
+// Mesma regra da rotina preAprovados (cron.js), aplicada na hora.
+export async function preAprovarAoQuitar(v) {
+  try {
+    const cpf = v.clienteCpf; const renda = Number(v.cliente?.renda) || 0;
+    if (!cpf || !(renda > 0)) return;
+    const h = hoje();
+    const hist = (await db.collection('vendas').where('clienteCpf', '==', cpf).get()).docs.map((d) => d.data());
+    // não pré-aprova quem tem parcela em atraso em outro contrato ativo
+    if (hist.some((x) => ['ATIVA', 'INSTALANDO'].includes(x.status) && (x.parcelas || []).some((p) => !p.pago && p.venc < h))) return;
+    const cfg = (await db.collection('config').doc('sistema').get()).data() || {};
+    const mult = Number(cfg.preAprovadoMult) || 2.5; // quitou = bom pagador
+    const valor = Math.round(Math.min(renda * mult, Number(cfg.preAprovadoMax) || 6000) / 50) * 50;
+    if (!(valor > 0)) return;
+    const ate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+    const atual = (await db.collection('clientes').doc(cpf).get()).data()?.preAprovado;
+    if (atual && atual.ate >= h && Number(atual.valor) >= valor) return; // já tem uma igual ou maior válida
+    const pre = { valor, ate, em: Date.now(), vendaId: v.id, loja: v.lojaNome || '', motivo: 'quitou um contrato' };
+    await db.collection('clientes').doc(cpf).set({ preAprovado: pre }, { merge: true });
+    if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ preAprovado: { valor, ate, em: pre.em, loja: pre.loja } }, { merge: true });
+    await db.collection('logs').add({ em: Date.now(), acao: 'Pré-aprovação do Bom Pagador (quitação)', alvo: cpf, det: `R$ ${valor} até ${ate}`, por: 'Sistema' });
+  } catch (e) { console.warn('preAprovarAoQuitar', e.message); }
 }
 
 // ---------- aviso instantâneo ao app da trava (Firebase Cloud Messaging) ----------
