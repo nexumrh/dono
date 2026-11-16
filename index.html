@@ -2076,11 +2076,22 @@ async function configMetas(){
     ${us.map(u=>`<tr><td style="padding:6px"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span></td>${on().map(m=>`<td style="padding:4px"><input type="number" min="0" data-mv="${u.uid}|${m.k}" value="${(metasV[u.uid]||{})[m.k]||''}" style="width:76px;min-height:30px"></td>`).join('')}</tr>`).join('')||`<tr><td colspan="9" class="muted" style="padding:8px">Nenhum vendedor nesta visão.</td></tr>`}</table>`;
   const regras=ehDono?`<div class="grid g2">${[['aparelhos','Bater aparelhos'],['acessoriosSeguros','Bater acessórios + seguros'],['parcelas','Parcelas em dia'],['integral','Bater TODAS (bônus integral)']].map(([k,l])=>`<label>${l} (R$)<input type="number" min="0" data-mb="${k}" value="${+bonus[k]||0}"></label>`).join('')}</div>`
     :`<p class="muted">As regras e valores de bônus são definidos pela Nexum.</p>`;
+  const vendasB=await loadVendas().catch(()=>[]);
+  const pagos=(await DB.get('bonusPagos',mes).catch(()=>null))?.pagos||{};
+  const bonusPagaHtml=ehDono?(()=>{
+    const lst=us.map(u=>{ const b=metasBonus(calcMetas(u.uid,mes,vendasB),metasV[u.uid]||{},ativos,bonus); return {u,total:b.total}; }).filter(x=>x.total>0);
+    return `<h3 class="mt">Pagamento de bônus — ${mesNome(mes)}</h3>
+      <p class="muted" style="margin:0 0 6px;font-size:12px">Marque quando pagar. O funcionário vê o status no app de metas.</p>
+      ${lst.length?lst.map(({u,total})=>{ const pg=pagos[u.uid]; return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:8px"><div style="flex:1"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span><div style="font-size:13px;font-weight:700;color:#15754A">${brl(total)}</div></div>${pg?`${badge('Pago '+fmtD(isoDate(new Date(pg.pagoEm))),'green')}<button class="btn sm" data-bndesf="${u.uid}">Desfazer</button>`:`<button class="btn sm" data-bnpg="${u.uid}|${total}" style="background:#15754A;color:#fff;border-color:#15754A">Marcar pago</button>`}</div>`; }).join(''):`<p class="muted">Ninguém com bônus garantido ainda neste mês.</p>`}`;
+  })():'';
   openModal(`<h2>Minhas Metas — ${mesNome(mes)}</h2><p class="muted" style="margin-top:-6px">As regras valem para a equipe da Nexum e das lojas parceiras.</p>
     <h3>Indicadores do mês</h3><p class="muted" style="margin:0 0 4px;font-size:12px">O que estiver desligado não aparece para o vendedor.</p><div style="columns:2;-webkit-columns:2">${togg}</div>
     <h3 class="mt">Regras de bônus</h3>${regras}
     <h3 class="mt">Metas por vendedor</h3><div style="overflow-x:auto" id="mtTab">${tabela()}</div>
+    ${bonusPagaHtml}
     <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="mtSalvar">Salvar</button></div>`,true);
+  document.querySelectorAll('[data-bnpg]').forEach(b=>b.onclick=async()=>{ const [uid,total]=b.dataset.bnpg.split('|'); await DB.set('bonusPagos',mes,{pagos:{[uid]:{valor:+total,pagoEm:Date.now(),por:S.me.nome}}}); await log('Bônus de metas pago',mes,primeiroNome(us.find(u=>u.uid===uid)?.nome||uid)); toast('Bônus marcado como pago','ok'); configMetas(); });
+  document.querySelectorAll('[data-bndesf]').forEach(b=>b.onclick=async()=>{ await DB.set('bonusPagos',mes,{pagos:{[b.dataset.bndesf]:null}}); toast('Pagamento desfeito'); configMetas(); });
   document.querySelectorAll('[data-mind]').forEach(c=>c.addEventListener('change',e=>{ ativos[e.target.dataset.mind]=e.target.checked; $('#mtTab').innerHTML=tabela(); }));
   $('#mtSalvar').onclick=async()=>{
     const nv=JSON.parse(JSON.stringify(doc.raw.metasV||{}));

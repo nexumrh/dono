@@ -420,6 +420,13 @@ service cloud.firestore {
       allow write: if hasRole(['DONO', 'GERENTE']);
     }
 
+    // ---------- Pagamento do bônus das metas (ID: AAAA-MM) ----------
+    // O funcionário vê o status no app de metas; só o Dono ou o Financeiro marca como pago.
+    match /bonusPagos/{mes} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO', 'FINANCEIRO']);
+    }
+
     // ---------- Portal do cliente: chave = SHA-256(CPF + nascimento + 4 últimos dígitos do celular) ----------
     match /acessos/{chave} {
       allow get: if signed();
