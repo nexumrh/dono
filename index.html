@@ -7607,6 +7607,47 @@ PAGES.relDono=async()=>{
   [['relLoja','relLoja'],['relDe','relDe'],['relAte','relAte'],['relMin','relMin'],['relFaixa','relFaixa']].forEach(([id,k])=>$('#'+id)?.addEventListener('change',e=>{ S.filtro[k]=e.target.value; render(); }));
   $('#relImei')?.addEventListener('change',e=>{ S.filtro.relImei=e.target.value; render(); });
 };
+/* ===== Painel executivo (cockpit do dono) ===== */
+async function blocoCockpit(){
+  try{
+    const vendas=await loadVendas(); const h=hoje(), mes=h.slice(0,7);
+    const ativos=vendas.filter(v=>['ATIVA','INSTALANDO'].includes(v.status));
+    const originados=vendas.filter(v=>['ATIVA','INSTALANDO','QUITADA','RETOMADA'].includes(v.status)&&v.entradaPaga);
+    const origMes=originados.filter(v=>isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
+    const origVal=origMes.reduce((s,v)=>s+(+v.financiado||((+v.valor||0)-(+v.entrada||0))),0);
+    let carteira=0, vencido=0, vencAberto=0;
+    ativos.forEach(v=>(v.parcelas||[]).forEach(p=>{ const val=+p.valor||0; if(!p.pago) carteira+=val; if(p.venc<h){ vencido+=val; if(!p.pago) vencAberto+=val; } }));
+    const inad = vencido? vencAberto/vencido*100 : 0;
+    const ticket = origMes.length? origVal/origMes.length : 0;
+    const cpfs=[...new Set(ativos.map(v=>v.clienteCpf).filter(Boolean))];
+    const dist={Novo:0,'Ótimo':0,Bom:0,Regular:0,Risco:0};
+    cpfs.forEach(cpf=>{ const s=scoreNexum(cpf,vendas); dist[s.novo?'Novo':s.faixa==='Ótimo pagador'?'Ótimo':s.faixa==='Bom pagador'?'Bom':s.faixa==='Regular'?'Regular':'Risco']++; });
+    const totC=cpfs.length||1;
+    const cores={Novo:'#1D4ED8','Ótimo':'#15754A',Bom:'#3BA676',Regular:'#B06A00',Risco:'#C62828'};
+    const ordem=['Ótimo','Bom','Regular','Novo','Risco'];
+    const barra=ordem.filter(k=>dist[k]).map(k=>`<div title="${k}: ${dist[k]}" style="width:${dist[k]/totC*100}%;background:${cores[k]}"></div>`).join('');
+    const legenda=ordem.map(k=>`<span style="font-size:11.5px;color:var(--muted)"><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${cores[k]};margin-right:4px"></i>${k} ${dist[k]}</span>`).join(' · ');
+    const safras={};
+    originados.forEach(v=>{ const m=isoDate(new Date(v.entradaPaga.em)).slice(0,7); (safras[m]=safras[m]||{n:0,atraso:0}); safras[m].n++;
+      if(['ATIVA','INSTALANDO'].includes(v.status)&&(v.parcelas||[]).some(p=>!p.pago&&p.venc<h)) safras[m].atraso++; });
+    const meses=Object.keys(safras).sort().slice(-6);
+    const safraTab=meses.length?`<div class="tablewrap"><table class="rel-tab" style="font-size:12.5px"><tr><th>Safra</th><th>Contratos</th><th>Em atraso</th><th>%</th></tr>${meses.map(m=>{ const s=safras[m], pct=s.n?Math.round(s.atraso/s.n*100):0; return `<tr><td>${mesNome(m)}</td><td class="right">${s.n}</td><td class="right">${s.atraso}</td><td class="right" style="color:${pct>25?'var(--bad)':pct>10?'#B06A00':'var(--ok)'};font-weight:700">${pct}%</td></tr>`; }).join('')}</table></div>`:'';
+    const kpi=(n,v,sub,cor)=>`<div class="kpi"><small>${n}</small><b${cor?` style="color:${cor}"`:''}>${v}</b>${sub?`<span>${sub}</span>`:''}</div>`;
+    return `<div class="card mb" style="border-top:3px solid #0A1733"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Painel executivo</h2><span class="small muted">${mesNome(mes)}</span></div>
+      <div class="kpis" style="margin-top:10px">
+        ${kpi('Originação do mês',origMes.length,brl(origVal)+' financiados')}
+        ${kpi('Carteira a receber',brl(carteira),ativos.length+' contratos ativos')}
+        ${kpi('Inadimplência',inad.toFixed(1)+'%',brl(vencAberto)+' vencido em aberto',inad>15?'var(--bad)':inad>8?'#B06A00':'var(--ok)')}
+        ${kpi('Ticket médio',brl(ticket),'por venda no mês')}
+      </div>
+      <div style="margin-top:14px"><div class="small muted" style="margin-bottom:5px">Score Nexum da carteira (${totC} clientes ativos)</div>
+        <div style="display:flex;height:12px;border-radius:7px;overflow:hidden;background:#EDF0F6">${barra}</div>
+        <div style="margin-top:6px">${legenda}</div></div>
+      ${safraTab?`<div style="margin-top:14px"><div class="small muted" style="margin-bottom:5px">Inadimplência por safra (mês da venda)</div>${safraTab}</div>`:''}
+    </div>`;
+  }catch(e){ console.warn('cockpit',e); return ''; }
+}
+{ const _pck=PAGES.painel; PAGES.painel=async()=>{ await _pck(); if(!can('DONO')||!$('#view')) return; const hh=await blocoCockpit(); if(hh) $('#view').insertAdjacentHTML('afterbegin',hh); }; }
 function relCsvTexto(R,linhas){ const q=s=>`"${String(s??'').replace(/"/g,'""')}"`, n=x=>typeof x==='number'?String(x).replace('.',','):q(x);
   return '﻿'+[R.cab.map(q).join(';'),...linhas.map(l=>l.map(n).join(';'))].join('\r\n'); }
 function relHtmlPdf(R,titulo,linhas,extra=''){
