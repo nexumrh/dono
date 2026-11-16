@@ -2676,12 +2676,48 @@ async function compararFaceClientes(selfie,cpf,vendaId){
   box.insertAdjacentHTML('beforeend',achados.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Mesmo rosto com outro CPF</b> — possível fraude (a mesma pessoa comprando com documentos diferentes).${achados.map(a=>`<div class="row" style="margin-top:6px"><img src="${a.foto}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"><span>${esc(a.v.clienteNome)} · CPF ${fmtCpf(a.v.clienteCpf)} · nº ${a.v.numero} · ${esc(a.v.lojaNome||'')} (${a.conf}% de confiança)</span></div>`).join('')}</div></div>`
     :`<p class="small" style="color:var(--ok)">✓ Rosto comparado com ${fotos.length} cliente(s) recentes de outro CPF: nenhum igual.</p>`);
 }
+/* Antifraude de laranja na BASE TODA: agrupa CPFs diferentes que compartilham telefone, endereço, referência ou e-mail. */
+function redesLaranja(vendas){
+  const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''), dig=s=>String(s||'').replace(/\D/g,'');
+  const porCpf={};
+  vendas.filter(v=>!['RASCUNHO','CANCELADA'].includes(v.status)&&v.clienteCpf).forEach(v=>{
+    const c=v.cliente||{}, cpf=dig(v.clienteCpf); if(cpf.length<11) return;
+    const r=porCpf[cpf]||(porCpf[cpf]={cpf,nome:v.clienteNome,nums:new Set(),lojas:new Set(),tels:new Set(),refs:new Set(),ends:new Set(),emails:new Set()});
+    r.nome=r.nome||v.clienteNome; if(v.numero) r.nums.add(v.numero); if(v.lojaNome) r.lojas.add(v.lojaNome);
+    (c.telefones||[]).forEach(t=>{ const d=dig(t); if(d.length>=10) r.tels.add(d); });
+    (c.referencias||[]).forEach(x=>{ const d=dig(x.tel); if(d.length>=10) r.refs.add(d); });
+    const end=norm((c.endereco||'')+(c.bairro||'')+(c.cidade||'')); if(end.length>8) r.ends.add(end);
+    if(c.email) r.emails.add(norm(c.email));
+  });
+  const cpfs=Object.keys(porCpf), parent={}, find=x=>{ parent[x]=parent[x]??x; return parent[x]===x?x:(parent[x]=find(parent[x])); }, uni=(a,b)=>{ parent[find(a)]=find(b); }, liga={};
+  const ligarGrupo=(set,tipo)=>{ const a=[...set]; if(a.length<2) return; for(let i=0;i<a.length;i++) for(let j=i+1;j<a.length;j++){ uni(a[i],a[j]); const k=[a[i],a[j]].sort().join('|'); (liga[k]=liga[k]||new Set()).add(tipo); } };
+  const idx={tel:{},ref:{},end:{},email:{}}, add=(m,k,cpf)=>{ (m[k]=m[k]||new Set()).add(cpf); };
+  cpfs.forEach(cpf=>{ const r=porCpf[cpf]; r.tels.forEach(t=>add(idx.tel,t,cpf)); r.refs.forEach(t=>add(idx.ref,t,cpf)); r.ends.forEach(e=>add(idx.end,e,cpf)); r.emails.forEach(e=>add(idx.email,e,cpf)); });
+  Object.values(idx.tel).forEach(s=>ligarGrupo(s,'mesmo telefone')); Object.values(idx.ref).forEach(s=>ligarGrupo(s,'mesma referência'));
+  Object.values(idx.end).forEach(s=>ligarGrupo(s,'mesmo endereço')); Object.values(idx.email).forEach(s=>ligarGrupo(s,'mesmo e-mail'));
+  // telefone de um cliente usado como referência de outro
+  cpfs.forEach(cpf=>porCpf[cpf].refs.forEach(t=>{ (idx.tel[t]||new Set()).forEach(o=>{ if(o!==cpf){ uni(o,cpf); const k=[o,cpf].sort().join('|'); (liga[k]=liga[k]||new Set()).add('telefone usado como referência'); } }); }));
+  const grupos={}; cpfs.forEach(cpf=>{ (grupos[find(cpf)]=grupos[find(cpf)]||[]).push(cpf); });
+  return Object.values(grupos).filter(g=>g.length>=2).map(g=>{ const motivos=new Set(); for(let i=0;i<g.length;i++) for(let j=i+1;j<g.length;j++){ (liga[[g[i],g[j]].sort().join('|')]||[]).forEach(m=>motivos.add(m)); } return {cpfs:g.map(c=>porCpf[c]), motivos:[...motivos], n:g.length}; }).sort((a,b)=>b.n-a.n||b.motivos.length-a.motivos.length);
+}
+async function varreduraLaranja(){
+  openModal('<h2>Varredura de laranjas</h2><p class="muted"><span class="spin"></span> Analisando a base inteira…</p>',true);
+  try{
+    const redes=redesLaranja(await loadVendas());
+    const corpo=redes.length?redes.slice(0,60).map(r=>`<div class="card" style="border-left:4px solid var(--bad);margin:10px 0"><div class="row" style="justify-content:space-between"><b>${r.n} CPFs ligados</b><span class="small muted">${r.motivos.map(esc).join(' · ')}</span></div>
+      ${r.cpfs.map(c=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(c.nome||'—')}</b> · <span class="mono">${fmtCpf(c.cpf)}</span></span><span class="small muted">nº ${[...c.nums].join(', ')||'—'}${c.lojas.size?' · '+[...c.lojas].join(', '):''}</span></div>`).join('')}</div>`).join('')
+      :'<div class="empty">Nenhuma rede suspeita encontrada.</div>';
+    $('#mbody').innerHTML=`<h2>Varredura de laranjas</h2><p class="muted" style="margin-top:-6px">CPFs diferentes que compartilham telefone, endereço, referência ou e-mail — sinais clássicos de um mesmo "laranja" usando vários nomes. Confira antes de aprovar novas propostas ligadas a estes grupos.</p>
+      <p class="small muted">${redes.length} grupo(s) suspeito(s) na base.</p>${corpo}
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Fechar</button></div>`;
+  }catch(e){ $('#mbody').innerHTML=`<div class="empty">Não deu para rodar a varredura agora.</div><div class="row" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Fechar</button></div>`; }
+}
 PAGES.listanegra = async () => {
   const l=(await DB.list('listanegra')).filter(x=>x.ativo!==false).sort((a,b)=>b.em-a.em), q=(S.filtro.lnq||'').toLowerCase();
   const lista=l.filter(x=>!q||[x.nome,x.valor,x.motivo].join(' ').toLowerCase().includes(q));
   const fmtV=x=>x.tipo==='CPF'?fmtCpf(x.valor):x.tipo==='TELEFONE'?fmtFone(x.valor):'Rosto (CPF '+fmtCpf(x.valor)+')';
   $('#view').innerHTML=`<div class="row mb" style="justify-content:space-between"><input id="lnq" placeholder="Buscar por nome, CPF, telefone ou motivo" style="max-width:360px" value="${esc(S.filtro.lnq||'')}">
-    ${can('DONO','FINANCEIRO','GERENTE')?'<button class="btn gold" data-act="novoLN">Adicionar à lista negra</button>':''}</div>
+    <div class="row" style="gap:8px">${can('DONO','FINANCEIRO')?'<button class="btn" data-act="varreduraLaranja">Varredura de laranjas</button>':''}${can('DONO','FINANCEIRO','GERENTE')?'<button class="btn gold" data-act="novoLN">Adicionar à lista negra</button>':''}</div></div>
   <div class="card tablewrap"><table><tr><th></th><th>Tipo</th><th>Bloqueado</th><th>Nome</th><th>Motivo</th><th>Quando / quem</th><th></th></tr>
   ${lista.map(x=>`<tr><td>${x.foto?`<img src="${x.foto}" style="width:44px;height:44px;object-fit:cover;border-radius:8px">`:''}</td><td>${badge(x.tipo==='ROSTO'?'Rosto':x.tipo==='CPF'?'CPF':'Telefone',x.tipo==='CPF'?'red':x.tipo==='ROSTO'?'amber':'gray')}</td>
     <td class="mono">${esc(fmtV(x))}</td><td>${esc(x.nome||'—')}${x.vendaNumero?`<br><span class="small muted">contrato nº ${x.vendaNumero}</span>`:''}</td><td>${esc(x.motivo)}</td><td class="small">${fmtDT(x.em)}<br><span class="muted">${esc(x.por||'')}</span></td>
@@ -5170,7 +5206,7 @@ Object.assign(ACT, {
   quitar:d=>quitar(d.id), confirmarQuitacao:(d,b)=>confirmarQuitacao(d.id,b), renegociar:d=>renegociar(d.id), confirmarAcordo:(d,b)=>confirmarAcordo(d.id,b),
   retomar:d=>retomar(d.id), confirmarRetomada:(d,b)=>confirmarRetomada(d.id,b), snVender:d=>snVender(d.id),
   modoAssinatura:d=>{ S.w.modoAss=d.v; passoContrato(); }, lojaGeo:()=>lojaGeo(), gerarAcessos:(d,b)=>gerarAcessos(b),
-  novoLN:()=>novoLN(), salvarLN:()=>salvarLN(), removerLN:d=>removerLN(d.id), cadEstoque:()=>cadEstoque(), salvarEstoque:(d,b)=>salvarEstoque(b), baixarEstoque:d=>baixarEstoque(d.id),
+  novoLN:()=>novoLN(), salvarLN:()=>salvarLN(), removerLN:d=>removerLN(d.id), varreduraLaranja:()=>varreduraLaranja(), cadEstoque:()=>cadEstoque(), salvarEstoque:(d,b)=>salvarEstoque(b), baixarEstoque:d=>baixarEstoque(d.id),
   salvarMetas:()=>salvarMetas(), verRoubos:()=>verRoubos(), rouboTratado:d=>rouboTratado(d.id), rouboLiberar:d=>rouboLiberar(d.id),
   registrarContato:d=>registrarContato(d.id), salvarContato:(d,b)=>salvarContato(d.id,b), fecharCaixa:(d,b)=>fecharCaixa(b),
   copiarCobranca:d=>{ const it=(S._fila||[]).find(i=>i.v.id===d.id); if(!it) return; const t=msgCobranca(it); navigator.clipboard.writeText(t).then(()=>toast('Mensagem + PIX copiados','ok'),()=>prompt('Copie a mensagem:',t)); },
