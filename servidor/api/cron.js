@@ -226,10 +226,35 @@ export async function limitesDinamicos() {
   return n;
 }
 
+/* Resumo de indicações por indicador, carimbado no aparelho para o portal do cliente exibir o progresso. */
+export async function statsIndicacao(cfg) {
+  const bonus = Number(cfg.bonusIndicacao) || 0;
+  if (!bonus) return 0;
+  const vs = (await db.collection('vendas').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const num = (c) => Number(String(c || '').replace(/\D/g, ''));
+  const porInd = {};
+  vs.forEach((v) => {
+    const cod = v.cliente && v.cliente.indicacao; if (!cod) return;
+    const ni = num(cod); if (!ni) return;
+    const r = porInd[ni] || (porInd[ni] = { conv: 0, pend: 0 });
+    if (['ATIVA', 'QUITADA', 'RETOMADA'].includes(v.status)) r.conv++;
+    else if (!['REPROVADA', 'CANCELADA', 'RASCUNHO'].includes(v.status)) r.pend++;
+  });
+  let n = 0;
+  for (const ni of Object.keys(porInd)) {
+    const r = porInd[ni];
+    const ind = vs.find((v) => Number(v.numero) === Number(ni) && v.aparelhoToken && ['ATIVA', 'QUITADA'].includes(v.status));
+    if (!ind) continue;
+    await db.collection('aparelhos').doc(ind.aparelhoToken).set({ indicacaoInfo: { indicados: r.conv, pendentes: r.pend, ganho: r.conv * bonus, em: Date.now() } }, { merge: true });
+    n++;
+  }
+  return n;
+}
+
 export async function rotinas(qual) {
   const cfg = await config();
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } return { ...r, ...ios }; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();
   let aniv = {}; try { aniv = await aniversarioRotina(cfg); } catch (e) { console.error('aniversario', e.message); }
   try { Object.assign(aniv, await relatorioSemanal(cfg)); } catch (e) { console.error('relsemanal', e.message); }
