@@ -2454,7 +2454,7 @@ async function analisar(id){
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
-    ${blocoMotor(v)}<div id="fraudeBox"></div>
+    ${blocoMotor(v)}${blocoHistoricoNexum(v.clienteCpf, hist.concat([v]))}<div id="fraudeBox"></div>
     <div id="lnFace"></div><div id="serasaBox">${asaasLigado()?(v.serasa?`<div class="msg mt">Serasa consultado ${relT(v.serasa.em)}${v.serasa.link?` · <a href="${esc(v.serasa.link)}" target="_blank" rel="noopener">abrir relatório</a>`:''}</div>`:`<button class="btn sm mt" data-act="consultarSerasa" data-id="${id}">Consultar CPF no Serasa (Asaas, pago por consulta)</button>`):''}</div>${blocoVerificacoesExtra(v)}<div id="iaRev"></div>${docs.comprRenda||docs.comprEndereco?`<div class="row mt">${docs.comprRenda?`<a href="${docs.comprRenda}" target="_blank"><img src="${docs.comprRenda}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de renda"></a>`:''}${docs.comprEndereco?`<a href="${docs.comprEndereco}" target="_blank"><img src="${docs.comprEndereco}" style="height:90px;border-radius:8px;border:1px solid var(--line)" title="Comprovante de endereço"></a>`:''}</div>`:''}
     ${vipHtml(vip)}<div class="nota nota-${nota.cor}"><div><small>Nota interna do cliente</small><b>${nota.score}</b></div><div><small>Faixa</small><b>${nota.faixa}</b></div><div><small>Limite sugerido</small><b>${brl(nota.limite)}</b></div><div class="nota-txt">${nota.motivos.map(esc).join(' · ')}</div></div>
     <p class="small muted" style="margin-top:-8px">${esc(v.vendedorNome)} · ${esc(v.lojaNome)} · ${fmtDT(v.criadoEm)}</p>
@@ -6543,6 +6543,27 @@ function blocoMotor(v){
   const cor={APROVAR:'green',REPROVAR:'red',MANUAL:'amber'}[m.resultado], tit={APROVAR:'Motor de crédito: APROVAR',REPROVAR:'Motor de crédito: REPROVAR',MANUAL:'Motor de crédito: precisa da sua análise'}[m.resultado];
   return `<div class="msg mt" style="border-left:4px solid var(--${cor==='green'?'ok':cor==='red'?'bad':'warn'},#D97706)"><b>${tit}</b> · nota ${m.score} (${esc(m.faixa)}) · limite sugerido ${brl(m.limite)}${m.entradaMin?` · entrada mín. ${m.entradaMin}%`:''}${m.parcelaMax?` · parcela máx. ${brl(m.parcelaMax)} (${m.comprometimentoMax||''}% da renda)`:''}
     ${m.reprova?.length?`<div class="small" style="color:var(--bad)">✗ ${m.reprova.map(esc).join('<br>✗ ')}</div>`:''}${m.manual?.length?`<div class="small">⚠ ${m.manual.map(esc).join('<br>⚠ ')}</div>`:''}${m.ok?.length?`<div class="small muted">✓ ${m.ok.map(esc).join(' · ')}</div>`:''}</div>`;
+}
+/* Score Nexum: nota própria pelo histórico do cliente com a gente (substitui o bureau; foco em negativados). */
+function scoreNexum(cpf, vendas){
+  const meus=(vendas||[]).filter(v=>v.clienteCpf===cpf && !['RASCUNHO','CANCELADA','REPROVADA','ANALISE','REMOTA'].includes(v.status));
+  const h=hoje(); let pagas=0,emDia=0,atrasPagas=0,emAtraso=0,quitados=0,ativos=0;
+  meus.forEach(v=>{ if(v.status==='QUITADA') quitados++; if(['ATIVA','INSTALANDO'].includes(v.status)) ativos++;
+    (v.parcelas||[]).forEach(p=>{ if(p.pago){ pagas++; if(p.pagoEm&&p.pagoEm<=p.venc&&!p.acordo) emDia++; else if(p.pagoEm&&p.pagoEm>p.venc) atrasPagas++; }
+      else if(p.venc&&p.venc<h&&['ATIVA','INSTALANDO'].includes(v.status)) emAtraso++; }); });
+  const novo = pagas===0 && emAtraso===0, taxa = pagas?emDia/pagas:0;
+  const score = novo?500:Math.max(0,Math.min(1000,Math.round(300+600*taxa-atrasPagas*8-emAtraso*40+quitados*40)));
+  let faixa,cor;
+  if(novo){faixa='Cliente novo';cor='blue';} else if(emAtraso>0){faixa='Em atraso agora';cor='red';}
+  else if(score>=800){faixa='Ótimo pagador';cor='green';} else if(score>=650){faixa='Bom pagador';cor='green';}
+  else if(score>=450){faixa='Regular';cor='amber';} else {faixa='Atenção';cor='red';}
+  return {score,faixa,cor,novo,contratos:meus.length,pagas,emDia,atrasPagas,emAtraso,quitados,ativos};
+}
+function blocoHistoricoNexum(cpf, vendas){
+  if(!cpf) return '';
+  const s=scoreNexum(cpf,vendas), pct=s.pagas?Math.round(s.emDia/s.pagas*100):0, cvar={green:'ok',red:'bad',amber:'warn',blue:'navy'}[s.cor]||'navy';
+  return `<div class="msg mt" style="border-left:4px solid var(--${cvar},#1E3A8A)"><b>Score Nexum: ${s.score} · ${esc(s.faixa)}</b> <span class="muted small">— histórico do cliente com a gente, sem SPC/Serasa</span>
+    <div class="small" style="margin-top:4px">${s.novo?'Primeira compra no sistema: sem histórico ainda. Avalie por renda, entrada e a garantia (trava).':`${s.contratos} contrato(s) · ${s.quitados} quitado(s) · ${s.ativos} ativo(s) · <b>${pct}% das parcelas pagas em dia</b>${s.atrasPagas?` · ${s.atrasPagas} paga(s) com atraso`:''}${s.emAtraso?` · <b style="color:var(--bad)">${s.emAtraso} parcela(s) em atraso agora</b>`:''}`}</div></div>`;
 }
 async function fraudeEntreLojas(v){
   const R={...MOTOR_PADRAO,...(S.cfg.motor||{})}, desde=Date.now()-(+R.fraudeDias||7)*86400000, c=v.cliente||{}, tels=new Set(c.telefones||[]), em=String(c.email||'').trim().toLowerCase();
