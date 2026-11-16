@@ -2178,6 +2178,29 @@ async function limitesDinamicos() {
   }
   return n;
 }
+async function statsIndicacao(cfg) {
+  const bonus = Number(cfg.bonusIndicacao) || 0;
+  if (!bonus) return 0;
+  const vs = (await db.collection("vendas").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const num = (c) => Number(String(c || "").replace(/\D/g, ""));
+  const porInd = {};
+  vs.forEach((v) => {
+    const cod = v.cliente && v.cliente.indicacao; if (!cod) return;
+    const ni = num(cod); if (!ni) return;
+    const r = porInd[ni] || (porInd[ni] = { conv: 0, pend: 0 });
+    if (["ATIVA", "QUITADA", "RETOMADA"].includes(v.status)) r.conv++;
+    else if (!["REPROVADA", "CANCELADA", "RASCUNHO"].includes(v.status)) r.pend++;
+  });
+  let n = 0;
+  for (const ni of Object.keys(porInd)) {
+    const r = porInd[ni];
+    const ind = vs.find((v) => Number(v.numero) === Number(ni) && v.aparelhoToken && ["ATIVA", "QUITADA"].includes(v.status));
+    if (!ind) continue;
+    await db.collection("aparelhos").doc(ind.aparelhoToken).set({ indicacaoInfo: { indicados: r.conv, pendentes: r.pend, ganho: r.conv * bonus, em: Date.now() } }, { merge: true });
+    n++;
+  }
+  return n;
+}
 async function rotinas(qual) {
   const cfg = await config();
   let ios = {};
@@ -2232,6 +2255,11 @@ async function rotinas(qual) {
       r.limites = await limitesDinamicos();
     } catch (e) {
       console.error("limites", e.message);
+    }
+    try {
+      r.indicacoes = await statsIndicacao(cfg);
+    } catch (e) {
+      console.error("indicacoes", e.message);
     }
     return { ...r, ...ios };
   }
