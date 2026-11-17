@@ -2605,7 +2605,7 @@ async function mostrarQR(tk){
 async function sha256(txt){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(txt))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 const chaveAcesso = (cpf,nasc,tel) => sha256(`nexumcell|${onlyDig(cpf)}|${nasc}|${onlyDig(tel).slice(-4)}`);
 /* Device Tag: identificação do contrato começando com N (ex.: N00009). Deriva do nº do contrato — igual no app da trava. */
-const deviceTag = n => 'N'+String(n||0).padStart(5,'0');
+const deviceTag = n => 'N'+String(Math.max(0,Math.floor(+n||0))).split('').map(d=>'ABCDEFGHIJ'[+d]).join('');
 function distM(a,b){ const R=6371000, rad=x=>x*Math.PI/180, dLa=rad(b.lat-a.lat), dLo=rad(b.lng-a.lng); const s=Math.sin(dLa/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
 function minhaPosicao(){ return new Promise((ok,err)=>{ if(!navigator.geolocation) return err(new Error('Este aparelho não informa a localização.'));
   navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lng:p.coords.longitude,precisao:Math.round(p.coords.accuracy),em:Date.now()}),
