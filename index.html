@@ -2355,7 +2355,7 @@ async function verVenda(id){
         ${ap?`<dt>Trava</dt><dd>${badge(...apSituacao(ap))} ${apSeloFrp(ap)} <span class="small muted">${ap.checkin?.em?'último contato '+relT(ap.checkin.em):''}</span></dd>`:''}</dl></div>
     </div>
     ${docs?`<h3>Documento e biometria</h3><div class="docs-grid">${docs.selfie?`<figure><img src="${docs.selfie}"><figcaption>Biometria facial</figcaption></figure>`:''}${docs.frente?`<figure><img src="${docs.frente}"><figcaption>${esc(docs.docTipo||'Documento')} — frente</figcaption></figure>`:''}${docs.verso?`<figure><img src="${docs.verso}"><figcaption>Verso</figcaption></figure>`:''}</div>`:''}
-    ${selfieApp?.foto?`<h3>Selfie pelo app da trava</h3><div class="docs-grid"><figure><img src="${selfieApp.foto}"><figcaption>Selfie do app · ${relT(selfieApp.em)}${selfieApp.modelo?' · '+esc(selfieApp.modelo):''}</figcaption></figure>${docs?.selfie?`<figure><img src="${docs.selfie}"><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}"><figcaption>Documento</figcaption></figure>`:''}</div>${selfieApp.conferida?`<div class="msg"><small>Conferida por ${esc(selfieApp.conferidaPor||'')} · ${fmtDT(selfieApp.conferidaEm)}</small>É o mesmo cliente da proposta.</div>`:`<p class="small muted">É a mesma pessoa do documento e da proposta?</p><div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`}`:''}
+    ${selfieApp?.foto?`<h3>Selfie pelo app da trava</h3><div class="docs-grid"><figure><img src="${selfieApp.foto}"><figcaption>Selfie do app · ${relT(selfieApp.em)}${selfieApp.modelo?' · '+esc(selfieApp.modelo):''}</figcaption></figure>${docs?.selfie?`<figure><img src="${docs.selfie}"><figcaption>Selfie da proposta</figcaption></figure>`:''}${docs?.frente?`<figure><img src="${docs.frente}"><figcaption>Documento</figcaption></figure>`:''}</div>${selfieApp.conferida?`<div class="msg"><small>Conferida por ${esc(selfieApp.conferidaPor||'')} · ${fmtDT(selfieApp.conferidaEm)}</small>É o mesmo cliente da proposta.</div>`:`<div id="sfAuto" class="small" style="margin:6px 0">${selfieApp.iaChecada?`<span style="color:var(--amber)">A IA não confirmou automaticamente${selfieApp.iaResultado?.m?` (confere: ${esc(selfieApp.iaResultado.m)}${selfieApp.iaResultado.c!=null?`, ${selfieApp.iaResultado.c}%`:''})`:''}. Confira manualmente.</span>`:'<span class="spin"></span> Conferindo com a IA…'}</div><p class="small muted">É a mesma pessoa do documento e da proposta?</p><div class="row" style="justify-content:flex-end;gap:8px"><button class="btn red" data-act="sfNao">Não é o cliente</button><button class="btn gold" data-act="sfOk" data-tk="${v.aparelhoToken}" data-id="${v.id}">É o mesmo cliente</button></div>`}`:''}
     ${v.obsVendedor?`<div class="msg"><small>Obs. do vendedor</small>${esc(v.obsVendedor)}</div>`:''}
     ${a?`<h3>Análise de crédito</h3><div class="msg"><small>${esc(a.porNome)} · ${fmtDT(a.em)}</small><b>${a.resultado==='APROVADA'?'Aprovada':'Reprovada'}</b>${can('DONO','FINANCEIRO','SUPORTE')?` · score ${a.score||'—'}${a.obs?' · '+esc(a.obs):''}`:''}</div>`:''}
     ${['ATIVA','QUITADA','RETOMADA'].includes(v.status)?`<h3>Parcelas</h3>${parcelasTabela(v,podeBaixar)}`:''}
@@ -2377,6 +2377,22 @@ async function verVenda(id){
       ${['INSTALANDO','AGUARDANDO_ENTRADA'].includes(v.status)&&v.aparelho&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="deixarPendente" data-id="${v.id}">Cancelar e deixar o cliente pendente</button>`:''}
       ${podeCancelar?`<button class="btn red" data-act="cancelarVenda" data-id="${v.id}">Cancelar venda</button>`:''}
     </div>`, true);
+  if(selfieApp&&selfieApp.foto&&!selfieApp.conferida&&!selfieApp.iaChecada&&docs?.frente&&iaChave()) autoConferirSelfieApp(v.id,v.aparelhoToken,selfieApp.foto,docs.frente);
+}
+/* Confere automaticamente a selfie do app contra o documento. Marca "conferida" só quando a IA tem certeza (mesma pessoa, sem foto de tela, confiança alta); senão deixa para o humano. */
+async function autoConferirSelfieApp(id,tk,selfieFoto,docFrente){
+  try{
+    const r=await iaVisao(PROMPT_FACE,[selfieFoto,docFrente],400);
+    const ok=r.rosto_detectado&&r.quantidade_rostos===1&&!r.foto_de_tela_ou_papel&&r.mesma_pessoa==='sim'&&(r.confianca==null||r.confianca>=80);
+    if(ok){
+      await DB.set('selfiesApp',tk,{conferida:true,conferidaPor:'IA (automático)',conferidaEm:Date.now(),iaConf:r.confianca??null});
+      await log('Selfie do app conferida pela IA',id,`mesma pessoa${r.confianca!=null?` (${r.confianca}%)`:''}`);
+      if($('#view')) verVenda(id);
+    }else{
+      await DB.set('selfiesApp',tk,{iaChecada:true,iaResultado:{m:r.mesma_pessoa||'incerto',c:r.confianca??null,tela:!!r.foto_de_tela_ou_papel}});
+      const box=$('#sfAuto'); if(box) box.innerHTML=`<span style="color:var(--amber)">A IA não confirmou automaticamente${r.mesma_pessoa?` (confere: ${esc(r.mesma_pessoa)}${r.confianca!=null?`, ${r.confianca}%`:''})`:''}. Confira manualmente.</span>`;
+    }
+  }catch(e){ const box=$('#sfAuto'); if(box) box.innerHTML='<span class="small muted">IA indisponível agora — confira manualmente.</span>'; }
 }
 /* Desfaz a venda do APARELHO, mas mantém o crédito aprovado: o cliente volta para "Crédito aprovado" e escolhe o celular depois.
    O aparelho volta ao estoque, a trava gerada é anulada e a entrada já recebida fica guardada como crédito para a próxima escolha. */
