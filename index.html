@@ -9397,6 +9397,91 @@ async function seguroEnviar(v){
   const ult=[...$('#view').querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else $('#view').insertAdjacentHTML('beforeend',html);
 }; }
 
+
+/* ===================== TRAVA EM SUBTELAS + CANCELAR VENDA (nov/2026) ===================== */
+document.head.insertAdjacentHTML('beforeend',`<style id="travaSubCss">
+.ts-tit{font-size:17px;font-weight:700;margin:4px 0 4px;color:var(--txt,#0F172A)}
+.ts-sub{color:var(--mut,#64748B);font-size:13.5px;margin:0 0 16px}
+.ts-opcoes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ts-op{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:#fff;border:1.5px solid var(--line,#E5E9F2);border-radius:16px;padding:20px;cursor:pointer;font:inherit;color:inherit;transition:border-color .15s,box-shadow .15s}
+.ts-op:hover:not([disabled]){border-color:#1D4ED8;box-shadow:0 6px 18px rgba(29,78,216,.12)}
+.ts-op[disabled]{opacity:.55;cursor:not-allowed}
+.ts-op .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:#EAF0FF;color:#1D4ED8;margin-bottom:4px}
+.ts-op .ic svg{width:26px;height:26px}
+.ts-op b{font-size:16px}.ts-op span{font-size:13px;color:var(--mut,#64748B)}
+.ts-op em{font-style:normal;font-size:11.5px;font-weight:700;color:#0E9F6E;background:#E7F7F0;border-radius:99px;padding:2px 9px}
+.ts-aviso{margin-top:16px;background:#FEF3E2;border:1px solid #F5D9A8;color:#7A4A06;border-radius:12px;padding:10px 14px;font-size:13px}
+.ts-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ts-top b{font-size:15px}.ts-top small{display:block;color:var(--mut,#64748B);font-size:12px;font-weight:500}
+.ts-qr{display:flex;flex-direction:column;align-items:center;gap:10px}
+.ts-qr .qr{max-width:320px;width:100%}
+.ts-status{margin-top:14px}
+.ts-fim{display:flex;justify-content:flex-end;margin-top:16px}
+@media(max-width:700px){.ts-opcoes{grid-template-columns:1fr}}
+.cv-mot{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.cv-mot button{border:1.5px solid var(--line,#E5E9F2);background:#fff;border-radius:99px;padding:8px 14px;font:inherit;font-size:13.5px;cursor:pointer;color:var(--txt,#0F172A)}
+.cv-mot button.on{border-color:#1D4ED8;background:#EAF0FF;color:#1D4ED8;font-weight:600}
+.cv-lista{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:8px}
+.cv-lista li{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.cv-lista li svg{width:18px;height:18px;flex:none;color:#0E9F6E;margin-top:1px}
+</style>`);
+function travaSubtelas(){
+  const card=$('#wz .card'), st=$('#instStatus'), pc=$('#instPc'), grid=card?.querySelector('.grid.g2');
+  if(!card||!st||!pc||!grid||card.dataset.ts) return;
+  card.dataset.ts='1';
+  const semUsb=/não disponível/i.test(pc.querySelector('summary')?.textContent||'');
+  const left=grid.children[0], right=grid.children[1], qr=right.querySelector('.qr'), qrBtn=$('#vrQrBtn')?.parentElement, contr=right.querySelector('p.small'), ajuda=$('#instAjuda');
+  const passos=card.querySelector('.vr-passos'), aviso=card.querySelector('.warn.mb'), rod=[...card.children].filter(x=>x.classList.contains('row')).pop();
+  const ic={qr:'<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3z"/>',usb:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'};
+  const box=document.createElement('div');
+  box.innerHTML=`<div data-ts="escolha"><p class="ts-tit">Como você vai instalar a trava?</p><p class="ts-sub">Escolha uma forma. Você pode trocar depois, se precisar.</p>
+      <div class="ts-opcoes"><button class="ts-op" data-tsgo="prep"><div class="ic">${svg(ic.qr)}</div><em>Recomendado</em><b>Pelo QR Code</b><span>Só o aparelho e o Wi-Fi da loja. Leva poucos minutos.</span></button>
+      <button class="ts-op" data-tsgo="usb" ${semUsb?'disabled':''}><div class="ic">${svg(ic.usb)}</div><b>Pelo cabo USB</b><span>${semUsb?'Não disponível para Xiaomi, Redmi e POCO.':'Com o computador da loja, quando o QR não funcionar.'}</span></button></div>
+      <div class="ts-aviso"><b>Importante:</b> a venda só termina quando a trava subir no aparelho. Não entregue o celular antes da confirmação.</div></div>
+    <div data-ts="prep" hidden><div class="ts-top"><button class="btn sm" data-tsgo="escolha">← Voltar</button><div><small>Pelo QR Code · etapa 1 de 2</small><b>Prepare o aparelho</b></div></div><div class="ts-slot-passos"></div><div class="ts-slot-video"></div>
+      <div class="ts-fim"><button class="btn gold lg" data-tsgo="qr">O aparelho está pronto · mostrar o QR →</button></div></div>
+    <div data-ts="qr" hidden><div class="ts-top"><button class="btn sm" data-tsgo="prep">← Voltar</button><div><small>Pelo QR Code · etapa 2 de 2</small><b>Leia o QR com o aparelho</b></div></div><div class="ts-qr"></div></div>
+    <div data-ts="usb" hidden><div class="ts-top"><button class="btn sm" data-tsgo="escolha">← Voltar</button><div><small>Pelo cabo USB</small><b>Instale pelo computador</b></div></div><div class="ts-slot-usb"></div></div>
+    <div class="ts-status" hidden></div>`;
+  if(passos) box.querySelector('.ts-slot-passos').appendChild(passos);
+  box.querySelector('.ts-slot-video').appendChild(left);
+  const q=box.querySelector('.ts-qr'); [qr,qrBtn,contr].forEach(x=>x&&q.appendChild(x));
+  pc.open=true; pc.querySelector('summary')?.remove(); box.querySelector('.ts-slot-usb').appendChild(pc);
+  const sbox=box.querySelector('.ts-status'); sbox.appendChild(st); ajuda&&sbox.appendChild(ajuda);
+  aviso?.remove(); grid.replaceWith(box);
+  const ir=t=>{ S.w.travaSub=t; box.querySelectorAll('[data-ts]').forEach(x=>x.hidden=x.dataset.ts!==t); sbox.hidden=!(t==='qr'||t==='usb'||/\b(ok|bad)\b/.test(st.className)); $('.content')&&($('.content').scrollTop=0); };
+  box.addEventListener('click',e=>{ const b=e.target.closest('[data-tsgo]'); if(b&&!b.disabled){ e.preventDefault(); ir(b.dataset.tsgo); } });
+  new MutationObserver(()=>{ if(/\b(ok|bad)\b/.test(st.className)) sbox.hidden=false; }).observe(st,{attributes:true,attributeFilter:['class']});
+  ir(S.w.travaSub||'escolha');
+}
+{ const _ptS=passoTrava; passoTrava=async function(...a){ const r=await _ptS.apply(this,a); try{ travaSubtelas(); }catch(e){ console.warn('subtelas trava',e); } return r; }; }
+{ const _nv2=novoFluxo; novoFluxo=function(...a){ const r=_nv2.apply(this,a); if(S.w) S.w.travaSub=null; return r; }; }
+
+/* cancelar venda: janela própria no lugar da caixa do navegador */
+{ const _dp=deixarPendente; deixarPendente=async function(id,btn){
+  const v=await DB.get('vendas',id); if(!v||!['INSTALANDO','AGUARDANDO_ENTRADA'].includes(v.status)) return toast('Esta venda não pode mais ser desfeita por aqui','err');
+  const ent=v.entradaPaga?.valor||0, ap=`${v.aparelho?.marca||''} ${v.aparelho?.modelo||''}`.trim()||'aparelho', ok='<path d="M20 6 9 17l-5-5"/>';
+  const MOT=['A trava não instalou','O cliente desistiu deste aparelho','O cliente vai trocar de modelo','Aparelho com defeito','Outro motivo'];
+  openModal(`<h2>Cancelar a venda deste aparelho</h2>
+    <p class="muted" style="margin-top:-4px">Venda nº ${v.numero} · ${esc(ap)} · ${esc(v.clienteNome||'')}</p>
+    <div class="msg mt" style="border-left:4px solid #1D4ED8"><b>O crédito de ${esc(primeiroNome(v.clienteNome))} continua aprovado.</b> Ele poderá escolher outro aparelho depois, em Vendas, sem uma nova análise.</div>
+    <ul class="cv-lista">
+      <li>${svg(ok)}<span>O ${esc(ap)} volta para o estoque da loja.</span></li>
+      <li>${svg(ok)}<span>O contrato e a trava desta venda são anulados.</span></li>
+      ${ent?`<li>${svg(ok)}<span>A entrada de <b>${brl(ent)}</b> já recebida fica guardada como crédito para a próxima escolha.</span></li>`:''}
+    </ul>
+    <h3 class="mt">Motivo</h3><div class="cv-mot">${MOT.map((m,i)=>`<button type="button" data-cvm="${esc(m)}" class="${i?'':'on'}">${esc(m)}</button>`).join('')}</div>
+    <textarea id="cvObs" rows="2" placeholder="Detalhe (opcional)"></textarea>
+    <div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" id="cvVoltar">Voltar</button><button class="btn red" id="cvOk">Cancelar a venda e manter o crédito</button></div>`);
+  let mot=MOT[0];
+  document.querySelectorAll('[data-cvm]').forEach(b=>b.onclick=()=>{ mot=b.dataset.cvm; document.querySelectorAll('[data-cvm]').forEach(x=>x.classList.toggle('on',x===b)); });
+  $('#cvVoltar').onclick=()=>closeModal();
+  $('#cvOk').onclick=async()=>{ const obs=$('#cvObs').value.trim(); if(mot==='Outro motivo'&&!obs) return toast('Escreva o motivo','err');
+    const motivo=mot==='Outro motivo'?obs:(obs?`${mot}: ${obs}`:mot); $('#cvOk').disabled=true;
+    const _p=window.prompt; window.prompt=()=>motivo; try{ await _dp.call(this,id,btn); } finally{ window.prompt=_p; } };
+}; }
+Object.assign(ACT,{ deixarPendente:(d,b)=>deixarPendente(d.id,b) });
+
 </script>
 </body>
 </html>
