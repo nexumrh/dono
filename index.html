@@ -661,7 +661,7 @@ function apSeloFrp(ap){
   const ck=ap?.checkin;
   if(!ck?.em||ap.quitado||ap.status==='QUITADO'||ap.status==='CANCELADO'||ap.semTrava||ck.finalizado) return '';
   if(ck.deviceOwner===false) return ''; // modo link: FRP não se aplica
-  if(ck.frpOk===true) return badge('🔒 Reset protegido','green');
+  if(ck.frpOk===true) return badge('Reset protegido','green');
   if(ck.frpOk===false) return badge('⚠️ Vulnerável a reset','red');
   return ''; // app antigo ainda não reporta o FRP
 }
@@ -4272,10 +4272,10 @@ async function blocoResumo(){
   if(!can('DONO')) return '';
   const h=hoje(), ontem=addDays(h,-1);
   const r=await DB.get('notificacoes','resumo-'+h).catch(()=>null)||await DB.get('notificacoes','resumo-'+ontem).catch(()=>null);
-  if(!r) return `<div class="card mb"><div class="row" style="justify-content:space-between"><div><b>🌙 Resumo do dia</b><br><span class="small muted">Todo dia às 19h o servidor manda o resumo das vendas, recebimentos e atrasos ${S.cfg.resumoEmail!=='nao'?'por e-mail ':''}e aparece aqui.</span></div>
+  if(!r) return `<div class="card mb"><div class="row" style="justify-content:space-between"><div><b>Resumo do dia</b><br><span class="small muted">Todo dia às 19h o servidor manda o resumo das vendas, recebimentos e atrasos ${S.cfg.resumoEmail!=='nao'?'por e-mail ':''}e aparece aqui.</span></div>
     <button class="btn sm" data-act="rodarRotina" data-q="noite">Gerar o resumo agora</button></div></div>`;
   const n=r.numeros||{};
-  return `<div class="card mb" style="border-color:#C9D6F2;background:#F6F9FF"><div class="row" style="justify-content:space-between"><b>🌙 ${esc(r.titulo)}</b><span class="small muted">${fmtDT(r.em)}</span></div>
+  return `<div class="card mb" style="border-color:#C9D6F2;background:#F6F9FF"><div class="row" style="justify-content:space-between"><b>${esc(r.titulo)}</b><span class="small muted">${fmtDT(r.em)}</span></div>
     <div class="kpis mt" style="margin-bottom:0"><div class="kpi"><small>Vendas</small><b>${n.vendas??'-'}</b><span>entradas ${brl(n.entradas||0)}</span></div><div class="kpi"><small>Parcelas recebidas</small><b style="color:var(--ok)">${brl(n.recebido||0)}</b><span>${n.parcelas||0} parcela(s)</span></div>
     <div class="kpi"><small>Em atraso</small><b style="color:var(--bad)">${n.atrasados||0}</b><span>${brl(n.atrasoValor||0)}</span></div><div class="kpi"><small>Esperando análise</small><b>${n.analise||0}</b><span>propostas</span></div></div>
     <div class="row mt"><button class="btn sm" data-act="rodarRotina" data-q="noite">Atualizar agora</button></div></div>`;
@@ -7149,7 +7149,7 @@ Object.assign(ACT,{ baixarInstPc:async d=>{ const v=await DB.get('vendas',d.id);
 { const _at=avisoTravas; avisoTravas=async(...a)=>{ await _at(...a); try{ if(can('VENDEDOR')) return; const box=$('#avisoTrava'); if(!box) return;
   const l=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.modo==='link'&&x.checkin?.adminAtivo===false);
   if(l.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${l.length} cliente(s) desativaram a proteção do app (instalação por link)</b><span>${l.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. O aparelho foi travado; ligue para o cliente.</span></div>`);
-  if(can('DONO','FINANCEIRO')&&!String(S.cfg.frpContas||'').trim()) box.insertAdjacentHTML('afterbegin',`<div class="aviso-trava bad" data-act="go" data-tab="config"><span style="font-size:20px;line-height:1">🔒</span><b>Proteção contra reset de fábrica DESLIGADA</b><span>O campo FRP está vazio. Sem o ID da conta Google da loja, o cliente consegue zerar o aparelho pelos botões (recovery) e tirar a trava. Toque para configurar em “Lojas e configurações”.</span></div>`);
+  if(can('DONO','FINANCEIRO')&&!String(S.cfg.frpContas||'').trim()) box.insertAdjacentHTML('afterbegin',`<div class="aviso-trava bad" data-act="go" data-tab="config">${svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>')}<b>Proteção contra reset de fábrica DESLIGADA</b><span>O campo FRP está vazio. Sem o ID da conta Google da loja, o cliente consegue zerar o aparelho pelos botões (recovery) e tirar a trava. Toque para configurar em “Lojas e configurações”.</span></div>`);
   const cb=(await loadAparelhos().catch(()=>[])).filter(x=>x.status==='ATIVO'&&!x.quitado&&x.checkin?.codigoBloqueado===true);
   if(cb.length) box.insertAdjacentHTML('beforeend',`<div class="aviso-trava bad" data-act="go" data-tab="aparelhos">${svg(IC.aparelhos)}<b>${cb.length} aparelho(s) com muitas tentativas de código de remoção</b><span>${cb.map(x=>esc(x.clienteNome)).slice(0,3).join(', ')}. Pode ser tentativa de burlar a trava — confira.</span></div>`); }catch(e){} }; }
 
@@ -8682,6 +8682,119 @@ Object.assign(ACT,{
 });
 
 window.__nx={S,DB,avaliar,payloadProvisionamento,telaRestrito,scriptInstPc:(...a)=>scriptInstPc(...a)};
+
+/* ===================== PAINEL DO DONO ORGANIZADO (nov/2026) =====================
+   - Visual no padrão NexumCell (mesmo azul e cantos do app e do portal do vendedor)
+   - Busca no menu (Ctrl+K) para achar qualquer tela
+   - Caminho da tela no topo (grupo › tela)
+   - Avisos fixos compactados numa faixa só fora do Painel (abre com um toque)
+   - Painel começa com "Precisa de você agora" e atalhos
+   - Ícones para todas as telas; sem emojis nos títulos */
+document.head.insertAdjacentHTML('beforeend',`<style id="donoOrgCss">
+:root{--pri:#1D4ED8;--pri-d:#1E40AF;--pri-s:#EAF0FF;--ok:#0E9F6E;--ok-s:#E7F7F0;--bad:#DC2626;--bad-s:#FDECEC;--warn:#B45309;--warn-s:#FEF3E2;
+  --bg:#F3F5FA;--line:#E5E9F2;--line2:#EEF1F7;--txt:#0F172A;--mut:#64748B;--r:16px;--rs:10px}
+.card{border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 14px rgba(15,23,42,.04)}
+.kpis{border-radius:16px}.card.tablewrap{overflow:hidden}
+.btn{border-radius:10px}
+.top{gap:12px}
+.dn-crumb{display:block;font-size:12px;font-weight:500;color:var(--mut);letter-spacing:.02em;margin-bottom:2px}
+#title{display:flex;flex-direction:column;justify-content:center;line-height:1.15}
+.dn-busca{margin:4px 14px 10px;position:relative}
+.dn-busca input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:9px 12px 9px 34px;min-height:38px;font-size:14px}
+.dn-busca input::placeholder{color:rgba(255,255,255,.55)}
+.dn-busca input:focus{border-color:#5B8CFF;box-shadow:0 0 0 3px rgba(91,140,255,.25);background:rgba(255,255,255,.12)}
+.dn-busca svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:rgba(255,255,255,.6)}
+.dn-busca kbd{position:absolute;right:9px;top:50%;transform:translateY(-50%);font:11px var(--f);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.2);border-radius:5px;padding:1px 5px}
+.dn-vazio{padding:10px 18px;color:rgba(255,255,255,.6);font-size:13px}
+.dn-avisos{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:12px;padding:10px 14px;margin-bottom:16px;cursor:pointer;font-size:14px}
+.dn-avisos.leve{border-left-color:var(--warn)}
+.dn-avisos b{flex:1}.dn-avisos span{color:var(--mut);font-size:13px}
+.dn-avisos i{font-style:normal;background:var(--bad-s);color:var(--bad);font-weight:700;border-radius:99px;padding:2px 9px;font-size:12.5px}
+.dn-avisos.leve i{background:var(--warn-s);color:var(--warn)}
+.dn-atencao{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}@media(max-width:900px){.dn-atencao{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dn-at{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:border-color .15s,box-shadow .15s}
+.dn-at:hover{border-color:#BFD0F5;box-shadow:0 4px 14px rgba(29,78,216,.08)}
+.dn-at b{font-size:26px;letter-spacing:-.02em}.dn-at small{font-size:13px;color:var(--mut);font-weight:500}
+.dn-at.zero b{color:var(--mut)}.dn-at.tem b{color:var(--pri)}.dn-at.urg b{color:var(--bad)}
+.dn-sec{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
+.dn-sec h2{font-size:15px;margin:0}
+.dn-atalhos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.dn-atalhos .btn svg{width:17px;height:17px}
+</style>`);
+
+/* ícones para telas que não tinham */
+Object.assign(IC,{
+  suporteTrava: IC.suporteTrava||'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 11V9a2 2 0 0 1 4 0v2M9.5 11h5v4h-5z"/>',
+  comercial: IC.comercial||'<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
+  equipeNexum: IC.equipeNexum||'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+  suporteApp: IC.suporteApp||'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/>',
+});
+for(const t of TABS){ if(!IC[t.id]) IC[t.id]='<circle cx="12" cy="12" r="8"/>'; }
+
+/* busca no menu */
+let dnBusca='';
+function dnNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function dnGrupoDe(id){ const g=NAV_GRUPOS.find(([n,ids])=>n&&ids.includes(id)); return g?g[0]:''; }
+{ const _rn=renderNav; renderNav=async function(){
+  const side=$('#side'), nav=$('#nav');
+  if(side&&nav&&!$('#dnBusca')&&minhasAbas().length>=10){
+    nav.insertAdjacentHTML('beforebegin',`<div class="dn-busca">${svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')}<input id="dnBusca" type="search" placeholder="Buscar tela…" autocomplete="off"><kbd>Ctrl K</kbd></div>`);
+    const inp=$('#dnBusca');
+    inp.addEventListener('input',()=>{ dnBusca=inp.value; renderNav(); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const b=$('#nav button[data-act="go"]'); if(b){ b.click(); inp.value=''; dnBusca=''; inp.blur(); } } if(e.key==='Escape'){ inp.value=''; dnBusca=''; renderNav(); inp.blur(); } });
+  }
+  if(!dnBusca.trim()) return _rn.apply(this,arguments);
+  const q=dnNorm(dnBusca), pend=S._pend||{};
+  const its=minhasAbas().filter(t=>dnNorm(t.label+' '+dnGrupoDe(t.id)).includes(q));
+  nav.innerHTML=its.map(t=>`<button data-act="go" data-tab="${t.id}" class="${S.tab===t.id?'on':''}">${svg(IC[t.id])}<span>${t.label}</span>${pend[t.id]?`<span class="cnt">${pend[t.id]}</span>`:''}</button>`).join('')||'<div class="dn-vazio">Nenhuma tela encontrada</div>';
+}; }
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ const i=$('#dnBusca'); if(i){ e.preventDefault(); document.body.classList.add('nav-open'); i.focus(); i.select(); } } });
+
+/* caminho da tela no topo */
+{ const _r=render; render=async function(){
+  const r=_r.apply(this,arguments);
+  try{ const t=TABS.find(x=>x.id===S.tab), g=dnGrupoDe(S.tab), h=$('#title');
+    if(h&&t) h.innerHTML=(g?`<span class="dn-crumb">${esc(g)}</span>`:'')+esc(t.label);
+    if(dnBusca){ dnBusca=''; const i=$('#dnBusca'); if(i) i.value=''; } }catch(e){}
+  return r; }; }
+
+/* avisos fixos: no Painel aparecem completos; nas outras telas viram uma faixa só */
+let dnAvisosAbertos=false;
+{ const _av=avisoTravas; avisoTravas=async function(){
+  await _av.apply(this,arguments);
+  const box=$('#avisoTrava'); if(!box) return;
+  const itens=[...box.querySelectorAll(':scope > .aviso-trava')];
+  if(S.tab==='painel'||S.tab==='inicio'||itens.length<2||dnAvisosAbertos) return;
+  const graves=itens.filter(x=>x.classList.contains('bad')).length;
+  const titulos=itens.map(x=>x.querySelector('b')?.textContent||'').filter(Boolean);
+  itens.forEach(x=>x.hidden=true);
+  box.insertAdjacentHTML('afterbegin',`<div class="dn-avisos ${graves?'':'leve'}" id="dnAvisos"><i>${itens.length}</i><b>${itens.length} avisos precisam de atenção</b><span>${esc(titulos.slice(0,2).join(' · '))}${titulos.length>2?' …':''}</span><span style="color:var(--pri);font-weight:600">Ver</span></div>`);
+  $('#dnAvisos').addEventListener('click',()=>{ dnAvisosAbertos=true; $('#dnAvisos').remove(); itens.forEach(x=>x.hidden=false); });
+}; }
+
+/* Painel: o que precisa do dono agora + atalhos */
+{ const _pp=PAGES.painel; PAGES.painel=async function(){
+  await _pp.apply(this,arguments);
+  if(!can('DONO','FINANCEIRO')) return;
+  const view=$('#view'); if(!view) return;
+  let p={}; try{ p=await contarPendencias(); }catch(e){}
+  let atraso=0, instalando=0;
+  try{ const vs=await loadVendas(); instalando=vs.filter(v=>v.status==='INSTALANDO').length;
+    vs.filter(v=>v.status==='ATIVA').forEach(v=>(v.parcelas||[]).forEach(x=>{ if(!x.pago&&stParc(x)==='atraso') atraso++; })); }catch(e){}
+  const abas=new Set(minhasAbas().map(t=>t.id));
+  const tiles=[
+    ['analise',p.analise,'Propostas para analisar',1],['aprovacoes',p.aprovacoes,'Aprovações pendentes',1],['preanalises',p.preanalises,'Pré-análises online',0],
+    ['cobranca',atraso,'Parcelas em atraso',1],['aparelhos',instalando,'Travas instalando',0],['atendimentos',p.atendimentos,'Clientes esperando no chat',1],
+    ['pedidos',p.pedidos,'Pedidos de clientes',0],['chamados',p.chamados,'Chamados abertos',0],
+  ].filter(([t])=>abas.has(t));
+  const total=tiles.reduce((s,x)=>s+(+x[1]||0),0);
+  const atalho=(t,txt,ouro)=>abas.has(t)?`<button class="btn ${ouro?'gold':''}" data-act="go" data-tab="${t}">${svg(IC[t])}${txt}</button>`:'';
+  view.insertAdjacentHTML('afterbegin',`
+    <div class="dn-sec"><h2>${total?'Precisa de você agora':'Tudo em dia'}</h2><span class="small muted">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}</span></div>
+    <div class="dn-atencao">${tiles.map(([t,q,txt,urg])=>`<div class="dn-at ${!q?'zero':urg?'urg':'tem'}" data-act="go" data-tab="${t}"><b>${q||0}</b><small>${txt}</small></div>`).join('')}</div>
+    <div class="dn-atalhos">${atalho('analise','Analisar crédito',1)}${atalho('cobranca','Cobrança')}${atalho('aparelhos','Aparelhos e trava')}${atalho('repasses','Repasses')}${atalho('relDono','Relatórios')}${atalho('lojas','Lojas parceiras')}</div>`);
+}; }
+
 </script>
 </body>
 </html>
