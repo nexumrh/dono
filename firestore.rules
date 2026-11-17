@@ -17,7 +17,9 @@ service cloud.firestore {
       return hasRole(['DONO'])
         || (request.resource.data.get('dispositivoId', '') is string
             && exists(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid))
-            && get(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid)).data.status == 'APROVADO');
+            && get(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid)).data.status == 'APROVADO'
+            // a aprovação vence se o gerente não fizer a revisão mensal
+            && get(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid)).data.get('validoAte', 0) > request.time.toMillis());
     }
     // E-mail do dono: entra em todos os portais com perfil de Dono
     function donoEmail() { return signed() && request.auth.token.email == 'wevellenerrera21@gmail.com'; }
@@ -173,16 +175,46 @@ service cloud.firestore {
     }
     // ---------- Notebooks autorizados: vendedor/gerente cadastra o próprio; suporte ou dono aprova ----------
     match /dispositivos/{id} {
-      allow read: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO']) || (signed() && resource.data.uid == request.auth.uid);
+      allow read: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO']) || (signed() && resource.data.uid == request.auth.uid)
+                  || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.uid == request.auth.uid
-                    && id == request.resource.data.id + '_' + request.auth.uid
+                    && id == request.resource.data.nb + '_' + request.auth.uid
                     && request.resource.data.status == 'PENDENTE';
       // a própria pessoa só pede de novo (volta para PENDENTE); aprovar, reprovar e retirar é do suporte e do dono
       allow update: if hasRole(['DONO', 'SUPORTE'])
                     || (hasRole(['VENDEDOR', 'GERENTE']) && resource.data.uid == request.auth.uid
-                        && request.resource.data.uid == request.auth.uid && request.resource.data.id == resource.data.id
-                        && resource.data.status != 'APROVADO' && request.resource.data.status == 'PENDENTE');
+                        && request.resource.data.uid == request.auth.uid && request.resource.data.nb == resource.data.nb
+                        && resource.data.status != 'APROVADO' && request.resource.data.status == 'PENDENTE'
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['validoAte']))
+                    // gerente: revisão mensal dos notebooks da loja (confirma por até 36 dias ou retira a autorização)
+                    || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId && resource.data.status == 'APROVADO'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revisadoEm', 'revisadoPor', 'validoAte', 'status', 'motivo'])
+                        && request.resource.data.status in ['APROVADO', 'REVOGADO']
+                        && request.resource.data.get('validoAte', 0) <= request.time.toMillis() + 36 * 86400000);
       allow delete: if hasRole(['DONO']);
+    }
+
+    // ---------- Segurança das vendas ----------
+    // rosto de cadastro do vendedor: a própria pessoa cadastra uma vez; só o dono apaga para refazer
+    match /rostos/{uid} {
+      allow read: if hasRole(['DONO', 'SUPORTE']) || (signed() && request.auth.uid == uid);
+      allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.auth.uid == uid && request.resource.data.uid == uid;
+      allow update: if hasRole(['DONO'])
+                    || (hasRole(['VENDEDOR', 'GERENTE']) && request.auth.uid == uid && resource.data.get('foto', null) == null && request.resource.data.uid == uid);
+    }
+    // alertas automáticos (venda suspeita, rosto que não confere, fora do horário, fora da loja...)
+    match /alertasSeg/{id} {
+      allow create: if staff() && request.resource.data.uid == request.auth.uid && request.resource.data.visto == false;
+      allow read, update: if hasRole(['DONO', 'SUPORTE']);
+    }
+    // registro de acessos aos portais
+    match /acessos/{id} {
+      allow create: if signed() && !anon() && request.resource.data.uid == request.auth.uid;
+      allow read: if hasRole(['DONO', 'SUPORTE']);
+    }
+    // CPF que tentou comprar em cada loja (para avisar quando o mesmo cliente tenta em outra loja)
+    match /tentativasCpf/{cpf} {
+      allow read, create, update: if staff();
     }
 
     match /vendas/{id} {

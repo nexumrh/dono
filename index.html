@@ -8907,8 +8907,8 @@ PAGES.meuNotebook=async()=>{
       <li>O suporte ou o dono da NexumCell confere e aprova. Até lá, a nova venda fica bloqueada neste notebook.</li>
       <li>Em cada venda a localização é conferida de novo: fora da loja, a venda não sai.</li></ol>
       <p class="small muted" style="margin:10px 0 0">Limpou os dados do navegador ou trocou de notebook? Cadastre de novo: cada notebook tem a sua autorização.</p></div>
-    ${meus.length>1||(meus.length===1&&meus[0].id!==nbId())?`<div class="card mt"><h2>Meus notebooks</h2><table><tr><th>Nome</th><th>Identificação</th><th>Aparelho</th><th>Situação</th></tr>
-      ${meus.map(x=>`<tr><td>${esc(x.apelido||'—')}${x.id===nbId()?' '+badge('este','blue'):''}</td><td class="mono">${esc(x.id||'')}</td><td>${esc(x.so||'')} · ${esc(x.navegador||'')}</td><td>${badge(NB_ST[x.status]?.[0]||x.status,NB_ST[x.status]?.[1]||'gray')}</td></tr>`).join('')}</table></div>`:''}`;
+    ${meus.length>1||(meus.length===1&&meus[0].nb!==nbId())?`<div class="card mt"><h2>Meus notebooks</h2><table><tr><th>Nome</th><th>Identificação</th><th>Aparelho</th><th>Situação</th></tr>
+      ${meus.map(x=>`<tr><td>${esc(x.apelido||'—')}${(x.nb||'')===nbId()?' '+badge('este','blue'):''}</td><td class="mono">${esc(x.nb||String(x.id||'').replace('_'+x.uid,''))}</td><td>${esc(x.so||'')} · ${esc(x.navegador||'')}</td><td>${badge(NB_ST[x.status]?.[0]||x.status,NB_ST[x.status]?.[1]||'gray')}</td></tr>`).join('')}</table></div>`:''}`;
 };
 async function nbCadastrar(btn){
   const msg=$('#nbMsg'), apelido=($('#nbApelido')?.value||'').trim();
@@ -8923,7 +8923,7 @@ async function nbCadastrar(btn){
     return toast(`Você está a ${dist>=1000?(dist/1000).toFixed(1).replace('.',',')+' km':dist+' m'} da ${loja.nome}. Faça o cadastro dentro da loja.`,'err'); }
   const ap=nbAparelho();
   try{
-    await DB.set('dispositivos',nbDocId(),{id:nbId(),uid:S.me.uid,nome:S.me.nome||'',role:S.me.role,lojaId:S.me.lojaId||'',lojaNome:lojaNome(S.me.lojaId),apelido,...ap,
+    await DB.set('dispositivos',nbDocId(),{nb:nbId(),uid:S.me.uid,nome:S.me.nome||'',role:S.me.role,lojaId:S.me.lojaId||'',lojaNome:lojaNome(S.me.lojaId),apelido,...ap,
       lat:g.lat,lng:g.lng,precisao:g.precisao||null,distLoja:dist,lojaSemLocal:dist==null,status:'PENDENTE',pedidoEm:Date.now(),motivo:null,aprovadoPor:null,aprovadoEm:null});
     await log('Notebook cadastrado (aguardando aprovação)',nbId(),`${apelido} · ${ap.so} · ${dist!=null?dist+' m da loja':'loja sem localização'}`);
     _nbCache=null; toast('Pedido enviado. O suporte vai aprovar o notebook.','ok'); render();
@@ -8952,7 +8952,7 @@ PAGES.notebooks=async()=>{
     <div class="row" style="gap:6px;flex-wrap:wrap">${[['PENDENTE','Pendentes'],['APROVADO','Aprovados'],['REPROVADO','Reprovados'],['TODOS','Todos']].map(([k,l])=>`<button class="btn sm ${f===k?'gold':''}" data-act="nbFiltro" data-st="${k}">${l} (${cnt(k)})</button>`).join('')}</div></div>
     <div class="card tablewrap mt">${lst.length?`<table><tr><th>Pessoa</th><th>Loja</th><th>Notebook</th><th>Local do cadastro</th><th>Pedido</th><th>Situação</th><th></th></tr>
       ${lst.map(x=>`<tr><td><b>${esc(x.nome||'—')}</b><br><span class="small muted">${esc(ROLES?.[x.role]||x.role||'')}</span></td><td>${esc(x.lojaNome||'—')}</td>
-        <td><b>${esc(x.apelido||'—')}</b><br><span class="small muted">${esc(x.so||'')} · ${esc(x.navegador||'')} · ${esc(x.tela||'')}${x.movel?' · celular/tablet':''}</span><br><span class="small mono muted">${esc(String(x.id||'').replace('_'+x.uid,''))}</span></td>
+        <td><b>${esc(x.apelido||'—')}</b><br><span class="small muted">${esc(x.so||'')} · ${esc(x.navegador||'')} · ${esc(x.tela||'')}${x.movel?' · celular/tablet':''}</span><br><span class="small mono muted">${esc(x.nb||String(x.id||'').replace('_'+x.uid,''))}</span></td>
         <td>${local(x)}</td><td class="small">${fmtDT(x.pedidoEm)}</td>
         <td>${badge(NB_ST[x.status]?.[0]||x.status,NB_ST[x.status]?.[1]||'gray')}${x.aprovadoPor?`<br><span class="small muted">${esc(x.aprovadoPor)}</span>`:''}${x.motivo?`<br><span class="small muted">${esc(x.motivo)}</span>`:''}</td>
         <td style="white-space:nowrap">${x.status==='PENDENTE'?`<button class="btn sm gold" data-act="nbAprovar" data-id="${esc(x.idDoc||'')}">Aprovar</button> <button class="btn sm" data-act="nbReprovar" data-id="${esc(x.idDoc||'')}" data-acao="REPROVADO">Reprovar</button>`
@@ -8965,7 +8965,7 @@ Object.assign(ACT,{
   nbFiltro:d=>{ S.filtro.nbSt=d.st; render(); },
   nbAprovar:async d=>{ const doc=await DB.get('dispositivos',d.id).catch(()=>null); if(!doc) return toast('Cadastro não encontrado','err');
     await DB.set('dispositivos',d.id,{status:'APROVADO',aprovadoPor:S.me.nome||'',aprovadoUid:S.me.uid,aprovadoEm:Date.now(),motivo:null});
-    await log('Notebook aprovado',doc.id||d.id,`${doc.nome||''} · ${doc.apelido||''} · ${doc.lojaNome||''}`); toast('Notebook aprovado. A pessoa já pode vender nele.','ok'); render(); },
+    await log('Notebook aprovado',doc.nb||d.id,`${doc.nome||''} · ${doc.apelido||''} · ${doc.lojaNome||''}`); toast('Notebook aprovado. A pessoa já pode vender nele.','ok'); render(); },
   nbReprovar:d=>{ const rev=d.acao==='REVOGADO';
     openModal(`<h2>${rev?'Retirar a autorização':'Reprovar o cadastro'}</h2><p class="muted">${rev?'O notebook deixa de poder fazer vendas na hora.':'A pessoa vê o motivo e pode pedir de novo.'}</p>
       <label>Motivo<textarea id="nbMot" rows="3" placeholder="${rev?'Ex.: notebook levado para fora da loja':'Ex.: cadastro feito fora da loja'}"></textarea></label>
@@ -8973,7 +8973,7 @@ Object.assign(ACT,{
     $('#nbMotOk').onclick=async()=>{ const motivo=$('#nbMot').value.trim(); if(!motivo) return toast('Escreva o motivo','err');
       const doc=await DB.get('dispositivos',d.id).catch(()=>null);
       await DB.set('dispositivos',d.id,{status:d.acao,motivo,aprovadoPor:S.me.nome||'',aprovadoUid:S.me.uid,aprovadoEm:Date.now()});
-      await log(rev?'Autorização de notebook retirada':'Cadastro de notebook reprovado',doc?.id||d.id,`${doc?.nome||''} · ${motivo}`); closeModal(); toast(rev?'Autorização retirada':'Cadastro reprovado','ok'); render(); }; },
+      await log(rev?'Autorização de notebook retirada':'Cadastro de notebook reprovado',doc?.nb||d.id,`${doc?.nome||''} · ${motivo}`); closeModal(); toast(rev?'Autorização retirada':'Cadastro reprovado','ok'); render(); }; },
 });
 
 /* ---------- menu, ícones e pendências ---------- */
@@ -8987,6 +8987,241 @@ try{ const g=NAV_GRUPOS.find(x=>x[0]==='Vendas'); if(g&&!g[1].includes('meuNoteb
   try{ if(can('DONO','SUPORTE')) r.notebooks=(await DB.list('dispositivos',[['status','==','PENDENTE']]).catch(()=>[])).length;
        if(nbExige()){ const s=await nbStatus(); r.meuNotebook=s.ok?0:1; } }catch(e){}
   return r; }; }
+
+
+/* ===================== SEGURANÇA DAS VENDAS (nov/2026) =====================
+   1) horário de venda por loja · 2) reconhecimento automático do vendedor (rosto, sem depender do dono)
+   3) alertas de venda suspeita · 4) limite de notebooks por loja · 5) revisão mensal dos notebooks pelo gerente
+   6) registro de acessos · 7) acesso só dentro da loja (opcional, por loja; vale para o vendedor) */
+const SEG_PADRAO={maxNotebooks:3, rostoHoras:4, revisaoDias:35};
+const segCfg=()=>({...SEG_PADRAO,...(S.cfg.seguranca||{})});
+const segLoja=()=>S.lojas.find(l=>l.id===S.me?.lojaId)||null;
+const hhmm=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const SEG_DIAS=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+
+/* ---------- 3) alertas automáticos ---------- */
+async function segAlerta(tipo,detalhe,grav='media',extra={}){
+  try{ await DB.add('alertasSeg',{tipo,detalhe,grav,uid:S.me.uid,nome:S.me.nome||'',role:S.me.role,lojaId:S.me.lojaId||'',lojaNome:lojaNome(S.me.lojaId),
+    notebook:(typeof nbId==='function'?nbId():''),em:Date.now(),visto:false,...extra}); }catch(e){ console.warn('alerta',e); }
+}
+
+/* ---------- 1) horário de venda ---------- */
+function segHorario(){
+  const h=segLoja()?.horario; if(!h||!h.abre||!h.fecha) return {ok:true};
+  const d=new Date(), dia=d.getDay(), agora=hhmm(d);
+  const fecha=dia===6&&h.sabadoFecha?h.sabadoFecha:h.fecha;
+  if(dia===0&&!h.domingo) return {ok:false,msg:`A ${segLoja().nome} não vende aos domingos.`};
+  if(agora<h.abre||agora>fecha) return {ok:false,msg:`Fora do horário de venda da ${segLoja().nome} (${SEG_DIAS[dia]}: ${h.abre} às ${fecha}).`};
+  return {ok:true};
+}
+
+/* ---------- 2) reconhecimento automático do vendedor ---------- */
+const PROMPT_VENDEDOR=`A primeira imagem é uma selfie tirada agora pela câmera do notebook da loja; a segunda é a foto de cadastro do vendedor.
+Responda SOMENTE com JSON: {"rosto_detectado":true,"quantidade_rostos":1,"foto_de_tela_ou_papel":false,"mesma_pessoa":"sim|nao|incerto","confianca":0}
+"foto_de_tela_ou_papel" é true se a selfie parecer uma foto de outra foto, de uma tela ou de papel. "confianca" de 0 a 100.`;
+const PROMPT_CADASTRO_ROSTO=`Esta é a foto de cadastro do rosto de um vendedor, tirada agora pela câmera.
+Responda SOMENTE com JSON: {"rosto_detectado":true,"quantidade_rostos":1,"foto_de_tela_ou_papel":false,"rosto_nitido":true}
+"foto_de_tela_ou_papel" é true se parecer uma foto de outra foto, de uma tela ou de papel.`;
+const rostoExige=()=>['VENDEDOR','GERENTE'].includes(S.me?.role)&&segCfg().rosto!=='nao';
+const rostoChave=()=>'nxc_rosto_'+S.me.uid;
+function rostoValido(){ try{ const o=JSON.parse(sessionStorage.getItem(rostoChave())||'null'); return !!o&&Date.now()-o.em<segCfg().rostoHoras*3600000; }catch(e){ return false; } }
+function rostoBloqueadoHoje(){ try{ const o=JSON.parse(localStorage.getItem(rostoChave()+'_falhas')||'null'); return !!o&&o.dia===hoje()&&o.n>=3; }catch(e){ return false; } }
+function rostoFalha(){ let o; try{ o=JSON.parse(localStorage.getItem(rostoChave()+'_falhas')||'null'); }catch(e){} if(!o||o.dia!==hoje()) o={dia:hoje(),n:0}; o.n++; localStorage.setItem(rostoChave()+'_falhas',JSON.stringify(o)); return o.n; }
+let _rostoStream=null;
+function rostoPararCam(){ try{ _rostoStream?.getTracks().forEach(t=>t.stop()); }catch(e){} _rostoStream=null; }
+async function rostoTela(depois){
+  const v=$('#view'); if(!v) return;
+  if(rostoBloqueadoHoje()){ v.innerHTML=`<div class="card" style="border-left:4px solid #DC2626"><h2>Vendas bloqueadas hoje</h2><p class="muted">O reconhecimento do rosto não confirmou que é você 3 vezes seguidas. Por segurança, as vendas ficam bloqueadas até amanhã e a NexumCell foi avisada.</p><button class="btn" data-act="go" data-tab="chamados">Falar com o suporte</button></div>`; return; }
+  let ref=null; try{ ref=await DB.get('rostos',S.me.uid); }catch(e){}
+  if(ref&&!ref.foto) ref=null;   // cadastro apagado pelo dono: faz de novo
+  const novo=!ref;
+  v.innerHTML=`<div class="card" style="max-width:560px;margin:0 auto;text-align:center">
+    <h2>${novo?'Cadastre o seu rosto':'Confirme que é você'}</h2>
+    <p class="muted" style="margin-top:4px">${novo?'Uma vez só: a foto fica guardada e, nas próximas vendas, o sistema confere sozinho que é você vendendo.':'Antes de vender, uma foto rápida para confirmar que é você. Vale por '+segCfg().rostoHoras+' horas neste notebook.'}</p>
+    <div style="position:relative;width:min(320px,80vw);aspect-ratio:3/4;margin:14px auto 0;border-radius:18px;overflow:hidden;background:#0A1733">
+      <video id="rcCam" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
+      <div style="position:absolute;inset:12% 18% 18%;border:3px solid rgba(255,255,255,.8);border-radius:50%"></div></div>
+    <p class="small muted" style="margin:10px 0 0">Rosto inteiro no oval, boa luz, sem boné nem óculos escuros.</p>
+    <p id="rcMsg" class="small" style="min-height:20px;margin:8px 0 0"></p>
+    <button class="btn gold lg" id="rcFoto" style="margin-top:6px;min-width:220px">${novo?'Cadastrar meu rosto':'Tirar foto e confirmar'}</button></div>`;
+  const msg=t=>{ const m=$('#rcMsg'); if(m) m.innerHTML=t; };
+  try{ _rostoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:720}},audio:false}); $('#rcCam').srcObject=_rostoStream; }
+  catch(e){ msg('<span style="color:#DC2626">Permita o uso da câmera no navegador para continuar.</span>'); return; }
+  $('#rcFoto').onclick=async()=>{
+    const vid=$('#rcCam'); if(!vid?.videoWidth) return msg('Câmera ainda carregando…');
+    const c=document.createElement('canvas'); c.width=vid.videoWidth; c.height=vid.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(vid,0,0);
+    const img=await carregarImg(c.toDataURL('image/jpeg',0.9)), foto=redimensionar(img,480,0.8);
+    const b=$('#rcFoto'); b.disabled=true; msg('Conferindo…');
+    try{
+      if('FaceDetector' in window){ const n=(await new FaceDetector({maxDetectedFaces:3}).detect(img)).length; if(n!==1){ b.disabled=false; return msg(n?'Apareceu mais de um rosto. Só você na foto.':'Nenhum rosto encontrado. Enquadre o rosto no oval.'); } }
+      if(novo){
+        if(iaChave()){ const r=await iaVisao(PROMPT_CADASTRO_ROSTO,[foto],200);
+          if(!r.rosto_detectado||r.quantidade_rostos!==1||r.rosto_nitido===false){ b.disabled=false; return msg('O rosto não ficou nítido. Tente de novo.'); }
+          if(r.foto_de_tela_ou_papel){ b.disabled=false; await segAlerta('Cadastro de rosto com foto de tela ou papel','O sistema recusou o cadastro do rosto.','alta'); return msg('<span style="color:#DC2626">A foto parece ser de uma tela ou papel. Use o seu rosto, ao vivo.</span>'); } }
+        await DB.set('rostos',S.me.uid,{uid:S.me.uid,nome:S.me.nome||'',lojaId:S.me.lojaId||'',foto,em:Date.now(),notebook:nbId(),apagadoEm:null,apagadoPor:null});
+        await log('Rosto do vendedor cadastrado',S.me.uid,'');
+      } else {
+        if(!iaChave()){ await segAlerta('Venda sem reconhecimento do rosto','A IA não está configurada: o rosto não foi conferido.','baixa'); }
+        else {
+          let r=null; try{ r=await iaVisao(PROMPT_VENDEDOR,[foto,ref.foto],250); }catch(e){ r=null; }
+          if(!r){ await segAlerta('Reconhecimento do rosto indisponível','A IA não respondeu; a venda seguiu sem conferir o rosto.','baixa'); }
+          else if(r.foto_de_tela_ou_papel||r.mesma_pessoa==='nao'||(r.mesma_pessoa==='incerto'&&(+r.confianca||0)<40)){
+            const n=rostoFalha(); b.disabled=false;
+            await segAlerta(r.foto_de_tela_ou_papel?'Rosto do vendedor: foto de tela ou papel':'Rosto do vendedor não confere',`Tentativa ${n} de 3 · confiança ${r.confianca??'—'}%`,n>=3?'alta':'media',{foto});
+            if(n>=3){ await log('Vendas bloqueadas hoje: rosto não confere',S.me.uid,''); rostoPararCam(); return rostoTela(depois); }
+            return msg(`<span style="color:#DC2626">Não confirmamos que é você (tentativa ${n} de 3). Tire de novo com boa luz, de frente.</span>`); }
+          else if(r.mesma_pessoa==='incerto'){ b.disabled=false; rostoFalha(); return msg('Não deu para ter certeza. Aproxime o rosto, com boa luz, e tente de novo.'); }
+        }
+      }
+      sessionStorage.setItem(rostoChave(),JSON.stringify({em:Date.now()})); try{ localStorage.removeItem(rostoChave()+'_falhas'); }catch(e){}
+      rostoPararCam(); toast(novo?'Rosto cadastrado':'Confirmado: é você','ok'); depois&&depois();
+    }catch(e){ b.disabled=false; msg('Não foi possível conferir agora: '+esc(e.message||e)); }
+  };
+}
+
+/* ---------- portas da venda: notebook → horário → rosto ---------- */
+{ const _nv=PAGES.nova; PAGES.nova=async(...a)=>{
+  rostoPararCam();
+  if(['VENDEDOR','GERENTE'].includes(S.me?.role)){
+    const nb=await nbStatus(true); if(!nb.ok) return _nv(...a);
+    const hr=segHorario(); if(!hr.ok){ $('#view').innerHTML=`<div class="card" style="border-left:4px solid #B45309"><h2>Fora do horário de venda</h2><p class="muted">${esc(hr.msg)}</p></div>`; return; }
+    if(rostoExige()&&!rostoValido()) return rostoTela(()=>render());
+  }
+  return _nv(...a); }; }
+{ const _g=nbGate; nbGate=async()=>{
+  if(!(await _g())) return false;
+  if(!['VENDEDOR','GERENTE'].includes(S.me?.role)) return true;
+  const hr=segHorario(); if(!hr.ok){ toast(hr.msg,'err'); await segAlerta('Tentativa de venda fora do horário',hr.msg,'media'); return false; }
+  if(rostoExige()&&!rostoValido()){ toast('Confirme o seu rosto antes de continuar','err'); S.tab='nova'; render(); return false; }
+  // muitas vendas em pouco tempo e o mesmo CPF em outra loja
+  try{ const mins=(await DB.list('vendas',[['vendedorUid','==',S.me.uid]]).catch(()=>[])).filter(v=>Date.now()-(v.criadoEm||0)<3600000).length;
+    if(mins>=3) await segAlerta('Muitas vendas em pouco tempo',`${mins+1}ª venda do vendedor na última hora.`,mins>=5?'alta':'media'); }catch(e){}
+  try{ const cpf=S.w?.dados?.cpf&&onlyDig(S.w.dados.cpf); if(cpf){ const t=await DB.get('tentativasCpf',cpf).catch(()=>null)||{};
+    const outras=Object.entries(t.lojas||{}).filter(([l,em])=>l!==(S.me.lojaId||'')&&Date.now()-em<30*86400000);
+    if(outras.length) await segAlerta('Mesmo cliente em outra loja',`CPF ${cpf.slice(0,3)}.***.***-${cpf.slice(-2)} tentou nos últimos 30 dias em: ${outras.map(([l])=>lojaNome(l)).join(', ')}.`,'alta',{cpf});
+    await DB.set('tentativasCpf',cpf,{lojas:{[S.me.lojaId||'NEXUM']:Date.now()},ultimaEm:Date.now()}); } }catch(e){}
+  return true; }; }
+/* venda no limite do raio da loja */
+{ const _cl=conferirLocal; conferirLocal=async(...a)=>{ const g=await _cl(...a);
+  try{ const raio=+segLoja()?.raio||150; if(g&&g.dist!=null&&g.dist>raio*0.75) await segAlerta('Venda no limite da loja',`Localização a ${g.dist} m (raio ${raio} m, precisão ${g.precisao||'—'} m).`,'media'); }catch(e){}
+  return g; }; }
+/* biometria do cliente reprovada várias vezes */
+{ const _vs=validarSelfie; validarSelfie=async(...a)=>{ await _vs(...a);
+  try{ if(S.w?.face?.aprovado===false){ S.w._reprovSelfie=(S.w._reprovSelfie||0)+1; if(S.w._reprovSelfie===3) await segAlerta('Biometria do cliente reprovada 3 vezes',S.w.face.motivo||'','media'); } }catch(e){} }; }
+
+/* ---------- 6) registro de acessos e 7) acesso só dentro da loja ---------- */
+async function segPosicaoSemPedir(){ try{ const p=await navigator.permissions?.query({name:'geolocation'}); if(p?.state!=='granted') return null; return await minhaPosicao(); }catch(e){ return null; } }
+async function segAcesso(){
+  const ap=(typeof nbAparelho==='function')?nbAparelho():{};
+  const g=await segPosicaoSemPedir(); const loja=segLoja();
+  const dist=g&&loja?.lat!=null?Math.round(distM(g,loja)):null;
+  try{ await DB.add('acessos',{uid:S.me.uid,nome:S.me.nome||'',role:S.me.role,lojaId:S.me.lojaId||'',lojaNome:lojaNome(S.me.lojaId),portal:PORTAL,notebook:nbId(),so:ap.so||'',navegador:ap.navegador||'',
+    lat:g?.lat??null,lng:g?.lng??null,distLoja:dist,em:Date.now()}); }catch(e){}
+}
+async function segPortaoLocal(){
+  const loja=segLoja(); if(S.me?.role!=='VENDEDOR'||!loja?.acessoSoNaLoja||loja.lat==null) return;
+  const bloq=t=>{ document.getElementById('segPortao')?.remove(); document.body.insertAdjacentHTML('beforeend',`<div id="segPortao" style="position:fixed;inset:0;z-index:9998;background:#F3F5FA;display:grid;place-items:center;padding:20px">
+    <div class="card" style="max-width:440px;text-align:center"><h2>Acesso só dentro da loja</h2><p class="muted">${esc(t)}</p>
+    <div class="row" style="justify-content:center;gap:8px;margin-top:12px"><button class="btn gold" id="segTentar">Tentar de novo</button><button class="btn" id="segSair">Sair</button></div></div></div>`);
+    $('#segTentar').onclick=()=>{ document.getElementById('segPortao')?.remove(); segPortaoLocal(); };
+    $('#segSair').onclick=async()=>{ try{ await fb?.au?.signOut(fb.auth); }catch(e){} location.reload(); }; };
+  let g; try{ g=await minhaPosicao(); }catch(e){ return bloq(e.message); }
+  const dist=Math.round(distM(g,loja)), raio=+loja.raio||150;
+  if(dist-Math.min(g.precisao||0,100)>raio){ await segAlerta('Acesso ao portal fora da loja',`${dist} m da ${loja.nome}.`,'media'); return bloq(`Você está a ${dist>=1000?(dist/1000).toFixed(1).replace('.',',')+' km':dist+' m'} da ${loja.nome}. O portal do vendedor desta loja só abre dentro da loja.`); }
+}
+{ const _is=iniciarSessao; iniciarSessao=async(...a)=>{ await _is(...a); try{ segAcesso(); await segPortaoLocal(); }catch(e){ console.warn('seg',e); } }; }
+
+/* ---------- 4) limite de notebooks e 5) validade da aprovação ---------- */
+NB_ST.VENCIDO=['Revisão vencida','red'];
+{ const _ns=nbStatus; nbStatus=async(force)=>{ const r=await _ns(force);
+  if(r.st==='APROVADO'&&r.d?.validoAte&&r.d.validoAte<Date.now()) return {...r,ok:false,st:'VENCIDO'};
+  return r; }; }
+{ const _ap=ACT.nbAprovar; ACT.nbAprovar=async d=>{
+  const doc=await DB.get('dispositivos',d.id).catch(()=>null); if(!doc) return toast('Cadastro não encontrado','err');
+  const loja=S.lojas.find(l=>l.id===doc.lojaId), max=+loja?.maxNotebooks||segCfg().maxNotebooks;
+  const aprov=(await DB.list('dispositivos',[['lojaId','==',doc.lojaId||'']]).catch(()=>[])).filter(x=>x.status==='APROVADO'&&!(x.validoAte&&x.validoAte<Date.now()));
+  const ids=new Set(aprov.map(x=>String(x.id).replace('_'+x.uid,''))); const este=String(doc.id).replace('_'+doc.uid,'');
+  if(!ids.has(este)&&ids.size>=max) return toast(`A ${loja?.nome||'loja'} já tem ${ids.size} notebooks autorizados (limite ${max}). Retire a autorização de um antigo antes.`,'err');
+  await _ap(d);
+  await DB.set('dispositivos',d.id,{validoAte:Date.now()+segCfg().revisaoDias*86400000});
+}; }
+
+/* revisão mensal pelo gerente (no "Meu notebook" dele) */
+{ const _mn=PAGES.meuNotebook; PAGES.meuNotebook=async(...a)=>{ await _mn(...a);
+  if(S.me?.role!=='GERENTE'||!$('#view')) return;
+  const lst=(await DB.list('dispositivos',[['lojaId','==',S.me.lojaId||'']]).catch(()=>[])).filter(x=>x.status==='APROVADO').map(x=>({...x,idDoc:String(x.id||'').endsWith('_'+x.uid)?x.id:x.id+'_'+x.uid}));
+  if(!lst.length) return;
+  const dias=x=>x.validoAte?Math.ceil((x.validoAte-Date.now())/86400000):null;
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>Revisão mensal dos notebooks da loja</h2>
+    <p class="small muted" style="margin:2px 0 10px">Todo mês confirme que cada notebook continua na loja. Sem a confirmação, a autorização vence sozinha e as vendas param naquele notebook.</p>
+    <table><tr><th>Notebook</th><th>Pessoa</th><th>Vence</th><th></th></tr>${lst.map(x=>{ const d=dias(x);
+      return `<tr><td><b>${esc(x.apelido||'—')}</b><br><span class="small mono muted">${esc(String(x.id).replace('_'+x.uid,''))}</span></td><td>${esc(x.nome||'')}</td>
+      <td>${d==null?badge('sem prazo','gray'):d<0?badge('vencida','red'):badge(`em ${d} dia${d===1?'':'s'}`,d<=5?'amber':'green')}</td>
+      <td style="white-space:nowrap"><button class="btn sm gold" data-act="nbRevisar" data-id="${esc(x.idDoc)}">Continua na loja</button> <button class="btn sm" data-act="nbTirar" data-id="${esc(x.idDoc)}">Não está mais</button></td></tr>`; }).join('')}</table></div>`);
+}; }
+Object.assign(ACT,{
+  nbRevisar:async d=>{ await DB.set('dispositivos',d.id,{revisadoEm:Date.now(),revisadoPor:S.me.nome||'',validoAte:Date.now()+segCfg().revisaoDias*86400000});
+    await log('Notebook confirmado na revisão mensal',d.id,''); _nbCache=null; toast('Confirmado por mais um mês','ok'); render(); },
+  nbTirar:async d=>{ if(!confirm('Retirar a autorização deste notebook? As vendas param nele na hora.')) return;
+    await DB.set('dispositivos',d.id,{status:'REVOGADO',motivo:'Gerente informou que o notebook não está mais na loja',revisadoEm:Date.now(),revisadoPor:S.me.nome||''});
+    await log('Gerente retirou notebook da loja',d.id,''); _nbCache=null; toast('Autorização retirada','ok'); render(); },
+});
+/* lembrete no menu do gerente quando algum notebook da loja vence em até 5 dias */
+{ const _cp=contarPendencias; contarPendencias=async(...a)=>{ const r=await _cp(...a);
+  try{ if(S.me?.role==='GERENTE'){ const l=(await DB.list('dispositivos',[['lojaId','==',S.me.lojaId||'']]).catch(()=>[])).filter(x=>x.status==='APROVADO'&&x.validoAte&&x.validoAte-Date.now()<5*86400000).length; r.meuNotebook=(r.meuNotebook||0)+l; }
+    if(can('DONO','SUPORTE')) r.segurancaVendas=(await DB.list('alertasSeg',[['visto','==',false]]).catch(()=>[])).length; }catch(e){}
+  return r; }; }
+
+/* ---------- dono e suporte: Segurança das vendas ---------- */
+const GRAV={alta:['Alta','red'],media:['Média','amber'],baixa:['Baixa','gray']};
+PAGES.segurancaVendas=async()=>{
+  const v=$('#view'); if(!v) return;
+  const aba=S.filtro.segAba||'alertas', c=segCfg();
+  const desde=Date.now()-14*86400000;
+  let [alertas,acessos,rostos]=await Promise.all([
+    DB.list('alertasSeg',[['em','>=',desde]]).catch(()=>[]), aba==='acessos'?DB.list('acessos',[['em','>=',Date.now()-3*86400000]]).catch(()=>[]):[], aba==='rostos'?DB.list('rostos').catch(()=>[]):[]]);
+  alertas.sort((a,b)=>b.em-a.em); acessos.sort((a,b)=>b.em-a.em);
+  const nv=alertas.filter(x=>!x.visto).length;
+  const lojasCfg=S.lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b></td><td>${l.horario?.abre?`${esc(l.horario.abre)}–${esc(l.horario.fecha)}${l.horario.sabadoFecha?` (sáb. até ${esc(l.horario.sabadoFecha)})`:''}${l.horario.domingo?' · abre domingo':''}`:'<span class="muted">sem limite</span>'}</td><td>${+l.maxNotebooks||c.maxNotebooks}</td><td>${l.acessoSoNaLoja?badge('só na loja','blue'):'<span class="muted">livre</span>'}</td><td>${l.lat!=null?badge('com localização','green'):badge('sem localização','amber')}</td></tr>`).join('');
+  v.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Segurança das vendas</h2>
+      <p class="small muted" style="margin:2px 0 0">O sistema confere sozinho o notebook, a loja, o horário e o rosto de quem vende. Aqui ficam os alertas e o histórico.</p></div>
+      ${can('DONO')?'<button class="btn gold" data-act="segRegras">Regras de segurança</button>':''}</div>
+    <div class="row mt" style="gap:6px;flex-wrap:wrap">${[['alertas',`Alertas${nv?` (${nv} novos)`:''}`],['acessos','Acessos'],['rostos','Rostos cadastrados'],['regras','Regras das lojas']].map(([k,l])=>`<button class="btn sm ${aba===k?'gold':''}" data-act="segAba" data-aba="${k}">${l}</button>`).join('')}</div></div>
+  ${aba==='alertas'?`<div class="card tablewrap mt">${alertas.length?`<table><tr><th>Quando</th><th>Alerta</th><th>Quem</th><th>Loja</th><th>Gravidade</th><th></th></tr>${alertas.map(x=>`<tr style="${x.visto?'opacity:.6':''}"><td class="small">${fmtDT(x.em)}</td><td><b>${esc(x.tipo)}</b><br><span class="small muted">${esc(x.detalhe||'')}</span>${x.foto?`<br><img src="${x.foto}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;margin-top:4px">`:''}</td><td>${esc(x.nome||'')}<br><span class="small muted">${esc(ROLES[x.role]||x.role||'')}</span></td><td>${esc(x.lojaNome||'—')}</td><td>${badge((GRAV[x.grav]||GRAV.media)[0],(GRAV[x.grav]||GRAV.media)[1])}</td><td>${x.visto?'<span class="small muted">visto</span>':`<button class="btn sm" data-act="segVisto" data-id="${esc(x.id)}">Marcar visto</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">Nenhum alerta nos últimos 14 dias.</div>'}</div>`:''}
+  ${aba==='acessos'?`<div class="card tablewrap mt">${acessos.length?`<table><tr><th>Quando</th><th>Pessoa</th><th>Portal</th><th>Notebook</th><th>Local</th></tr>${acessos.slice(0,300).map(x=>`<tr><td class="small">${fmtDT(x.em)}</td><td>${esc(x.nome||'')}<br><span class="small muted">${esc(ROLES[x.role]||x.role||'')} · ${esc(x.lojaNome||'')}</span></td><td>${esc(x.portal||'')}</td><td class="small">${esc(x.so||'')} · ${esc(x.navegador||'')}<br><span class="mono muted">${esc(x.notebook||'')}</span></td><td class="small">${x.lat!=null?`${x.distLoja!=null?(x.distLoja<=150?badge(`na loja · ${x.distLoja} m`,'green'):badge(`${x.distLoja} m da loja`,'red')):''} <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${x.lat},${x.lng}">mapa</a>`:'<span class="muted">sem localização</span>'}</td></tr>`).join('')}</table>`:'<div class="empty">Nenhum acesso nos últimos 3 dias.</div>'}</div>`:''}
+  ${aba==='rostos'?`<div class="card mt">${(rostos=rostos.filter(x=>x.foto)).length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">${rostos.map(x=>`<div style="text-align:center;border:1px solid var(--line);border-radius:14px;padding:10px"><img src="${x.foto}" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px"><b style="display:block;margin-top:6px;font-size:13.5px">${esc(x.nome||'')}</b><span class="small muted">${esc(lojaNome(x.lojaId)||'Equipe Nexum')}<br>${fmtDT(x.em)}</span>${can('DONO')?`<br><button class="btn sm mt" data-act="segRefazerRosto" data-id="${esc(x.id||x.uid)}">Refazer cadastro</button>`:''}</div>`).join('')}</div>`:'<div class="empty">Ninguém cadastrou o rosto ainda. O cadastro acontece sozinho na primeira venda.</div>'}</div>`:''}
+  ${aba==='regras'?`<div class="card tablewrap mt"><table><tr><th>Loja</th><th>Horário de venda</th><th>Notebooks (limite)</th><th>Acesso do vendedor</th><th>Localização</th></tr>${lojasCfg}</table>
+    <p class="small muted" style="margin:10px 0 0">Reconhecimento do rosto: <b>${c.rosto==='nao'?'desligado':'ligado'}</b> (vale ${c.rostoHoras} h) · Revisão dos notebooks: a cada ${c.revisaoDias} dias.</p></div>`:''}`;
+};
+Object.assign(ACT,{
+  segAba:d=>{ S.filtro.segAba=d.aba; render(); },
+  segVisto:async d=>{ await DB.set('alertasSeg',d.id,{visto:true,vistoPor:S.me.nome||'',vistoEm:Date.now()}); render(); },
+  segRefazerRosto:async d=>{ if(!confirm('Apagar o rosto cadastrado? Na próxima venda a pessoa cadastra de novo.')) return; await DB.set('rostos',d.id,{foto:null,apagadoEm:Date.now(),apagadoPor:S.me.nome||''}); await log('Cadastro de rosto apagado',d.id,''); toast('Cadastro apagado','ok'); render(); },
+  segRegras:()=>{
+    const c=segCfg();
+    openModal(`<h2>Regras de segurança das vendas</h2>
+      <h3>Para todas as lojas</h3><div class="grid g3">
+        <label>Reconhecimento do rosto<select id="sgRosto"><option value="sim" ${c.rosto!=='nao'?'selected':''}>Ligado</option><option value="nao" ${c.rosto==='nao'?'selected':''}>Desligado</option></select></label>
+        <label>Rosto vale por (horas)<input id="sgHoras" type="number" min="1" max="12" value="${c.rostoHoras}"></label>
+        <label>Revisão dos notebooks (dias)<input id="sgRev" type="number" min="7" max="90" value="${c.revisaoDias}"></label></div>
+      <h3 class="mt">Por loja</h3><div style="overflow-x:auto"><table><tr><th>Loja</th><th>Abre</th><th>Fecha</th><th>Sábado até</th><th>Domingo</th><th>Notebooks</th><th>Vendedor só acessa na loja</th></tr>
+      ${S.lojas.map(l=>`<tr data-lj="${esc(l.id)}"><td><b>${esc(l.nome)}</b></td><td><input type="time" data-k="abre" value="${esc(l.horario?.abre||'')}"></td><td><input type="time" data-k="fecha" value="${esc(l.horario?.fecha||'')}"></td><td><input type="time" data-k="sabadoFecha" value="${esc(l.horario?.sabadoFecha||'')}"></td>
+        <td style="text-align:center"><input type="checkbox" data-k="domingo" ${l.horario?.domingo?'checked':''}></td><td><input type="number" min="1" max="20" data-k="maxNotebooks" value="${+l.maxNotebooks||c.maxNotebooks}" style="width:70px"></td><td style="text-align:center"><input type="checkbox" data-k="acessoSoNaLoja" ${l.acessoSoNaLoja?'checked':''}></td></tr>`).join('')}</table></div>
+      <p class="small muted">Horário em branco = sem limite. "Vendedor só acessa na loja" exige a localização da loja cadastrada.</p>
+      <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" id="sgSalvar">Salvar</button></div>`,true);
+    $('#sgSalvar').onclick=async()=>{
+      const seg={...(S.cfg.seguranca||{}),rosto:$('#sgRosto').value,rostoHoras:Math.max(1,+$('#sgHoras').value||4),revisaoDias:Math.max(7,+$('#sgRev').value||35)};
+      await DB.set('config','sistema',{seguranca:seg}); S.cfg.seguranca=seg;
+      for(const tr of document.querySelectorAll('[data-lj]')){ const q=k=>tr.querySelector(`[data-k="${k}"]`);
+        const d={horario:{abre:q('abre').value,fecha:q('fecha').value,sabadoFecha:q('sabadoFecha').value,domingo:q('domingo').checked},maxNotebooks:Math.max(1,+q('maxNotebooks').value||3),acessoSoNaLoja:q('acessoSoNaLoja').checked};
+        await DB.set('lojas',tr.dataset.lj,d); Object.assign(S.lojas.find(l=>l.id===tr.dataset.lj)||{},d); }
+      await log('Regras de segurança das vendas alteradas','config',''); closeModal(); toast('Regras salvas','ok'); render(); };
+  },
+});
+TABS.push({id:'segurancaVendas',label:'Segurança das vendas',roles:['DONO','SUPORTE']});
+IC.segurancaVendas='<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>';
+if(['dono','suporte'].includes(PORTAL)&&!P.tabs.includes('segurancaVendas')) P.tabs.push('segurancaVendas');
+try{ const g2=NAV_GRUPOS.find(x=>x[0]==='Lojas e equipe'); if(g2&&!g2[1].includes('segurancaVendas')) g2[1].unshift('segurancaVendas'); }catch(e){}
 
 </script>
 </body>
