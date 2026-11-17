@@ -2003,15 +2003,20 @@ Object.assign(ACT,{ comunicadoNovo:()=>comunicadoNovo(), comGestao:()=>comunicad
    da Nexum e das lojas parceiras. */
 const MET_IND=[
   {k:'aparelhos',lbl:'Aparelhos'},
-  {k:'faturamento',lbl:'Faturamento',money:true},
+  {k:'faturamento',lbl:'Aparelhos (R$)',money:true},
+  {k:'pelicula',lbl:'Películas'},
+  {k:'peliculaRs',lbl:'Películas (R$)',money:true},
+  {k:'capinha',lbl:'Capinhas'},
+  {k:'capinhaRs',lbl:'Capinhas (R$)',money:true},
   {k:'acessorios',lbl:'Acessórios'},
-  {k:'capinha',lbl:'Capinha'},
-  {k:'pelicula',lbl:'Película'},
+  {k:'acessoriosRs',lbl:'Acessórios (R$)',money:true},
   {k:'seguros',lbl:'Seguros'},
+  {k:'segurosRs',lbl:'Seguros (R$)',money:true},
   {k:'parcelas',lbl:'Parcelas em dia'},
 ];
+const MET_ACESS=['pelicula','peliculaRs','capinha','capinhaRs','acessorios','acessoriosRs','seguros','segurosRs'];
 const METAS_BONUS_PADRAO={aparelhos:0,acessoriosSeguros:0,parcelas:0,integral:0};
-function metasDefAtivos(){ return {aparelhos:true,faturamento:true,acessorios:true,capinha:false,pelicula:false,seguros:true,parcelas:true}; }
+function metasDefAtivos(){ return {aparelhos:true,faturamento:true,pelicula:true,capinha:true,acessorios:true,seguros:true,parcelas:true}; }
 /* metas/{mes} = equipe Nexum (Dono) · metas/{mes}_{lojaId} = metas da loja (Gerente). Sem a da loja, vale a da Nexum. */
 async function metasDoc(mes,lojaId){
   let d=null, propria=false;
@@ -2028,19 +2033,24 @@ function calcMetas(uid,mes,vendas){
   const tem=(v,re)=>(v.acessorios||[]).some(a=>re.test((a.nome||'').toLowerCase()));
   let parcelas=0;
   vendas.filter(v=>v.vendedorUid===uid).forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&p.pagoEm&&String(p.pagoEm).startsWith(mes)&&p.pagoEm<=p.venc&&!p.acordo) parcelas++; }));
-  return { aparelhos:meus.length, faturamento:r2(meus.reduce((s,v)=>s+(+v.valor||0),0)),
-    acessorios:meus.filter(v=>(v.acessorios||[]).length).length,
-    capinha:meus.filter(v=>tem(v,/cap(a|inha)/)).length,
-    pelicula:meus.filter(v=>tem(v,/pel.?cula/)).length,
-    seguros:meus.filter(v=>v.protecao).length, parcelas };
+  const tipo=a=>{ const n=(a.nome||'').toLowerCase(); return /cap(a|inha)/.test(n)?'capinha':/pel.?cula/.test(n)?'pelicula':'acessorios'; };
+  const it={capinha:[0,0],pelicula:[0,0],acessorios:[0,0]};
+  meus.forEach(v=>(v.acessorios||[]).forEach(a=>{ const q=+a.qtd||1, t=it[tipo(a)]; t[0]+=q; t[1]+=(+a.preco||+a.valor||0)*q; }));
+  const seg=meus.filter(v=>v.protecao);
+  const acessV=v=>(+v.acessoriosValor||(v.acessorios||[]).reduce((s,a)=>s+(+a.preco||+a.valor||0)*(+a.qtd||1),0));
+  return { aparelhos:meus.length, faturamento:r2(meus.reduce((s,v)=>s+Math.max(0,(+v.valor||0)-acessV(v)),0)),
+    acessorios:it.acessorios[0], acessoriosRs:r2(it.acessorios[1]),
+    capinha:it.capinha[0], capinhaRs:r2(it.capinha[1]),
+    pelicula:it.pelicula[0], peliculaRs:r2(it.pelicula[1]),
+    seguros:seg.length, segurosRs:r2(seg.reduce((s,v)=>s+(+v.protecao.mensal||0)*(+v.nParcelas||(v.parcelas||[]).length||0),0)), parcelas };
 }
 function metasProj(feito,mes){ const h=new Date(); if(mes!==hoje().slice(0,7)) return null;
   const dia=h.getDate(), dim=new Date(h.getFullYear(),h.getMonth()+1,0).getDate(); return dia>0?Math.round(feito/dia*dim):null; }
 function metasBonus(feito,metaV,ativos,bonus){
   const exig=k=>!!ativos[k]&&(+metaV[k]>0), bate=k=>(+feito[k]||0)>=(+metaV[k]||0);
   const grupo=(...ks)=>{ const e=ks.filter(exig); return e.length>0&&e.every(bate); };
-  const r={ aparelhos:(exig('aparelhos')&&bate('aparelhos'))?(+bonus.aparelhos||0):0,
-    acessoriosSeguros:grupo('acessorios','seguros')?(+bonus.acessoriosSeguros||0):0,
+  const r={ aparelhos:grupo('aparelhos','faturamento')?(+bonus.aparelhos||0):0,
+    acessoriosSeguros:grupo(...MET_ACESS)?(+bonus.acessoriosSeguros||0):0,
     parcelas:(exig('parcelas')&&bate('parcelas'))?(+bonus.parcelas||0):0 };
   const todos=MET_IND.map(m=>m.k).filter(exig); const integralBate=todos.length>0&&todos.every(bate);
   r.integral=integralBate?(+bonus.integral||0):0; r.total=r.aparelhos+r.acessoriosSeguros+r.parcelas+r.integral;
@@ -2081,7 +2091,7 @@ async function cardMinhasMetas(uid,mes,vendas){
     <div style="font-weight:800;font-size:14px;color:${on?'#15754A':'#0B1E3F'}">${brl(valor)}</div></div>`;
   let bonusHtml='';
   if(bonus.aparelhos>0&&ativos.aparelhos) bonusHtml+=regra(b.aparelhos>0,'Meta de aparelhos',`${feito.aparelhos} de ${+mv.aparelhos||0}`,bonus.aparelhos);
-  if(bonus.acessoriosSeguros>0&&(ativos.acessorios||ativos.seguros)) bonusHtml+=regra(b.acessoriosSeguros>0,'Acessórios + seguros',`Acessórios ${feito.acessorios}/${+mv.acessorios||0} · Seguros ${feito.seguros}/${+mv.seguros||0}`,bonus.acessoriosSeguros);
+  if(bonus.acessoriosSeguros>0&&MET_ACESS.some(k=>ativos[k])) bonusHtml+=regra(b.acessoriosSeguros>0,'Acessórios + seguros',MET_ACESS.filter(k=>ativos[k]&&+mv[k]>0).map(k=>{const m=MET_IND.find(x=>x.k===k);return `${m.lbl}${m.money?' R$':''} ${m.money?brl(feito[k]||0):feito[k]||0}/${m.money?brl(+mv[k]):+mv[k]}`;}).join(' · ')||'Acessórios e seguros',bonus.acessoriosSeguros);
   if(bonus.parcelas>0&&ativos.parcelas) bonusHtml+=regra(b.parcelas>0,'Parcelas dos clientes em dia',`${feito.parcelas} de ${+mv.parcelas||0} no prazo`,bonus.parcelas);
   if(bonus.integral>0) bonusHtml+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-top:6px;background:#FBF7EC;border:1px solid #EAD9A8;border-radius:10px">
     <div style="width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid ${b.integralBate?'#15754A':'#EAD9A8'};background:${b.integralBate?'#15754A':'#fff'}">${b.integralBate?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
@@ -2097,40 +2107,93 @@ async function cardMinhasMetas(uid,mes,vendas){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px;margin-top:12px">${rings}</div>${proj}</div>${bonusCard}`;
 }
 function mesNome(mes){ try{ const [a,m]=mes.split('-'); return new Date(a,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); }catch(e){ return mes; } }
-async function configMetas(){
-  const mes=(S.filtro&&S.filtro.relMes)||hoje().slice(0,7);
-  const ehDono=can('DONO'), lid=ehDono?'':(S.me.lojaId||''), doc=await metasDoc(mes,lid||null);
-  const us=(await DB.list('users').catch(()=>[])).filter(u=>u.ativo!==false&&u.role!=='DONO'&&(ehDono?!u.lojaId:u.lojaId===S.me.lojaId)).map(u=>({...u,uid:u.uid||u.id}));
-  const ativos=doc.ativos, bonus=doc.bonus, metasV=doc.metasV;
+async function configMetas(lojaEsc,mesEsc){
+  const MODO='nexum';
+  if(lojaEsc) S._mtLoja=lojaEsc; if(mesEsc) S._mtMes=mesEsc;
+  const mes=S._mtMes||(S.filtro&&S.filtro.relMes)||hoje().slice(0,7);
+  const ehDono=can('DONO');
+  let lid='';
+  if(MODO==='loja'){
+    lid=ehDono?(S._mtLoja||S.me.lojaId||S.lojas[0]?.id||''):(S.me.lojaId||'');
+    if(!lid) return toast('Seu cadastro não está ligado a uma loja. Peça ao dono para vincular.','err');
+  }
+  const doc=await metasDoc(mes,lid||null);
+  const us=(await DB.list('users').catch(()=>[])).filter(u=>u.ativo!==false&&!['DONO','SUPORTE','FINANCEIRO'].includes(u.role)&&(lid?u.lojaId===lid:!u.lojaId)).map(u=>({...u,uid:u.uid||u.id}))
+    .sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+  const ativos={...doc.ativos}, bonus=doc.bonus, metasV=(lid&&!doc.propria)?{}:doc.metasV;
+  const ITENS=[['aparelhos','faturamento','Aparelhos'],['pelicula','peliculaRs','Películas'],['capinha','capinhaRs','Capinhas'],['acessorios','acessoriosRs','Outros acessórios'],['seguros','segurosRs','Seguros'],['parcelas',null,'Parcelas em dia']];
+  const ML={}; ITENS.forEach(([u,r,n])=>{ ML[u]=[n,'quantidade']; if(r) ML[r]=[n,'R$']; });
   const on=()=>MET_IND.filter(m=>ativos[m.k]);
-  const togg=MET_IND.map(m=>`<label class="check" style="display:flex;align-items:center;gap:8px;padding:5px 0"><input type="checkbox" data-mind="${m.k}" ${ativos[m.k]?'checked':''}> <span>${m.lbl}${m.money?' (R$)':''}</span></label>`).join('');
-  const tabela=()=>`<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th style="text-align:left;padding:6px">Vendedor</th>${on().map(m=>`<th style="padding:6px">${m.lbl}</th>`).join('')}</tr>
-    ${us.map(u=>`<tr><td style="padding:6px"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span></td>${on().map(m=>`<td style="padding:4px"><input type="number" min="0" data-mv="${u.uid}|${m.k}" value="${(metasV[u.uid]||{})[m.k]||''}" style="width:76px;min-height:30px"></td>`).join('')}</tr>`).join('')||`<tr><td colspan="9" class="muted" style="padding:8px">Nenhum vendedor nesta visão.</td></tr>`}</table>`;
-  const regras=true?`<div class="grid g2">${[['aparelhos','Bater aparelhos'],['acessoriosSeguros','Bater acessórios + seguros'],['parcelas','Parcelas em dia'],['integral','Bater TODAS (bônus integral)']].map(([k,l])=>`<label>${l} (R$)<input type="number" min="0" data-mb="${k}" value="${+bonus[k]||0}"></label>`).join('')}</div>`
-    :`<p class="muted">As regras e valores de bônus são definidos pela Nexum.</p>`;
-  const vendasB=await loadVendas().catch(()=>[]);
-  const pagos=(await DB.get('bonusPagos',mes).catch(()=>null))?.pagos||{};
-  const bonusPagaHtml=ehDono?(()=>{
-    const lst=us.map(u=>{ const b=metasBonus(calcMetas(u.uid,mes,vendasB),metasV[u.uid]||{},ativos,bonus); return {u,total:b.total}; }).filter(x=>x.total>0);
-    return `<h3 class="mt">Pagamento de bônus — ${mesNome(mes)}</h3>
-      <p class="muted" style="margin:0 0 6px;font-size:12px">Marque quando pagar. O funcionário vê o status no app de metas.</p>
-      ${lst.length?lst.map(({u,total})=>{ const pg=pagos[u.uid]; return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:8px"><div style="flex:1"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span><div style="font-size:13px;font-weight:700;color:#15754A">${brl(total)}</div></div>${pg?`${badge('Pago '+fmtD(isoDate(new Date(pg.pagoEm))),'green')}<button class="btn sm" data-bndesf="${u.uid}">Desfazer</button>`:`<button class="btn sm" data-bnpg="${u.uid}|${total}" style="background:#15754A;color:#fff;border-color:#15754A">Marcar pago</button>`}</div>`; }).join(''):`<p class="muted">Ninguém com bônus garantido ainda neste mês.</p>`}`;
-  })():'';
-  openModal(`<h2>Metas ${ehDono?'da equipe Nexum':'da loja'} — ${mesNome(mes)}</h2><p class="muted" style="margin-top:-6px">${ehDono?'Valem para a equipe Nexum. As lojas parceiras definem as delas pelo gerente.':'Valem só para a sua loja: você define as metas e o bônus da sua equipe.'}</p>
-    <h3>Indicadores do mês</h3><p class="muted" style="margin:0 0 4px;font-size:12px">O que estiver desligado não aparece para o vendedor.</p><div style="columns:2;-webkit-columns:2">${togg}</div>
-    <h3 class="mt">Regras de bônus</h3>${regras}
-    <h3 class="mt">Metas por vendedor</h3><div style="overflow-x:auto" id="mtTab">${tabela()}</div>
-    ${bonusPagaHtml}
-    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="mtSalvar">Salvar</button></div>`,true);
+  if(!document.getElementById('mtxCss')) document.head.insertAdjacentHTML('beforeend',`<style id="mtxCss">
+    .mtx-passo{border:1px solid #E4E8F0;border-radius:14px;padding:16px 18px;margin-top:14px;background:#fff}
+    .mtx-passo h3{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:15px}
+    .mtx-passo h3 i{width:26px;height:26px;border-radius:50%;background:#1D4ED8;color:#fff;display:grid;place-items:center;font-style:normal;font-size:13px;flex:none}
+    .mtx-dica{color:#64708A;font-size:12.5px;margin:0 0 12px 36px}
+    .mtx-tab{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+    .mtx-tab th{font-size:12px;color:#64708A;font-weight:600;text-align:left;padding:8px 10px;background:#F5F7FB;border-bottom:1px solid #E4E8F0;white-space:nowrap}
+    .mtx-tab th small{display:block;font-weight:500;color:#94A3B8;font-size:11px}
+    .mtx-tab td{padding:8px 10px;border-bottom:1px solid #EEF1F6;vertical-align:middle}
+    .mtx-tab tr.mtx-todos td{background:#F8FAFF}
+    .mtx-tab input[type=number]{width:92px;min-height:36px;padding:6px 8px}
+    .mtx-tab label.mtx-sw{display:inline-flex!important;flex-direction:row!important;width:auto!important;margin:0!important;align-items:center;gap:8px;white-space:nowrap;cursor:pointer;padding:6px 12px;border:1.5px solid #D7DEEC;border-radius:99px;font-size:13px;color:#475569;user-select:none}
+    .mtx-tab label.mtx-sw input{margin:0!important;width:16px!important;height:16px!important;min-height:0!important;padding:0!important;flex:none;accent-color:#1D4ED8}
+    .mtx-tab label.mtx-sw.on{border-color:#1D4ED8;background:#EEF4FF;color:#1D4ED8;font-weight:600}
+    .mtx-bn{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #EEF1F6}
+    .mtx-bn:last-of-type{border-bottom:0}
+    .mtx-bn span{flex:1;font-size:13.5px}
+    .mtx-bn label{display:flex!important;flex-direction:row!important;align-items:center;gap:6px;font-weight:700;margin:0!important;white-space:nowrap}
+    .mtx-bn input{width:120px;min-height:38px}
+    .mtx-tot{margin-top:10px;background:#E7F3EC;color:#15754A;border-radius:10px;padding:10px 14px;font-size:13.5px}
+    .mtx-aviso{background:#FBF7EC;border:1px solid #EAD9A8;color:#7A5A12;border-radius:10px;padding:10px 14px;font-size:13px;margin-top:10px}
+    .mtx-topo{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:6px}
+    .mtx-topo label{font-size:12px;color:#64708A;margin:0}
+    .mtx-topo select,.mtx-topo input{min-height:38px}
+  </style>`);
+  const passo1=`<table class="mtx-tab"><tr><th>Item</th><th>Meta em quantidade</th><th>Meta em reais</th></tr>
+    ${ITENS.map(([u,r,n])=>`<tr><td><b>${n}</b></td>
+      <td><label class="mtx-sw ${ativos[u]?'on':''}"><input type="checkbox" data-mind="${u}" ${ativos[u]?'checked':''}> ${u==='parcelas'?'parcelas pagas no prazo':'unidades'}</label></td>
+      <td>${r?`<label class="mtx-sw ${ativos[r]?'on':''}"><input type="checkbox" data-mind="${r}" ${ativos[r]?'checked':''}> R$ vendidos</label>`:'<span class="muted">—</span>'}</td></tr>`).join('')}</table>`;
+  const vazio=MODO==='loja'?`Nenhum vendedor cadastrado na loja ${esc(lojaNome(lid))}. Cadastre a equipe no menu Equipe e volte aqui.`:`Nenhum vendedor da equipe Nexum (vendedores sem loja). Os vendedores das lojas parceiras recebem as metas do gerente da loja deles.`;
+  const tabela=()=>{ const ind=on(); if(!ind.length) return `<p class="muted">Ligue pelo menos um item no passo 1.</p>`; if(!us.length) return `<p class="muted" style="margin:0">${vazio}</p>`;
+    return `<div style="overflow-x:auto"><table class="mtx-tab"><tr><th>Vendedor</th>${ind.map(m=>`<th>${ML[m.k][0]}<small>${ML[m.k][1]}</small></th>`).join('')}</tr>
+    ${us.length>1?`<tr class="mtx-todos"><td><b>Todos</b><div class="muted" style="font-size:11px">preenche a coluna inteira</div></td>${ind.map(m=>`<td><input type="number" min="0" step="${m.money?'50':'1'}" data-mtall="${m.k}" placeholder="${m.money?'R$':'qtd.'}"></td>`).join('')}</tr>`:''}
+    ${us.map(u=>`<tr><td><b>${esc(u.nome||'')}</b></td>${ind.map(m=>`<td><input type="number" min="0" step="${m.money?'50':'1'}" data-mv="${u.uid}|${m.k}" value="${(metasV[u.uid]||{})[m.k]||''}" placeholder="${m.money?'R$':'qtd.'}"></td>`).join('')}</tr>`).join('')}</table></div>`; };
+  const BN=[['aparelhos','Quem bater a meta de <b>aparelhos</b> ganha'],['acessoriosSeguros','Quem bater as metas de <b>películas, capinhas, acessórios e seguros</b> ganha'],['parcelas','Quem tiver as <b>parcelas dos clientes em dia</b> ganha'],['integral','Quem bater <b>TODAS</b> as metas ganha mais (extra)']];
+  const passo3=`${BN.map(([k,t])=>`<div class="mtx-bn"><span>${t}</span><label>R$ <input type="number" min="0" step="10" data-mb="${k}" value="${+bonus[k]||''}" placeholder="0"></label></div>`).join('')}<div class="mtx-tot" id="mtxTot"></div>`;
+  let pagaHtml='';
+  if(MODO==='nexum'&&ehDono&&us.length&&typeof loadVendas==='function'){
+    const vendasB=await loadVendas().catch(()=>[]), pagos=(await DB.get('bonusPagos',mes).catch(()=>null))?.pagos||{};
+    const lst=us.map(u=>({u,total:metasBonus(calcMetas(u.uid,mes,vendasB),metasV[u.uid]||{},ativos,bonus).total})).filter(x=>x.total>0);
+    pagaHtml=`<div class="mtx-passo"><h3><i>$</i>Pagamento de bônus</h3><p class="mtx-dica">Marque quando pagar. O vendedor vê no app de metas.</p>
+      ${lst.length?lst.map(({u,total})=>{ const pg=pagos[u.uid]; return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:8px"><div style="flex:1"><b>${esc(primeiroNome(u.nome))}</b><div style="font-size:13px;font-weight:700;color:#15754A">${brl(total)}</div></div>${pg?`${badge('Pago '+fmtD(isoDate(new Date(pg.pagoEm))),'green')}<button class="btn sm" data-bndesf="${u.uid}">Desfazer</button>`:`<button class="btn sm" data-bnpg="${u.uid}|${total}" style="background:#15754A;color:#fff;border-color:#15754A">Marcar pago</button>`}</div>`; }).join(''):`<p class="muted" style="margin:0">Ninguém com bônus garantido ainda neste mês.</p>`}</div>`;
+  }
+  const titulo=MODO==='loja'?(/^loja/i.test(lojaNome(lid))?`Metas da ${esc(lojaNome(lid))}`:`Metas da loja ${esc(lojaNome(lid))}`):'Metas da equipe Nexum';
+  const sub=MODO==='loja'?'Você define quanto cada vendedor da sua loja precisa vender no mês e quanto ele ganha de bônus. Cada vendedor acompanha tudo no app Minhas Metas.':'Metas e bônus da equipe Nexum. As lojas parceiras definem as delas no portal do gerente.';
+  const topo=`<div class="mtx-topo">${MODO==='loja'&&ehDono?`<label>Loja<br><select id="mtxLoja">${S.lojas.map(l=>`<option value="${l.id}" ${l.id===lid?'selected':''}>${esc(l.nome)}</option>`).join('')}</select></label>`:''}<label>Mês<br><input type="month" id="mtxMes" value="${mes}"></label></div>`;
+  openModal(`<h2>${titulo}</h2><p class="muted" style="margin-top:-6px">${sub}</p>${topo}
+    ${lid&&!doc.propria?`<div class="mtx-aviso">Esta loja ainda não tem metas próprias para ${mesNome(mes)}. Preencha abaixo e toque em Salvar.</div>`:''}
+    <div class="mtx-passo"><h3><i>1</i>O que vai contar no mês</h3><p class="mtx-dica">Ligue o que vale como meta. Cada item pode ter meta em quantidade, em reais ou nos dois. O que estiver desligado não aparece para o vendedor.</p>${passo1}</div>
+    <div class="mtx-passo"><h3><i>2</i>Meta de cada vendedor</h3><p class="mtx-dica">Digite quanto cada um precisa vender no mês. Em quantidade, use o número de unidades; em reais, o valor total vendido.</p><div id="mtTab">${tabela()}</div></div>
+    <div class="mtx-passo"><h3><i>3</i>Bônus em dinheiro</h3><p class="mtx-dica">Quanto o vendedor ganha quando bate as metas. Deixe vazio para não pagar.</p>${passo3}</div>
+    ${pagaHtml}
+    <div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" id="mtCancelar">Cancelar</button><button class="btn gold" id="mtSalvar">Salvar metas</button></div>`,true);
+  const lerAtual=()=>{ document.querySelectorAll('[data-mv]').forEach(i=>{ const [u,k]=i.dataset.mv.split('|'); metasV[u]=metasV[u]||{}; metasV[u][k]=+i.value||0; }); };
+  const ligarTodos=()=>document.querySelectorAll('[data-mtall]').forEach(a=>a.addEventListener('input',()=>document.querySelectorAll(`[data-mv$="|${a.dataset.mtall}"]`).forEach(i=>i.value=a.value)));
+  const tot=()=>{ const v=k=>+(document.querySelector(`[data-mb="${k}"]`)?.value)||0; const t=v('aparelhos')+v('acessoriosSeguros')+v('parcelas')+v('integral'); $('#mtxTot').innerHTML=t>0?`Quem bater todas as metas ganha <b>${brl(t)}</b> no mês.`:'Nenhum bônus em dinheiro definido.'; };
+  ligarTodos(); tot(); document.querySelectorAll('[data-mb]').forEach(i=>i.addEventListener('input',tot));
+  document.querySelectorAll('[data-mind]').forEach(c=>c.addEventListener('change',e=>{ lerAtual(); ativos[e.target.dataset.mind]=e.target.checked; e.target.closest('.mtx-sw').classList.toggle('on',e.target.checked); $('#mtTab').innerHTML=tabela(); ligarTodos(); }));
+  $('#mtxLoja')&&($('#mtxLoja').onchange=e=>configMetas(e.target.value));
+  $('#mtxMes').onchange=e=>e.target.value&&configMetas(null,e.target.value);
+  $('#mtCancelar').onclick=()=>closeModal();
   document.querySelectorAll('[data-bnpg]').forEach(b=>b.onclick=async()=>{ const [uid,total]=b.dataset.bnpg.split('|'); await DB.set('bonusPagos',mes,{pagos:{[uid]:{valor:+total,pagoEm:Date.now(),por:S.me.nome}}}); await log('Bônus de metas pago',mes,primeiroNome(us.find(u=>u.uid===uid)?.nome||uid)); toast('Bônus marcado como pago','ok'); configMetas(); });
   document.querySelectorAll('[data-bndesf]').forEach(b=>b.onclick=async()=>{ await DB.set('bonusPagos',mes,{pagos:{[b.dataset.bndesf]:null}}); toast('Pagamento desfeito'); configMetas(); });
-  document.querySelectorAll('[data-mind]').forEach(c=>c.addEventListener('change',e=>{ ativos[e.target.dataset.mind]=e.target.checked; $('#mtTab').innerHTML=tabela(); }));
   $('#mtSalvar').onclick=async()=>{
+    lerAtual();
     const nv=JSON.parse(JSON.stringify((lid&&!doc.propria)?{}:(doc.raw.metasV||{})));
-    document.querySelectorAll('[data-mv]').forEach(i=>{ const [u,k]=i.dataset.mv.split('|'); nv[u]=nv[u]||{}; nv[u][k]=+i.value||0; });
-    const patch={metasV:nv, atualizadoEm:Date.now(), por:S.me.nome};
-    { const br={...doc.bonus}; document.querySelectorAll('[data-mb]').forEach(i=>br[i.dataset.mb]=+i.value||0); patch.bonusRegras=br; patch.ativos={...ativos}; patch.lojaId=lid; }
-    await DB.set('metas',lid?mes+'_'+lid:mes,patch); await log('Minhas Metas configuradas',mes,''); closeModal(); toast('Metas salvas','ok'); render();
+    us.forEach(u=>{ nv[u.uid]={...(nv[u.uid]||{}),...(metasV[u.uid]||{})}; });
+    const br={...doc.bonus}; document.querySelectorAll('[data-mb]').forEach(i=>br[i.dataset.mb]=+i.value||0);
+    const patch={metasV:nv, bonusRegras:br, ativos:{...ativos}, lojaId:lid, atualizadoEm:Date.now(), por:S.me.nome};
+    await DB.set('metas',lid?mes+'_'+lid:mes,patch); await log('Metas configuradas',lid?mes+' · '+lojaNome(lid):mes,''); closeModal(); toast('Metas salvas','ok'); render();
   };
 }
 Object.assign(ACT,{ configMetas:()=>configMetas() });
@@ -5328,7 +5391,7 @@ document.addEventListener('input',e=>{ if(['rgEntrada','rgN','rgJuros'].includes
 { const _vc=verChamado; verChamado=async(...a)=>{ await _vc(...a); respostasProntas('#chResp'); }; }
 { const _vp=verPedido; verPedido=async(...a)=>{ await _vp(...a); respostasProntas('#pdTxt'); }; }
 { const _ch=PAGES.chamados; PAGES.chamados=async()=>{ await _ch(); if(can('DONO','SUPORTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn sm" data-act="gerenciarRespostas">Respostas prontas</button></div>'); }; }
-{ const _r=PAGES.relatorios; if(_r) PAGES.relatorios=async(...a)=>{ await _r(...a); if(can('DONO','GERENTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn" data-act="configMetas">Configurar Minhas Metas</button></div>'); }; }
+{ const _r=PAGES.relatorios; if(_r) PAGES.relatorios=async(...a)=>{ await _r(...a); if(can('DONO','GERENTE')) $('#view').insertAdjacentHTML('afterbegin','<div class="row mb" style="justify-content:flex-end"><button class="btn" data-act="configMetas">Metas da equipe Nexum</button></div>'); }; }
 { const _pc=passoContato; passoContato=async(...a)=>{ const r=await _pc(...a); restaurarContato(); return r; }; }
 { const _nv=PAGES.nova; PAGES.nova=async()=>{ if(precisaTreino()){ await PAGES.treinamento(); $('#view').insertAdjacentHTML('afterbegin','<div class="warn mb"><b>Antes de vender, faça o treinamento.</b> Assista às aulas obrigatórias do treinamento.</div>'); return; } return _nv(); }; }
 { const _i2=PAGES.inicio; PAGES.inicio=async()=>{ await _i2(); if(!can('VENDEDOR','GERENTE')) return; const vs=await loadVendas(), av=await DB.list('avaliacoes').catch(()=>[]), m=can('VENDEDOR')?medalhasDe(vs,av,S.me.uid):[];
