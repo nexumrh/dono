@@ -2377,22 +2377,23 @@ async function verVenda(id){
       ${['INSTALANDO','AGUARDANDO_ENTRADA'].includes(v.status)&&v.aparelho&&can('DONO','FINANCEIRO','GERENTE')?`<button class="btn" data-act="deixarPendente" data-id="${v.id}">Cancelar e deixar o cliente pendente</button>`:''}
       ${podeCancelar?`<button class="btn red" data-act="cancelarVenda" data-id="${v.id}">Cancelar venda</button>`:''}
     </div>`, true);
-  if(selfieApp&&selfieApp.foto&&!selfieApp.conferida&&!selfieApp.iaChecada&&docs?.frente&&iaChave()) autoConferirSelfieApp(v.id,v.aparelhoToken,selfieApp.foto,docs.frente);
+  if(selfieApp&&selfieApp.foto&&!selfieApp.conferida&&!selfieApp.iaChecada&&docs?.frente&&iaChave()&&selfieConfMin()!=null) autoConferirSelfieApp(v.id,v.aparelhoToken,selfieApp.foto,docs.frente,()=>{ if($('#view')) verVenda(v.id); });
 }
 /* Confere automaticamente a selfie do app contra o documento. Marca "conferida" só quando a IA tem certeza (mesma pessoa, sem foto de tela, confiança alta); senão deixa para o humano. */
-async function autoConferirSelfieApp(id,tk,selfieFoto,docFrente){
+function selfieConfMin(){ const v=S.cfg.selfieConfMin; if(v==='nao') return null; return (v!=null&&v!=='')?+v:80; }
+async function autoConferirSelfieApp(id,tk,selfieFoto,docFrente,onDone){
+  const min=selfieConfMin(); if(min==null){ if(onDone) onDone(); return; }
   try{
     const r=await iaVisao(PROMPT_FACE,[selfieFoto,docFrente],400);
-    const ok=r.rosto_detectado&&r.quantidade_rostos===1&&!r.foto_de_tela_ou_papel&&r.mesma_pessoa==='sim'&&(r.confianca==null||r.confianca>=80);
+    const ok=r.rosto_detectado&&r.quantidade_rostos===1&&!r.foto_de_tela_ou_papel&&r.mesma_pessoa==='sim'&&(r.confianca==null||r.confianca>=min);
     if(ok){
       await DB.set('selfiesApp',tk,{conferida:true,conferidaPor:'IA (automático)',conferidaEm:Date.now(),iaConf:r.confianca??null});
       await log('Selfie do app conferida pela IA',id,`mesma pessoa${r.confianca!=null?` (${r.confianca}%)`:''}`);
-      if($('#view')) verVenda(id);
     }else{
       await DB.set('selfiesApp',tk,{iaChecada:true,iaResultado:{m:r.mesma_pessoa||'incerto',c:r.confianca??null,tela:!!r.foto_de_tela_ou_papel}});
-      const box=$('#sfAuto'); if(box) box.innerHTML=`<span style="color:var(--amber)">A IA não confirmou automaticamente${r.mesma_pessoa?` (confere: ${esc(r.mesma_pessoa)}${r.confianca!=null?`, ${r.confianca}%`:''})`:''}. Confira manualmente.</span>`;
     }
-  }catch(e){ const box=$('#sfAuto'); if(box) box.innerHTML='<span class="small muted">IA indisponível agora — confira manualmente.</span>'; }
+  }catch(e){}
+  if(onDone) onDone();
 }
 /* Desfaz a venda do APARELHO, mas mantém o crédito aprovado: o cliente volta para "Crédito aprovado" e escolhe o celular depois.
    O aparelho volta ao estoque, a trava gerada é anulada e a entrada já recebida fica guardada como crédito para a próxima escolha. */
@@ -4808,6 +4809,12 @@ PAGES.relatorios = async () => {
 /* ---------- CONFIRMAÇÕES (equipe confirma dados e entrada por WhatsApp) ---------- */
 PAGES.confirmacoes = async () => {
   const vendas=await DB.list('vendas'), emp=S.cfg.empresa||'NexumCell';
+  const vByTk={}; vendas.forEach(v=>{ if(v.aparelhoToken) vByTk[v.aparelhoToken]=v; });
+  const selfiesPend = can('DONO') ? (await DB.list('selfiesApp').catch(()=>[])).filter(s=>s.foto&&!s.conferida).map(s=>({s,v:vByTk[s.id]})).filter(x=>x.v&&!['CANCELADA','REPROVADA'].includes(x.v.status)) : [];
+  const selfieCard = selfiesPend.length ? `<div class="card mt"><h2>Conferir selfie do cliente (app) <span class="badge b-blue">${selfiesPend.length}</span></h2>
+    <p class="hint" style="margin-top:-6px">A IA compara a selfie do app com o documento e confirma sozinha quando bate. Aqui ficam só as que a IA não teve certeza — confira e marque.</p>
+    <div id="selfSweep">${selfiesPend.map(({s,v})=>{ const ck=s.iaChecada; return `<div class="pend"><div class="t2"><div class="row" style="gap:10px;align-items:center"><img src="${s.foto}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;border:1px solid var(--line)"><div><b>${esc(v.clienteNome)}</b><span>Nº ${v.numero} · ${deviceTag(v.numero)} · ${esc(v.lojaNome)} · selfie ${relT(s.em)}</span>${ck?`<div class="small" style="color:var(--amber)">A IA não confirmou${s.iaResultado?.m?` (confere: ${esc(s.iaResultado.m)}${s.iaResultado.c!=null?`, ${s.iaResultado.c}%`:''})`:''}</div>`:'<div class="small muted"><span class="spin"></span> Conferindo com a IA…</div>'}</div></div></div>
+      ${ck?`<div class="row" style="align-items:flex-end;gap:6px"><button class="btn sm" data-act="verVenda" data-id="${v.id}">Abrir venda</button><button class="btn sm red" data-act="sfNao">Não é</button><button class="btn sm green" data-act="sfOk" data-tk="${s.id}" data-id="${v.id}">É o mesmo</button></div>`:''}</div>`; }).join('')}</div></div>` : '';
   const dados=vendas.filter(v=>v.confirmacaoDados?.status==='PENDENTE'&&!['REPROVADA','CANCELADA'].includes(v.status)).sort((a,b)=>a.confirmacaoDados.prazo-b.confirmacaoDados.prazo);
   const entradas=vendas.filter(v=>v.confirmacaoEntrada?.status==='PENDENTE').sort((a,b)=>a.criadoEm-b.criadoEm);
   const prazo=ms=>{ const d=Math.ceil((ms-Date.now())/86400000); return d<0?badge(`atrasado ${-d} dia(s)`,'red'):badge(d===0?'vence hoje':`${d} dia(s) para confirmar`,d<=1?'amber':'blue'); };
@@ -4821,7 +4828,8 @@ PAGES.confirmacoes = async () => {
       ${dados.map(v=>linha(v,'confirmacaoDados',`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da equipe ${emp}. Estamos confirmando o cadastro feito na loja ${v.lojaNome} em ${fmtD(isoDate(new Date(v.criadoEm)))}: nome ${v.clienteNome}, CPF final ${v.clienteCpf.slice(-4)}${v.aparelho?.modelo?`, aparelho ${apNome(v)} em ${v.nParcelas}x de ${brl(v.valorParcela)}`:''}. Você confirma que foi você quem fez esta compra? Responda SIM ou NÃO.`)).join('')||'<div class="empty"><b>Nada pendente</b></div>'}</div>
     <div class="card"><h2>Confirmar entrada recebida <span class="badge b-blue">${entradas.length}</span></h2>
       <p class="hint" style="margin-top:-6px">Confirme com o cliente o valor que ele pagou de entrada na loja.</p>
-      ${entradas.map(v=>linha(v,'confirmacaoEntrada',`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da equipe ${emp}. Confirmamos o recebimento da entrada de ${brl(v.entradaPaga?.valor)} (${v.entradaPaga?.forma||''}) referente ao ${apNome(v)}, contrato nº ${v.numero}. Suas parcelas: ${v.nParcelas}x de ${brl(v.valorParcela)}, 1º vencimento em ${fmtD(v.primeiroVenc)}. Se algum valor estiver diferente, responda esta mensagem.`)).join('')||'<div class="empty"><b>Nada pendente</b></div>'}</div></div>`;
+      ${entradas.map(v=>linha(v,'confirmacaoEntrada',`Olá, ${primeiroNome(v.clienteNome)}! Aqui é da equipe ${emp}. Confirmamos o recebimento da entrada de ${brl(v.entradaPaga?.valor)} (${v.entradaPaga?.forma||''}) referente ao ${apNome(v)}, contrato nº ${v.numero}. Suas parcelas: ${v.nParcelas}x de ${brl(v.valorParcela)}, 1º vencimento em ${fmtD(v.primeiroVenc)}. Se algum valor estiver diferente, responda esta mensagem.`)).join('')||'<div class="empty"><b>Nada pendente</b></div>'}</div></div>${selfieCard}`;
+  if(selfiesPend.some(x=>!x.s.iaChecada)&&iaChave()&&selfieConfMin()!=null){ (async()=>{ let mudou=false; for(const {s,v} of selfiesPend){ if(s.iaChecada) continue; const d=await DB.get('docs',v.id).catch(()=>null); if(!d?.frente) continue; await autoConferirSelfieApp(v.id,s.id,s.foto,d.frente); mudou=true; } if(mudou&&$('#selfSweep')) PAGES.confirmacoes(); })(); }
 };
 async function confirmarDado(id,k,st){
   let obs=''; if(st==='PROBLEMA'){ obs=prompt('O que aconteceu? (ex.: cliente não reconhece a compra, valor diferente)'); if(!obs) return; }
@@ -8574,8 +8582,9 @@ Object.assign(ACT,{
 });
 { const _cf2=PAGES.config; PAGES.config=async()=>{ await _cf2(); if(!can('DONO')||!$('#view')) return;
     const b=$('[data-act="cfgRisco"]')?.closest('.card'); if(!b) return;
-    b.querySelector('.grid').insertAdjacentHTML('beforeend',`<label>Selfie pelo app da trava antes de entregar<select id="cfgSelfieApp"><option value="sim" ${S.cfg.selfieApp!=='nao'?'selected':''}>Obrigatória</option><option value="nao" ${S.cfg.selfieApp==='nao'?'selected':''}>Desligada</option></select></label>`); }; }
-{ const _cr=ACT.cfgRisco; ACT.cfgRisco=async(d,b)=>{ const s=$('#cfgSelfieApp')?.value; if(s){ await DB.set('config','sistema',{selfieApp:s}); S.cfg.selfieApp=s; } return _cr(d,b); }; }
+    const cm=S.cfg.selfieConfMin; const sel=v=>String(cm)===v?'selected':''; const def=(cm==null||cm==='')?'selected':'';
+    b.querySelector('.grid').insertAdjacentHTML('beforeend',`<label>Selfie pelo app da trava antes de entregar<select id="cfgSelfieApp"><option value="sim" ${S.cfg.selfieApp!=='nao'?'selected':''}>Obrigatória</option><option value="nao" ${S.cfg.selfieApp==='nao'?'selected':''}>Desligada</option></select></label><label>Conferir a selfie automaticamente pela IA<select id="cfgSelfieConf"><option value="nao" ${cm==='nao'?'selected':''}>Desligada (sempre manual)</option><option value="70" ${sel('70')}>Confiança ≥ 70%</option><option value="80" ${def||sel('80')}>Confiança ≥ 80% (recomendado)</option><option value="90" ${sel('90')}>Confiança ≥ 90% (mais rígido)</option></select></label>`); }; }
+{ const _cr=ACT.cfgRisco; ACT.cfgRisco=async(d,b)=>{ const s=$('#cfgSelfieApp')?.value, sc=$('#cfgSelfieConf')?.value; const patch={}; if(s){ patch.selfieApp=s; S.cfg.selfieApp=s; } if(sc){ patch.selfieConfMin=sc; S.cfg.selfieConfMin=sc; } if(Object.keys(patch).length) await DB.set('config','sistema',patch); return _cr(d,b); }; }
 
 /* ================= Dono: página Licenças — dar, cobrar ou retirar licenças das lojas ================= */
 TABS.push({id:'licencasLojas',label:'Licenças',roles:['DONO']});
