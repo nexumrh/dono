@@ -1181,7 +1181,7 @@ async function handler6(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
-    const { token, pergunta } = req.body || {};
+    const { token, pergunta, origem } = req.body || {};
     if (!token || !pergunta || String(pergunta).length > 500) return res.status(400).json({ erro: "pedido inv\xE1lido" });
     const chave = process.env.GROQ_API_KEY || (await config()).iaChave || "";
     if (!chave) return res.status(200).json({ resposta: null });
@@ -1192,7 +1192,7 @@ async function handler6(req, res) {
     const contexto = {
       hoje: hoje(),
       loja: ap.lojaNome,
-      telefoneLoja: ap.lojaTelefone,
+      telefoneLoja: origem === "app" ? undefined : ap.lojaTelefone,
       chavePix: ap.chavePix,
       aparelho: `${ap.marca} ${ap.modelo}`,
       contrato: ap.vendaNumero,
@@ -1213,7 +1213,7 @@ async function handler6(req, res) {
         temperature: 0.2,
         max_tokens: 400,
         messages: [
-          { role: "system", content: "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo." },
+          { role: "system", content: (origem === "app" ? "Voc\xEA \xE9 a assistente virtual da NexumCell dentro do app do cliente, no celular financiado. Responda em portugu\xEAs do Brasil, em texto simples, sem markdown, sem asteriscos e sem listas com s\xEDmbolos; no m\xE1ximo 4 frases curtas. Use s\xF3 os DADOS DO CONTRATO; nunca invente valores, datas, promo\xE7\xF5es ou regras e n\xE3o prometa descontos nem libera\xE7\xE3o. Valores sempre no formato R$ 0,00 e datas dd/mm/aaaa. Nunca cite telefone, WhatsApp, e-mail ou site. Caminhos que existem no app: aba Parcelas \u2192 Pagar com PIX ou Cart\xE3o ou boleto em cada parcela; aba Parcelas \u2192 Quitar com PIX; aba Parcelas \u2192 Atualizar; aba Contrato \u2192 Baixar contrato assinado e Mudar dia do vencimento; aba Suporte \u2192 Iniciar atendimento. O aparelho libera sozinho alguns minutos depois que o pagamento \xE9 confirmado. Se o caso precisar de uma pessoa (defeito, roubo, contesta\xE7\xE3o, pagamento que n\xE3o caiu depois de 30 minutos), diga para tocar em N\xE3o, logo abaixo da resposta, que a assistente chama a equipe." : "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp informado em telefoneLoja, exatamente como est\xE1 nos dados. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo.") },
           { role: "system", content: "DADOS DO CONTRATO: " + JSON.stringify(contexto) },
           { role: "user", content: String(pergunta) }
         ]
