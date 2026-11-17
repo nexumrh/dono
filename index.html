@@ -9511,7 +9511,7 @@ function reciboVendaHtml(v){
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo da venda nº ${v.numero}</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{font-family:Arial,sans-serif;max-width:720px;margin:30px auto;padding:0 20px;color:#111;line-height:1.5}.top{background:#0A1733;color:#fff;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
 .top b{font-size:18px}.top span{font-size:12px;color:#C9D4EE}h1{font-size:20px;text-align:center;margin:22px 0 4px}.sub{text-align:center;color:#555;font-size:13px;margin-bottom:16px}
-table{width:100%;border-collapse:collapse;margin:10px 0}td{border:1px solid #ddd;padding:8px 10px;font-size:14px}td:first-child{width:38%;background:#F7F8FB}
+table{width:100%;border-collapse:collapse;margin:10px 0}td{border:1px solid #ddd;padding:8px 10px;font-size:14px}td:first-child{width:38%;background:#F7F8FB}.parc td:first-child{width:auto}.parc th{background:#0A1733;color:#fff;font-size:13px;padding:8px 10px;text-align:left}.parc td{padding:6px 10px}
 .val{font-size:22px;text-align:center;margin:16px 0;padding:12px;border:2px solid #0E9F6E;border-radius:10px;color:#0E9F6E;font-weight:700}
 .rod{font-size:12px;color:#555;margin-top:24px;text-align:center}@media print{.np{display:none}}</style></head><body>
 <div class="top"><b>${esc(S.cfg.empresa||'NexumCell')}</b><span>${esc(v.lojaNome||'')}${S.cfg.cnpj?' · CNPJ '+esc(S.cfg.cnpj):''}</span></div>
@@ -9522,6 +9522,9 @@ table{width:100%;border-collapse:collapse;margin:10px 0}td{border:1px solid #ddd
 ${linha('Valor da compra',brl(v.valor||0))}${linha('Entrada',`${brl(e.valor||v.entrada||0)}${e.forma?' · '+esc(e.forma):''}`)}${v.usado?linha('Usado na entrada',esc(`${v.usado.marca||''} ${v.usado.modelo||''}`)+' · '+brl(v.usado.valor||0)):''}
 ${linha('Parcelas',`${n}x de ${brl(p0.valor||v.valorParcela||0)}`)}${linha('1º vencimento',p0.venc?fmtD(p0.venc):'')}${v.protecao?linha('Proteção',`${brl(v.protecao.mensal)} por parcela`):''}
 ${linha('Vendedor',esc(v.vendedorNome||''))}</table>
+<h2 style="font-size:16px;margin:22px 0 6px">Datas das parcelas</h2>
+<table class="parc"><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th></tr>${(v.parcelas||[]).map(p=>`<tr><td>${p.n}ª de ${n}</td><td>${fmtD(p.venc)}</td><td>${brl(p.valor||0)}</td></tr>`).join('')}
+<tr><td colspan="2"><b>Total das parcelas</b></td><td><b>${brl((v.parcelas||[]).reduce((t,p)=>t+(+p.valor||0),0))}</b></td></tr></table>
 <p class="rod">As parcelas podem ser pagas pelo app NexumCell no próprio aparelho ou pelo portal do cliente: ${esc(urlCliente())}.<br>Documento gerado pelo sistema ${esc(S.cfg.empresa||'NexumCell')}.</p>
 <p class="np" style="text-align:center"><button onclick="print()" style="padding:10px 18px;font-size:15px">Imprimir / salvar em PDF</button></p></body></html>`;
 }
