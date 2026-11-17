@@ -12,6 +12,13 @@ service cloud.firestore {
     }
     function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
     function me()      { return get(userDoc()).data; }
+    // venda só sai de notebook aprovado (dispositivos/{idDoNotebook}_{uid} com status APROVADO); o Dono não precisa
+    function notebookOk() {
+      return hasRole(['DONO'])
+        || (request.resource.data.get('dispositivoId', '') is string
+            && exists(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid))
+            && get(/databases/$(database)/documents/dispositivos/$(request.resource.data.get('dispositivoId', '') + '_' + request.auth.uid)).data.status == 'APROVADO');
+    }
     // E-mail do dono: entra em todos os portais com perfil de Dono
     function donoEmail() { return signed() && request.auth.token.email == 'wevellenerrera21@gmail.com'; }
     // loja bloqueada pelo Dono: gerente e vendedores dela perdem o acesso a tudo
@@ -164,6 +171,20 @@ service cloud.firestore {
       allow read: if staff();
       allow create, update: if staff() && request.resource.data.vendedorUid == request.auth.uid;
     }
+    // ---------- Notebooks autorizados: vendedor/gerente cadastra o próprio; suporte ou dono aprova ----------
+    match /dispositivos/{id} {
+      allow read: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO']) || (signed() && resource.data.uid == request.auth.uid);
+      allow create: if hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.uid == request.auth.uid
+                    && id == request.resource.data.id + '_' + request.auth.uid
+                    && request.resource.data.status == 'PENDENTE';
+      // a própria pessoa só pede de novo (volta para PENDENTE); aprovar, reprovar e retirar é do suporte e do dono
+      allow update: if hasRole(['DONO', 'SUPORTE'])
+                    || (hasRole(['VENDEDOR', 'GERENTE']) && resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == request.auth.uid && request.resource.data.id == resource.data.id
+                        && resource.data.status != 'APROVADO' && request.resource.data.status == 'PENDENTE');
+      allow delete: if hasRole(['DONO']);
+    }
+
     match /vendas/{id} {
       allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
                   || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
@@ -174,7 +195,8 @@ service cloud.firestore {
                         // venda a distância: nasce aguardando o cliente mandar documento e selfie pelo link
                         || (request.resource.data.status == 'REMOTA' && request.resource.data.remota.token is string && request.resource.data.remota.token.size() >= 20))
                     && request.resource.data.vendedorUid == request.auth.uid
-                    && request.resource.data.aparelho == null && request.resource.data.valor == 0;
+                    && request.resource.data.aparelho == null && request.resource.data.valor == 0
+                    && notebookOk();
       allow update: if hasRole(['DONO', 'FINANCEIRO'])
                     // gerente acompanha a loja, mas não aprova crédito
                     || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId
