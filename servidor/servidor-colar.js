@@ -1776,6 +1776,32 @@ function nota(hist, renda) {
   const mult = { Ouro: 2.5, Prata: 1.8, Bronze: 1.2, Risco: 0.5 }[faixa] * (hist.length ? 1 : 0.9);
   return { score: s, faixa, limite: atrasoAberto ? 0 : Math.round((renda || 0) * mult / 50) * 50, motivos, atrasoAberto, quitados };
 }
+// nota da proposta: histórico + dados deste cliente (idade, renda, comprovantes, documento, rosto, contatos, fraude)
+function notaProposta(v, hist) {
+  const c = v.cliente || {}, vf = v.verificacao || {}, f = vf.face || {}, cp = vf.comprovantes || {};
+  const N = nota(hist, c.renda); let s = N.score; const motivos = [...N.motivos];
+  const add = (p, t) => { s += p; motivos.push(`${t} (${p > 0 ? '+' : ''}${p})`); };
+  const idade = c.nasc ? Math.floor((Date.now() - new Date(c.nasc + 'T12:00:00')) / 31557600000) : null;
+  if (idade == null || isNaN(idade)) add(-30, 'sem data de nascimento');
+  else if (idade < 21) add(-60, `${idade} anos`); else if (idade < 26) add(-20, `${idade} anos`); else if (idade <= 55) add(20, `${idade} anos`); else if (idade > 65) add(-20, `${idade} anos`);
+  const renda = Number(c.renda) || 0;
+  if (renda < 1200) add(-60, 'renda abaixo de R$ 1.200'); else if (renda < 2000) add(-20, 'renda até R$ 2.000'); else if (renda >= 4000) add(40, 'renda acima de R$ 4.000'); else if (renda >= 2500) add(20, 'renda acima de R$ 2.500');
+  if (cp.renda?.ok) add(40, 'renda comprovada'); else if (cp.renda?.alerta) add(-60, 'comprovante de renda com alerta'); else add(-15, 'renda sem comprovante');
+  if (cp.endereco?.ok) add(30, 'endereço comprovado'); else if (cp.endereco?.alerta) add(-40, 'comprovante de endereço com alerta');
+  if (vf.documentoOriginal === false) add(-150, 'documento parece cópia ou foto de tela'); else if (vf.documentoOriginal) add(20, 'documento original');
+  const ed = (vf.editados || []).length; if (ed) add(-Math.min(120, 40 * ed), 'dados do documento editados à mão');
+  if (f.mesma_pessoa === 'sim') add((Number(f.confianca) || 0) >= 85 ? 50 : 30, 'rosto confere com o documento');
+  else if (f.mesma_pessoa === 'nao') add(-300, 'rosto NÃO confere com o documento'); else if (f.mesma_pessoa) add(-60, 'rosto com dúvida');
+  const tels = (c.telefones || []).filter(Boolean).length; if (tels >= 2) add(15, '2 ou mais telefones'); else add(-20, 'só 1 telefone');
+  const refs = [c.ref1Nome, c.ref2Nome].filter((x) => String(x || '').trim().length > 2).length; if (refs >= 2) add(25, '2 referências'); else if (!refs) add(-40, 'sem referências');
+  if (c.email) add(5, 'tem e-mail');
+  if ((v.alertasFraude || []).length) add(-200, 'mesmo CPF ou telefone em outra loja');
+  if (c.docValidade && c.docValidade < hoje()) add(-40, 'documento vencido');
+  s = Math.max(0, Math.min(1000, Math.round(s)));
+  const faixa = N.atrasoAberto ? 'Risco' : s >= 750 ? 'Ouro' : s >= 600 ? 'Prata' : s >= 450 ? 'Bronze' : 'Risco';
+  const mult = { Ouro: 2.5, Prata: 1.8, Bronze: 1.2, Risco: 0.5 }[faixa] * (hist.length ? 1 : 0.9);
+  return { ...N, score: s, faixa, motivos, limite: N.atrasoAberto ? 0 : Math.round((renda * mult) / 50) * 50 };
+}
 async function avaliarVenda(vendaId) {
   const cfg = (await db.collection("config").doc("sistema").get()).data() || {};
   const R = { ...MOTOR_PADRAO, ...cfg.motor || {} };
@@ -1786,7 +1812,7 @@ async function avaliarVenda(vendaId) {
   const c = v.cliente || {}, vf = v.verificacao || {};
   const reprova = [], manual = [], ok = [], alertas = [];
   const hist = (await db.collection("vendas").where("clienteCpf", "==", v.clienteCpf).get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.id !== vendaId);
-  const N = nota(hist, c.renda);
+  const N = notaProposta(v, hist);
   const lnIds = ["cpf_" + v.clienteCpf, ...(c.telefones || []).map((t) => "tel_" + String(t).replace(/\D/g, ""))];
   const ln = (await Promise.all(lnIds.map((i) => db.collection("listanegra").doc(i).get()))).filter((d) => d.exists && d.data().ativo !== false).length;
   if (ln) reprova.push("cliente ou telefone na lista negra");
