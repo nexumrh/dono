@@ -2308,7 +2308,7 @@ PAGES.inicio = async () => {
 PAGES.vendas = async () => {
   const vendas=(await loadVendas()).sort((a,b)=>b.numero-a.numero);
   const f=S.filtro.vendas||'todas', q=(S.filtro.vq||'').toLowerCase();
-  const lista=vendas.filter(v=>(f==='todas'||v.status===f) && (!q || [v.clienteNome,v.clienteCpf,v.aparelho?.imei,String(v.numero)].join(' ').toLowerCase().includes(q)));
+  const lista=vendas.filter(v=>(f==='todas'||v.status===f) && (!q || [v.clienteNome,v.clienteCpf,v.aparelho?.imei,String(v.numero),deviceTag(v.numero)].join(' ').toLowerCase().includes(q)));
   const tabs=[['todas','Todas'],['ANALISE','Em análise'],['APROVADA','Aprovadas'],['AGUARDANDO_ENTRADA','Aguardando entrada'],['INSTALANDO','Aguardando trava'],['ATIVA','Ativas'],['QUITADA','Quitadas'],['RETOMADA','Retomadas'],['REPROVADA','Reprovadas'],['CANCELADA','Canceladas']];
   $('#view').innerHTML=`
   <div class="row mb"><input id="vq" placeholder="Buscar por nome, CPF, IMEI ou nº" style="max-width:340px" value="${esc(S.filtro.vq||'')}"></div>
@@ -2342,7 +2342,7 @@ async function verVenda(id){
   const podeCancelar=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status) && can('DONO','GERENTE');
   openModal(`
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Venda nº ${v.numero}</h2>${vBadge(v.status)}</div>
-    <p class="small muted">${esc(v.lojaNome)} · ${esc(v.vendedorNome)} · ${fmtDT(v.criadoEm)}</p>
+    <p class="small muted"><span class="mono" style="color:var(--navy);font-weight:700">${deviceTag(v.numero)}</span> · ${esc(v.lojaNome)} · ${esc(v.vendedorNome)} · ${fmtDT(v.criadoEm)}</p>
     <div class="grid g2">
       <div><h3>Cliente</h3><dl class="kv"><dt>Nome</dt><dd>${esc(c.nome)}</dd><dt>CPF</dt><dd>${fmtCpf(c.cpf)}</dd><dt>Nascimento</dt><dd>${fmtD(c.nasc)}</dd>
         <dt>Telefones</dt><dd>${(c.telefones||[c.tel]).map(fmtFone).map(esc).join(' · ')}</dd><dt>Endereço</dt><dd>${esc([c.endereco,c.bairro,c.cidade,c.uf].filter(Boolean).join(', '))}</dd>
@@ -2604,6 +2604,8 @@ async function mostrarQR(tk){
 /* ======================= UTILITÁRIOS: hash, localização ======================= */
 async function sha256(txt){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(txt))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 const chaveAcesso = (cpf,nasc,tel) => sha256(`nexumcell|${onlyDig(cpf)}|${nasc}|${onlyDig(tel).slice(-4)}`);
+/* Device Tag: identificação do contrato começando com N (ex.: N00009). Deriva do nº do contrato — igual no app da trava. */
+const deviceTag = n => 'N'+String(n||0).padStart(5,'0');
 function distM(a,b){ const R=6371000, rad=x=>x*Math.PI/180, dLa=rad(b.lat-a.lat), dLo=rad(b.lng-a.lng); const s=Math.sin(dLa/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
 function minhaPosicao(){ return new Promise((ok,err)=>{ if(!navigator.geolocation) return err(new Error('Este aparelho não informa a localização.'));
   navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lng:p.coords.longitude,precisao:Math.round(p.coords.accuracy),em:Date.now()}),
@@ -4890,9 +4892,9 @@ PAGES.aparelhos = async () => {
   const q=(S.filtro.aq||'').toLowerCase(), f=S.filtro.ap||'todos';
   const sit=a=>apSituacao(a)[0];
   const sel={todos:()=>true, travado:a=>sit(a)==='Travado', liberado:a=>sit(a)==='Liberado', inst:a=>sit(a)==='Aguardando instalação', fim:a=>a.quitado||a.status==='CANCELADO', offline:a=>a.checkin?.em&&!a.quitado&&a.status==='ATIVO'&&Date.now()-a.checkin.em>86400000*diasSemSinal(), exterior:a=>!a.quitado&&a.status==='ATIVO'&&!!foraDoPais(a)};
-  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero),chaveTrava(a.id)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
+  const lista=aps.filter(sel[f]).filter(a=>!q||[a.imei,a.imei2,a.clienteNome,a.modelo,String(a.vendaNumero),deviceTag(a.vendaNumero),chaveTrava(a.id)].join(' ').toLowerCase().includes(q)); S._apLista=lista;
   const tabs=[['todos','Todos'],['travado','Travados'],['liberado','Liberados'],['inst','Aguardando instalação'],['offline',`Sem sinal +${diasSemSinal()} dias`],['exterior','Fora do Brasil'],['fim','Quitados/cancelados']];
-  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por IMEI, chave de acesso, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
+  $('#view').innerHTML=`<div class="row mb" style="gap:8px;align-items:center"><input id="aq" placeholder="Buscar por Device Tag (N...), IMEI, chave, cliente, modelo ou nº do contrato" style="max-width:380px;flex:1" value="${esc(S.filtro.aq||'')}">${can('DONO')?`<button class="btn sm red" data-act="removerMassa">Remover travas</button>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<button data-act="filtro" data-k="ap" data-v="${k}" class="${f===k?'on':''}">${l} (${aps.filter(sel[k]).length})</button>`).join('')}</div>
   <div>${lista.map(apCard).join('')||'<div class="card empty">Nenhum aparelho</div>'}</div>`;
   $('#aq').addEventListener('input',e=>{ S.filtro.aq=e.target.value; clearTimeout(S._aqT); S._aqT=setTimeout(()=>{ PAGES.aparelhos().then(()=>{ const el=$('#aq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }); },250); });
@@ -4905,7 +4907,7 @@ function apCard(a){
   const gerencia=can('DONO','SUPORTE','FINANCEIRO');
   return `<div class="card ap"><div>
     <div class="row"><b style="font-size:15px">${esc(a.marca+' '+a.modelo)}</b>${badge(st,cor)}${apSeloFrp(a)}${a.modo!=='AUTO'&&ativo?badge(a.modo==='TRAVAR'?'Trava manual':'Liberação manual','navy'):''}${imeiDiverge?badge('IMEI diferente do contrato!','red'):''}${foraDoPais(a)?badge('🌎 '+foraDoPais(a)+(a.foraDesde?' há '+Math.max(0,Math.round((Date.now()-a.foraDesde)/86400000))+' dia(s)':''),'amber'):''}</div>
-    <div class="small muted mt" style="margin-top:4px">IMEI <span class="mono">${esc(a.imei)}</span> · chave <span class="mono">${chaveTrava(a.id)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
+    <div class="small muted mt" style="margin-top:4px"><span class="mono" style="color:var(--navy);font-weight:700">${deviceTag(a.vendaNumero)}</span> · IMEI <span class="mono">${esc(a.imei)}</span> · chave <span class="mono">${chaveTrava(a.id)}</span> · contrato <a href="#" data-act="verVenda" data-id="${a.vendaId}">nº ${a.vendaNumero}</a> · ${esc(a.clienteNome)} · ${esc(a.lojaNome)}</div>
     <div class="small mt" style="margin-top:6px">Regra: <b>${esc(av.motivo)}</b>${ck.em?` · último contato <b>${relT(ck.em)}</b> (bateria ${ck.bateria??'—'}%, Android ${esc(ck.android||'—')}, app ${esc(ck.versao||'—')})`:''}
       ${reportDiverge?`<br><span style="color:var(--amber)">O aparelho ainda está ${ck.travado?'travado':'liberado'} — muda no próximo contato.</span>`:''}${ck.imei&&imeiDiverge?`<br><span style="color:var(--red)">Aparelho informou IMEI ${esc(ck.imei)}.</span>`:''}</div>
   </div><div class="row" style="justify-content:flex-end;max-width:420px">
