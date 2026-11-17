@@ -9566,6 +9566,59 @@ async function vendaConcluidaTela(id){
     chk(); new MutationObserver(chk).observe(st,{attributes:true,attributeFilter:['class']}); } }catch(e){ console.warn('venda concluída',e); }
   return r; }; }
 
+
+/* ===================== PEDIDOS DE LIBERAÇÃO DO APP (nov/2026) =====================
+   O cliente pede pelo chat do app. A assistente libera 24 h sozinha quando o histórico permite;
+   quando não libera, o pedido aparece aqui para o suporte ou o dono liberar 24 h ou 48 h. */
+PAGES.liberacoes=async()=>{
+  const l=(await DB.list('liberacoes').catch(()=>[])).sort((a,b)=>b.em-a.em);
+  const pend=l.filter(x=>x.status==='PENDENTE'), fim=l.filter(x=>x.status!=='PENDENTE').slice(0,30);
+  const pct=x=>x.pagas?Math.round((x.pagasEmDia||0)/x.pagas*100)+'% em dia':'sem parcela paga ainda';
+  $('#view').innerHTML=`<p class="muted" style="margin-top:-4px">O cliente pede pelo chat do app. A assistente libera 24 h sozinha quando o histórico é bom (1 vez por parcela). Os casos que ela não liberou ficam aqui.</p>
+  ${pend.length?pend.map(x=>`<div class="card mb" style="border-left:4px solid ${x.sugestaoHoras===48?'#0E9F6E':'#B45309'}">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:240px">
+      <b style="font-size:16px">${esc(x.clienteNome)}</b> <span class="muted">· contrato nº ${x.numero} · ${esc(x.lojaNome||'')}</span>
+      <div class="small mt">Parcela ${x.parcela} em atraso há <b>${x.diasAtraso} dia(s)</b>${x.parcelasAtraso>1?` · ${x.parcelasAtraso} parcelas em atraso`:''} · pagas: ${x.pagas||0} (${pct(x)})</div>
+      <div class="small muted">A assistente não liberou: ${esc(x.motivoBot||'')}${x.pedidoCliente?` · cliente disse: “${esc(x.pedidoCliente)}”`:''} · ${relT(x.em)}</div>
+      <div class="small mt">Sugestão pelo histórico: <b>${x.sugestaoHoras} h</b></div></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm ${x.sugestaoHoras===24?'gold':''}" data-act="libDecidir" data-id="${x.id}" data-h="24">Liberar 24 h</button><button class="btn sm ${x.sugestaoHoras===48?'gold':''}" data-act="libDecidir" data-id="${x.id}" data-h="48">Liberar 48 h</button><button class="btn sm red" data-act="libDecidir" data-id="${x.id}" data-h="0">Recusar</button></div></div></div>`).join('')
+   :'<div class="card empty"><b>Nenhum pedido esperando</b>Quando a assistente não puder liberar, o pedido aparece aqui.</div>'}
+  ${fim.length?`<h3 class="mt">Últimas decisões</h3><div class="card tablewrap"><table><tr><th>Cliente</th><th>Parcela</th><th>Decisão</th><th>Por</th><th>Quando</th></tr>${fim.map(x=>`<tr><td>${esc(x.clienteNome)} <span class="small muted">nº ${x.numero}</span></td><td>${x.parcela}</td><td>${x.status==='APROVADA'?badge('Liberado '+x.horas+' h','green'):badge('Recusado','red')}</td><td>${esc(x.porNome||'')}</td><td>${fmtDT(x.decididoEm)}</td></tr>`).join('')}</table></div>`:''}`;
+};
+Object.assign(ACT,{ libDecidir:async(d,b)=>{
+  const x=await DB.get('liberacoes',d.id); if(!x||x.status!=='PENDENTE') return toast('Este pedido já foi decidido','err');
+  const h=+d.h; let motivo='';
+  if(!h){ motivo=(prompt('Motivo da recusa (o cliente não vê):','Atraso longo, precisa pagar para liberar')||'').trim(); if(!motivo) return; }
+  if(b) b.disabled=true;
+  try{
+    if(h) await DB.set('aparelhos',x.token,{modo:'AUTO',liberadoAte:Date.now()+h*3600000,modoPor:S.me.nome,modoMotivo:`Pedido do cliente pelo app (parcela ${x.parcela})`});
+    await DB.set('liberacoes',d.id,{status:h?'APROVADA':'RECUSADA',horas:h||0,porNome:S.me.nome,por:S.me.uid,decididoEm:Date.now(),motivoRecusa:motivo||null});
+    await log(h?`Liberação de ${h} h (pedido do app)`:'Liberação recusada (pedido do app)',x.vendaId,`${x.clienteNome} · parcela ${x.parcela}${motivo?' · '+motivo:''}`);
+    if(h&&typeof servLigado==='function'&&servLigado()) apiServ('push',{ids:[x.token]}).catch(()=>{});
+    toast(h?`Liberado por ${h} h. O aparelho destrava em instantes.`:'Pedido recusado','ok'); render();
+  }catch(e){ toast('Não foi possível: '+e.message,'err'); if(b) b.disabled=false; }
+} });
+TABS.push({id:'liberacoes',label:'Pedidos de liberação',roles:['DONO','SUPORTE','FINANCEIRO']});
+IC.liberacoes='<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>';
+if(['dono','suporte'].includes(PORTAL)&&!P.tabs.includes('liberacoes')) P.tabs.push('liberacoes');
+try{ const g=NAV_GRUPOS.find(x=>x[0]==='Atendimento')||NAV_GRUPOS.find(x=>x[0]==='Cobrança'); if(g&&!g[1].includes('liberacoes')) g[1].unshift('liberacoes'); }catch(e){}
+{ const _cpL=contarPendencias; contarPendencias=async(...a)=>{ const r=await _cpL(...a);
+  try{ if(can('DONO','SUPORTE','FINANCEIRO')) r.liberacoes=(await DB.list('liberacoes',[['status','==','PENDENTE']]).catch(()=>[])).length; }catch(e){}
+  return r; }; }
+/* configuração: prazo e liberação pela assistente do app (Dono) */
+{ const _cb=PAGES.config; PAGES.config=async()=>{ await _cb(); if(!can('DONO')||!$('#view')) return; const c=S.cfg;
+  const sn=(k,pad)=>`<select data-cfg="${k}"><option value="sim" ${(c[k]||pad)==='sim'?'selected':''}>Sim</option><option value="nao" ${(c[k]||pad)==='nao'?'selected':''}>Não</option></select>`;
+  const html=`<div class="card mt"><h2>Assistente do app: prazo e liberação</h2>
+    <p class="small muted">O cliente pede pelo chat do app. Prazo extra: 1 vez por parcela, perto do vencimento. Liberação: quando o aparelho está bloqueado por atraso, a assistente libera 24 h (1 vez por parcela) se o cliente pagou pelo menos metade das parcelas em dia; se não, o pedido vai para "Pedidos de liberação" e o suporte ou o dono decide 24 h ou 48 h.</p>
+    <div class="grid g4">
+      <label>Cliente pode pedir prazo extra${sn('prazoBot','sim')}</label>
+      <label>Horas de prazo extra<input data-cfg="prazoBotHoras" type="number" min="12" max="72" value="${esc(c.prazoBotHoras??48)}"></label>
+      <label>Assistente libera 24 h sozinha${sn('botLiberar','sim')}</label>
+      <label>Libera sozinha com atraso de até (dias)<input data-cfg="botLiberarMaxDias" type="number" min="1" max="60" value="${esc(c.botLiberarMaxDias??15)}"></label>
+    </div></div>`;
+  const ult=[...$('#view').querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else $('#view').insertAdjacentHTML('beforeend',html);
+}; }
+
 </script>
 </body>
 </html>
