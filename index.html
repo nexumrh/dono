@@ -2011,11 +2011,14 @@ const MET_IND=[
 ];
 const METAS_BONUS_PADRAO={aparelhos:0,acessoriosSeguros:0,parcelas:0,integral:0};
 function metasDefAtivos(){ return {aparelhos:true,faturamento:true,acessorios:true,capinha:false,pelicula:false,seguros:true,parcelas:true}; }
-async function metasDoc(mes){
-  const d=await DB.get('metas',mes).catch(()=>null)||{};
+/* metas/{mes} = equipe Nexum (Dono) · metas/{mes}_{lojaId} = metas da loja (Gerente). Sem a da loja, vale a da Nexum. */
+async function metasDoc(mes,lojaId){
+  let d=null, propria=false;
+  if(lojaId){ d=await DB.get('metas',mes+'_'+lojaId).catch(()=>null); propria=!!d; }
+  if(!d) d=await DB.get('metas',mes).catch(()=>null)||{};
   const metasV=JSON.parse(JSON.stringify(d.metasV||{}));
   if(d.vendedores) for(const u in d.vendedores){ metasV[u]=metasV[u]||{}; if(metasV[u].faturamento==null) metasV[u].faturamento=+d.vendedores[u]||0; }
-  return {ativos:d.ativos||metasDefAtivos(), metasV, bonus:{...METAS_BONUS_PADRAO,...(d.bonusRegras||{})}, lojas:d.lojas||{}, raw:d};
+  return {ativos:d.ativos||metasDefAtivos(), metasV, bonus:{...METAS_BONUS_PADRAO,...(d.bonusRegras||{})}, lojas:d.lojas||{}, raw:d, propria};
 }
 function calcMetas(uid,mes,vendas){
   const ok=v=>['ATIVA','QUITADA','RETOMADA','INSTALANDO'].includes(v.status)&&v.entradaPaga;
@@ -2058,7 +2061,7 @@ function metaRing(feito,meta,lbl,money){
   </div>`;
 }
 async function cardMinhasMetas(uid,mes,vendas){
-  const {ativos,metasV,bonus}=await metasDoc(mes);
+  const {ativos,metasV,bonus}=await metasDoc(mes,S.me?.lojaId||null);
   const mv=metasV[uid]||{}, feito=calcMetas(uid,mes,vendas);
   const ind=MET_IND.filter(m=>ativos[m.k]);
   if(!ind.length) return '';
@@ -2095,14 +2098,14 @@ async function cardMinhasMetas(uid,mes,vendas){
 function mesNome(mes){ try{ const [a,m]=mes.split('-'); return new Date(a,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); }catch(e){ return mes; } }
 async function configMetas(){
   const mes=(S.filtro&&S.filtro.relMes)||hoje().slice(0,7);
-  const doc=await metasDoc(mes), ehDono=can('DONO');
-  const us=(await DB.list('users').catch(()=>[])).filter(u=>u.role==='VENDEDOR'&&u.ativo!==false&&(ehDono||u.lojaId===S.me.lojaId));
+  const ehDono=can('DONO'), lid=ehDono?'':(S.me.lojaId||''), doc=await metasDoc(mes,lid||null);
+  const us=(await DB.list('users').catch(()=>[])).filter(u=>u.ativo!==false&&u.role!=='DONO'&&(ehDono?!u.lojaId:u.lojaId===S.me.lojaId)).map(u=>({...u,uid:u.uid||u.id}));
   const ativos=doc.ativos, bonus=doc.bonus, metasV=doc.metasV;
   const on=()=>MET_IND.filter(m=>ativos[m.k]);
-  const togg=MET_IND.map(m=>`<label class="check" style="display:flex;align-items:center;gap:8px;padding:5px 0"><input type="checkbox" data-mind="${m.k}" ${ativos[m.k]?'checked':''} ${ehDono?'':'disabled'}> <span>${m.lbl}${m.money?' (R$)':''}</span></label>`).join('');
+  const togg=MET_IND.map(m=>`<label class="check" style="display:flex;align-items:center;gap:8px;padding:5px 0"><input type="checkbox" data-mind="${m.k}" ${ativos[m.k]?'checked':''}> <span>${m.lbl}${m.money?' (R$)':''}</span></label>`).join('');
   const tabela=()=>`<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th style="text-align:left;padding:6px">Vendedor</th>${on().map(m=>`<th style="padding:6px">${m.lbl}</th>`).join('')}</tr>
     ${us.map(u=>`<tr><td style="padding:6px"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span></td>${on().map(m=>`<td style="padding:4px"><input type="number" min="0" data-mv="${u.uid}|${m.k}" value="${(metasV[u.uid]||{})[m.k]||''}" style="width:76px;min-height:30px"></td>`).join('')}</tr>`).join('')||`<tr><td colspan="9" class="muted" style="padding:8px">Nenhum vendedor nesta visão.</td></tr>`}</table>`;
-  const regras=ehDono?`<div class="grid g2">${[['aparelhos','Bater aparelhos'],['acessoriosSeguros','Bater acessórios + seguros'],['parcelas','Parcelas em dia'],['integral','Bater TODAS (bônus integral)']].map(([k,l])=>`<label>${l} (R$)<input type="number" min="0" data-mb="${k}" value="${+bonus[k]||0}"></label>`).join('')}</div>`
+  const regras=true?`<div class="grid g2">${[['aparelhos','Bater aparelhos'],['acessoriosSeguros','Bater acessórios + seguros'],['parcelas','Parcelas em dia'],['integral','Bater TODAS (bônus integral)']].map(([k,l])=>`<label>${l} (R$)<input type="number" min="0" data-mb="${k}" value="${+bonus[k]||0}"></label>`).join('')}</div>`
     :`<p class="muted">As regras e valores de bônus são definidos pela Nexum.</p>`;
   const vendasB=await loadVendas().catch(()=>[]);
   const pagos=(await DB.get('bonusPagos',mes).catch(()=>null))?.pagos||{};
@@ -2112,7 +2115,7 @@ async function configMetas(){
       <p class="muted" style="margin:0 0 6px;font-size:12px">Marque quando pagar. O funcionário vê o status no app de metas.</p>
       ${lst.length?lst.map(({u,total})=>{ const pg=pagos[u.uid]; return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 0;gap:8px"><div style="flex:1"><b>${esc(primeiroNome(u.nome))}</b> <span class="muted" style="font-size:11px">${esc(lojaNome(u.lojaId)||'')}</span><div style="font-size:13px;font-weight:700;color:#15754A">${brl(total)}</div></div>${pg?`${badge('Pago '+fmtD(isoDate(new Date(pg.pagoEm))),'green')}<button class="btn sm" data-bndesf="${u.uid}">Desfazer</button>`:`<button class="btn sm" data-bnpg="${u.uid}|${total}" style="background:#15754A;color:#fff;border-color:#15754A">Marcar pago</button>`}</div>`; }).join(''):`<p class="muted">Ninguém com bônus garantido ainda neste mês.</p>`}`;
   })():'';
-  openModal(`<h2>Minhas Metas — ${mesNome(mes)}</h2><p class="muted" style="margin-top:-6px">As regras valem para a equipe da Nexum e das lojas parceiras.</p>
+  openModal(`<h2>Metas ${ehDono?'da equipe Nexum':'da loja'} — ${mesNome(mes)}</h2><p class="muted" style="margin-top:-6px">${ehDono?'Valem para a equipe Nexum. As lojas parceiras definem as delas pelo gerente.':'Valem só para a sua loja: você define as metas e o bônus da sua equipe.'}</p>
     <h3>Indicadores do mês</h3><p class="muted" style="margin:0 0 4px;font-size:12px">O que estiver desligado não aparece para o vendedor.</p><div style="columns:2;-webkit-columns:2">${togg}</div>
     <h3 class="mt">Regras de bônus</h3>${regras}
     <h3 class="mt">Metas por vendedor</h3><div style="overflow-x:auto" id="mtTab">${tabela()}</div>
@@ -2122,11 +2125,11 @@ async function configMetas(){
   document.querySelectorAll('[data-bndesf]').forEach(b=>b.onclick=async()=>{ await DB.set('bonusPagos',mes,{pagos:{[b.dataset.bndesf]:null}}); toast('Pagamento desfeito'); configMetas(); });
   document.querySelectorAll('[data-mind]').forEach(c=>c.addEventListener('change',e=>{ ativos[e.target.dataset.mind]=e.target.checked; $('#mtTab').innerHTML=tabela(); }));
   $('#mtSalvar').onclick=async()=>{
-    const nv=JSON.parse(JSON.stringify(doc.raw.metasV||{}));
+    const nv=JSON.parse(JSON.stringify((lid&&!doc.propria)?{}:(doc.raw.metasV||{})));
     document.querySelectorAll('[data-mv]').forEach(i=>{ const [u,k]=i.dataset.mv.split('|'); nv[u]=nv[u]||{}; nv[u][k]=+i.value||0; });
     const patch={metasV:nv, atualizadoEm:Date.now(), por:S.me.nome};
-    if(ehDono){ const br={...doc.bonus}; document.querySelectorAll('[data-mb]').forEach(i=>br[i.dataset.mb]=+i.value||0); patch.bonusRegras=br; patch.ativos={...ativos}; }
-    await DB.set('metas',mes,patch); await log('Minhas Metas configuradas',mes,''); closeModal(); toast('Metas salvas','ok'); render();
+    { const br={...doc.bonus}; document.querySelectorAll('[data-mb]').forEach(i=>br[i.dataset.mb]=+i.value||0); patch.bonusRegras=br; patch.ativos={...ativos}; patch.lojaId=lid; }
+    await DB.set('metas',lid?mes+'_'+lid:mes,patch); await log('Minhas Metas configuradas',mes,''); closeModal(); toast('Metas salvas','ok'); render();
   };
 }
 Object.assign(ACT,{ configMetas:()=>configMetas() });
