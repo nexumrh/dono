@@ -9520,11 +9520,14 @@ table{width:100%;border-collapse:collapse;margin:10px 0}td{border:1px solid #ddd
 <p>Recebemos de <b>${esc(c.nome||v.clienteNome||'')}</b>, CPF ${fmtCpf(c.cpf||v.clienteCpf||'')}, a quantia acima referente à entrada da compra do aparelho descrito abaixo, financiado em ${n} parcelas conforme o contrato nº ${v.numero}.</p>
 <table>${linha('Aparelho',esc(`${a.marca||''} ${a.modelo||''} ${a.capacidade||a.armazenamento||''}`.trim()))}${linha('IMEI',esc(a.imei||'')+(a.imei2?' / '+esc(a.imei2):''))}
 ${linha('Valor da compra',brl(v.valor||0))}${linha('Entrada',`${brl(e.valor||v.entrada||0)}${e.forma?' · '+esc(e.forma):''}`)}${v.usado?linha('Usado na entrada',esc(`${v.usado.marca||''} ${v.usado.modelo||''}`)+' · '+brl(v.usado.valor||0)):''}
-${linha('Parcelas',`${n}x de ${brl(p0.valor||v.valorParcela||0)}`)}${linha('1º vencimento',p0.venc?fmtD(p0.venc):'')}${v.protecao?linha('Proteção',`${brl(v.protecao.mensal)} por parcela`):''}
+${linha('Parcelas',`${n}x de ${brl(p0.valor||v.valorParcela||0)}`)}${linha('1º vencimento',p0.venc?fmtD(p0.venc):'')}${linha('Proteção',v.protecao?`Sim · ${brl(v.protecao.mensal)} por parcela`:'Não contratada')}
 ${linha('Vendedor',esc(v.vendedorNome||''))}</table>
+<h2 style="font-size:16px;margin:22px 0 6px">Proteção / Seguro</h2>
+${v.protecao?`<table>${linha('Situação','<b style="color:#0E9F6E">Contratada</b>')}${linha('Cobertura',esc(v.protecao.cobertura||S.cfg.protecaoCobertura||'Conserto de tela e defeitos fora da garantia'))}${linha('Valor',`${brl(v.protecao.mensal)} por parcela, já incluído no valor de cada parcela`)}${linha('Total da proteção',`${brl(r2((+v.protecao.mensal||0)*n))} (${n} parcelas)`)}${linha('Seguradora parceira',esc(v.seguro?.parceiro||S.cfg.seguroParceiroNome||''))}${linha('Apólice / certificado',esc(v.seguro?.apolice||''))}${linha('Como usar','Fale com a loja ou abra um chamado no app NexumCell. A proteção pode ser usada 1 vez por contrato.')}</table>`
+  :`<table>${linha('Situação','Não contratada')}${linha('Observação','O cliente optou por não contratar a proteção. Consertos fora da garantia do fabricante são por conta do cliente.')}</table>`}
 <h2 style="font-size:16px;margin:22px 0 6px">Datas das parcelas</h2>
-<table class="parc"><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th></tr>${(v.parcelas||[]).map(p=>`<tr><td>${p.n}ª de ${n}</td><td>${fmtD(p.venc)}</td><td>${brl(p.valor||0)}</td></tr>`).join('')}
-<tr><td colspan="2"><b>Total das parcelas</b></td><td><b>${brl((v.parcelas||[]).reduce((t,p)=>t+(+p.valor||0),0))}</b></td></tr></table>
+<table class="parc"><tr><th>Parcela</th><th>Vencimento</th>${v.protecao?'<th>Aparelho</th><th>Proteção</th>':''}<th>Valor</th></tr>${(v.parcelas||[]).map(p=>`<tr><td>${p.n}ª de ${n}</td><td>${fmtD(p.venc)}</td>${v.protecao?`<td>${brl(r2((+p.valor||0)-(+v.protecao.mensal||0)))}</td><td>${brl(v.protecao.mensal)}</td>`:''}<td>${brl(p.valor||0)}</td></tr>`).join('')}
+<tr><td colspan="${v.protecao?4:2}"><b>Total das parcelas</b></td><td><b>${brl((v.parcelas||[]).reduce((t,p)=>t+(+p.valor||0),0))}</b></td></tr></table>
 <p class="rod">As parcelas podem ser pagas pelo app NexumCell no próprio aparelho ou pelo portal do cliente: ${esc(urlCliente())}.<br>Documento gerado pelo sistema ${esc(S.cfg.empresa||'NexumCell')}.</p>
 <p class="np" style="text-align:center"><button onclick="print()" style="padding:10px 18px;font-size:15px">Imprimir / salvar em PDF</button></p></body></html>`;
 }
@@ -9534,7 +9537,7 @@ function vfAbrir(html){ const w=window.open(URL.createObjectURL(new Blob([html],
 function vfBaixar(html,nome){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=nome; document.body.appendChild(a); a.click(); a.remove(); }
 function vfMsgZap(v){ const a=v.aparelho||{}, p0=(v.parcelas||[])[0]||{}, n=+v.nParcelas||(v.parcelas||[]).length;
   return `Olá, ${primeiroNome(v.clienteNome)}! Sua compra na ${S.cfg.empresa||'NexumCell'} foi concluída.\n\n`+
-    `Aparelho: ${a.marca||''} ${a.modelo||''}\nEntrada paga: ${brl(v.entradaPaga?.valor||v.entrada||0)}\nParcelas: ${n}x de ${brl(p0.valor||0)}\n1º vencimento: ${p0.venc?fmtD(p0.venc):'—'}\nContrato nº ${v.numero}\n\n`+
+    `Aparelho: ${a.marca||''} ${a.modelo||''}\nEntrada paga: ${brl(v.entradaPaga?.valor||v.entrada||0)}\nParcelas: ${n}x de ${brl(p0.valor||0)}\n1º vencimento: ${p0.venc?fmtD(p0.venc):'—'}\nProteção: ${v.protecao?`contratada (${brl(v.protecao.mensal)} por parcela)`:'não contratada'}\nContrato nº ${v.numero}\n\n`+
     `Seu contrato e o recibo ficam no app NexumCell do aparelho e no portal do cliente: ${urlCliente()}\n(entre com CPF, data de nascimento e os 4 últimos números do celular).\n\nObrigado pela confiança!`; }
 async function vendaConcluidaTela(id){
   const wz=$('#wz'); if(!wz||wz.dataset.vf===id) return; const v=await DB.get('vendas',id); if(!v) return;
@@ -9548,7 +9551,7 @@ async function vendaConcluidaTela(id){
       <div class="vf-doc"><b>${svg(ic.doc)}Contrato assinado</b><span>Contrato nº ${v.numero}</span><div class="row"><button class="btn sm" id="vfCImp">Imprimir</button><button class="btn sm" id="vfCBx">Baixar</button></div></div>
       <div class="vf-doc"><b>${svg(ic.rec)}Recibo da venda</b><span>Entrada de ${brl(v.entradaPaga?.valor||v.entrada||0)}${v.entradaPaga?.forma?' · '+esc(v.entradaPaga.forma):''}</span><div class="row"><button class="btn sm" id="vfRImp">Imprimir</button><button class="btn sm" id="vfRBx">Baixar</button></div></div>
     </div>
-    <div class="vf-zap"><a class="btn green lg" target="_blank" rel="noopener" href="https://wa.me/${tel?(typeof telWa==='function'?telWa(tel):'55'+tel):''}?text=${encodeURIComponent(vfMsgZap(v))}">Enviar no WhatsApp do cliente</a><button class="btn gold lg" data-act="novaProposta">Nova venda</button></div>
+    ${v.protecao?`<div class="vf-doc" style="margin-top:14px;text-align:left"><b>${svg('<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>')}Proteção contratada</b><span>${brl(v.protecao.mensal)} por parcela · ${esc(v.protecao.cobertura||S.cfg.protecaoCobertura||'')}${S.cfg.seguroParceiroNome?' · '+esc(S.cfg.seguroParceiroNome):''}${v.seguro?.apolice?' · apólice '+esc(v.seguro.apolice):S.cfg.seguroWebhook?' · enviada à seguradora':''}</span>${typeof seguroLink==='function'&&seguroLink(v)?`<div class="row"><a class="btn sm" target="_blank" rel="noopener" href="${esc(seguroLink(v))}">Abrir na seguradora</a></div>`:''}</div>`:''}<div class="vf-zap"><a class="btn green lg" target="_blank" rel="noopener" href="https://wa.me/${tel?(typeof telWa==='function'?telWa(tel):'55'+tel):''}?text=${encodeURIComponent(vfMsgZap(v))}">Enviar no WhatsApp do cliente</a><button class="btn gold lg" data-act="novaProposta">Nova venda</button></div>
     <p class="small muted" style="margin-top:12px">Os arquivos baixados abrem no navegador e podem ser salvos em PDF ou anexados no WhatsApp.</p></div></div>`;
   const cH=vfContratoHtml(v), rH=reciboVendaHtml(v);
   $('#vfCImp').onclick=()=>vfAbrir(cH.replace('</body>','<script>window.onload=()=>window.print()<\/script></body>'));
