@@ -1628,7 +1628,7 @@ async function passoAparelho(){
     ${blocoExtrasVenda(item)}
     <div class="sim mt" id="nSim"></div>
     <div ${item.semTrava?'hidden':''}>${blocoImei()}</div>
-    <div class="row mt" style="justify-content:flex-end"><button class="btn gold lg" data-act="salvarAparelho">Gerar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
+    <div class="row mt" style="justify-content:space-between"><button class="btn lg" data-act="irPasso" data-n="4">← Voltar</button><button class="btn gold lg" data-act="salvarAparelho">Gerar contrato ${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div></div>`:''}`;
   if(item) simular();
 }
 const ANATEL_URL='https://www.consultaserialaparelho.com.br/public-web/homeSiga';
@@ -1744,12 +1744,11 @@ async function salvarAparelho(btn){
 async function passoContrato(){
   const v=await DB.get('vendas',S.w.vendaId);
   if(v.assinaturaPendente&&!S.w.modoAss) S.w.modoAss='celular';
-  if(v.zapsign?.status==='pendente'&&!S.w.modoAss) S.w.modoAss='zapsign';
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">6</span>Contrato e assinatura</h2>
     <div class="contrato">${contratoHTML(v)}</div>
     <label class="check mt"><input type="checkbox" id="sgAceite"> O cliente leu o contrato e <b>concorda com a cláusula 5 (bloqueio do aparelho por atraso)</b></label>
     <label class="check"><input type="checkbox" id="sgLgpd"> O cliente autoriza o tratamento dos dados pessoais e da biometria (cláusula 6)</label>
-    <div class="tabs mt">${[['loja','Assinar neste aparelho'],['celular','Cliente assina no celular dele'],...(S.cfg.assinaturaZapsign==='sim'&&servLigado()?[['zapsign','ZapSign (selfie + documento)']]:[])].map(([k,t])=>`<button data-act="modoAssinatura" data-v="${k}" class="${(S.w.modoAss||'loja')===k?'on':''}">${t}</button>`).join('')}</div>
+    <div class="tabs mt">${[['loja','Assinar neste aparelho'],['celular','Cliente assina no celular dele'],].map(([k,t])=>`<button data-act="modoAssinatura" data-v="${k}" class="${(S.w.modoAss||'loja')===k?'on':''}">${t}</button>`).join('')}</div>
     <div id="assLoja" ${(S.w.modoAss||'loja')==='loja'?'':'hidden'}>
     <h3>Assinatura do cliente</h3><canvas id="sig" class="sig"></canvas>
     <div class="row mt" style="justify-content:space-between"><div class="row"><button class="btn" data-act="irPasso" data-n="5">Voltar</button><button class="btn sm" data-act="limparSig">Limpar assinatura</button></div>
@@ -2562,7 +2561,7 @@ async function analisar(id){
   const histTxt=hist.length?hist.map(h=>{ const atr=(h.parcelas||[]).filter(p=>h.status==='ATIVA'&&stParc(p)==='atraso').length; return `Nº ${h.numero}: ${VENDA_ST[h.status]?.[0]||h.status}${atr?` — <b style="color:var(--bad)">${atr} em atraso</b>`:''}`; }).join('<br>'):'Primeira compra.';
   const idade=c.nasc?Math.floor((Date.now()-new Date(c.nasc))/31557600000):'—';
   let quebradas=0; try{ const cs=await Promise.all(hist.map(x=>DB.get('cobrancas',x.id).catch(()=>null))); quebradas=cs.reduce((s,x)=>s+((x?.promessas||[]).filter(p=>p.status==='QUEBRADA').length),0); }catch(e){}
-  const nota=notaCliente(hist,c.renda,quebradas), vip=vipDe(hist,nota); S._vipAnalise={id,vip};
+  const nota=await notaProposta(v,hist,quebradas), vip=vipDe(hist,nota); S._vipAnalise={id,vip};
   const ln=await naListaNegra(c.cpf,c.telefones||[]);
   openModal(`<h2>Análise de crédito — proposta nº ${v.numero}</h2>
     ${ln.length?`<div class="ln-alerta">${svg(IC.listanegra)}<div><b>Cliente na lista negra</b>${ln.map(x=>`${x.tipo==='CPF'?'CPF':'Telefone '+fmtFone(x.valor)} — ${esc(x.motivo)} (${esc(x.nome||'')}, ${fmtD(isoDate(new Date(x.em)))})`).join('<br>')}</div></div>`:''}
@@ -2583,7 +2582,7 @@ async function analisar(id){
     <label class="check"><input type="checkbox" id="ck_cpf"> CPF consultado (SPC/Serasa/Boa Vista) sem restrição impeditiva</label>
     <label class="check"><input type="checkbox" id="ck_bio"> Biometria facial confere com o documento</label>
     <label class="check"><input type="checkbox" id="ck_doc"> Documento legível e original</label>
-    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label><label>Entrada mínima (%) <span class="small muted">para contraproposta</span><input id="aEntPct" type="number" min="${Number(S.cfg.entradaPct)||30}" max="90" step="1" value="${Number(S.cfg.entradaPct)||30}"></label></div>
+    <div class="grid g3 mt"><label>Score (0–1000)<input id="aScore" type="number" min="0" max="1000" value="${nota.score}"></label><label>Valor financiado máximo (R$)<input id="aLimite" type="number" min="0" step="0.01" value="${nota.limite}"></label><label>Entrada mínima (%) <span class="small muted">para contraproposta</span><input id="aEntPct" type="number" min="${Number(S.cfg.entradaPct)||30}" max="90" step="1" value="${nota.entradaSug||Number(S.cfg.entradaPct)||30}"></label></div>
     <p class="small muted">Em vez de reprovar, você pode fazer uma <b>contraproposta</b>: o cliente é aprovado só com entrada maior e/ou valor financiado menor. O vendedor vê as condições e oferece ao cliente.</p>
     <label class="mt">Parecer<textarea id="aObs" rows="2"></textarea></label>
     <label class="check"><input type="checkbox" id="aLN"> Ao reprovar, incluir este cliente (CPF, telefones e rosto) na <b>lista negra</b> — golpe, documento falso ou fraude</label>
@@ -2599,6 +2598,7 @@ async function decidir(id,r){
     if(ep<=pctBase&&!lm) return toast(`Para a contraproposta, aumente a entrada mínima (acima de ${pctBase}%) ou defina o valor financiado máximo.`,'err');
     if(ep>90) return toast('Entrada mínima de no máximo 90%','err');
     contra={entradaPct:Math.max(pctBase,ep),limite:lm||null}; r='APROVADA'; }
+  else if(r==='APROVADA'){ const ep=Math.round(+$('#aEntPct')?.value||0); if(ep>pctBase) contra={entradaPct:Math.min(90,ep),limite:null}; }
   if(r==='APROVADA' && !(ck.cpf&&ck.bio&&ck.doc)){ toast('Para aprovar, marque as três conferências.','err'); return; }
   if(r==='REPROVADA' && !$('#aObs').value.trim()){ toast('Escreva o motivo da reprovação (fica só para a equipe).','err'); return; }
   const analise={resultado:r,por:S.me.uid,porNome:S.me.nome,em:Date.now(),motorSugeriu:(await DB.get('vendas',id))?.motor?.resultado||null,score:+$('#aScore').value||null,limite:+$('#aLimite').value||null,obs:$('#aObs').value.trim(),checklist:ck,...(contra?{contraproposta:contra}:{})};
@@ -4078,7 +4078,7 @@ function formUsado(){
 
 /* ======================= PROTEÇÃO DO APARELHO E CHIP JUNTO ======================= */
 function blocoExtrasVenda(item){
-  const w=S.w, pm=Number(S.cfg.protecaoMensal)||0, u=w.sel.usado;
+  const w=S.w, pm=Number(S.cfg.protecaoMensal)||0, u=w.sel.usado; if(w.sel.protecao==null&&S.cfg.protecaoPadrao==='sim'&&!item.semTrava) w.sel.protecao=true;
   return `<div class="grid g2 mt">
     <div class="compr"><b>Celular usado na entrada</b>${u?`<span class="small">${esc(u.marca+' '+u.modelo)} · ${esc(u.estado)} · <b>${brl(u.valor)}</b> abatidos da entrada</span>`:'<span class="small muted">o cliente tem um celular para dar como parte do pagamento?</span>'}
       <button class="btn sm" data-act="formUsado">${u?'Editar avaliação':'Avaliar usado'}</button></div>
@@ -5439,8 +5439,6 @@ Object.assign(ACT,{
   <div class="card mt"><h2>Nota fiscal (NFC-e)</h2><p class="small muted" style="margin-top:-6px">Emitida pela Focus NFe (o Asaas não emite nota de produto). <b>Confirme os códigos fiscais com o seu contador</b> antes de usar em produção.</p><div class="grid g4">
     ${sel('nfAutomatica','Emitir sozinho quando a venda fica ativa',sn,'nao')}${f('nfNcm','NCM do celular (padrão 85171300)')}${f('nfNcmAcessorio','NCM dos acessórios (padrão 85177900)')}${f('nfCfop','CFOP (padrão 5102)')}
     ${f('nfCsosn','CSOSN/CST do ICMS (Simples: 102)')}${f('nfOrigem','Origem da mercadoria (0 = nacional, 1/2 = importada)')}${f('nfPisCst','CST do PIS/COFINS (Simples: 07 ou 49)')}</div></div>
-  <div class="card mt"><h2>Assinatura com validade jurídica</h2><div class="grid g4">${sel('assinaturaZapsign','Oferecer assinatura ZapSign (selfie + documento)',sn,'nao')}</div>
-    <p class="small muted">Toda assinatura já ganha o carimbo do servidor (data, hora, IP e hash). A ZapSign é opcional (paga por documento) e dá o PDF assinado com trilha de auditoria.</p></div>
   <div class="row mt"><button class="btn sm" data-act="statusServidor">Conferir servidor</button><button class="btn sm" data-act="testarBrevo" ${servLigado()?'':'disabled'}>Testar Brevo</button><button class="btn sm" data-act="rodarRotina" data-q="manha" ${servLigado()?'':'disabled'}>Enviar os lembretes de hoje agora</button><button class="btn sm" data-act="rodarRotina" data-q="noite" ${servLigado()?'':'disabled'}>Gerar o resumo do dia agora</button></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
   if(can('DONO')) $('#srvStatus')?.closest('.card')?.insertAdjacentHTML('afterend',blocoAsaasChave());
@@ -6754,7 +6752,7 @@ function scoreNexum(cpf, vendas){
 function blocoHistoricoNexum(cpf, vendas){
   if(!cpf) return '';
   const s=scoreNexum(cpf,vendas), pct=s.pagas?Math.round(s.emDia/s.pagas*100):0, cvar={green:'ok',red:'bad',amber:'warn',blue:'navy'}[s.cor]||'navy';
-  return `<div class="msg mt" style="border-left:4px solid var(--${cvar},#1E3A8A)"><b>Score Nexum: ${s.score} · ${esc(s.faixa)}</b> <span class="muted small">— histórico do cliente com a gente, sem SPC/Serasa</span>
+  return `<div class="msg mt" style="border-left:4px solid var(--${cvar},#1E3A8A)"><b>Histórico com a Nexum: ${s.score} · ${esc(s.faixa)}</b> <span class="muted small">— só o histórico de pagamentos; a nota da proposta, logo abaixo, soma os dados deste cliente</span>
     <div class="small" style="margin-top:4px">${s.novo?'Primeira compra no sistema: sem histórico ainda. Avalie por renda, entrada e a garantia (trava).':`${s.contratos} contrato(s) · ${s.quitados} quitado(s) · ${s.ativos} ativo(s) · <b>${pct}% das parcelas pagas em dia</b>${s.atrasPagas?` · ${s.atrasPagas} paga(s) com atraso`:''}${s.emAtraso?` · <b style="color:var(--bad)">${s.emAtraso} parcela(s) em atraso agora</b>`:''}`}</div></div>`;
 }
 async function fraudeEntreLojas(v){
@@ -7304,7 +7302,7 @@ function assistenteHtml(renda,preco,entrada,j,n,ops,minEnt,cat){
 { const _sm=simular; simular=(...a)=>{ _sm(...a); const it=S.w?.sel?.itemId; if(!it||!$('#nSim')) return; $('#assist')?.remove();
   try{ const preco=S.w.sel.preco+(S.w.sel.acessValor||0), e=+$('#nEntrada').value||0, n=+$('#nParc').value, jp=S.w.sel.juros!=null?S.w.sel.juros:jurosDo(null), freq=S.w.sel.freq==='QUINZENAL'&&quinzenalAtivo()?'QUINZENAL':'MENSAL';
     if(S.w.sel.semTrava||freq==='QUINZENAL') return;
-    $('#nSim').insertAdjacentHTML('afterend',assistenteHtml(S.w._renda,preco,e,jp,n,opsFreq('MENSAL'),(Number(S.cfg.entradaPct)||30)/100,S.w._cat)); }catch(err){ console.warn('assistente',err); } }; }
+    $('#nSim').insertAdjacentHTML('afterend',assistenteHtml(S.w._renda,preco,e,jp,n,opsFreq('MENSAL'),entradaMinPct()/100,S.w._cat)); }catch(err){ console.warn('assistente',err); } }; }
 { const _sb=PAGES.simulador; PAGES.simulador=async()=>{ await _sb(); const ent=$('#sbEnt'); if(!ent) return;
   ent.closest('.grid').lastElementChild.outerHTML='<label>Renda do cliente (opcional)<input id="sbRenda" type="number" step="0.01" placeholder="para o assistente"></label>';
   const upd=()=>{ if(!$('#sbItem')||!$('#sbRes')) return; $('#assist')?.remove(); const x=S._simCat[+$('#sbItem').value], r=+$('#sbRenda').value||0; if(!x||!r) return; const e=+$('#sbEnt').value||0, ops=opsFreq('MENSAL'), n=Math.max(...ops);
@@ -9285,6 +9283,119 @@ TABS.push({id:'segurancaVendas',label:'Segurança das vendas',roles:['DONO','SUP
 IC.segurancaVendas='<path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>';
 if(['dono','suporte'].includes(PORTAL)&&!P.tabs.includes('segurancaVendas')) P.tabs.push('segurancaVendas');
 try{ const g2=NAV_GRUPOS.find(x=>x[0]==='Lojas e equipe'); if(g2&&!g2[1].includes('segurancaVendas')) g2[1].unshift('segurancaVendas'); }catch(e){}
+
+
+/* ===================== AJUSTES DA VENDA (nov/2026) =====================
+   - "Passo anterior" na nova venda
+   - Aprovar com entrada maior que a padrão guarda a entrada (antes voltava para 30%)
+   - Nota (score) calculada com os dados de cada proposta, não só com o histórico
+   - Travas para aprovar cliente negativado
+   - Seguro/proteção: já vem marcada, parceiro com link e envio automático */
+document.head.insertAdjacentHTML('beforeend',`<style id="ajVendaCss">
+.vr-voltar{margin-bottom:10px}
+.aj-seg{border:1px solid #CFE0FF;background:#F5F8FF;border-radius:14px;padding:14px 16px;margin-top:14px}
+.aj-seg b{display:block;margin-bottom:4px}
+.aj-trava{background:#FEF3E2;border:1px solid #F5D9A8;color:#7A4A06;border-radius:12px;padding:10px 14px;font-size:13px;margin:10px 0}
+</style>`);
+
+/* ---- 1. Passo anterior ---- */
+{ const _stV=stepper; stepper=function(){ const h=_stV(), p=S.w?.passo, ant={2:1,3:2,5:4,6:5}[p];
+  return ant&&h.includes('<div class="vr-prog">')?h.replace('<div class="vr-prog">',`<div class="vr-prog"><button class="btn sm vr-voltar" data-act="irPasso" data-n="${ant}">← Passo anterior</button>`):h; }; }
+{ const _ip=ACT.irPasso; ACT.irPasso=d=>{ try{ if(S.w?.passo===5) guardarCampos(); }catch(e){} return _ip(d); }; }
+
+/* ---- 2/3. Nota por proposta ---- */
+async function notaProposta(v,hist,quebradas=0){
+  const c=v.cliente||{}, vf=v.verificacao||{}, f=vf.face||{}, cp=vf.comprovantes||{};
+  const N=notaCliente(hist,c.renda,quebradas); let s=N.score; const m=[...N.motivos];
+  const add=(p,t)=>{ s+=p; m.push(`${t} (${p>0?'+':''}${p})`); };
+  const idade=c.nasc?Math.floor((Date.now()-new Date(c.nasc+'T12:00:00'))/31557600000):null;
+  if(idade==null||isNaN(idade)) add(-30,'sem data de nascimento');
+  else if(idade<21) add(-60,`${idade} anos`); else if(idade<26) add(-20,`${idade} anos`); else if(idade<=55) add(20,`${idade} anos`); else if(idade>65) add(-20,`${idade} anos`);
+  const renda=+c.renda||0;
+  if(renda<1200) add(-60,'renda abaixo de R$ 1.200'); else if(renda<2000) add(-20,'renda até R$ 2.000'); else if(renda>=4000) add(40,'renda acima de R$ 4.000'); else if(renda>=2500) add(20,'renda acima de R$ 2.500');
+  if(cp.renda?.ok) add(40,'renda comprovada'); else if(cp.renda?.alerta) add(-60,'comprovante de renda com alerta'); else add(-15,'renda sem comprovante');
+  if(cp.endereco?.ok) add(30,'endereço comprovado'); else if(cp.endereco?.alerta) add(-40,'comprovante de endereço com alerta');
+  if(vf.documentoOriginal===false) add(-150,'documento parece cópia ou foto de tela'); else if(vf.documentoOriginal) add(20,'documento original');
+  const ed=(vf.editados||[]).length; if(ed) add(-Math.min(120,40*ed),'dados do documento editados à mão');
+  if(f.mesma_pessoa==='sim') add((+f.confianca||0)>=85?50:30,'rosto confere com o documento');
+  else if(f.mesma_pessoa==='nao') add(-300,'rosto NÃO confere com o documento'); else if(f.mesma_pessoa) add(-60,'rosto com dúvida');
+  const tels=(c.telefones||[]).filter(Boolean).length; if(tels>=2) add(15,'2 ou mais telefones'); else add(-20,'só 1 telefone');
+  const refs=[c.ref1Nome,c.ref2Nome].filter(x=>String(x||'').trim().length>2).length; if(refs>=2) add(25,'2 referências'); else if(!refs) add(-40,'sem referências');
+  if(c.email) add(5,'tem e-mail');
+  if((v.alertasFraude||[]).length) add(-200,'mesmo CPF ou telefone em outra loja');
+  if(c.docValidade&&c.docValidade<hoje()) add(-40,'documento vencido');
+  let listaNegra=false; try{ const ln=await naListaNegra(c.cpf||v.clienteCpf,c.telefones||[]); if(ln.length){ listaNegra=true; s=0; m.push('NA LISTA NEGRA'); } }catch(e){}
+  s=Math.max(0,Math.min(1000,Math.round(s)));
+  const atraso=N.faixa==='Risco'&&N.limite===0&&N.motivos.some(x=>/ATRASO/.test(x));
+  const faixa=atraso||listaNegra?'Risco':s>=750?'Ouro':s>=600?'Prata':s>=450?'Bronze':'Risco';
+  const mult={Ouro:2.5,Prata:1.8,Bronze:1.2,Risco:0.5}[faixa]*(hist.length?1:0.9);
+  const base=Number(S.cfg.entradaPct)||30;
+  const nota={score:s,faixa,limite:atraso||listaNegra?0:Math.round((renda*mult)/50)*50,motivos:m,cor:{Ouro:'ouro',Prata:'prata',Bronze:'bronze',Risco:'risco'}[faixa],
+    entradaSug:Math.max(base,+(v.motor?.entradaMin)||0,faixa==='Bronze'?35:faixa==='Risco'?50:0),listaNegra};
+  S._anNota={id:v.id,nota};
+  return nota;
+}
+
+/* travas da aprovação */
+{ const _dc=decidir; decidir=async function(id,r){
+  if(r!=='REPROVADA'){
+    const v=await DB.get('vendas',id), a=S._anNota?.id===id?S._anNota.nota:null;
+    const sc=+$('#aScore')?.value||0, ep=Math.round(+$('#aEntPct')?.value||0), obs=($('#aObs')?.value||'').trim();
+    if(v.vendedorUid===S.me.uid&&!can('DONO')) return toast('Você não pode aprovar uma venda feita por você. Outra pessoa precisa analisar.','err');
+    if(a?.listaNegra) return toast('Cliente na lista negra: não pode ser aprovado.','err');
+    if(v.verificacao?.face?.mesma_pessoa==='nao') return toast('O rosto não confere com o documento: não pode ser aprovado.','err');
+    if(a&&sc>a.score+100&&!can('DONO')) return toast(`O score calculado é ${a.score}. Só o dono pode subir mais de 100 pontos.`,'err');
+    if(sc<300&&!can('DONO')) return toast('Score abaixo de 300: só o dono pode aprovar.','err');
+    if(sc<450&&ep<50) return toast('Score de risco (abaixo de 450): a entrada mínima precisa ser de pelo menos 50%.','err');
+    if(sc<600&&obs.length<10) return toast('Score abaixo de 600: escreva no parecer por que está aprovando.','err');
+  }
+  return _dc(id,r); }; }
+Object.assign(ACT,{ decidir:d=>decidir(d.id,d.r) });
+
+/* ---- 4. Seguro / proteção ---- */
+function seguroCampos(v){
+  const c=v.cliente||{}, a=v.aparelho||{}, p=v.protecao||{}, n=+v.nParcelas||(v.parcelas||[]).length||0;
+  return {numero:v.numero, venda:v.id, nome:c.nome||v.clienteNome||'', cpf:onlyDig(c.cpf||v.clienteCpf||''), nascimento:c.nasc||'', telefone:onlyDig((c.telefones||[])[0]||''), email:c.email||'',
+    cep:onlyDig(c.cep||''), endereco:c.endereco||'', cidade:c.cidade||'', uf:c.uf||'', marca:a.marca||'', modelo:a.modelo||'', imei:a.imei||'', imei2:a.imei2||'',
+    valor:+v.valor||0, mensal:+p.mensal||0, parcelas:n, total:r2((+p.mensal||0)*n), cobertura:p.cobertura||S.cfg.protecaoCobertura||'', loja:v.lojaNome||''};
+}
+function seguroLink(v){ const u=String(S.cfg.seguroParceiroUrl||''); if(!u) return ''; const d=seguroCampos(v); return u.replace(/\{(\w+)\}/g,(_,k)=>encodeURIComponent(d[k]??'')); }
+async function seguroEnviar(v){
+  const url=String(S.cfg.seguroWebhook||'').trim(); if(!url||!v?.protecao||v.seguro?.enviadoEm) return;
+  try{ await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({evento:'seguro.emitir',parceiro:S.cfg.seguroParceiroNome||'',...seguroCampos(v)})});
+    await DB.set('vendas',v.id,{seguro:{parceiro:S.cfg.seguroParceiroNome||'',enviadoEm:Date.now(),por:S.me.nome}}); await log('Seguro enviado ao parceiro',v.id,S.cfg.seguroParceiroNome||'');
+  }catch(e){ console.warn('seguro',e); }
+}
+/* envia ao parceiro quando a venda chega na trava (entrada já paga) */
+{ const _nv=PAGES.nova; PAGES.nova=async(...a)=>{ await _nv(...a); try{ if(S.w?.passo===8&&S.w.vendaId){ const v=await DB.get('vendas',S.w.vendaId); seguroEnviar(v); } }catch(e){} }; }
+/* na ficha da venda */
+{ const _vv=verVenda; verVenda=async function(id,...r){ const x=await _vv.call(this,id,...r);
+  try{ const v=await DB.get('vendas',id); if(v?.protecao&&$('#mbody')&&(S.cfg.seguroParceiroUrl||S.cfg.seguroWebhook||v.seguro)){
+    const sg=v.seguro||{}, lk=seguroLink(v);
+    $('#mbody').insertAdjacentHTML('beforeend',`<div class="aj-seg"><b>Seguro / Proteção${S.cfg.seguroParceiroNome?' — '+esc(S.cfg.seguroParceiroNome):''}</b>
+      <div class="small muted">${brl(v.protecao.mensal)} por parcela · ${sg.apolice?`apólice <b>${esc(sg.apolice)}</b> (${fmtDT(sg.emitidoEm)})`:sg.enviadoEm?`enviado ao parceiro ${fmtDT(sg.enviadoEm)}`:'ainda não emitido'}</div>
+      <div class="row mt" style="gap:8px">${lk?`<a class="btn sm" href="${esc(lk)}" target="_blank" rel="noopener">Abrir no parceiro</a>`:''}${S.cfg.seguroWebhook&&!sg.enviadoEm?`<button class="btn sm" id="ajSegEnv">Enviar agora</button>`:''}<button class="btn sm" id="ajSegApo">${sg.apolice?'Trocar nº da apólice':'Informar nº da apólice'}</button></div></div>`);
+    $('#ajSegEnv')&&($('#ajSegEnv').onclick=async()=>{ await seguroEnviar(v); toast('Enviado ao parceiro','ok'); verVenda(id); });
+    $('#ajSegApo').onclick=async()=>{ const ap=(prompt('Número da apólice / certificado do seguro:',sg.apolice||'')||'').trim(); if(!ap) return;
+      await DB.set('vendas',id,{seguro:{...sg,apolice:ap,emitidoEm:Date.now(),por:S.me.nome}}); await log('Apólice do seguro informada',id,ap); toast('Apólice salva','ok'); verVenda(id); };
+  } }catch(e){ console.warn('seguro ficha',e); }
+  return x; }; }
+/* configuração do seguro (Dono) */
+{ const _cs=PAGES.config; PAGES.config=async()=>{ await _cs(); if(!can('DONO')||!$('#view')) return; const c=S.cfg;
+  ['protecaoMensal','protecaoCobertura'].forEach(k=>document.querySelector(`#view [data-cfg="${k}"]`)?.closest('label')?.remove());
+  const html=`<div class="card mt"><h2>Seguro / Proteção NexumCell</h2>
+    <p class="small muted">Valor que entra em cada parcela quando o cliente leva a proteção. Com um parceiro (seguradora), a venda é enviada sozinha quando chega na trava, e na ficha da venda aparece o botão para abrir no site do parceiro.</p>
+    <div class="grid g3">
+      <label>Valor por parcela (R$, 0 = desligado)<input data-cfg="protecaoMensal" type="number" step="0.01" min="0" value="${esc(c.protecaoMensal??0)}"></label>
+      <label>O que cobre<input data-cfg="protecaoCobertura" value="${esc(c.protecaoCobertura||'')}" placeholder="Conserto de tela e defeitos fora da garantia"></label>
+      <label>Já vem marcada na venda<select data-cfg="protecaoPadrao"><option value="nao" ${c.protecaoPadrao!=='sim'?'selected':''}>Não</option><option value="sim" ${c.protecaoPadrao==='sim'?'selected':''}>Sim (o vendedor pode desmarcar)</option></select></label>
+      <label>Nome do parceiro<input data-cfg="seguroParceiroNome" value="${esc(c.seguroParceiroNome||'')}" placeholder="Ex.: Seguradora X"></label>
+      <label style="grid-column:span 2">Link de emissão no site do parceiro<input data-cfg="seguroParceiroUrl" value="${esc(c.seguroParceiroUrl||'')}" placeholder="https://parceiro.com/emitir?cpf={cpf}&imei={imei}&valor={valor}"></label>
+      <label style="grid-column:span 3">Envio automático (webhook do parceiro, opcional)<input data-cfg="seguroWebhook" value="${esc(c.seguroWebhook||'')}" placeholder="https://parceiro.com/api/receber-venda"></label>
+    </div>
+    <p class="small muted">Campos que podem ir no link: {nome} {cpf} {nascimento} {telefone} {email} {cep} {endereco} {cidade} {uf} {marca} {modelo} {imei} {valor} {mensal} {parcelas} {total} {numero} {loja}. O envio automático manda esses mesmos dados em JSON.</p></div>`;
+  const ult=[...$('#view').querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else $('#view').insertAdjacentHTML('beforeend',html);
+}; }
 
 </script>
 </body>
