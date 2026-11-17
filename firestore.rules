@@ -202,6 +202,10 @@ service cloud.firestore {
       allow update: if hasRole(['DONO'])
                     || (hasRole(['VENDEDOR', 'GERENTE']) && request.auth.uid == uid && resource.data.get('foto', null) == null && request.resource.data.uid == uid);
     }
+    // pedidos de liberação feitos pelo cliente no chat do app (criados só pelo servidor); suporte e dono decidem
+    match /liberacoes/{id} {
+      allow read, update: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO']);
+    }
     // alertas automáticos (venda suspeita, rosto que não confere, fora do horário, fora da loja...)
     match /alertasSeg/{id} {
       allow create: if staff() && request.resource.data.uid == request.auth.uid && request.resource.data.visto == false;
