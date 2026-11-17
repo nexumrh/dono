@@ -9482,6 +9482,84 @@ function travaSubtelas(){
 }; }
 Object.assign(ACT,{ deixarPendente:(d,b)=>deixarPendente(d.id,b) });
 
+
+/* ===================== VENDA CONCLUÍDA SOZINHA (nov/2026) =====================
+   Assim que a trava sobe, a tela troca para "Venda concluída" com o contrato e o recibo
+   para imprimir, baixar ou mandar no WhatsApp. O vendedor não precisa tocar em Concluir. */
+document.head.insertAdjacentHTML('beforeend',`<style id="vendaFimCss">
+.vf{text-align:center;padding:8px 4px}
+.vf-ok{width:72px;height:72px;border-radius:50%;background:#E7F7F0;color:#0E9F6E;display:grid;place-items:center;margin:4px auto 12px}
+.vf-ok svg{width:40px;height:40px}
+.vf h2{justify-content:center;font-size:24px;margin:0 0 6px}
+.vf>p{color:var(--mut,#64748B);margin:0 auto 18px;max-width:560px}
+.vf-docs{display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:left;margin-top:8px}
+.vf-doc{border:1px solid var(--line,#E5E9F2);border-radius:16px;padding:16px 18px;background:#fff}
+.vf-doc b{display:flex;align-items:center;gap:10px;font-size:15px}
+.vf-doc b svg{width:22px;height:22px;color:#1D4ED8;flex:none}
+.vf-doc span{display:block;color:var(--mut,#64748B);font-size:13px;margin:4px 0 12px}
+.vf-doc .row{gap:8px;flex-wrap:wrap}
+.vf-zap{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.vf-res{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 16px}
+.vf-res div{background:#F5F7FB;border-radius:12px;padding:10px;text-align:left}
+.vf-res small{display:block;color:var(--mut,#64748B);font-size:11.5px}.vf-res b{font-size:15px}
+@media(max-width:700px){.vf-docs,.vf-res{grid-template-columns:1fr 1fr}}
+.vr-fim{display:none!important}
+</style>`);
+function reciboVendaHtml(v){
+  const c=v.cliente||{}, a=v.aparelho||{}, e=v.entradaPaga||{}, p0=(v.parcelas||[])[0]||{}, n=+v.nParcelas||(v.parcelas||[]).length;
+  const linha=(k,x)=>x?`<tr><td><b>${k}</b></td><td>${x}</td></tr>`:'';
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo da venda nº ${v.numero}</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font-family:Arial,sans-serif;max-width:720px;margin:30px auto;padding:0 20px;color:#111;line-height:1.5}.top{background:#0A1733;color:#fff;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:18px}.top span{font-size:12px;color:#C9D4EE}h1{font-size:20px;text-align:center;margin:22px 0 4px}.sub{text-align:center;color:#555;font-size:13px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;margin:10px 0}td{border:1px solid #ddd;padding:8px 10px;font-size:14px}td:first-child{width:38%;background:#F7F8FB}
+.val{font-size:22px;text-align:center;margin:16px 0;padding:12px;border:2px solid #0E9F6E;border-radius:10px;color:#0E9F6E;font-weight:700}
+.rod{font-size:12px;color:#555;margin-top:24px;text-align:center}@media print{.np{display:none}}</style></head><body>
+<div class="top"><b>${esc(S.cfg.empresa||'NexumCell')}</b><span>${esc(v.lojaNome||'')}${S.cfg.cnpj?' · CNPJ '+esc(S.cfg.cnpj):''}</span></div>
+<h1>RECIBO DE VENDA</h1><div class="sub">Venda nº ${v.numero} · ${fmtDT(v.instaladoEm||Date.now())}</div>
+<div class="val">Entrada recebida: ${brl(e.valor||v.entrada||0)}</div>
+<p>Recebemos de <b>${esc(c.nome||v.clienteNome||'')}</b>, CPF ${fmtCpf(c.cpf||v.clienteCpf||'')}, a quantia acima referente à entrada da compra do aparelho descrito abaixo, financiado em ${n} parcelas conforme o contrato nº ${v.numero}.</p>
+<table>${linha('Aparelho',esc(`${a.marca||''} ${a.modelo||''} ${a.capacidade||a.armazenamento||''}`.trim()))}${linha('IMEI',esc(a.imei||'')+(a.imei2?' / '+esc(a.imei2):''))}
+${linha('Valor da compra',brl(v.valor||0))}${linha('Entrada',`${brl(e.valor||v.entrada||0)}${e.forma?' · '+esc(e.forma):''}`)}${v.usado?linha('Usado na entrada',esc(`${v.usado.marca||''} ${v.usado.modelo||''}`)+' · '+brl(v.usado.valor||0)):''}
+${linha('Parcelas',`${n}x de ${brl(p0.valor||v.valorParcela||0)}`)}${linha('1º vencimento',p0.venc?fmtD(p0.venc):'')}${v.protecao?linha('Proteção',`${brl(v.protecao.mensal)} por parcela`):''}
+${linha('Vendedor',esc(v.vendedorNome||''))}</table>
+<p class="rod">As parcelas podem ser pagas pelo app NexumCell no próprio aparelho ou pelo portal do cliente: ${esc(urlCliente())}.<br>Documento gerado pelo sistema ${esc(S.cfg.empresa||'NexumCell')}.</p>
+<p class="np" style="text-align:center"><button onclick="print()" style="padding:10px 18px;font-size:15px">Imprimir / salvar em PDF</button></p></body></html>`;
+}
+const vfContratoHtml=v=>documentoContrato(v).replace(/<script>window\.onload=\(\)=>window\.print\(\)<\\?\/script>/,'')
+  .replace('</body>','<p style="text-align:center" class="np"><button onclick="print()" style="padding:10px 18px;font-size:15px">Imprimir / salvar em PDF</button></p><style>@media print{.np{display:none}}</style></body>');
+function vfAbrir(html){ const w=window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank'); if(!w) toast('Permita pop-ups para abrir o documento','err'); }
+function vfBaixar(html,nome){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=nome; document.body.appendChild(a); a.click(); a.remove(); }
+function vfMsgZap(v){ const a=v.aparelho||{}, p0=(v.parcelas||[])[0]||{}, n=+v.nParcelas||(v.parcelas||[]).length;
+  return `Olá, ${primeiroNome(v.clienteNome)}! Sua compra na ${S.cfg.empresa||'NexumCell'} foi concluída.\n\n`+
+    `Aparelho: ${a.marca||''} ${a.modelo||''}\nEntrada paga: ${brl(v.entradaPaga?.valor||v.entrada||0)}\nParcelas: ${n}x de ${brl(p0.valor||0)}\n1º vencimento: ${p0.venc?fmtD(p0.venc):'—'}\nContrato nº ${v.numero}\n\n`+
+    `Seu contrato e o recibo ficam no app NexumCell do aparelho e no portal do cliente: ${urlCliente()}\n(entre com CPF, data de nascimento e os 4 últimos números do celular).\n\nObrigado pela confiança!`; }
+async function vendaConcluidaTela(id){
+  const wz=$('#wz'); if(!wz||wz.dataset.vf===id) return; const v=await DB.get('vendas',id); if(!v) return;
+  wz.dataset.vf=id; try{ vrSom?.(); }catch(e){}
+  const a=v.aparelho||{}, p0=(v.parcelas||[])[0]||{}, n=+v.nParcelas||(v.parcelas||[]).length, tel=onlyDig((v.cliente?.telefones||[])[0]||'');
+  const ic={ok:'<path d="M20 6 9 17l-5-5"/>',doc:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',rec:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>'};
+  wz.innerHTML=`<div class="card"><div class="vf"><div class="vf-ok">${svg(ic.ok)}</div><h2>Venda concluída</h2>
+    <p>A trava subiu no ${esc(apNome(v))} e a venda foi registrada sozinha. Pode entregar o aparelho ao cliente.</p>
+    <div class="vf-res"><div><small>Cliente</small><b>${esc(primeiroNome(v.clienteNome))}</b></div><div><small>Entrada</small><b>${brl(v.entradaPaga?.valor||v.entrada||0)}</b></div><div><small>Parcelas</small><b>${n}x ${brl(p0.valor||0)}</b></div><div><small>1º vencimento</small><b>${p0.venc?fmtD(p0.venc):'—'}</b></div></div>
+    <div class="vf-docs">
+      <div class="vf-doc"><b>${svg(ic.doc)}Contrato assinado</b><span>Contrato nº ${v.numero}</span><div class="row"><button class="btn sm" id="vfCImp">Imprimir</button><button class="btn sm" id="vfCBx">Baixar</button></div></div>
+      <div class="vf-doc"><b>${svg(ic.rec)}Recibo da venda</b><span>Entrada de ${brl(v.entradaPaga?.valor||v.entrada||0)}${v.entradaPaga?.forma?' · '+esc(v.entradaPaga.forma):''}</span><div class="row"><button class="btn sm" id="vfRImp">Imprimir</button><button class="btn sm" id="vfRBx">Baixar</button></div></div>
+    </div>
+    <div class="vf-zap"><a class="btn green lg" target="_blank" rel="noopener" href="https://wa.me/${tel?(typeof telWa==='function'?telWa(tel):'55'+tel):''}?text=${encodeURIComponent(vfMsgZap(v))}">Enviar no WhatsApp do cliente</a><button class="btn gold lg" data-act="novaProposta">Nova venda</button></div>
+    <p class="small muted" style="margin-top:12px">Os arquivos baixados abrem no navegador e podem ser salvos em PDF ou anexados no WhatsApp.</p></div></div>`;
+  const cH=vfContratoHtml(v), rH=reciboVendaHtml(v);
+  $('#vfCImp').onclick=()=>vfAbrir(cH.replace('</body>','<script>window.onload=()=>window.print()<\/script></body>'));
+  $('#vfRImp').onclick=()=>vfAbrir(rH.replace('</body>','<script>window.onload=()=>window.print()<\/script></body>'));
+  $('#vfCBx').onclick=()=>vfBaixar(cH,`contrato-${v.numero}.html`);
+  $('#vfRBx').onclick=()=>vfBaixar(rH,`recibo-${v.numero}.html`);
+  const k='nxc_vf_'+id; try{ if(!localStorage.getItem(k)){ localStorage.setItem(k,'1'); vfBaixar(cH,`contrato-${v.numero}.html`); setTimeout(()=>vfBaixar(rH,`recibo-${v.numero}.html`),700); } }catch(e){}
+  $('.content')&&($('.content').scrollTop=0);
+}
+{ const _ptF=passoTrava; passoTrava=async function(...a){ const r=await _ptF.apply(this,a);
+  try{ const st=$('#instStatus'), id=S.w?.vendaId; if(st&&id){ const chk=()=>{ if(/\bok\b/.test(st.className)&&!st.hidden) vendaConcluidaTela(id); };
+    chk(); new MutationObserver(chk).observe(st,{attributes:true,attributeFilter:['class']}); } }catch(e){ console.warn('venda concluída',e); }
+  return r; }; }
+
 </script>
 </body>
 </html>
