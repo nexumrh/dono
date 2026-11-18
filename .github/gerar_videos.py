@@ -2,7 +2,7 @@
 import asyncio, json, os, subprocess, sys
 BASE='guia/img'; OUTV='guia/video'; os.makedirs(OUTV, exist_ok=True); os.makedirs('/tmp/aud', exist_ok=True); os.makedirs('/tmp/seg', exist_ok=True)
 rot=json.load(open('guia/_roteiro.json'))
-VOZES=['pt-BR-ThalitaMultilingualNeural','pt-BR-FranciscaNeural']
+VOZES=['pt-BR-FranciscaNeural']
 def dur(f): return float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',f]).decode().strip())
 async def falar(txt,out):
     import edge_tts
