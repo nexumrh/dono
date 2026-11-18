@@ -3030,5 +3030,243 @@
 }
 ]
 }
+],
+"app": [
+{
+"id": "app_inicio",
+"quadros": [
+{
+"img": "app_inicio_0.webp",
+"fala": "Início do app. O app NexumCell fica instalado no celular financiado. A tela inicial mostra a próxima parcela e o atalho para pagar."
+},
+{
+"img": "app_inicio_1.webp",
+"fala": "Próxima parcela. Valor, vencimento e situação da parcela que vence primeiro."
+},
+{
+"img": "app_inicio_2.webp",
+"fala": "Pagar com PIX. Gera o PIX na hora. O celular libera sozinho alguns minutos depois que o pagamento cai."
+},
+{
+"img": "app_inicio_3.webp",
+"fala": "Abas de baixo. Início, Parcelas, Contrato e Suporte."
+},
+{
+"img": "app_inicio_d.webp",
+"fala": "Como desfazer. Nada é cobrado só de abrir o app. O PIX só vale se for pago."
+}
+]
+},
+{
+"id": "app_inicio2",
+"quadros": [
+{
+"img": "app_inicio2_0.webp",
+"fala": "Atalhos do início. Mais abaixo ficam os atalhos e os avisos do contrato."
+},
+{
+"img": "app_inicio2_1.webp",
+"fala": "Acesso rápido. Apps, suporte, emergência e ajustes."
+},
+{
+"img": "app_inicio2_2.webp",
+"fala": "Atualizar. Busca o contrato de novo, por exemplo depois de um pagamento."
+}
+]
+},
+{
+"id": "app_parcelas",
+"quadros": [
+{
+"img": "app_parcelas_0.webp",
+"fala": "Aba Parcelas. O calendário e a lista de todas as parcelas, com o que já foi pago e o que falta."
+},
+{
+"img": "app_parcelas_1.webp",
+"fala": "Calendário. Os dias de vencimento marcados no mês."
+},
+{
+"img": "app_parcelas_2.webp",
+"fala": "Situação. Paga, em aberto ou em atraso, com o valor do dia."
+}
+]
+},
+{
+"id": "app_lista",
+"quadros": [
+{
+"img": "app_lista_0.webp",
+"fala": "Lista de parcelas. Cada parcela tem o botão para pagar com PIX, cartão ou boleto."
+},
+{
+"img": "app_lista_1.webp",
+"fala": "Pagar uma parcela. Toque na parcela para pagar. Pagando antes do vencimento, tem desconto."
+},
+{
+"img": "app_lista_2.webp",
+"fala": "Quitar. Quita o contrato inteiro com desconto."
+}
+]
+},
+{
+"id": "app_contrato",
+"quadros": [
+{
+"img": "app_contrato_0.webp",
+"fala": "Aba Contrato. O contrato assinado e os dados da compra."
+},
+{
+"img": "app_contrato_1.webp",
+"fala": "Baixar contrato. Abre o contrato assinado em PDF."
+},
+{
+"img": "app_contrato_2.webp",
+"fala": "Mudar dia do vencimento. Pede a troca do dia de pagamento."
+}
+]
+},
+{
+"id": "app_suporte",
+"quadros": [
+{
+"img": "app_suporte_0.webp",
+"fala": "Aba Suporte. Perguntas frequentes e o botão para iniciar o atendimento."
+},
+{
+"img": "app_suporte_1.webp",
+"fala": "Iniciar atendimento. Abre o chat. Quem responde primeiro é sempre a assistente virtual."
+}
+]
+},
+{
+"id": "app_pix",
+"quadros": [
+{
+"img": "app_pix_0.webp",
+"fala": "Pagar com PIX. O código PIX da parcela, para copiar e colar no app do banco."
+},
+{
+"img": "app_pix_1.webp",
+"fala": "Copiar código. Copia o PIX copia e cola."
+},
+{
+"img": "app_pix_2.webp",
+"fala": "Abrir o banco. Mesmo com o celular bloqueado, os apps de banco abrem para pagar."
+},
+{
+"img": "app_pix_d.webp",
+"fala": "Como desfazer. Se fechar sem pagar, nada acontece. Gere de novo quando quiser."
+}
+]
+},
+{
+"id": "app_chat",
+"quadros": [
+{
+"img": "app_chat_0.webp",
+"fala": "Chat com a assistente. A assistente responde na hora com os dados reais do contrato. O atendente humano entra só em último caso."
+},
+{
+"img": "app_chat_1.webp",
+"fala": "Assuntos prontos. Toque em um assunto: próxima parcela, PIX, mais prazo, quitar ou bloqueio."
+},
+{
+"img": "app_chat_2.webp",
+"fala": "Escrever. Ou escreva a dúvida com suas palavras."
+}
+]
+},
+{
+"id": "app_resposta",
+"quadros": [
+{
+"img": "app_resposta_0.webp",
+"fala": "Resposta da assistente. Depois de cada resposta, ela pergunta se resolveu."
+},
+{
+"img": "app_resposta_1.webp",
+"fala": "Isso resolveu?. Sim encerra; Não tenta de novo e, se ainda não resolver, oferece o atendente."
+}
+]
+},
+{
+"id": "app_prazo",
+"quadros": [
+{
+"img": "app_prazo_0.webp",
+"fala": "Pedir mais prazo. O cliente pode pedir até 48 horas a mais para pagar, 1 vez por parcela, perto do vencimento."
+},
+{
+"img": "app_prazo_1.webp",
+"fala": "Sim, quero o prazo. O celular não bloqueia até o fim do prazo. Se não pagar, bloqueia sozinho depois."
+},
+{
+"img": "app_prazo_2.webp",
+"fala": "Agora não. Não usa o prazo; ele continua disponível para esta parcela."
+},
+{
+"img": "app_prazo_d.webp",
+"fala": "Como desfazer. O prazo usado não volta para a mesma parcela."
+}
+]
+},
+{
+"id": "app_bloqueado",
+"quadros": [
+{
+"img": "app_bloqueado_0.webp",
+"fala": "Celular bloqueado. Com parcela em atraso além da tolerância, o celular mostra esta tela. Pagando, libera sozinho alguns minutos depois."
+},
+{
+"img": "app_bloqueado_1.webp",
+"fala": "Motivo do bloqueio. Mostra que o aparelho está bloqueado por falta de pagamento e a chave de acesso para a loja."
+},
+{
+"img": "app_bloqueado_2.webp",
+"fala": "PIN da loja. A loja pode passar um código de liberação que funciona até sem internet."
+},
+{
+"img": "app_bloqueado_3.webp",
+"fala": "Valor para regularizar. A parcela vencida e o total de hoje, com multa e juros."
+},
+{
+"img": "app_bloqueado_d.webp",
+"fala": "Como desfazer. Pagou e não liberou? Toque em Já paguei — verificar."
+}
+]
+},
+{
+"id": "app_bloqueado2",
+"quadros": [
+{
+"img": "app_bloqueado2_0.webp",
+"fala": "Opções no bloqueio. Mais abaixo ficam as opções para o cliente resolver sozinho."
+},
+{
+"img": "app_bloqueado2_1.webp",
+"fala": "Abrir o app NexumCell. Abre as parcelas para pagar."
+},
+{
+"img": "app_bloqueado2_2.webp",
+"fala": "Pagar agora com PIX. Gera o PIX direto da tela de bloqueio."
+},
+{
+"img": "app_bloqueado2_3.webp",
+"fala": "Já paguei — verificar agora. Confere o pagamento na hora e libera."
+},
+{
+"img": "app_bloqueado2_4.webp",
+"fala": "Falar com a NexumCell. Abre o chat. Lá o cliente toca em Liberar meu celular: a assistente libera 24 horas se ele costuma pagar em dia, 1 vez por parcela; se não puder, o pedido vai para o suporte e o dono, que liberam 24 ou 48 horas."
+},
+{
+"img": "app_bloqueado2_5.webp",
+"fala": "Chamada de emergência. 190, 192 e 193 sempre funcionam."
+},
+{
+"img": "app_bloqueado2_d.webp",
+"fala": "Como desfazer. A liberação acaba sozinha no fim do prazo. Se pagar antes, o aparelho fica liberado de vez."
+}
+]
+}
 ]
 }
