@@ -5,23 +5,31 @@
 "quadros": [
 {
 "img": "painel_0.webp",
-"fala": "Painel. É a primeira tela. Mostra o que precisa da sua atenção agora e os números do dia e do mês, sem você procurar em várias telas."
+"fala": "Painel. É a primeira tela do dono. Junta em um lugar só o que precisa da sua atenção agora e os números do dia e do mês, para você não precisar abrir tela por tela."
 },
 {
 "img": "painel_1.webp",
-"fala": "Precisa de você agora. Cada quadrado é uma pendência: propostas para analisar, aprovações, parcelas em atraso, travas instalando e chamados. Toque no quadrado para ir direto à tela certa."
+"fala": "Precisa de você agora. Cada quadrado é uma pendência com o número de itens: propostas para analisar, aprovações, parcelas em atraso, travas instalando, chamados e pedidos de liberação. Toque no quadrado para ir direto à tela certa."
 },
 {
 "img": "painel_2.webp",
-"fala": "Atalhos. Botões para as telas mais usadas no dia a dia."
+"fala": "Atalhos. Botões para as telas que você mais usa: analisar crédito, cobrança, aparelhos, repasses, relatórios e lojas."
 },
 {
 "img": "painel_3.webp",
-"fala": "Painel executivo. Os números do mês: quanto foi financiado, quanto a carteira tem a receber, a inadimplência e o ticket médio."
+"fala": "Gerar o resumo agora. Monta na hora o resumo do dia que normalmente chega sozinho pela manhã."
 },
 {
 "img": "painel_4.webp",
-"fala": "Buscar tela. Digite o nome de qualquer tela, como cobrança ou estoque, para abrir na hora. Também funciona com Ctrl e K."
+"fala": "Atualizar. Recarrega todos os números do painel."
+},
+{
+"img": "painel_5.webp",
+"fala": "Buscar tela. Digite o nome de qualquer tela, como cobrança ou estoque, para abrir na hora. O atalho é Ctrl e K."
+},
+{
+"img": "painel_6.webp",
+"fala": "Menu lateral. Todas as telas, separadas em grupos: vendas, cobrança, aparelhos, atendimento, financeiro, lojas e equipe, e sistema. O número vermelho mostra quantas coisas esperam você."
 },
 {
 "img": "painel_d.webp",
@@ -30,23 +38,85 @@
 ]
 },
 {
+"id": "painelExec",
+"quadros": [
+{
+"img": "painelExec_0.webp",
+"fala": "Painel executivo. Mais abaixo no painel ficam os números da empresa: quanto foi vendido, quanto há para receber e como estão os pagamentos."
+},
+{
+"img": "painelExec_1.webp",
+"fala": "Originação do mês. Quanto foi financiado no mês, somando todas as lojas."
+},
+{
+"img": "painelExec_2.webp",
+"fala": "Carteira a receber. Quanto ainda falta receber dos contratos ativos."
+},
+{
+"img": "painelExec_3.webp",
+"fala": "Inadimplência. O valor vencido e não pago. Quanto menor, melhor."
+},
+{
+"img": "painelExec_4.webp",
+"fala": "Ticket médio. O valor médio de cada venda no mês."
+},
+{
+"img": "painelExec_5.webp",
+"fala": "Hoje. Vendas e recebimentos do dia."
+},
+{
+"img": "painelExec_d.webp",
+"fala": "Como desfazer. Tela só de leitura."
+}
+]
+},
+{
+"id": "painelRank",
+"quadros": [
+{
+"img": "painelRank_0.webp",
+"fala": "Rankings. O ranking mostra quais lojas e vendedores vendem bem e, principalmente, vendem para quem paga."
+},
+{
+"img": "painelRank_1.webp",
+"fala": "Ranking das lojas. A nota de cada loja pela saúde da carteira: vendas, atrasos e retomadas."
+},
+{
+"img": "painelRank_2.webp",
+"fala": "Ranking dos vendedores. Os vendedores do mês, com vendas e atrasos."
+},
+{
+"img": "painelRank_d.webp",
+"fala": "Como desfazer. Tela só de leitura."
+}
+]
+},
+{
 "id": "analise",
 "quadros": [
 {
 "img": "analise_0.webp",
-"fala": "Análise de crédito. Aqui chegam as propostas que os vendedores enviaram. Você confere os documentos e decide se aprova, aprova com condições ou reprova."
+"fala": "Análise de crédito. Aqui chegam as propostas que os vendedores enviaram. Você confere os documentos e decide se aprova, aprova com condições ou reprova. A proposta mais antiga fica em cima."
 },
 {
 "img": "analise_1.webp",
-"fala": "Lista de propostas. Cada linha é uma proposta esperando análise: há quanto tempo espera, o cliente, a renda e os alertas de verificação, como documento suspeito ou rosto que não confere."
+"fala": "Tempo de espera. Há quanto tempo a proposta espera. O cliente está na loja esperando, então responda rápido."
 },
 {
 "img": "analise_2.webp",
-"fala": "Analisar. Abre a proposta completa, com fotos, nota do cliente e os botões de decisão."
+"fala": "Renda. A renda que o cliente informou."
 },
 {
 "img": "analise_3.webp",
-"fala": "Regras de crédito. Define o motor automático: nota mínima, idade, renda, limites e se ele aprova sozinho os casos claros."
+"fala": "Verificação. Alertas automáticos: documento que parece cópia, dados editados, rosto que não confere ou CPF usado em outra loja."
+},
+{
+"img": "analise_4.webp",
+"fala": "Analisar. Abre a proposta completa, com fotos, nota do cliente e os botões de decisão."
+},
+{
+"img": "analise_5.webp",
+"fala": "Regras de crédito. Configura o motor automático, explicado na próxima tela."
 },
 {
 "img": "analise_d.webp",
@@ -88,6 +158,47 @@
 ]
 },
 {
+"id": "regrasCredito",
+"quadros": [
+{
+"img": "regrasCredito_0.webp",
+"fala": "Regras de crédito (motor). O motor de crédito analisa cada proposta sozinho. Você escolhe se ele só sugere ou se aprova e reprova os casos claros."
+},
+{
+"img": "regrasCredito_1.webp",
+"fala": "Modo. Desligado, só sugerir, em que você decide tudo, ou automático, em que ele aprova e reprova sozinho os casos claros e manda o resto para você."
+},
+{
+"img": "regrasCredito_2.webp",
+"fala": "Idade e renda. Idade mínima, idade máxima e renda mínima. Fora disso, reprova."
+},
+{
+"img": "regrasCredito_3.webp",
+"fala": "Notas. Abaixo de uma nota reprova; a partir de outra aprova sozinho. No meio, vai para a sua análise."
+},
+{
+"img": "regrasCredito_4.webp",
+"fala": "Limite do cliente novo. Quanto o cliente novo pode financiar: a renda vezes um fator, com um teto em reais."
+},
+{
+"img": "regrasCredito_5.webp",
+"fala": "Documento e rosto. O que fazer quando o documento parece cópia ou o rosto não confere."
+},
+{
+"img": "regrasCredito_6.webp",
+"fala": "Fraude entre lojas. Reprova direto quando o mesmo CPF ou telefone apareceu em outra loja."
+},
+{
+"img": "regrasCredito_7.webp",
+"fala": "Comprometimento da renda. A parcela não pode passar dessa porcentagem da renda."
+},
+{
+"img": "regrasCredito_d.webp",
+"fala": "Como desfazer. Mude os valores e salve de novo. As propostas já decididas não mudam."
+}
+]
+},
+{
 "id": "preanalises",
 "quadros": [
 {
@@ -105,6 +216,10 @@
 {
 "img": "preanalises_3.webp",
 "fala": "Lista. Cada linha mostra o cliente, o aparelho que quer, a renda e a loja escolhida."
+},
+{
+"img": "preanalises_4.webp",
+"fala": "Atualizar aparelhos e lojas do link. Atualiza os aparelhos e as lojas que aparecem no link da pré-análise."
 },
 {
 "img": "preanalises_d.webp",
@@ -153,6 +268,10 @@
 "fala": "Lista de vendas. Número, cliente, aparelho, plano, loja, vendedor e situação. Toque na linha para abrir a ficha completa."
 },
 {
+"img": "vendas_3.webp",
+"fala": "Situação. Cada venda passa por: em análise, aprovada, aguardando entrada, aguardando trava e ativa. No fim fica quitada, retomada, reprovada ou cancelada."
+},
+{
 "img": "vendas_d.webp",
 "fala": "Como desfazer. Nada muda só de olhar. Os botões de cancelar e desfazer ficam dentro da ficha de cada venda."
 }
@@ -163,19 +282,39 @@
 "quadros": [
 {
 "img": "vendaFicha_0.webp",
-"fala": "Ficha da venda. A ficha mostra tudo de uma venda: cliente, aparelho, parcelas, pagamentos, seguro e o histórico."
+"fala": "Ficha da venda. A ficha mostra tudo de uma venda e reúne os botões para resolver problemas."
 },
 {
 "img": "vendaFicha_1.webp",
-"fala": "Cabeçalho. Número da venda e situação atual."
+"fala": "Cliente. Nome, CPF, telefones, endereço e referências."
 },
 {
 "img": "vendaFicha_2.webp",
-"fala": "Parcelas. Cada parcela com vencimento, valor e se foi paga. Daqui dá para dar baixa, gerar PIX ou mandar lembrete."
+"fala": "Aparelho e plano. Aparelho, IMEI, entrada, parcelas, proteção e as datas de cada parcela."
+},
+{
+"img": "vendaFicha_3.webp",
+"fala": "Documento e biometria. Fotos do documento e do rosto. Só o dono vê esta parte."
+},
+{
+"img": "vendaFicha_4.webp",
+"fala": "Análise. Quem analisou, a nota e a decisão."
+},
+{
+"img": "vendaFicha_5.webp",
+"fala": "Retomar aparelho. Use quando o aparelho foi recolhido. Ele volta ao estoque como seminovo."
+},
+{
+"img": "vendaFicha_6.webp",
+"fala": "Cancelar e deixar pendente. Cancela este aparelho, devolve ao estoque e mantém o crédito do cliente aprovado para escolher outro."
+},
+{
+"img": "vendaFicha_7.webp",
+"fala": "Cancelar venda. Cancela tudo com o motivo."
 },
 {
 "img": "vendaFicha_d.webp",
-"fala": "Como desfazer. Cancelar uma venda pede o motivo e devolve o aparelho ao estoque. Uma baixa de parcela feita por engano pode ser estornada na própria parcela."
+"fala": "Como desfazer. Uma venda cancelada não volta. Se foi engano, faça uma nova proposta para o mesmo cliente."
 }
 ]
 },
@@ -224,8 +363,82 @@
 "fala": "Régua de cobrança. Define as mensagens automáticas: lembrete antes do vencimento e avisos depois do atraso."
 },
 {
+"img": "cobranca_4.webp",
+"fala": "Lista de parcelas. Cliente, contrato, parcela, vencimento, valor e situação. O botão WhatsApp abre a conversa com a mensagem de cobrança pronta."
+},
+{
 "img": "cobranca_d.webp",
 "fala": "Como desfazer. Deu baixa errada? Abra a venda, toque na parcela e use Estornar baixa. Ela volta a ficar em aberto."
+}
+]
+},
+{
+"id": "baixa",
+"quadros": [
+{
+"img": "baixa_0.webp",
+"fala": "Dar baixa em uma parcela. Use quando o cliente pagou fora do PIX automático, por exemplo em dinheiro no balcão."
+},
+{
+"img": "baixa_1.webp",
+"fala": "Valor recebido. Já vem com o valor do dia, com desconto ou multa."
+},
+{
+"img": "baixa_2.webp",
+"fala": "Forma de pagamento. PIX, dinheiro, cartão, boleto ou transferência."
+},
+{
+"img": "baixa_3.webp",
+"fala": "Data. O dia em que o cliente pagou."
+},
+{
+"img": "baixa_4.webp",
+"fala": "Observação. Número do comprovante ou detalhe."
+},
+{
+"img": "baixa_5.webp",
+"fala": "Pagamento parcial. Marque quando o cliente pagou só uma parte: o restante continua em aberto."
+},
+{
+"img": "baixa_6.webp",
+"fala": "Confirmar pagamento. Dá a baixa. O aparelho libera sozinho em instantes."
+},
+{
+"img": "baixa_d.webp",
+"fala": "Como desfazer. Abra a venda, toque na parcela e use Estornar baixa."
+}
+]
+},
+{
+"id": "regua",
+"quadros": [
+{
+"img": "regua_0.webp",
+"fala": "Régua de cobrança. As mensagens automáticas que o cliente recebe antes e depois do vencimento."
+},
+{
+"img": "regua_1.webp",
+"fala": "Quando. Quantos dias antes ou depois do vencimento a mensagem sai."
+},
+{
+"img": "regua_2.webp",
+"fala": "Canais. Notificação no celular, SMS, WhatsApp e e-mail."
+},
+{
+"img": "regua_3.webp",
+"fala": "Adicionar toque. Cria mais uma mensagem na régua."
+},
+{
+"img": "regua_4.webp",
+"fala": "Voltar ao padrão. Restaura as mensagens recomendadas."
+},
+{
+"img": "regua_5.webp",
+"fala": "Salvar régua. Grava e passa a valer no dia seguinte."
+},
+{
+"img": "regua_d.webp",
+"fala": "Como desfazer. Use Voltar ao padrão ou Desligar a régua."
 }
 ]
 },
@@ -238,19 +451,60 @@
 },
 {
 "img": "fila_1.webp",
-"fala": "Resumo do dia. Quantos clientes chamar hoje, valor em atraso, lembretes e promessas em aberto."
+"fala": "Campanha de recuperação. Cria um desconto na multa e nos juros, com prazo, para recuperar quem está atrasado."
 },
 {
 "img": "fila_2.webp",
-"fala": "Abas da fila. Chamar agora, lembretes, promessas, feitos hoje e promessas quebradas."
+"fala": "Resumo do dia. Quantos clientes chamar hoje, valor em atraso, lembretes e promessas em aberto."
 },
 {
 "img": "fila_3.webp",
+"fala": "Abas da fila. Chamar agora, lembretes, promessas, feitos hoje e promessas quebradas."
+},
+{
+"img": "fila_4.webp",
 "fala": "Registrar contato. Depois de falar com o cliente, registre o resultado. Se ele prometeu pagar, informe a data: a promessa entra na fila e volta se não pagar."
+},
+{
+"img": "fila_5.webp",
+"fala": "Copiar. Copia a mensagem de cobrança."
 },
 {
 "img": "fila_d.webp",
 "fala": "Como desfazer. Registrou o contato errado? Registre de novo; o último registro é o que vale e todos ficam no histórico."
+}
+]
+},
+{
+"id": "contato",
+"quadros": [
+{
+"img": "contato_0.webp",
+"fala": "Registrar contato. Depois de falar com o cliente, registre o que aconteceu. Assim a equipe sabe quem já foi chamado."
+},
+{
+"img": "contato_1.webp",
+"fala": "Canal. WhatsApp, ligação, presencial ou SMS."
+},
+{
+"img": "contato_2.webp",
+"fala": "Resultado. Prometeu pagar, não atendeu, pediu para chamar depois ou disse que já pagou."
+},
+{
+"img": "contato_3.webp",
+"fala": "Vai pagar em. Data da promessa. Se não pagar até lá, ele volta para a fila como promessa quebrada."
+},
+{
+"img": "contato_4.webp",
+"fala": "Valor prometido. Quanto ele disse que vai pagar."
+},
+{
+"img": "contato_5.webp",
+"fala": "Salvar. Grava no histórico do cliente."
+},
+{
+"img": "contato_d.webp",
+"fala": "Como desfazer. Registre de novo; o último registro é o que vale."
 }
 ]
 },
@@ -305,6 +559,39 @@
 ]
 },
 {
+"id": "novoLN",
+"quadros": [
+{
+"img": "novoLN_0.webp",
+"fala": "Adicionar à lista negra. Bloqueie um CPF ou telefone de quem tentou golpe."
+},
+{
+"img": "novoLN_1.webp",
+"fala": "Tipo. CPF ou telefone."
+},
+{
+"img": "novoLN_2.webp",
+"fala": "Número. O CPF ou o telefone."
+},
+{
+"img": "novoLN_3.webp",
+"fala": "Nome. Nome da pessoa, para achar depois."
+},
+{
+"img": "novoLN_4.webp",
+"fala": "Motivo. Por que foi bloqueado."
+},
+{
+"img": "novoLN_5.webp",
+"fala": "Bloquear. A partir de agora, qualquer proposta com esse dado é barrada."
+},
+{
+"img": "novoLN_d.webp",
+"fala": "Como desfazer. Na lista, use Remover."
+}
+]
+},
+{
 "id": "risco",
 "quadros": [
 {
@@ -342,19 +629,93 @@
 },
 {
 "img": "aparelhos_2.webp",
-"fala": "Travar ou liberar. Trava ou libera um aparelho na hora. Use com cuidado: o cliente vê na tela."
+"fala": "Travar agora ou Liberar. Trava ou libera um aparelho na hora. O cliente vê na tela."
 },
 {
 "img": "aparelhos_3.webp",
-"fala": "Aviso na tela. Manda uma mensagem que aparece na tela dos clientes."
+"fala": "Liberar 24 h. Libera por um dia e depois volta à regra de atraso."
 },
 {
 "img": "aparelhos_4.webp",
+"fala": "Mensagem. Manda uma mensagem que aparece na tela do cliente."
+},
+{
+"img": "aparelhos_5.webp",
+"fala": "Código sem internet. Gera um código que libera o aparelho mesmo sem internet."
+},
+{
+"img": "aparelhos_6.webp",
+"fala": "Remover a trava. Tira a trava de vez. Use só quando o contrato acabou."
+},
+{
+"img": "aparelhos_7.webp",
+"fala": "Histórico. Tudo o que aconteceu com o aparelho."
+},
+{
+"img": "aparelhos_8.webp",
+"fala": "Aviso na tela. Mensagem para vários clientes de uma vez."
+},
+{
+"img": "aparelhos_9.webp",
 "fala": "Comunicado às lojas. Mensagem para as lojas parceiras."
 },
 {
 "img": "aparelhos_d.webp",
 "fala": "Como desfazer. Travou sem querer? Toque em Liberar no mesmo aparelho. Para voltar à regra automática, escolha Automático."
+}
+]
+},
+{
+"id": "apCodigo",
+"quadros": [
+{
+"img": "apCodigo_0.webp",
+"fala": "Código sem internet. Quando o cliente está sem internet e precisa usar o celular, a loja passa este código."
+},
+{
+"img": "apCodigo_1.webp",
+"fala": "Código. O cliente digita na tela de bloqueio, no campo PIN."
+},
+{
+"img": "apCodigo_2.webp",
+"fala": "Validade. O código libera por 48 horas."
+},
+{
+"img": "apCodigo_3.webp",
+"fala": "Copiar. Copia para mandar ao cliente."
+},
+{
+"img": "apCodigo_d.webp",
+"fala": "Como desfazer. O código vence sozinho."
+}
+]
+},
+{
+"id": "avisoMassa",
+"quadros": [
+{
+"img": "avisoMassa_0.webp",
+"fala": "Aviso na tela dos clientes. Uma mensagem que aparece na tela do celular dos clientes."
+},
+{
+"img": "avisoMassa_1.webp",
+"fala": "Mensagem. O texto do aviso."
+},
+{
+"img": "avisoMassa_2.webp",
+"fala": "Para quem. Todos os clientes, só quem está em atraso ou os de uma loja."
+},
+{
+"img": "avisoMassa_3.webp",
+"fala": "Mostrar até. Até quando o aviso aparece."
+},
+{
+"img": "avisoMassa_4.webp",
+"fala": "Enviar aviso. Manda na hora."
+},
+{
+"img": "avisoMassa_d.webp",
+"fala": "Como desfazer. O aviso some sozinho na data escolhida."
 }
 ]
 },
@@ -376,6 +737,14 @@
 {
 "img": "catalogo_3.webp",
 "fala": "Tabela. Liberado, modelo, memória, valor à vista, juros e o total com juros. Altere direto na tabela."
+},
+{
+"img": "catalogo_4.webp",
+"fala": "Liberar ou bloquear todos. Libera todos os modelos com valor, ou bloqueia uma marca inteira."
+},
+{
+"img": "catalogo_5.webp",
+"fala": "Acessórios. Capas, películas e carregadores que entram no mesmo contrato."
 },
 {
 "img": "catalogo_d.webp",
@@ -401,6 +770,10 @@
 {
 "img": "suporteTrava_3.webp",
 "fala": "Removedor USB. Programa para remover a trava pelo computador, em último caso."
+},
+{
+"img": "suporteTrava_4.webp",
+"fala": "Diagnóstico. Os problemas mais comuns da trava e como resolver cada um."
 },
 {
 "img": "suporteTrava_d.webp",
@@ -522,6 +895,39 @@
 ]
 },
 {
+"id": "novoChamado",
+"quadros": [
+{
+"img": "novoChamado_0.webp",
+"fala": "Abrir chamado. Registre um problema para a equipe resolver."
+},
+{
+"img": "novoChamado_1.webp",
+"fala": "Assunto. Aparelho travado sem motivo, cliente diz que pagou, defeito e outros."
+},
+{
+"img": "novoChamado_2.webp",
+"fala": "Setor. Suporte ou financeiro."
+},
+{
+"img": "novoChamado_3.webp",
+"fala": "Cliente e IMEI. Quem é o cliente e qual o aparelho."
+},
+{
+"img": "novoChamado_4.webp",
+"fala": "Descrição. Conte o que aconteceu."
+},
+{
+"img": "novoChamado_5.webp",
+"fala": "Abrir. O setor recebe na hora."
+},
+{
+"img": "novoChamado_d.webp",
+"fala": "Como desfazer. Dentro do chamado, marque como resolvido."
+}
+]
+},
+{
 "id": "conciliacao",
 "quadros": [
 {
@@ -560,6 +966,10 @@
 {
 "img": "repasses_4.webp",
 "fala": "Relatório. Relatório para imprimir ou enviar à loja."
+},
+{
+"img": "repasses_5.webp",
+"fala": "Planilha. Baixa os repasses em planilha."
 },
 {
 "img": "repasses_d.webp",
@@ -614,15 +1024,23 @@
 },
 {
 "img": "relatorios_1.webp",
-"fala": "Metas. Abre a janela de metas: o que conta, a meta de cada vendedor e o bônus."
+"fala": "Metas do mês. O progresso de cada vendedor na meta."
 },
 {
 "img": "relatorios_2.webp",
-"fala": "Relatório do mês. PDF com o resumo do mês."
+"fala": "Metas. Abre a janela de metas: o que conta, a meta de cada vendedor e o bônus."
 },
 {
 "img": "relatorios_3.webp",
+"fala": "Relatório do mês. PDF com o resumo do mês."
+},
+{
+"img": "relatorios_4.webp",
 "fala": "Planilha do contador. Baixa a planilha do mês para o contador."
+},
+{
+"img": "relatorios_5.webp",
+"fala": "Enviar ao contador. Manda a planilha por e-mail."
 },
 {
 "img": "relatorios_d.webp",
@@ -660,6 +1078,77 @@
 ]
 },
 {
+"id": "relVend",
+"quadros": [
+{
+"img": "relVend_0.webp",
+"fala": "Vendedores e safras. Mostra a comissão de cada vendedor junto com a inadimplência das vendas dele."
+},
+{
+"img": "relVend_1.webp",
+"fala": "Vendedores. Vendas, recebido, comissão, carteira, inadimplência e retomados de cada vendedor."
+},
+{
+"img": "relVend_2.webp",
+"fala": "Safras. Cada mês de vendas e quanto já está pagando ou atrasado."
+},
+{
+"img": "relVend_d.webp",
+"fala": "Como desfazer. Tela só de leitura."
+}
+]
+},
+{
+"id": "relPrev",
+"quadros": [
+{
+"img": "relPrev_0.webp",
+"fala": "Previsão, lucro e caixa. Quanto deve entrar nos próximos meses, o lucro de cada venda e o fluxo de caixa."
+},
+{
+"img": "relPrev_1.webp",
+"fala": "Previsão de recebimentos. As parcelas que vencem nos próximos 12 meses."
+},
+{
+"img": "relPrev_2.webp",
+"fala": "Lucro real por venda. Quanto sobrou de cada venda depois do aparelho, das comissões e das perdas."
+},
+{
+"img": "relPrev_3.webp",
+"fala": "Fluxo de caixa. Entradas e saídas dos últimos 6 meses."
+},
+{
+"img": "relPrev_d.webp",
+"fala": "Como desfazer. Tela só de leitura."
+}
+]
+},
+{
+"id": "relSim",
+"quadros": [
+{
+"img": "relSim_0.webp",
+"fala": "Simulador e antecipação. Teste mudanças na política de crédito antes de aplicar e veja quanto daria para antecipar."
+},
+{
+"img": "relSim_1.webp",
+"fala": "Simulador de crédito. Mostra o que aconteceria com as vendas e os atrasos se você mudasse a entrada ou a nota mínima."
+},
+{
+"img": "relSim_2.webp",
+"fala": "Nota do atendimento. A avaliação que os clientes deram ao atendimento."
+},
+{
+"img": "relSim_3.webp",
+"fala": "Antecipação. Simula receber agora as próximas parcelas pelo Asaas, com o desconto da antecipação."
+},
+{
+"img": "relSim_d.webp",
+"fala": "Como desfazer. Simular não muda nada."
+}
+]
+},
+{
 "id": "relDono",
 "quadros": [
 {
@@ -677,6 +1166,10 @@
 {
 "img": "relDono_3.webp",
 "fala": "Enviar ao gerente. Manda a lista ao gerente pelo WhatsApp ou e-mail."
+},
+{
+"img": "relDono_4.webp",
+"fala": "Lista semanal. Manda agora aos gerentes a lista de quem está em atraso."
 },
 {
 "img": "relDono_d.webp",
@@ -698,6 +1191,10 @@
 {
 "img": "resultado_2.webp",
 "fala": "Caixa. Quanto deve entrar nas próximas semanas."
+},
+{
+"img": "resultado_3.webp",
+"fala": "Proteção. Quantos clientes contrataram a proteção no mês."
 },
 {
 "img": "resultado_d.webp",
@@ -723,6 +1220,39 @@
 {
 "img": "segurancaVendas_d.webp",
 "fala": "Como desfazer. Alerta marcado como visto pode ser consultado na aba Alertas com o filtro de todos."
+}
+]
+},
+{
+"id": "segRegras",
+"quadros": [
+{
+"img": "segRegras_0.webp",
+"fala": "Regras de segurança. Regras que valem para todas as lojas e, embaixo, ajustes de cada loja."
+},
+{
+"img": "segRegras_1.webp",
+"fala": "Reconhecimento do rosto. Antes de vender, o sistema confere se é mesmo o vendedor na frente do notebook."
+},
+{
+"img": "segRegras_2.webp",
+"fala": "Rosto vale por. De quanto em quanto tempo pede o rosto de novo."
+},
+{
+"img": "segRegras_3.webp",
+"fala": "Revisão dos notebooks. A cada quantos dias o gerente confirma os notebooks da loja."
+},
+{
+"img": "segRegras_4.webp",
+"fala": "Por loja. Horário de venda, quantos notebooks a loja pode ter e se o vendedor só entra no sistema dentro da loja."
+},
+{
+"img": "segRegras_5.webp",
+"fala": "Salvar. Grava as regras."
+},
+{
+"img": "segRegras_d.webp",
+"fala": "Como desfazer. Mude e salve de novo."
 }
 ]
 },
@@ -796,8 +1326,94 @@
 "fala": "Bloquear. Suspende as vendas da loja."
 },
 {
+"img": "lojas_5.webp",
+"fala": "Liberar iPhone. Libera a loja para vender iPhone."
+},
+{
+"img": "lojas_6.webp",
+"fala": "Link do site. Link para novas lojas pedirem para entrar."
+},
+{
+"img": "lojas_7.webp",
+"fala": "Planos e mensalidade. Os planos que as lojas parceiras pagam."
+},
+{
 "img": "lojas_d.webp",
 "fala": "Como desfazer. Loja bloqueada volta com Desbloquear no mesmo lugar."
+}
+]
+},
+{
+"id": "lojaDados",
+"quadros": [
+{
+"img": "lojaDados_0.webp",
+"fala": "Dados da loja. O cadastro completo da loja parceira."
+},
+{
+"img": "lojaDados_1.webp",
+"fala": "Endereço. Onde a loja fica."
+},
+{
+"img": "lojaDados_2.webp",
+"fala": "Localização. A posição no mapa. As vendas só valem perto dela."
+},
+{
+"img": "lojaDados_3.webp",
+"fala": "Repasse. A chave PIX para receber os repasses."
+},
+{
+"img": "lojaDados_4.webp",
+"fala": "Marcas. As marcas de aparelho liberadas para a loja."
+},
+{
+"img": "lojaDados_5.webp",
+"fala": "Salvar. Grava o cadastro."
+},
+{
+"img": "lojaDados_d.webp",
+"fala": "Como desfazer. Abra de novo e corrija."
+}
+]
+},
+{
+"id": "lojaPessoas",
+"quadros": [
+{
+"img": "lojaPessoas_0.webp",
+"fala": "Pessoas da loja. Gerentes e vendedores da loja, com as ações de cada um."
+},
+{
+"img": "lojaPessoas_1.webp",
+"fala": "Licenças. Adiciona licenças para a loja vender."
+},
+{
+"img": "lojaPessoas_2.webp",
+"fala": "Limites da loja. Valor máximo por venda e por mês."
+},
+{
+"img": "lojaPessoas_3.webp",
+"fala": "Fatura do mês. O que a loja deve no mês."
+},
+{
+"img": "lojaPessoas_4.webp",
+"fala": "Reenviar login. Manda o acesso de novo para a pessoa."
+},
+{
+"img": "lojaPessoas_5.webp",
+"fala": "Senha 12345. Volta a senha para 12345 quando a pessoa esqueceu."
+},
+{
+"img": "lojaPessoas_6.webp",
+"fala": "Comissão. A comissão daquele vendedor."
+},
+{
+"img": "lojaPessoas_7.webp",
+"fala": "Bloquear. Tira o acesso da pessoa."
+},
+{
+"img": "lojaPessoas_d.webp",
+"fala": "Como desfazer. Pessoa bloqueada volta com Desbloquear."
 }
 ]
 },
@@ -810,15 +1426,23 @@
 },
 {
 "img": "licencasLojas_1.webp",
-"fala": "Dar licenças. Adiciona licenças para a loja."
+"fala": "Resumo. Licenças dadas, usadas, saldo e lojas sem saldo."
 },
 {
 "img": "licencasLojas_2.webp",
-"fala": "Cobrar. Gera a cobrança das licenças."
+"fala": "Dar licenças. Adiciona licenças para a loja."
 },
 {
 "img": "licencasLojas_3.webp",
+"fala": "Cobrar. Gera a cobrança das licenças."
+},
+{
+"img": "licencasLojas_4.webp",
 "fala": "Retirar. Tira licenças dadas por engano."
+},
+{
+"img": "licencasLojas_5.webp",
+"fala": "Para várias lojas. Dá licenças para várias lojas de uma vez."
 },
 {
 "img": "licencasLojas_d.webp",
@@ -857,6 +1481,39 @@
 {
 "img": "equipe_d.webp",
 "fala": "Como desfazer. Pessoa desativada volta com Ativar na mesma linha."
+}
+]
+},
+{
+"id": "novoUsuario",
+"quadros": [
+{
+"img": "novoUsuario_0.webp",
+"fala": "Adicionar pessoa. Crie o acesso de alguém da equipe NexumCell."
+},
+{
+"img": "novoUsuario_1.webp",
+"fala": "Nome completo. Como vai aparecer no sistema."
+},
+{
+"img": "novoUsuario_2.webp",
+"fala": "E-mail. Vai ser o login."
+},
+{
+"img": "novoUsuario_3.webp",
+"fala": "Senha temporária. A pessoa troca no primeiro acesso."
+},
+{
+"img": "novoUsuario_4.webp",
+"fala": "Perfil. Financeiro ou suporte. Cada perfil vê só o portal dele."
+},
+{
+"img": "novoUsuario_5.webp",
+"fala": "Criar acesso. Cria e manda o acesso por e-mail."
+},
+{
+"img": "novoUsuario_d.webp",
+"fala": "Como desfazer. Na lista da equipe, use Desativar."
 }
 ]
 },
@@ -903,23 +1560,197 @@
 "quadros": [
 {
 "img": "config_0.webp",
-"fala": "Lojas e configurações. As regras do sistema: empresa, crédito, trava, inteligência artificial, cópia de segurança, seguro e assistente do app."
+"fala": "Lojas e configurações. As regras do sistema inteiro. Esta tela é longa, então ela está dividida nas próximas partes."
 },
 {
 "img": "config_1.webp",
-"fala": "Empresa e crédito. Entrada mínima, juros, parcelas, tolerância e comissão."
+"fala": "Lojas. As lojas próprias, com cidade, telefone e localização."
 },
 {
 "img": "config_2.webp",
-"fala": "Lojas. Cadastra e edita lojas, Wi-Fi e localização."
-},
-{
-"img": "config_3.webp",
-"fala": "Cópia de segurança. Baixa a cópia dos dados. Faça toda semana."
+"fala": "Nova loja ou Editar. Abre o cadastro da loja, explicado a seguir."
 },
 {
 "img": "config_d.webp",
 "fala": "Como desfazer. Mudou uma configuração? Volte o valor antigo e toque em Salvar configurações."
+}
+]
+},
+{
+"id": "cfgLoja",
+"quadros": [
+{
+"img": "cfgLoja_0.webp",
+"fala": "Cadastrar uma loja. Os dados de cada loja própria."
+},
+{
+"img": "cfgLoja_1.webp",
+"fala": "Nome e cidade. Como a loja aparece no sistema."
+},
+{
+"img": "cfgLoja_2.webp",
+"fala": "Telefone. Aparece na tela de bloqueio do cliente."
+},
+{
+"img": "cfgLoja_3.webp",
+"fala": "Localização. Toque estando dentro da loja: as vendas só valem dentro do raio."
+},
+{
+"img": "cfgLoja_4.webp",
+"fala": "Raio permitido. Distância máxima da loja, em metros."
+},
+{
+"img": "cfgLoja_5.webp",
+"fala": "Chave PIX. Para os repasses."
+},
+{
+"img": "cfgLoja_6.webp",
+"fala": "Wi-Fi da loja. Vai dentro do QR da trava, para o aparelho conectar sozinho."
+},
+{
+"img": "cfgLoja_7.webp",
+"fala": "Salvar. Grava a loja."
+},
+{
+"img": "cfgLoja_d.webp",
+"fala": "Como desfazer. Abra a loja de novo e corrija."
+}
+]
+},
+{
+"id": "cfgCredito",
+"quadros": [
+{
+"img": "cfgCredito_0.webp",
+"fala": "Empresa e crédito. Os números que valem em toda venda."
+},
+{
+"img": "cfgCredito_1.webp",
+"fala": "Entrada mínima. A porcentagem mínima de entrada em toda venda."
+},
+{
+"img": "cfgCredito_2.webp",
+"fala": "Parcelas. O número máximo de parcelas."
+},
+{
+"img": "cfgCredito_3.webp",
+"fala": "Treinamento obrigatório. Se o vendedor só vende depois de passar no treinamento."
+},
+{
+"img": "cfgCredito_4.webp",
+"fala": "Venda só na loja. Se a venda só vale dentro da loja."
+},
+{
+"img": "cfgCredito_5.webp",
+"fala": "Salvar configurações. Grava tudo desta tela."
+},
+{
+"img": "cfgCredito_d.webp",
+"fala": "Como desfazer. Volte o valor e salve."
+}
+]
+},
+{
+"id": "cfgIA",
+"quadros": [
+{
+"img": "cfgIA_0.webp",
+"fala": "Inteligência artificial. A IA lê o documento e confere a biometria do cliente."
+},
+{
+"img": "cfgIA_1.webp",
+"fala": "Chave da IA. A chave do serviço de inteligência artificial."
+},
+{
+"img": "cfgIA_2.webp",
+"fala": "Modelo. O modelo usado na leitura."
+},
+{
+"img": "cfgIA_3.webp",
+"fala": "Testar chave. Confere se a chave está funcionando."
+},
+{
+"img": "cfgIA_d.webp",
+"fala": "Como desfazer. Troque a chave e teste de novo."
+}
+]
+},
+{
+"id": "cfgTrava",
+"quadros": [
+{
+"img": "cfgTrava_0.webp",
+"fala": "Trava e instalação. Como a trava se comporta e como o app é instalado."
+},
+{
+"img": "cfgTrava_1.webp",
+"fala": "QR code. A versão do app que vai no QR da instalação."
+},
+{
+"img": "cfgTrava_2.webp",
+"fala": "Regras de bloqueio. Modo avião, VPN, apps fora da loja e cabo USB: bloquear ou permitir."
+},
+{
+"img": "cfgTrava_3.webp",
+"fala": "Aplicar em todos. Manda as regras atuais para todos os aparelhos."
+},
+{
+"img": "cfgTrava_d.webp",
+"fala": "Como desfazer. Mude a regra, salve e aplique de novo."
+}
+]
+},
+{
+"id": "cfgAsaas",
+"quadros": [
+{
+"img": "cfgAsaas_0.webp",
+"fala": "Asaas e servidor. A cobrança automática por PIX e boleto e o servidor que manda as mensagens."
+},
+{
+"img": "cfgAsaas_1.webp",
+"fala": "Chave do Asaas. Guarda a chave no cofre do servidor."
+},
+{
+"img": "cfgAsaas_2.webp",
+"fala": "Testar. Confere se a chave funciona."
+},
+{
+"img": "cfgAsaas_3.webp",
+"fala": "Gerar cobranças. Cria as cobranças no Asaas para todos os contratos ativos."
+},
+{
+"img": "cfgAsaas_4.webp",
+"fala": "Conferir servidor. Testa o servidor, o WhatsApp e o SMS."
+},
+{
+"img": "cfgAsaas_d.webp",
+"fala": "Como desfazer. Troque a chave e teste de novo."
+}
+]
+},
+{
+"id": "cfgBackup",
+"quadros": [
+{
+"img": "cfgBackup_0.webp",
+"fala": "Cópia de segurança. Guarde uma cópia de todos os dados. Faça pelo menos uma vez por semana."
+},
+{
+"img": "cfgBackup_1.webp",
+"fala": "Backup automático por e-mail. Manda a cópia por e-mail sozinho."
+},
+{
+"img": "cfgBackup_2.webp",
+"fala": "Baixar cópia. Sem fotos é rápida; completa leva também as fotos e a biometria."
+},
+{
+"img": "cfgBackup_3.webp",
+"fala": "Backup automático. Escolha uma pasta do computador e o sistema salva sozinho."
+},
+{
+"img": "cfgBackup_d.webp",
+"fala": "Como desfazer. A cópia só lê os dados; nada é apagado."
 }
 ]
 },
@@ -932,19 +1763,69 @@
 },
 {
 "img": "configSeguro_1.webp",
-"fala": "Valor da proteção. Valor por parcela. Zero desliga."
+"fala": "Valor da proteção. Valor por parcela. Zero desliga a proteção."
 },
 {
 "img": "configSeguro_2.webp",
-"fala": "Seguradora. Link de emissão no site do parceiro. A venda vai para ele sozinha quando a trava sobe."
+"fala": "Já vem marcada. Se a proteção já vem marcada na venda."
 },
 {
 "img": "configSeguro_3.webp",
-"fala": "Salvar. Grava todas as configurações da tela."
+"fala": "Seguradora parceira. Nome da seguradora."
+},
+{
+"img": "configSeguro_4.webp",
+"fala": "Link de emissão. O site do parceiro, com os dados da venda."
+},
+{
+"img": "configSeguro_5.webp",
+"fala": "Envio automático. A venda vai sozinha para a seguradora quando a trava sobe."
 },
 {
 "img": "configSeguro_d.webp",
 "fala": "Como desfazer. Volte os valores e salve de novo."
+}
+]
+},
+{
+"id": "cfgBot",
+"quadros": [
+{
+"img": "cfgBot_0.webp",
+"fala": "Assistente do app. O que a assistente do app pode fazer sozinha."
+},
+{
+"img": "cfgBot_1.webp",
+"fala": "Prazo extra. Se o cliente pode pedir mais prazo pelo chat."
+},
+{
+"img": "cfgBot_2.webp",
+"fala": "Horas de prazo. Normalmente 48 horas, 1 vez por parcela."
+},
+{
+"img": "cfgBot_3.webp",
+"fala": "Liberação automática. Se a assistente libera 24 horas sozinha quem costuma pagar em dia."
+},
+{
+"img": "cfgBot_4.webp",
+"fala": "Limite de atraso. Até quantos dias de atraso ela libera sozinha."
+},
+{
+"img": "cfgBot_d.webp",
+"fala": "Como desfazer. Mude e salve de novo."
+}
+]
+},
+{
+"id": "centralTreino",
+"quadros": [
+{
+"img": "centralTreino_0.webp",
+"fala": "Central de treinamento. Esta própria central, aberta dentro do portal do dono."
+},
+{
+"img": "centralTreino_1.webp",
+"fala": "Abrir em outra aba. Abre a central sozinha, para mandar o link à equipe."
 }
 ]
 },
