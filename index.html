@@ -9619,6 +9619,19 @@ try{ const g=NAV_GRUPOS.find(x=>x[0]==='Atendimento')||NAV_GRUPOS.find(x=>x[0]==
   const ult=[...$('#view').querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else $('#view').insertAdjacentHTML('beforeend',html);
 }; }
 
+
+/* ===================== CENTRAL DE TREINAMENTO (nov/2026) =====================
+   Explicação de todo o sistema, tela por tela, com prints, setas e vídeos narrados (pasta guia/). */
+PAGES.centralTreino=async()=>{
+  $('#view').innerHTML=`<div class="row mb" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><p class="muted" style="margin:0">Todo o sistema explicado tela por tela: Dono, Suporte, Financeiro, Gerente, Vendedor, App e Portal do cliente.</p>
+    <a class="btn" href="guia/" target="_blank" rel="noopener">Abrir em outra aba</a></div>
+    <iframe src="guia/" title="Central de treinamento" style="width:100%;height:calc(100vh - 170px);min-height:620px;border:1px solid var(--line);border-radius:16px;background:#fff"></iframe>`;
+};
+TABS.push({id:'centralTreino',label:'Central de treinamento',roles:['DONO','SUPORTE','FINANCEIRO','GERENTE','VENDEDOR']});
+IC.centralTreino='<path d="M3 7l9-4 9 4-9 4z"/><path d="M7 9v5c0 1.7 2.2 3 5 3s5-1.3 5-3V9"/><path d="M21 7v6"/>';
+if(PORTAL==='dono'&&!P.tabs.includes('centralTreino')) P.tabs.push('centralTreino');
+try{ const g=NAV_GRUPOS.find(x=>x[0]==='Sistema'); if(g&&!g[1].includes('centralTreino')) g[1].unshift('centralTreino'); }catch(e){}
+
 </script>
 </body>
 </html>
