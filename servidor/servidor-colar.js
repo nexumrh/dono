@@ -3268,6 +3268,35 @@ async function registrarBot(ap, v, txt, em) {
     await db.collection('logs').add({ em, acao: 'Assistente do app', alvo: ap.vendaId, det: txt, por: 'Cliente' });
   } catch (e) { console.warn('registrarBot', e.message); }
 }
+
+// ---- roubo, furto ou perda comunicado pelo chat do app: a assistente bloqueia na hora todos os aparelhos do cliente ----
+async function rouboBot(token, tipo, relato, bo) {
+  const aref = db.collection('aparelhos').doc(String(token)), as = await aref.get();
+  if (!as.exists) throw erroBot('Contrato não encontrado', 404);
+  const ap = as.data(), agora = Date.now();
+  const T = ['Roubo', 'Furto', 'Perda'].includes(tipo) ? tipo : 'Roubo';
+  const v = ap.vendaId ? (await db.collection('vendas').doc(ap.vendaId).get()).data() : null;
+  const cpf = String(v?.clienteCpf || ap.clienteCpf || '').replace(/\D/g, '');
+  // todos os contratos ativos do mesmo CPF
+  const tokens = new Set([String(token)]);
+  if (cpf) {
+    const vs = await db.collection('vendas').where('clienteCpf', '==', cpf).get().catch(() => null);
+    vs?.forEach((d) => { const x = d.data(); if (x.aparelhoToken && ['ATIVA', 'INSTALANDO'].includes(x.status)) tokens.add(String(x.aparelhoToken)); });
+  }
+  const bloqueados = [];
+  for (const tk of tokens) {
+    const r = db.collection('aparelhos').doc(tk), d = (await r.get()).data();
+    if (!d || d.quitado) continue;
+    if (d.roubo && !d.roubo.liberadoEm) { if (bo) await r.set({ roubo: { ...d.roubo, bo: String(bo).slice(0, 60) } }, { merge: true }); bloqueados.push(tk); continue; }
+    await r.set({ roubo: { tipo: T, data: hoje(), relato: String(relato || '').slice(0, 300), bo: String(bo || '').slice(0, 60), em: agora, via: 'APP', localizar: false } }, { merge: true });
+    bloqueados.push(tk);
+    await pushAparelho(tk).catch(() => {});
+  }
+  if (v) await registrarBot(ap, v, `Comunicou ${T.toLowerCase()} pelo chat do app. A assistente bloqueou ${bloqueados.length} aparelho(s).${bo ? ' BO: ' + bo : ''}`, agora);
+  try { await db.collection('chamados').add({ em: agora, assunto: `${T} comunicado pelo app`, setor: 'Suporte', cliente: v?.clienteNome || '', imei: ap.imei || '', desc: `Cliente comunicou ${T.toLowerCase()} pela assistente do app. Aparelhos bloqueados: ${bloqueados.length}.${relato ? ' Relato: ' + relato : ''}${bo ? ' BO: ' + bo : ''}`, status: 'ABERTO', por: 'Assistente do app', vendaId: ap.vendaId || '' }); } catch (e) {}
+  return { ok: true, bloqueados: bloqueados.length, tipo: T };
+}
+
 async function prazoBot(token) {
   const cfg = await config();
   if (cfg.prazoBot === 'nao') throw erroBot('O prazo extra pelo app não está disponível. Fale com a loja.');
@@ -3318,6 +3347,7 @@ async function handler18(req, res) {
     if (b.acao === "promessa") return res.status(200).json(await promessa(b.token, b.data));
     if (b.acao === 'prazo') return res.status(200).json(await prazoBot(b.token));
     if (b.acao === 'liberar') return res.status(200).json(await liberarBot(b.token, b.pedido));
+    if (b.acao === 'roubo') return res.status(200).json(await rouboBot(b.token, b.tipo, b.relato, b.bo));
     throw erro6("a\xE7\xE3o desconhecida");
   } catch (e) {
     return res.status(e.status || 500).json({ erro: e.status ? e.message : "N\xE3o foi poss\xEDvel agora. Tente de novo." });
