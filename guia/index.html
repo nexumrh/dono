@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central de treinamento · NexumCell</title>
+<link rel="icon" href="../favicon.ico">
+<style>
+:root{--navy:#0A1733;--navy2:#12224A;--pri:#1D4ED8;--gold:#F5B301;--bg:#F3F5FA;--line:#E5E9F2;--txt:#0F172A;--mut:#64748B;--ok:#0E9F6E;--warn:#B45309}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.app{display:grid;grid-template-columns:290px 1fr;height:100vh}
+aside{background:var(--navy);color:#DCE6FA;overflow:auto;display:flex;flex-direction:column}
+.marca{padding:22px 22px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.marca b{display:block;font-size:19px;color:#fff;letter-spacing:.2px}.marca b span{color:#7FAEFF}
+.marca small{display:block;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8EA3CC;margin-top:4px}
+.busca{margin:14px 16px 6px;position:relative}
+.busca input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:10px 12px 10px 34px;font:inherit;font-size:14px;outline:none}
+.busca input:focus{border-color:#5B8CFF}.busca svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#8EA3CC}
+nav{padding:8px 10px 20px}
+.np{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#DCE6FA;font-size:14.5px;margin-top:2px}
+.np:hover{background:rgba(255,255,255,.06)}.np.on{background:rgba(29,78,216,.35);color:#fff;font-weight:600}
+.np i{width:10px;height:10px;border-radius:50%;flex:none}
+.ns{display:block;padding:6px 12px 6px 34px;font-size:13px;color:#AFC0E0;text-decoration:none;border-radius:8px}
+.ns:hover{color:#fff;background:rgba(255,255,255,.05)}
+main{overflow:auto;scroll-behavior:smooth}
+.topo{position:sticky;top:0;z-index:5;background:rgba(243,245,250,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 34px;display:flex;align-items:center;gap:12px}
+.topo .cam{font-size:13px;color:var(--mut)}.topo .cam a{text-decoration:none;color:var(--pri)}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 34px 80px}
+.hero{background:linear-gradient(135deg,var(--navy),#1B3478);color:#fff;border-radius:22px;padding:34px 36px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-60px;top:-60px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(127,174,255,.35),transparent 70%)}
+.hero small{letter-spacing:4px;text-transform:uppercase;color:#9FB7E6;font-size:11.5px}
+.hero h1{margin:8px 0 8px;font-size:32px;letter-spacing:-.5px}.hero p{margin:0;color:#C9D6EE;max-width:720px;line-height:1.55}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;margin-top:22px}
+.pc{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;text-decoration:none;display:flex;flex-direction:column;gap:8px;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden}
+.pc:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(15,23,42,.08)}
+.pc .fx{position:absolute;left:0;top:0;bottom:0;width:5px}
+.pc b{font-size:17px}.pc span{color:var(--mut);font-size:13.5px;line-height:1.5}.pc em{font-style:normal;font-size:12.5px;color:var(--pri);font-weight:600;margin-top:auto}
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:4px 0 18px}
+.ph h1{margin:0;font-size:28px;letter-spacing:-.4px}.ph p{margin:6px 0 0;color:var(--mut)}
+.video{background:#000;border-radius:18px;overflow:hidden;box-shadow:0 16px 40px rgba(10,23,51,.18)}
+.video video{width:100%;display:block;aspect-ratio:16/9;background:#000}
+.cap{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 26px}
+.cap button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 13px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--txt)}
+.cap button:hover{border-color:var(--pri);color:var(--pri)}
+.sec{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px 26px;margin-bottom:22px;scroll-margin-top:80px}
+.sec h2{margin:0 0 6px;font-size:21px;display:flex;align-items:center;gap:10px}
+.sec h2 .n{width:30px;height:30px;border-radius:9px;background:#EAF0FF;color:var(--pri);display:grid;place-items:center;font-size:14px}
+.sec .para{color:#334155;line-height:1.6;margin:0 0 16px}
+.shot{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:zoom-in;background:#F8FAFF}
+.shot img{width:100%;display:block}
+.passos{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:12px}
+.passo{display:grid;grid-template-columns:36px 1fr 190px;gap:14px;align-items:start;padding:12px;border:1px solid var(--line);border-radius:14px}
+.passo .b{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;border:2px solid var(--gold);display:grid;place-items:center;font-weight:800}
+.passo b{display:block;font-size:15px;margin-bottom:3px}.passo span{color:#475569;font-size:14px;line-height:1.55}
+.passo img{width:190px;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
+.desf{margin-top:16px;background:#FEF6E7;border:1px solid #F5D9A8;border-radius:14px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;color:#7A4A06;font-size:14px;line-height:1.55}
+.desf svg{width:20px;height:20px;flex:none;margin-top:1px}
+.ver{margin-top:12px;display:inline-flex;align-items:center;gap:8px;border:0;background:var(--pri);color:#fff;border-radius:10px;padding:9px 14px;font:inherit;font-size:13.5px;cursor:pointer}
+.lb{position:fixed;inset:0;background:rgba(5,10,25,.88);z-index:50;display:flex;align-items:center;justify-content:center;padding:30px;cursor:zoom-out}
+.lb img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.phone{display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:start}
+.phone img{width:300px;border-radius:30px;border:10px solid #0A1733;box-shadow:0 18px 40px rgba(10,23,51,.25);cursor:zoom-in}
+.vazio{color:var(--mut);background:#fff;border:1px dashed var(--line);border-radius:16px;padding:24px;text-align:center}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{display:none}.passo{grid-template-columns:36px 1fr}.passo img{grid-column:2;width:100%}.phone{grid-template-columns:1fr}.wrap{padding:18px}}
+</style>
+</head>
+<body>
+<div class="app"><aside><div class="marca"><b>NEXUM <span>Cell</span></b><small>Central de treinamento</small></div>
+<div class="busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" placeholder="Buscar no treinamento…"></div>
+<nav id="nav"></nav></aside>
+<main id="main"><div class="topo"><div class="cam" id="cam"></div></div><div class="wrap" id="conteudo"></div></main></div>
+<script src="dados.js"></script>
+<script>
+const D=window.GUIA, $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const IC_DESF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+const fmt=s=>{s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+function nav(atual){ let busca=($('#busca').value||'').toLowerCase().trim();
+  $('#nav').innerHTML=`<a class="np ${!atual?'on':''}" href="#/"><i style="background:#7FAEFF"></i>Início</a>`+D.partes.map(p=>{
+    const secs=p.secoes.filter(s=>!busca||(s.titulo+' '+s.para+' '+s.passos.map(x=>x.t+' '+x.x).join(' ')).toLowerCase().includes(busca));
+    if(busca&&!secs.length) return '';
+    return `<a class="np ${atual===p.id?'on':''}" href="#/${p.id}"><i style="background:${p.cor}"></i>${esc(p.nome)}</a>`+((atual===p.id||busca)?secs.map(s=>`<a class="ns" href="#/${p.id}/${s.id}">${esc(s.titulo)}</a>`).join(''):'');
+  }).join(''); }
+function inicio(){ $('#cam').innerHTML='Central de treinamento';
+  $('#conteudo').innerHTML=`<div class="hero"><small>Central de treinamento</small><h1>Aprenda o sistema NexumCell, tela por tela</h1>
+   <p>Cada parte do sistema explicada com prints reais e setas numeradas: o que é cada botão, como fazer e como desfazer. Em cada parte tem um vídeo narrado com o passo a passo completo.</p></div>
+   <div class="cards">${D.partes.map(p=>`<a class="pc" href="#/${p.id}"><i class="fx" style="background:${p.cor}"></i><b>${esc(p.nome)}</b><span>${esc(p.desc)}</span><em>${p.secoes.length} telas explicadas${p.duracao?' · vídeo de '+fmt(p.duracao):''} →</em></a>`).join('')}</div>`;
+  nav(null); }
+function parte(id,sec){ const p=D.partes.find(x=>x.id===id); if(!p) return inicio();
+  $('#cam').innerHTML=`<a href="#/">Central de treinamento</a> › ${esc(p.nome)}`;
+  const cap=p.capitulos||{};
+  $('#conteudo').innerHTML=`<div class="ph"><div><h1>${esc(p.nome)}</h1><p>${esc(p.desc)}</p></div></div>
+   ${p.video?`<div class="video"><video id="vid" controls preload="metadata" playsinline poster="${p.poster||''}" src="${p.video}"></video></div>
+   <div class="cap">${p.secoes.filter(s=>cap[s.id]!=null).map(s=>`<button data-t="${cap[s.id]}">${fmt(cap[s.id])} · ${esc(s.titulo)}</button>`).join('')}</div>`:'<div class="vazio" style="margin-bottom:22px">O vídeo narrado desta parte está sendo gerado.</div>'}
+   ${p.secoes.map((s,i)=>`<section class="sec" id="s-${s.id}"><h2><span class="n">${i+1}</span>${esc(s.titulo)}</h2><p class="para">${esc(s.para)}</p>
+     ${p.app?`<div class="phone"><img src="${s.img}" data-zoom alt=""><div>${passosHtml(s)}</div></div>`:`<div class="shot"><img loading="lazy" src="${s.img}" data-zoom alt="${esc(s.titulo)}"></div>${passosHtml(s)}`}
+     ${s.desfazer?`<div class="desf">${IC_DESF}<div><b>Como desfazer</b><br>${esc(s.desfazer)}</div></div>`:''}
+     ${p.video&&cap[s.id]!=null?`<button class="ver" data-t="${cap[s.id]}">▶ Assistir esta parte no vídeo</button>`:''}</section>`).join('')}`;
+  nav(id);
+  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ const v=$('#vid'); if(!v) return; v.currentTime=+b.dataset.t; v.play(); v.scrollIntoView({behavior:'smooth',block:'center'}); });
+  if(sec) setTimeout(()=>document.getElementById('s-'+sec)?.scrollIntoView(),60); else $('#main').scrollTop=0;
+}
+function passosHtml(s){ if(!s.passos.length) return ''; return `<ol class="passos">${s.passos.map((x,i)=>`<li class="passo"><div class="b">${i+1}</div><div><b>${esc(x.t)}</b><span>${esc(x.x)}</span></div>${x.img?`<img loading="lazy" src="${x.img}" data-zoom alt="">`:''}</li>`).join('')}</ol>`; }
+document.addEventListener('click',e=>{ const im=e.target.closest('[data-zoom]'); if(!im) return; const lb=document.createElement('div'); lb.className='lb'; lb.innerHTML=`<img src="${im.src}">`; lb.onclick=()=>lb.remove(); document.body.appendChild(lb); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelector('.lb')?.remove(); });
+$('#busca').oninput=()=>{ const h=location.hash.split('/'); nav(h[1]||null); };
+const rota=()=>{ const h=location.hash.replace(/^#\/?/,'').split('/'); if(!h[0]) inicio(); else parte(h[0],h[1]); };
+addEventListener('hashchange',rota); rota();
+</script>
+</body>
+</html>
