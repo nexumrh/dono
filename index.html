@@ -3397,6 +3397,7 @@ async function darBonus(id){
 
 /* ======================= ALERTAS DE FRAUDE INTERNA ======================= */
 async function blocoFraude(vendas){
+  if(!can('DONO','SUPORTE','FINANCEIRO')) return ''; // alertas de fraude interna: só dono, suporte e financeiro
   const vs=vendas.filter(v=>!['CANCELADA'].includes(v.status)&&v.cliente), al=[];
   const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const agrupar=(chave,titulo)=>{ const g={}; vs.forEach(v=>chave(v).filter(Boolean).forEach(k=>{ (g[k]=g[k]||new Map()).set(v.clienteCpf,v); }));
