@@ -1,7 +1,7 @@
 name: guia-video
 on:
   push:
-    branches: [guia-video]
+    branches: [guia-video, guia-app]
     paths: ['guia/_partes.txt', 'guia/_roteiro.json', '.github/gerar_videos.py', '.github/workflows/guia-video.yml']
 permissions:
   contents: write
