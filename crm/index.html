@@ -548,6 +548,7 @@ async function entrou(user) {
   if (!papel) { await F.au.signOut(F.auth); return telaLogin('Seu perfil não tem acesso ao CRM. O CRM é da equipe NexumCell (comercial, suporte e financeiro).'); }
   C.me = { uid: user.uid, email, nome: u?.nome || (papel === 'dono' ? 'Wevellen' : email), role: u?.role || 'DONO' }; C.papel = papel;
   if (!dono() && C.f.fila !== 'todas' && C.f.fila !== C.papel) C.f.fila = C.papel;
+  if (dono() && C.f.fila !== 'todas' && !FILAS[C.f.fila]) C.f.fila = 'todas';
   if (!['abertos', 'semresp', 'fim'].includes(C.f.etapa)) C.f.etapa = 'abertos';
   $('#root').innerHTML = `<div class="app" id="app"><nav class="nav" id="nav"></nav><section class="lst" id="lst"></section><section class="ch" id="ch"></section><aside class="pf" id="pf"></aside></div>`;
   const h = location.hash.slice(1); if (h === 'localizar') C.view = 'clientes'; else if (h.startsWith('canal=')) { C.view = 'inbox'; C.f.canal = h.slice(6); C.f.fila = dono() ? 'todas' : C.papel; }
