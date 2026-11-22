@@ -297,8 +297,8 @@ async function acharPorSerie(serial) {
   const s = String(serial || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (s.length < 8) throw Object.assign(new Error("N\xFAmero de s\xE9rie inv\xE1lido."), { status: 400 });
   const j = await mdm("/devices?limit=20&include_awaiting_enrollment=true&search=" + encodeURIComponent(s));
-  const lista = (j.data || []).map((d) => ({ id: d.id, ...d.attributes }));
-  return lista.find((d) => String(d.serial_number || "").toUpperCase() === s) || null;
+  const lista2 = (j.data || []).map((d) => ({ id: d.id, ...d.attributes }));
+  return lista2.find((d) => String(d.serial_number || "").toUpperCase() === s) || null;
 }
 var hojeBR = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 function etapaTotal(d) {
@@ -2296,6 +2296,54 @@ ${cfg.empresa || "NexumCell"}`;
   return { relatorioSemanal: enviados };
 }
 
+// api/relatorio-crm.js
+var brl4 = (n) => "R$ " + (Number(n) || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+var lista = async (c, campo, desde) => (await db.collection(c).where(campo, ">=", desde).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+async function relatorioCrm(cfg, forcar = false) {
+  if (cfg.relCrm === "nao") return { relatorioCrm: "desligado" };
+  const h = hoje();
+  if (!forcar && (/* @__PURE__ */ new Date(h + "T12:00:00Z")).getUTCDay() !== 1) return { relatorioCrm: "n\xE3o \xE9 segunda" };
+  if (!brevoLigado()) return { relatorioCrm: "sem e-mail configurado" };
+  const para = process.env.DONO_EMAIL;
+  if (!para) return { relatorioCrm: "sem DONO_EMAIL" };
+  const marca = db.collection("notificacoes").doc("relcrm-" + h);
+  if (!forcar && (await marca.get()).exists) return { relatorioCrm: "j\xE1 enviado hoje" };
+  const desde = Date.now() - 7 * 864e5, desdeIso = new Date(desde).toISOString().slice(0, 10);
+  const [at, app, ch, ped, wa, atr, av, pr, ac] = await Promise.all([
+    lista("atendimentos", "criadoEm", desde),
+    lista("suporteApp", "atualizadoEm", desde),
+    lista("chamados", "criadoEm", desde),
+    lista("pedidos", "criadoEm", desde),
+    lista("waConversas", "atualizadoEm", desde),
+    lista("crmAtrib", "em", desde),
+    lista("crmAvaliacoes", "em", desde),
+    lista("crmPromessas", "em", desde),
+    lista("crmAcordos", "em", desde)
+  ]);
+  const total = at.length + app.length + ch.length + ped.length + wa.length, fin = atr.filter((a) => (a.finalizadoEm || 0) >= desde);
+  const media = av.length ? (av.reduce((s, a) => s + (+a.nota || 0), 0) / av.length).toFixed(1) : "\u2014";
+  const porAt = {};
+  av.forEach((a) => {
+    (porAt[a.nome || "\u2014"] ||= []).push(+a.nota || 0);
+  });
+  const mot = {};
+  fin.filter((a) => a.motivo).forEach((a) => mot[a.motivo] = (mot[a.motivo] || 0) + 1);
+  let recuperado = 0, qtdRec = 0;
+  for (const d of (await db.collection("vendas").where("status", "in", ["ATIVA", "QUITADA"]).get()).docs) for (const p of d.data().parcelas || [])
+    if (p.pago && p.pagoEm && String(p.pagoEm).slice(0, 10) >= desdeIso && String(p.pagoEm).slice(0, 10) > p.venc) {
+      recuperado += +p.valorPago || +p.valor || 0;
+      qtdRec++;
+    }
+  const linhas = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `<tr><td style="padding:4px 10px 4px 0">${k}</td><td style="padding:4px 0;text-align:right"><b>${v}</b></td></tr>`).join("");
+  const html = `<div style="font-family:Arial,sans-serif;color:#0A1733;max-width:640px"><h2 style="margin:0 0 4px">Atendimento NexumCell \xB7 semana at\xE9 ${h.split("-").reverse().join("/")}</h2><p style="color:#5B6478;margin:0 0 16px">Resumo autom\xE1tico do CRM.</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">${[["Atendimentos na semana", total], ["Finalizados com motivo", fin.length], ["Nota m\xE9dia da pesquisa", `${media} de 5 (${av.length} nota(s))`], ["Promessas de pagamento", `${pr.length} \xB7 cumpridas ${pr.filter((p) => p.status === "CUMPRIDA").length} \xB7 quebradas ${pr.filter((p) => p.status === "QUEBRADA").length}`], ["Acordos propostos", `${ac.length} \xB7 ${brl4(ac.reduce((s, a) => s + (+a.total || 0), 0))}`], ["Recuperado da cobran\xE7a", `${brl4(recuperado)} (${qtdRec} parcela(s) atrasadas pagas)`]].map(([k, v]) => `<tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid #EEF1F7;color:#5B6478">${k}</td><td style="padding:8px 0;border-bottom:1px solid #EEF1F7;text-align:right"><b>${v}</b></td></tr>`).join("")}</table>
+    <h3 style="margin:0 0 6px;font-size:15px">Principais motivos de contato</h3><table style="width:100%;margin-bottom:16px">${linhas(mot) || '<tr><td style="color:#5B6478">Sem motivos registrados.</td></tr>'}</table>
+    <h3 style="margin:0 0 6px;font-size:15px">Nota por atendente</h3><table style="width:100%">${Object.entries(porAt).map(([k, l]) => `<tr><td style="padding:4px 10px 4px 0">${k}</td><td style="text-align:right"><b>${(l.reduce((s, x) => s + x, 0) / l.length).toFixed(1)}</b> (${l.length})</td></tr>`).join("") || '<tr><td style="color:#5B6478">Sem notas na semana.</td></tr>'}</table></div>`;
+  await enviarEmail({ para, assunto: `Atendimento NexumCell: ${total} atendimentos, nota ${media}, ${brl4(recuperado)} recuperado`, html });
+  await marca.set({ em: Date.now(), total });
+  return { relatorioCrm: "enviado", total };
+}
+
 // api/motor.js
 var MOTOR_PADRAO = {
   modo: "sugerir",
@@ -2450,8 +2498,8 @@ async function avaliarVenda(vendaId) {
   else if (idade > R.idadeMax) reprova.push(`idade ${idade} acima de ${R.idadeMax}`);
   if (!(c.renda >= R.rendaMin)) reprova.push(`renda abaixo do m\xEDnimo (R$ ${R.rendaMin})`);
   if (R.cidades) {
-    const lista = R.cidades.split(",").map(sem).filter(Boolean);
-    if (lista.length && !lista.includes(sem(c.cidade))) manual.push(`cidade fora da \xE1rea (${c.cidade || "\u2014"})`);
+    const lista2 = R.cidades.split(",").map(sem).filter(Boolean);
+    if (lista2.length && !lista2.includes(sem(c.cidade))) manual.push(`cidade fora da \xE1rea (${c.cidade || "\u2014"})`);
   }
   if (R.exigirDocOriginal && vf.documentoOriginal === false) manual.push("documento parece c\xF3pia ou foto de tela");
   if (R.exigirRosto && vf.face?.mesma_pessoa && vf.face.mesma_pessoa !== "sim") manual.push(`rosto x documento: ${vf.face.mesma_pessoa}`);
@@ -2674,7 +2722,7 @@ async function handler13(req, res) {
 
 // api/cron.js
 var dias3 = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
-var brl4 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+var brl5 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 var dataBR = (d) => String(d || "").split("-").reverse().join("/");
 var primeiroNome2 = (n) => String(n || "").trim().split(/\s+/)[0] || "";
 var urlCliente = () => process.env.PORTAL_CLIENTE_URL || (process.env.PORTAL_ORIGEM || "https://nexumrh.github.io") + "/cliente/";
@@ -2684,8 +2732,8 @@ function dadosAviso(v, cfg, tipo) {
   const ap = { descontoPct: cfg.descontoAntecipadoPct, multaPct: cfg.multaPct, moraDiaPct: cfg.moraDiaPct };
   const valor = tipo === "atraso" ? r2(atrasadas.reduce((s, x) => s + encargos(x, ap), 0)) : p.valor ? encargos(p, ap) : 0;
   const nome = primeiroNome2(v.clienteNome), loja = cfg.empresa || "NexumCell", d = p.venc ? Math.max(0, dias3(p.venc, hoje())) : 0;
-  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl4(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl4(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
-  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl4(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
+  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl5(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl5(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
+  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl5(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
 }
 async function vendasAtivas() {
   return (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -2912,9 +2960,9 @@ async function resumoDoDia(cfg) {
   });
   const linhas = [
     `Vendas hoje: ${ativadas.length} ativada(s)${novas.length > ativadas.length ? ` + ${novas.length - ativadas.length} em andamento` : ""}${Object.keys(porLoja).length ? " (" + Object.entries(porLoja).map(([l, n]) => `${l}: ${n}`).join(", ") + ")" : ""}`,
-    `Entradas recebidas: ${brl4(entradas)}`,
-    `Parcelas recebidas: ${nParc} \xB7 ${brl4(recebido)}`,
-    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl4(atrasoValor)}`,
+    `Entradas recebidas: ${brl5(entradas)}`,
+    `Parcelas recebidas: ${nParc} \xB7 ${brl5(recebido)}`,
+    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl5(atrasoValor)}`,
     `Vencem amanh\xE3: ${amanha.length} contrato(s)`,
     analise ? `Propostas esperando an\xE1lise: ${analise}` : "",
     semSinal.length ? `\u26A0\uFE0F Aparelhos sem sinal h\xE1 mais de ${semSinalDias} dias: ${semSinal.length} (${semSinal.slice(0, 5).map((a) => "n\xBA " + a.vendaNumero).join(", ")}${semSinal.length > 5 ? "\u2026" : ""})` : ""
@@ -3110,6 +3158,11 @@ async function rotinas(qual) {
     Object.assign(aniv, await relatorioSemanal(cfg));
   } catch (e) {
     console.error("relsemanal", e.message);
+  }
+  try {
+    Object.assign(aniv, await relatorioCrm(cfg));
+  } catch (e) {
+    console.error("relcrm", e.message);
   }
   try {
     Object.assign(aniv, await posVendaRotina(cfg));
@@ -3593,11 +3646,11 @@ async function gravarFotos(solId, lojas, fotosIn, exigir) {
   for (const [i, l] of lojas.entries()) {
     const f = (fotosIn || [])[i] || {}, cont = {};
     for (const t of FOTOS_LOJA) {
-      const lista = (Array.isArray(f[t]) ? f[t] : []).slice(0, 3).filter((x) => typeof x === "string" && /^data:image\/(jpeg|webp|png);base64,/.test(x));
-      for (const x of lista) if (x.length > 7e5) throw erro5(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
-      if (exigir && !lista.length) throw erro5(`${l.nome}: falta a foto \u201C${t}\u201D.`);
-      cont[t] = lista.length;
-      for (const [j, x] of lista.entries()) await db.collection("lojaFotos").doc(`${solId}_${i}_${t}_${j}`).set({ solicitacaoId: solId, loja: i, tipo: t, n: j, foto: x, criadoEm: Date.now() });
+      const lista2 = (Array.isArray(f[t]) ? f[t] : []).slice(0, 3).filter((x) => typeof x === "string" && /^data:image\/(jpeg|webp|png);base64,/.test(x));
+      for (const x of lista2) if (x.length > 7e5) throw erro5(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
+      if (exigir && !lista2.length) throw erro5(`${l.nome}: falta a foto \u201C${t}\u201D.`);
+      cont[t] = lista2.length;
+      for (const [j, x] of lista2.entries()) await db.collection("lojaFotos").doc(`${solId}_${i}_${t}_${j}`).set({ solicitacaoId: solId, loja: i, tipo: t, n: j, foto: x, criadoEm: Date.now() });
     }
     l.fotos = cont;
   }
@@ -4249,8 +4302,44 @@ async function handler24(req, res) {
   }
 }
 
+// api/crm-ia.js
+var MODELO3 = process.env.GROQ_MODELO_CRM || "llama-3.3-70b-versatile";
+var REGRAS = "Voc\xEA trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece cr\xE9dito. Responda sempre em portugu\xEAs do Brasil, com educa\xE7\xE3o e frases curtas. Nunca prometa aprova\xE7\xE3o de cr\xE9dito, desconto ou libera\xE7\xE3o que a equipe n\xE3o confirmou. Nunca pe\xE7a senha, c\xF3digo ou pagamento em conta de terceiros. Pagamento \xE9 s\xF3 pelo app NexumCell (aba Parcelas \u2192 Pix) ou pelo Pix enviado pela equipe.";
+async function handler25(req, res) {
+  if (cors(req, res)) return;
+  try {
+    await exigirEquipe(req, ["DONO", "SUPORTE", "FINANCEIRO", "COMERCIAL"]);
+    const b = req.body || {}, chave = await chaveIA();
+    if (!chave) return res.status(400).json({ erro: "IA sem chave: coloque a chave da IA em Configura\xE7\xF5es do Painel do Dono" });
+    const conversa = String(b.conversa || "").slice(-9e3), ficha = String(b.ficha || "").slice(0, 2500);
+    const pedido = b.acao === "resumo" ? 'Resuma este atendimento em no m\xE1ximo 3 linhas curtas: o que o cliente quer, o que j\xE1 foi feito e o que falta fazer. Use t\xF3picos iniciados por "- ".' : `Escreva a pr\xF3xima mensagem que o atendente ${String(b.atendente || "").slice(0, 30)} deve mandar ao cliente, pronta para enviar, com no m\xE1ximo 3 frases. Use os dados da ficha quando ajudarem (parcelas, atraso, aparelho). N\xE3o use emojis.`;
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODELO3, temperature: b.acao === "resumo" ? 0.1 : 0.4, max_tokens: 300, messages: [
+        { role: "system", content: REGRAS },
+        { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
+Cliente: ${String(b.cliente || "").slice(0, 80)}
+
+Ficha do cliente:
+${ficha}
+
+Conversa:
+${conversa}
+
+${pedido}` }
+      ] })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(502).json({ erro: "IA: " + (j.error?.message || r.status) });
+    return res.json({ texto: String(j.choices?.[0]?.message?.content || "").trim() });
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
 // worker/index.js
-var ROTAS = { equipe: handler13, ia: handler8, emprestimo: handler9, ios: handler22, codigo, acordo, instalacao: handler11, "cliente-app": handler21, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler14, nf: handler15, assinatura: handler16, "zapsign-webhook": handler17, preanalise: handler7, credenciamento: handler18, push: handler19, saas: handler4, motor: handler12, repasse: handler10, remota: handler20, "remover-codigo": handler23, lead: handler24 };
+var ROTAS = { equipe: handler13, ia: handler8, emprestimo: handler9, "crm-ia": handler25, ios: handler22, codigo, acordo, instalacao: handler11, "cliente-app": handler21, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler14, nf: handler15, assinatura: handler16, "zapsign-webhook": handler17, preanalise: handler7, credenciamento: handler18, push: handler19, saas: handler4, motor: handler12, repasse: handler10, remota: handler20, "remover-codigo": handler23, lead: handler24 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};

@@ -602,7 +602,7 @@ function desenharLista() {
   el.innerHTML = `<div class="lst-h"><h2><button class="ib menu-m" id="ls-menu" aria-label="Menu">${I('menu')}</button>${esc(titulo)}<span class="sp"></span><button class="btn sm" id="ls-nova" title="Nova conversa no WhatsApp">${I('mais')}Nova</button></h2>
     <div class="busca">${I('busca')}<input class="inp" id="ls-q" placeholder="Buscar nome, protocolo, número ou mensagem" value="${esc(C.f.q)}" autocomplete="off"></div>
     <div class="tabs" role="tablist">${[['abertos', 'Abertos'], ['semresp', 'Sem resposta'], ['fim', 'Finalizados']].map(([k, n]) => `<button role="tab" data-et="${k}" class="${C.f.etapa === k ? 'on' : ''}">${n}</button>`).join('')}</div>${metricas()}</div>
-    <div class="lst-b">${l.length ? l.map(i => { const urg = semResp(i) && Date.now() - i.em >= 60 * 60e3; return `<div class="it ${i.key === C.sel ? 'on' : ''} ${urg ? 'urg' : ''} ${i.nl ? 'nl' : ''}" data-it="${esc(i.key)}" tabindex="0" role="button">${cartaoAv(i)}<div class="tx"><div class="l1"><b>${esc(i.nome)}</b><time>${quando(i.em)}</time></div>
+    <div class="lst-b">${l.length ? l.map(i => { const urg = estourou(i); return `<div class="it ${i.key === C.sel ? 'on' : ''} ${urg ? 'urg' : ''} ${i.nl ? 'nl' : ''}" data-it="${esc(i.key)}" tabindex="0" role="button">${cartaoAv(i)}<div class="tx"><div class="l1"><b>${esc(i.nome)}</b><time>${quando(i.em)}</time></div>
       <div class="l2"><span>${i.ultimaDe === 'nos' ? '<b style="color:var(--mut);font-weight:500">Você: </b>' : ''}${esc(String(i.ultima || i.sub).replace(/\*/g, ''))}</span>${i.nl ? '<i class="nlq">1</i>' : ''}</div><div class="l3">${tagsHTML(i)}${urg ? `<span class="pill" style="background:var(--bad-s);color:var(--bad)">Esperando ${minFmt(Math.round((Date.now() - i.em) / 60000))}</span>` : ''}</div></div></div>`; }).join('')
       : `<div class="vazio">${I(C.f.etapa === 'semresp' ? 'okc' : 'inbox')}<div>${C.f.q ? 'Nada encontrado para essa busca.' : C.f.etapa === 'semresp' ? 'Ninguém esperando resposta.' : 'Nenhum atendimento aqui.'}</div></div>`}</div>`;
   $('.lst-b', el).scrollTop = sc;
@@ -895,6 +895,254 @@ function vConfig(el) {
     const lk = $('#cfL').value.split('\n').map(x => x.split('|').map(s => s.trim())).filter(x => x.length >= 2 && x[1]).map(([t, ...u]) => [t, u.join('|')]);
     await DB.set('config', 'crm', { respostas: Object.entries(g), links: lk, msgAck: $('#cfA').value.trim() || MSG_ACK, atualizadoEm: Date.now() }); toast('Configuração salva'); };
 }
+
+
+/* ======================= MAIS DO CRM (nov/2026) =======================
+   1 cobrança (faixas de atraso, Pix, acordo, promessa)   2 ações do aparelho na ficha   3 prazo de resposta (SLA) com redistribuição
+   4 mensagens em massa com segurança                       5 pesquisa de satisfação      6 motivos de contato
+   7 funil das lojas parceiras                              8 resumo e sugestão pela IA   9 alertas de fraude   (10 relatório semanal: servidor) */
+const SERV = String(window.NEXUMCELL_SERVIDOR || '').replace(/\/$/, '');
+async function api(rota, corpo) { const u = F.auth.currentUser; if (!u && !window.__mockApi) throw new Error('faça login de novo'); const tk = u ? await u.getIdToken() : ''; const r = await fetch(SERV + '/api/' + rota, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, body: JSON.stringify(corpo) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.erro || 'erro ' + r.status); return j; }
+const MOTIVOS_PAD = ['Trava / aparelho bloqueado', 'Pagamento / Pix', 'Liberação temporária', 'Acordo / negociação', 'Troca ou assistência', 'Cadastro / dados', 'Dúvida de compra', 'Crédito / empréstimo', 'Reclamação', 'Suspeita de fraude', 'Outro'];
+const SLA_PAD = { suporte: 15, financeiro: 30, comercial: 60 };
+const motivos = () => C.cfg.motivos?.length ? C.cfg.motivos : MOTIVOS_PAD;
+const slaMin = f => +(C.cfg.sla?.[f] ?? SLA_PAD[f] ?? 30);
+const MSG_PAD = { lembrete: 'Olá, {nome}! Lembrete da NexumCell: a parcela {parcela} de {valor} vence em {venc}. Pague pelo app NexumCell (aba Parcelas → Pix) e evite o bloqueio do aparelho.', vencida: 'Olá, {nome}. A parcela {parcela} de {valor}, que venceu em {venc}, ainda está em aberto. Regularize pelo app NexumCell (aba Parcelas → Pix). Se precisar, responda esta mensagem que a gente ajuda.', aniversario: 'Feliz aniversário, {nome}! A equipe NexumCell deseja um dia incrível para você.', pesquisa: 'Obrigado pelo contato, {nome}! Como foi o seu atendimento? Responda com uma nota de 1 a 5 (5 = ótimo).' };
+const msgDe = k => C.cfg.msgs?.[k] || MSG_PAD[k];
+const fin = () => dono() || C.papel === 'financeiro';
+const brlC = v => brl(v).replace(/\s/g, ' ');
+Object.assign(ICN, { bolsa: '<path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/>' });
+C.cob = { vendas: null, promessas: {}, acordos: {}, em: 0 }; C.alertas = []; C.alertasVistos = {};
+
+/* ---------- dados de cobrança (vendas ativas com atraso) ---------- */
+async function carregarCob(forcar) {
+  if (!fin()) return; if (!forcar && C.cob.vendas && Date.now() - C.cob.em < 10 * 60e3) return;
+  const [vs, pr, ac] = await Promise.all([DB.list('vendas', [['status', '==', 'ATIVA']]).catch(() => []), DB.list('crmPromessas', [['em', '>=', Date.now() - 90 * 864e5]]).catch(() => []), DB.list('crmAcordos', [['em', '>=', Date.now() - 90 * 864e5]]).catch(() => [])]);
+  C.cob.vendas = vs; C.cob.em = Date.now(); C.cob.promessas = {}; C.cob.acordos = {};
+  pr.sort((a, b) => a.em - b.em).forEach(p => C.cob.promessas[p.vendaId] = p); ac.sort((a, b) => a.em - b.em).forEach(a => C.cob.acordos[a.vendaId] = a);
+  const h = hoje();
+  for (const p of Object.values(C.cob.promessas)) { if (p.status !== 'PENDENTE') continue; const v = vs.find(x => x.id === p.vendaId); const aberta = (v?.parcelas || []).some(x => !x.pago && x.venc < (p.data || h));
+    if (!aberta) { p.status = 'CUMPRIDA'; DB.set('crmPromessas', p.id, { status: 'CUMPRIDA', verificadoEm: Date.now() }).catch(() => { }); } else if (p.data < h) { p.status = 'QUEBRADA'; DB.set('crmPromessas', p.id, { status: 'QUEBRADA', verificadoEm: Date.now() }).catch(() => { }); } }
+  desenharNav();
+}
+function atrasados() {
+  const h = hoje(); return (C.cob.vendas || []).map(v => { const atr = (v.parcelas || []).filter(p => !p.pago && p.venc < h).sort((a, b) => a.venc.localeCompare(b.venc)); if (!atr.length) return null;
+    return { v, atr, dias: diasEntre(atr[0].venc, h), devido: atr.reduce((s, p) => s + (+p.valor || 0), 0), tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || '', prom: C.cob.promessas[v.id], acordo: C.cob.acordos[v.id] }; }).filter(Boolean).sort((a, b) => b.dias - a.dias);
+}
+const FAIXAS = [['1–7 dias', 1, 7, '#B7791F'], ['8–15 dias', 8, 15, '#C2410C'], ['16–30 dias', 16, 30, '#C23B3B'], ['31–60 dias', 31, 60, '#9F1239'], ['Mais de 60 dias', 61, 1e9, '#4C0519']];
+function vCobranca(el) {
+  if (!C.cob.vendas) { el.innerHTML = topoKb('Cobrança') + `<div class="rs-load" style="margin:20px">${I('relogio')}Carregando a carteira…</div>`; ligaMenu(el); carregarCob(true).then(() => C.view === 'cobranca' && vCobranca(el)); return; }
+  const l = atrasados(), f = C.cobF || 'todas', h = hoje(), prHoje = l.filter(x => x.prom?.status === 'PENDENTE' && x.prom.data <= h);
+  const vis = l.filter(x => f === 'todas' ? true : f === 'promessas' ? x.prom?.status === 'PENDENTE' : f === 'quebradas' ? x.prom?.status === 'QUEBRADA' : (() => { const fx = FAIXAS[+f]; return x.dias >= fx[1] && x.dias <= fx[2]; })());
+  el.innerHTML = topoKb('Cobrança', `<button class="btn sec sm" id="cbAt">${I('reabrir')}Atualizar</button>`) + `<div style="padding:16px 20px;overflow:auto">
+    <div class="vc-top" style="grid-template-columns:repeat(${FAIXAS.length + 1},1fr)"><div><b style="color:var(--bad)">${brlC(l.reduce((s, x) => s + x.devido, 0))}</b><span>${l.length} cliente(s) em atraso</span></div>${FAIXAS.map(([n, a, b, c]) => { const q = l.filter(x => x.dias >= a && x.dias <= b); return `<div><b style="color:${c}">${q.length}</b><span>${n} · ${brlC(q.reduce((s, x) => s + x.devido, 0))}</span></div>`; }).join('')}</div>
+    <div class="tabs" style="max-width:900px;margin-bottom:12px">${[['todas', 'Todas'], ...FAIXAS.map((x, k) => [String(k), x[0]]), ['promessas', `Promessas${prHoje.length ? ' (' + prHoje.length + ' hoje)' : ''}`], ['quebradas', 'Promessas quebradas']].map(([k, n]) => `<button data-cf="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden">${vis.slice(0, 200).map(x => { const fx = FAIXAS.find(z => x.dias >= z[1] && x.dias <= z[2]);
+      return `<div class="eq-i" style="padding:12px 16px"><div class="av" style="background:${cor(x.v.clienteNome)};width:38px;height:38px;font-size:13px">${esc(ini(x.v.clienteNome))}</div><div class="eq-t"><b>${esc(x.v.clienteNome)}</b><span>Contrato nº ${x.v.numero} · ${esc(x.v.lojaNome || '')} · ${x.atr.length} parcela(s) · ${x.tel ? esc(fmtTel(x.tel)) : 'sem telefone'}</span>
+        <span>${x.prom ? `<span class="pill" style="background:${x.prom.status === 'QUEBRADA' ? 'var(--bad-s)' : x.prom.status === 'CUMPRIDA' ? 'var(--ok-s)' : 'var(--warn-s)'};color:${x.prom.status === 'QUEBRADA' ? 'var(--bad)' : x.prom.status === 'CUMPRIDA' ? 'var(--ok)' : 'var(--warn)'}">Promessa ${x.prom.status === 'PENDENTE' ? 'para ' + x.prom.data.split('-').reverse().join('/') : x.prom.status.toLowerCase()}</span> ` : ''}${x.acordo ? `<span class="pill">Acordo ${esc(x.acordo.status.toLowerCase())}</span>` : ''}</span></div>
+        <div class="eq-n" style="min-width:120px"><b style="color:${fx[3]}">${brlC(x.devido)}</b><span>${x.dias} dia(s)</span></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:420px"><button class="btn sec sm" data-cx="wa" data-v="${x.v.id}">${I('wa')}Conversar</button><button class="btn sec sm" data-cx="pix" data-v="${x.v.id}" data-n="${x.atr[0].n}">${I('moeda')}Pix</button><button class="btn sec sm" data-cx="acordo" data-v="${x.v.id}">${I('lapis')}Acordo</button><button class="btn sec sm" data-cx="promessa" data-v="${x.v.id}">${I('calendario')}Promessa</button></div></div>`; }).join('') || `<div class="vazio">${I('okc')}<div>Ninguém nesta faixa.</div></div>`}</div></div>`;
+  ligaMenu(el); $('#cbAt', el).onclick = () => carregarCob(true).then(() => vCobranca(el));
+  $$('[data-cf]', el).forEach(b => b.onclick = () => { C.cobF = b.dataset.cf; vCobranca(el); });
+}
+const vendaCob = id => (C.cob.vendas || []).find(v => v.id === id);
+async function vendaPorId(id) { return vendaCob(id) || await DB.get('vendas', id); }
+async function conversaDo(v) { const t = soD((v.cliente?.telefones || [])[0] || v.clienteTel1 || ''); if (t.length < 10) { toast('Este cliente não tem telefone cadastrado.', true); return null; } const n55 = t.startsWith('55') ? t : '55' + t;
+  const ex = await DB.get('waConversas', n55).catch(() => null); if (!ex) await DB.set('waConversas', n55, { numero: n55, nome: v.clienteNome, cpf: v.clienteCpf, atualizadoEm: Date.now(), criadoEm: Date.now(), fila: 'financeiro', ultimaMsg: 'Cobrança', ultimaDe: 'equipe' }); return n55; }
+async function mandarAoCliente(v, texto) { const n55 = await conversaDo(v); if (!n55) return; const it = { canal: 'wa', id: n55, key: 'wa:' + n55, nome: v.clienteNome, tel: n55, fila: 'financeiro', raw: {} }; await enviar(it, texto); }
+const fmtV = (t, v, p) => String(t).replace(/\{nome\}/g, String(v.clienteNome || '').split(' ')[0]).replace(/\{valor\}/g, brlC(p?.valor || 0)).replace(/\{venc\}/g, p?.venc ? p.venc.split('-').reverse().join('/') : '').replace(/\{parcela\}/g, p ? p.n + 'ª' : '');
+document.addEventListener('click', async e => {
+  const b = e.target.closest && e.target.closest('[data-cx]'); if (!b) return; e.preventDefault(); const a = b.dataset.cx, v = await vendaPorId(b.dataset.v); if (!v) return toast('Contrato não encontrado', true);
+  const h = hoje(), atr = (v.parcelas || []).filter(p => !p.pago && p.venc < h).sort((x, y) => x.venc.localeCompare(y.venc)), prox = atr[0] || (v.parcelas || []).filter(p => !p.pago).sort((x, y) => x.venc.localeCompare(y.venc))[0];
+  if (a === 'wa') { const n55 = await conversaDo(v); if (n55) abrir('wa:' + n55); return; }
+  if (a === 'pix') { const n = +b.dataset.n || prox?.n; if (!n) return toast('Nenhuma parcela em aberto', true); b.disabled = true;
+    try { const r = await api('pix', { vendaId: v.id, n }); const txt = `Olá, ${String(v.clienteNome).split(' ')[0]}! Segue o Pix da parcela ${n}ª de ${brlC(r.valor)}. Copie o código abaixo e cole no app do seu banco (Pix copia e cola):\n\n${r.copiaECola}`;
+      const m = modal('Pix da parcela ' + n + 'ª', `<p style="margin:0 0 8px"><b>${esc(v.clienteNome)}</b> · ${brlC(r.valor)}</p>${r.qrBase64 ? `<img src="data:image/png;base64,${r.qrBase64}" alt="QR do Pix" width="200" height="200" style="display:block;margin:0 auto 10px;border:1px solid var(--line);border-radius:12px">` : ''}<textarea class="inp" rows="4" readonly>${esc(r.copiaECola)}</textarea>`, `<button class="btn sec" id="pxCp">${I('doc')}Copiar</button><button class="btn" id="pxEnv">${I('wa')}Enviar ao cliente</button>`);
+      $('#pxCp', m).onclick = () => navigator.clipboard.writeText(r.copiaECola).then(() => toast('Código copiado'));
+      $('#pxEnv', m).onclick = async () => { fechar(); await mandarAoCliente(v, txt); }; } catch (er) { toast('Pix: ' + er.message, true); } b.disabled = false; return; }
+  if (a === 'promessa') { const am = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), dev = atr.reduce((s, p) => s + (+p.valor || 0), 0);
+    const m = modal('Promessa de pagamento', `<p class="hint" style="margin-top:0">${esc(v.clienteNome)} · contrato nº ${v.numero} · em atraso ${brlC(dev)}</p><div class="row" style="gap:10px"><label style="flex:1"><span class="small">Vai pagar em</span><input class="inp" type="date" id="prD" value="${am}" min="${h}"></label><label style="flex:1"><span class="small">Valor (R$)</span><input class="inp" type="number" step="0.01" id="prV" value="${(dev || prox?.valor || 0).toFixed(2)}"></label></div><label class="chk" style="margin-top:10px"><input type="checkbox" id="prM" checked> Mandar a confirmação para o cliente</label><p class="hint">No dia, o CRM confere sozinho: se o pagamento não cair, a promessa vira <b>quebrada</b> e aparece na cobrança.</p>`, '<button class="btn sec" data-x>Cancelar</button><button class="btn" id="prOk">Registrar promessa</button>');
+    $('#prOk', m).onclick = async () => { const d = $('#prD').value, val = +$('#prV').value; if (!d || d < h) return toast('Escolha uma data a partir de hoje', true);
+      await DB.add('crmPromessas', { vendaId: v.id, cpf: v.clienteCpf, nome: v.clienteNome, numero: v.numero, data: d, valor: val, status: 'PENDENTE', por: C.me.nome, uid: C.me.uid, em: Date.now() });
+      const envia = $('#prM').checked; fechar(); toast('Promessa registrada'); await carregarCob(true); if (C.view === 'cobranca') desenhar();
+      if (envia) await mandarAoCliente(v, `Combinado, ${String(v.clienteNome).split(' ')[0]}! Registramos o seu pagamento de ${brlC(val)} para ${d.split('-').reverse().join('/')}. Pague pelo app NexumCell (aba Parcelas → Pix).`); }; return; }
+  if (a === 'acordo') { const dev = atr.reduce((s, p) => s + (+p.valor || 0), 0), max = +(C.cfg.descontoMax ?? 20);
+    if (!atr.length) return toast('Este contrato não tem parcelas em atraso', true);
+    const m = modal('Acordo do atraso', `<p class="hint" style="margin-top:0">${esc(v.clienteNome)} · ${atr.length} parcela(s) em atraso · ${brlC(dev)}</p><div class="row" style="gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:120px"><span class="small">Desconto (até ${max}%)</span><input class="inp" type="number" id="acD" min="0" max="${max}" value="0"></label><label style="flex:1;min-width:120px"><span class="small">Pagar em</span><select class="inp" id="acN">${[1, 2, 3].map(n => `<option value="${n}">${n}x</option>`).join('')}</select></label><label style="flex:1;min-width:140px"><span class="small">1º pagamento</span><input class="inp" type="date" id="acP" value="${h}" min="${h}"></label></div><div id="acR" class="pp-r" style="margin-top:12px"></div><p class="hint">O acordo vai para o financeiro confirmar e dar a baixa no Portal do Dono.</p>`, '<button class="btn sec" data-x>Cancelar</button><button class="btn" id="acOk">Propor ao cliente</button>');
+    const calc = () => { const d = Math.min(max, Math.max(0, +$('#acD').value || 0)), n = +$('#acN').value, tot = dev * (1 - d / 100); $('#acR').innerHTML = `<div class="tt"><span>Total do acordo</span><b>${brlC(tot)}</b></div><div><span>Parcelas</span><b>${n}x de ${brlC(tot / n)}</b></div>`; return { d, n, tot }; };
+    $$('#acD,#acN', m).forEach(x => x.oninput = calc); calc();
+    $('#acOk', m).onclick = async () => { const { d, n, tot } = calc(), p1 = $('#acP').value;
+      await DB.add('crmAcordos', { vendaId: v.id, cpf: v.clienteCpf, nome: v.clienteNome, numero: v.numero, devido: +dev.toFixed(2), desconto: d, total: +tot.toFixed(2), parcelas: n, primeira: p1, status: 'PROPOSTO', por: C.me.nome, uid: C.me.uid, em: Date.now() });
+      fechar(); toast('Acordo registrado'); await carregarCob(true); if (C.view === 'cobranca') desenhar();
+      await mandarAoCliente(v, `Olá, ${String(v.clienteNome).split(' ')[0]}! Proposta de acordo da NexumCell: de ${brlC(dev)} por ${brlC(tot)}${d ? ` (${d}% de desconto)` : ''}, em ${n}x de ${brlC(tot / n)}, com o 1º pagamento em ${p1.split('-').reverse().join('/')}. Responda SIM para confirmar.`); }; return; }
+  if (a === 'travar' || a === 'liberar' || a === 'auto') { const tk = b.dataset.t; if (!tk) return toast('Contrato sem aparelho ligado', true);
+    const h2 = +b.dataset.h || 0, txt = a === 'travar' ? 'Motivo para TRAVAR o aparelho:' : a === 'liberar' ? `Motivo para liberar por ${h2} horas:` : 'Motivo para voltar ao automático:';
+    const motivo = (prompt(txt) || '').trim(); if (!motivo) return;
+    const dados = a === 'travar' ? { modo: 'TRAVAR', liberadoAte: 0 } : a === 'liberar' ? { modo: 'AUTO', liberadoAte: Date.now() + h2 * 3600e3 } : { modo: 'AUTO', liberadoAte: 0 };
+    try { await DB.set('aparelhos', tk, { ...dados, modoPor: C.me.nome, modoMotivo: motivo + ' (CRM)', modoEm: Date.now() });
+      await DB.add('logs', { em: Date.now(), uid: C.me.uid, nome: C.me.nome, role: C.me.role, acao: a === 'travar' ? 'Travou o aparelho (CRM)' : a === 'liberar' ? `Liberou ${h2} h (CRM)` : 'Aparelho no automático (CRM)', alvo: 'contrato ' + v.numero, detalhe: motivo }).catch(() => { });
+      toast(a === 'travar' ? 'Aparelho travado. Ele bloqueia na próxima conexão.' : a === 'liberar' ? `Liberado por ${h2} h.` : 'Aparelho voltou ao automático.'); } catch (er) { toast('Não foi possível: ' + (er.code || er.message), true); } return; }
+}, true);
+
+/* ---------- ações na ficha do cliente (aparelho e cobrança) ---------- */
+{ const _sc = secCliente; secCliente = function (r) { const html = _sc(r); if (!r.vs?.length) return html; const podeAp = ['dono', 'financeiro', 'suporte'].includes(C.papel), h = hoje();
+  return html + r.vs.slice(0, 4).map(v => { const ap = r.aps[v.id], tk = v.aparelhoToken, atr = (v.parcelas || []).filter(p => !p.pago && p.venc < h), loc = ap?.checkin?.local;
+    const btn = (cx, ic, t, extra = '', cor = '') => `<button class="ferr" data-cx="${cx}" data-v="${v.id}" ${extra} ${cor ? `style="color:${cor}"` : ''}>${I(ic)}${t}</button>`;
+    return `<div class="pf-sec"><h4>Ações · contrato nº ${v.numero}</h4><div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${podeAp && tk ? btn('travar', 'cadeado', 'Travar', `data-t="${tk}"`, 'var(--bad)') + btn('liberar', 'ok', 'Liberar 24 h', `data-t="${tk}" data-h="24"`, 'var(--ok)') + btn('liberar', 'ok', '48 h', `data-t="${tk}" data-h="48"`, 'var(--ok)') + btn('auto', 'reabrir', 'Automático', `data-t="${tk}"`) : ''}
+      ${loc?.lat ? `<a class="ferr" href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">${I('casa')}Ver no mapa</a>` : ''}
+      ${fin() ? btn('pix', 'moeda', 'Pix da parcela') + (atr.length ? btn('acordo', 'lapis', 'Acordo') + btn('promessa', 'calendario', 'Promessa') : '') : ''}</div>
+      ${ap?.checkin ? `<p class="hint" style="margin:8px 0 0">Último sinal ${ap.checkin.em ? fdt(ap.checkin.em) : '—'}${ap.checkin.bateria != null ? ' · bateria ' + ap.checkin.bateria + '%' : ''}${loc?.em ? ' · local de ' + fdt(loc.em) : ''}</p>` : ''}</div>`; }).join(''); }; }
+
+/* ---------- motivo de contato e pesquisa ao finalizar ---------- */
+{ const _cc = concluir; concluir = async function (i) {
+  const temWa = i.canal === 'wa' || (i.tel && soD(i.tel).length >= 10 && ['app', 'pedido', 'liberacao', 'preanalise', 'emprestimo'].includes(i.canal)), atual = C.atrib[i.key]?.motivo || '';
+  const m = modal('Finalizar atendimento', `<label class="small" style="font-weight:600;color:var(--mut)">Motivo do contato</label><select class="inp" id="fmM">${motivos().map(x => `<option ${x === atual ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
+    ${temWa ? `<label class="chk" style="margin-top:12px"><input type="checkbox" id="fmP" ${C.cfg.pesquisa === false ? '' : 'checked'}> Enviar a pesquisa de satisfação (nota de 1 a 5) pelo WhatsApp</label>` : ''}`, '<button class="btn sec" data-x>Cancelar</button><button class="btn ok" id="fmOk">Finalizar</button>');
+  $('#fmOk', m).onclick = async () => { const mot = $('#fmM').value, pesq = $('#fmP')?.checked; fechar();
+    await DB.set('crmAtrib', i.key.replace(/[/:]/g, '_'), { key: i.key, motivo: mot, motivoEm: Date.now(), fila: i.fila, finalizadoPor: C.me.nome, finalizadoUid: C.me.uid, finalizadoEm: Date.now() }).catch(() => { });
+    await _cc(i);
+    if (pesq) { const n = soD(i.tel || i.id), n55 = n.startsWith('55') ? n : '55' + n;
+      try { await enviar({ ...i, canal: 'wa', id: n55, key: 'wa:' + n55, tel: n55 }, preencher(msgDe('pesquisa'), i, C.me.nome));
+        await DB.set('waConversas', n55, { pesquisaEm: Date.now(), pesquisaUid: C.me.uid, pesquisaAtendente: C.me.nome, pesquisaFila: i.fila, pesquisaKey: i.key }); } catch (e) { } } }; }; }
+async function registrarNota(i) {
+  const m = modal('Nota do cliente', `<p class="hint" style="margin-top:0">Use quando o cliente respondeu a pesquisa no WhatsApp Web.</p><div style="display:flex;gap:8px;justify-content:center">${[1, 2, 3, 4, 5].map(n => `<button class="btn sec" data-nt="${n}" style="min-width:52px;font-size:18px">${n}</button>`).join('')}</div>`, '<button class="btn sec" data-x>Fechar</button>');
+  $$('[data-nt]', m).forEach(b => b.onclick = async () => { await DB.add('crmAvaliacoes', { key: i.key, nota: +b.dataset.nt, uid: i.resp?.uid || C.me.uid, nome: i.resp?.nome || C.me.nome, fila: i.fila, canal: i.canal, em: Date.now(), via: 'manual', por: C.me.nome }); fechar(); toast('Nota ' + b.dataset.nt + ' registrada'); });
+}
+
+/* ---------- IA: resumo da conversa e sugestão de resposta ---------- */
+async function textoConversa() { return $$('#ch-b .m').slice(-40).map(m => { const q = m.querySelector('small')?.textContent || '', t = m.cloneNode(true); t.querySelectorAll('small,.h').forEach(x => x.remove()); return `${m.classList.contains('eu') || m.classList.contains('bot') ? 'NexumCell' : m.classList.contains('nota') ? 'Nota interna' : 'Cliente'}${q ? ' (' + q.trim() + ')' : ''}: ${t.textContent.trim()}`; }).join('\n').slice(-9000); }
+function textoFicha() { return ($('#pf')?.innerText || '').replace(/\n{2,}/g, '\n').slice(0, 2500); }
+async function iaCrm(i, acao, b) {
+  if (b) b.disabled = true; const caixa = $('#iaBox') || (() => { $('#ch-b').insertAdjacentHTML('afterbegin', '<div id="iaBox" class="m sis" style="max-width:100%;text-align:left;background:#F3F0FF;border:1px solid #DDD6FE;border-radius:12px;padding:10px 12px;color:#4C1D95"></div>'); return $('#iaBox'); })();
+  caixa.innerHTML = `${I('ia')} ${acao === 'resumo' ? 'Resumindo a conversa…' : 'Pensando numa resposta…'}`; $('#ch-b').scrollTop = 0;
+  try { const r = await api('crm-ia', { acao, canal: CANAIS[i.canal][0], cliente: i.nome, conversa: await textoConversa(), ficha: textoFicha(), atendente: C.me.nome.split(' ')[0] });
+    if (acao === 'resumo') caixa.innerHTML = `<b>${I('ia')} Resumo da IA</b><br>${esc(r.texto).replace(/\n/g, '<br>')}`;
+    else { caixa.remove(); const tx = $('#tTxt'); tx.value = r.texto; tx.dispatchEvent(new Event('input')); tx.focus(); toast('Sugestão da IA no campo de mensagem: revise antes de enviar.'); } }
+  catch (e) { caixa.innerHTML = `${I('alerta')} A IA não respondeu: ${esc(e.message)}`; } if (b) b.disabled = false;
+}
+{ const _cp = compositor; compositor = function (i) { _cp(i); const t = $('#cp .cp-t'); if (!t) return;
+  t.insertAdjacentHTML('beforeend', `<button class="ferr" id="tIaR" style="color:#6D28D9">${I('ia')}Resumo IA</button><button class="ferr" id="tIaS" style="color:#6D28D9">${I('ia')}Sugerir resposta</button><span class="ferr">${I('tag')}<select id="tMot" title="Motivo do contato" style="border:0;background:none;font:inherit;color:inherit;min-width:110px;cursor:pointer"><option value="">Motivo…</option>${motivos().map(x => `<option ${C.atrib[i.key]?.motivo === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></span><button class="ferr" id="tNt">${I('estrela')}Nota do cliente</button>`);
+  $('#tIaR').onclick = e => iaCrm(i, 'resumo', e.currentTarget); $('#tIaS').onclick = e => iaCrm(i, 'sugestao', e.currentTarget); $('#tNt').onclick = () => registrarNota(i);
+  $('#tMot').onchange = e => e.target.value && DB.set('crmAtrib', i.key.replace(/[/:]/g, '_'), { key: i.key, motivo: e.target.value, motivoEm: Date.now(), fila: i.fila }).then(() => toast('Motivo salvo')); }; }
+
+/* ---------- SLA: prazo de resposta por fila, alerta e redistribuição ---------- */
+const estourou = i => semResp(i) && Date.now() - i.em > slaMin(i.fila) * 60e3;
+const C_AVISO = new Set();
+function verificarSla() {
+  if (!C.me) return; const ab = C.itens.filter(i => i.etapa !== 'fim');
+  for (const i of ab.filter(estourou)) {
+    if (i.resp?.uid === C.me.uid && !C_AVISO.has(i.key)) { C_AVISO.add(i.key); toast(`${i.nome} espera há ${Math.round((Date.now() - i.em) / 6e4)} min (prazo da fila: ${slaMin(i.fila)} min).`, true); try { beep(); } catch (e) { } }
+    // passou do dobro do prazo: vai para a pessoa da fila com menos atendimentos abertos (só o computador dessa pessoa grava)
+    if (Date.now() - i.em > 2 * slaMin(i.fila) * 60e3 && !C.atrib[i.key]?.redistribuidoEm) {
+      const tim = C.equipe.filter(u => u.fila === i.fila && u.ativo !== false && u.crmAtivo !== false && u.id !== i.resp?.uid); if (!tim.length) continue;
+      const carga = u => ab.filter(x => x.resp?.uid === u.id).length, alvo = tim.sort((a, b) => carga(a) - carga(b) || a.id.localeCompare(b.id))[0];
+      if (alvo.id === C.me.uid) DB.set('crmAtrib', i.key.replace(/[/:]/g, '_'), { key: i.key, uid: alvo.id, nome: alvo.nome, fila: i.fila, em: Date.now(), por: 'Prazo de resposta', redistribuidoEm: Date.now(), redistribuidoDe: i.resp?.nome || '' }).then(() => toast(`${i.nome} passou para você: estourou o prazo de resposta.`)).catch(() => { });
+    }
+  }
+}
+setInterval(verificarSla, 60e3);
+
+/* ---------- alertas de fraude ---------- */
+const RX_FRAUDE = /(conta|pix|deposit\w*|transfer\w*)\s+(de|da|do|na|no|para|pra)\s+(outra pessoa|terceir\w*|meu (irm[aã]o|primo|pai|tio|amigo|filho|cunhado)|minha (m[aã]e|irm[aã]|tia|amiga|esposa|namorada)|um amigo|uma amiga)|n[aã]o (é|e) (meu|minha) (nome|cpf|documento)|empresta(r|ndo)? (o|meu) (nome|cpf)/i;
+async function carregarAlertas() {
+  if (!fin()) return; const desde = Date.now() - 60 * 864e5, hj = new Date(hoje() + 'T00:00:00-03:00').getTime();
+  const [pre, emp, vs, vist] = await Promise.all([DB.list('preanalises', [['criadoEm', '>=', desde]]).catch(() => []), DB.list('emprestimos', [['criadoEm', '>=', desde]]).catch(() => []), C.cob.vendas ? Promise.resolve(C.cob.vendas) : DB.list('vendas', [['status', '==', 'ATIVA']]).catch(() => []), DB.list('crmAlertas', [['em', '>=', desde]]).catch(() => [])]);
+  C.alertasVistos = Object.fromEntries(vist.map(a => [a.id, a])); const al = [], porTel = {};
+  const add = (tel, cpf, nome, orig) => { const t = soD(tel).replace(/^55/, '').slice(-11); cpf = soD(cpf); if (t.length < 10 || cpf.length !== 11) return; (porTel[t] ||= {})[cpf] = { nome, orig }; };
+  pre.forEach(p => add(p.telefone, p.cpf, p.nome, 'pré-análise')); emp.forEach(p => add(p.cliente?.telefone, p.cpf, p.cliente?.nome, 'empréstimo')); vs.forEach(v => (v.cliente?.telefones || []).forEach(t => add(t, v.clienteCpf, v.clienteNome, 'contrato')));
+  Object.entries(porTel).forEach(([t, cs]) => { const l = Object.entries(cs); if (l.length > 1) al.push({ id: 'tel_' + t, tipo: 'Mesmo telefone em vários CPFs', nivel: l.length > 2 ? 'alto' : 'medio', txt: `O telefone ${fmtTel(t)} aparece em ${l.length} CPFs: ${l.map(([c, x]) => `${x.nome || '—'} (CPF ${fmtCpf(c)}, ${x.orig})`).join('; ')}.`, tel: t }); });
+  const porQuem = {}; [...pre.map(p => [p.lojaNome || p.lojaId || p.vendedorNome || 'site', p.criadoEm]), ...emp.map(p => [(p.criadoPorNome || '') + ' · ' + (p.lojaNome || ''), p.criadoEm])].filter(([, em]) => em >= hj).forEach(([k]) => porQuem[k] = (porQuem[k] || 0) + 1);
+  Object.entries(porQuem).forEach(([k, n]) => { if (n >= (C.cfg.alertaPropostasDia || 8)) al.push({ id: 'dia_' + hoje() + '_' + k.replace(/\W+/g, '_').slice(0, 40), tipo: 'Muitas propostas no mesmo dia', nivel: n >= 15 ? 'alto' : 'medio', txt: `${k}: ${n} propostas hoje.` }); });
+  C.itens.filter(i => RX_FRAUDE.test(String(i.ultima || ''))).forEach(i => al.push({ id: 'msg_' + i.key.replace(/[/:]/g, '_'), tipo: 'Pedido de pagamento ou conta de terceiro', nivel: 'alto', txt: `${i.nome} (${CANAIS[i.canal][0]}): “${String(i.ultima).slice(0, 160)}”`, key: i.key }));
+  C.alertas = al; desenharNav(); if (C.view === 'alertas' && $('#kb')) vAlertas($('#kb'));
+}
+function vAlertas(el) {
+  const novos = C.alertas.filter(a => !C.alertasVistos[a.id]), vistos = C.alertas.filter(a => C.alertasVistos[a.id]);
+  const card = a => `<div class="eq-i" style="padding:12px 16px;align-items:flex-start"><div class="ib" style="background:${a.nivel === 'alto' ? 'var(--bad-s)' : 'var(--warn-s)'};color:${a.nivel === 'alto' ? 'var(--bad)' : 'var(--warn)'};border:0">${I('escudo')}</div><div class="eq-t"><b>${esc(a.tipo)}</b><span style="white-space:normal">${esc(a.txt)}</span>${C.alertasVistos[a.id] ? `<span>${esc(C.alertasVistos[a.id].status === 'ENCAMINHADO' ? 'Em análise' : 'Descartado')} por ${esc(C.alertasVistos[a.id].por)} · ${fdt(C.alertasVistos[a.id].em)}</span>` : ''}</div>
+    <div class="row" style="gap:6px">${a.key ? `<button class="btn sec sm" data-ak="${esc(a.key)}">${I('chatl')}Abrir</button>` : ''}${!C.alertasVistos[a.id] ? `<button class="btn sm" data-av="${a.id}" data-s="ENCAMINHADO">${I('escudo')}Analisar</button><button class="btn sec sm" data-av="${a.id}" data-s="DESCARTADO">Descartar</button>` : ''}</div></div>`;
+  el.innerHTML = topoKb('Alertas de fraude', `<button class="btn sec sm" id="alAt">${I('reabrir')}Verificar agora</button>`) + `<div style="padding:16px 20px;overflow:auto"><p class="hint" style="margin:0 0 12px;max-width:900px">O CRM confere sozinho: o mesmo telefone ligado a vários CPFs, muitas propostas num dia só e mensagens pedindo pagamento ou conta de outra pessoa. Analise antes de aprovar crédito para esses clientes.</p>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden;margin-bottom:16px">${novos.map(card).join('') || `<div class="vazio">${I('okc')}<div>Nenhum alerta novo.</div></div>`}</div>
+    ${vistos.length ? `<h3 style="font-size:14px;margin:0 0 8px">Já analisados</h3><div style="background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;opacity:.8">${vistos.map(card).join('')}</div>` : ''}</div>`;
+  ligaMenu(el); $('#alAt', el).onclick = () => carregarAlertas();
+  $$('[data-ak]', el).forEach(b => b.onclick = () => abrir(b.dataset.ak));
+  $$('[data-av]', el).forEach(b => b.onclick = async () => { const a = C.alertas.find(x => x.id === b.dataset.av); const d = { status: b.dataset.s, por: C.me.nome, em: Date.now(), tipo: a.tipo, txt: a.txt }; await DB.set('crmAlertas', a.id, d); C.alertasVistos[a.id] = d; desenharNav(); vAlertas(el); });
+}
+
+/* ---------- mensagens em massa com segurança ---------- */
+function listaCampanha(tipo) {
+  const h = hoje(), em2 = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10), mmdd = h.slice(5), out = [];
+  for (const v of C.cob.vendas || []) { const tel = (v.cliente?.telefones || [])[0] || v.clienteTel1; if (!tel) continue;
+    if (tipo === 'lembrete') (v.parcelas || []).filter(p => !p.pago && p.venc === em2).forEach(p => out.push({ v, p, tel, id: `lembrete_${v.id}_${p.n}` }));
+    if (tipo === 'vencida') { const p = (v.parcelas || []).filter(p => !p.pago && p.venc < h).sort((a, b) => a.venc.localeCompare(b.venc))[0]; if (p) { const d = diasEntre(p.venc, h); if (d >= 1 && d <= 5) out.push({ v, p, tel, id: `vencida_${v.id}_${p.n}_${h}` }); } }
+    if (tipo === 'aniversario') { const n = v.cliente?.nascimento || v.clienteNascimento || ''; if (n && n.slice(5) === mmdd && !out.some(x => x.v.clienteCpf === v.clienteCpf)) out.push({ v, p: null, tel, id: `aniv_${v.clienteCpf}_${h.slice(0, 4)}` }); } }
+  return out;
+}
+async function vCampanhas(el) {
+  if (!C.cob.vendas) { el.innerHTML = topoKb('Mensagens em massa') + `<div class="rs-load" style="margin:20px">${I('relogio')}Carregando…</div>`; ligaMenu(el); await carregarCob(true); return C.view === 'campanhas' && vCampanhas(el); }
+  const tipo = C.campT || 'lembrete', l = listaCampanha(tipo), env = await DB.list('crmEnvios', [['em', '>=', Date.now() - 3 * 864e5]]).catch(() => []), ja = new Set(env.map(x => x.id)), falta = l.filter(x => !ja.has(x.id)), lim = +(C.cfg.limiteMassaDia || 40), hojeEnv = env.filter(x => x.em >= new Date(hoje() + 'T00:00:00-03:00').getTime()).length;
+  el.innerHTML = topoKb('Mensagens em massa') + `<div style="padding:16px 20px;overflow:auto;max-width:1100px">
+    <div class="tabs" style="margin-bottom:12px">${[['lembrete', 'Vencem em 2 dias'], ['vencida', 'Vencidas há 1 a 5 dias'], ['aniversario', 'Aniversariantes de hoje']].map(([k, n]) => `<button data-ct="${k}" class="${tipo === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--sh);margin-bottom:12px"><p class="hint" style="margin:0 0 8px">Mensagem (variáveis: {nome}, {valor}, {venc}, {parcela}). Vai só para clientes da NexumCell, em lotes pequenos e com intervalo entre uma e outra, para o número não ser bloqueado. Limite de ${lim} por dia (hoje: ${hojeEnv}).</p>
+      <textarea class="inp" id="cpTx" rows="3">${esc(msgDe(tipo))}</textarea>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">${waOn() ? `<button class="btn" id="cpTodos" ${!falta.length || hojeEnv >= lim ? 'disabled' : ''}>${I('enviar')}Enviar ${Math.min(falta.length, Math.max(0, lim - hojeEnv))} pelo programa (uma a cada ~15 s)</button>` : `<span class="hint">Sem o programa ligado, envie uma por uma pelo WhatsApp Web no botão de cada cliente.</span>`}${dono() ? `<button class="btn sec sm" id="cpSalvar">Salvar texto</button>` : ''}</div></div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden">${l.map(x => `<div class="eq-i" style="padding:10px 16px"><div class="av" style="background:${cor(x.v.clienteNome)};width:34px;height:34px;font-size:12px">${esc(ini(x.v.clienteNome))}</div><div class="eq-t"><b>${esc(x.v.clienteNome)}</b><span>${esc(fmtTel(x.tel))}${x.p ? ` · parcela ${x.p.n}ª ${brlC(x.p.valor)} · vence ${x.p.venc.split('-').reverse().join('/')}` : ''}</span></div>${ja.has(x.id) ? '<span class="pill" style="background:var(--ok-s);color:var(--ok)">Enviada</span>' : `<button class="btn sec sm" data-um="${x.id}">${I('wa')}Enviar</button>`}</div>`).join('') || `<div class="vazio">${I('okc')}<div>Ninguém nesta lista hoje.</div></div>`}</div></div>`;
+  ligaMenu(el); $$('[data-ct]', el).forEach(b => b.onclick = () => { C.campT = b.dataset.ct; vCampanhas(el); });
+  const texto = () => $('#cpTx').value.trim() || msgDe(tipo);
+  if ($('#cpSalvar')) $('#cpSalvar').onclick = () => DB.set('config', 'crm', { msgs: { ...(C.cfg.msgs || {}), [tipo]: texto() } }).then(() => toast('Texto salvo'));
+  $$('[data-um]', el).forEach(b => b.onclick = async () => { const x = l.find(y => y.id === b.dataset.um), t = fmtV(texto(), x.v, x.p), n = soD(x.tel), n55 = n.startsWith('55') ? n : '55' + n;
+    if (waOn()) await DB.add('waSaida', { numero: n55, texto: t, status: 'PENDENTE', em: Date.now(), por: C.me.nome, campanha: tipo }); else abrirWaWeb(`https://web.whatsapp.com/send?phone=${n55}&text=${encodeURIComponent(t)}`);
+    await DB.set('crmEnvios', x.id, { tipo, vendaId: x.v.id, numero: n55, em: Date.now(), por: C.me.nome }); b.outerHTML = '<span class="pill" style="background:var(--ok-s);color:var(--ok)">Enviada</span>'; });
+  if ($('#cpTodos')) $('#cpTodos').onclick = async e => { const b = e.currentTarget, lote = falta.slice(0, Math.max(0, lim - hojeEnv)); if (!confirm(`Enviar ${lote.length} mensagens? Saem uma a cada ~15 segundos.`)) return; b.disabled = true; let k = 0;
+    for (const x of lote) { const n = soD(x.tel), n55 = n.startsWith('55') ? n : '55' + n; await DB.add('waSaida', { numero: n55, texto: fmtV(texto(), x.v, x.p), status: 'PENDENTE', em: Date.now() + k, naoAntes: Date.now() + k * 15e3, por: C.me.nome, campanha: tipo }); await DB.set('crmEnvios', x.id, { tipo, vendaId: x.v.id, numero: n55, em: Date.now(), por: C.me.nome }); k++; }
+    toast(`${k} mensagens na fila de envio`); vCampanhas(el); };
+}
+
+/* ---------- funil das lojas parceiras (comercial) ---------- */
+const FUNIL = [['LEAD', 'Lead', '#64748B'], ['CONTATO', 'Contato feito', '#1D5BFF'], ['VISITA', 'Visita / apresentação', '#7C3AED'], ['CADASTRO', 'Cadastro enviado', '#B7791F'], ['TREINAMENTO', 'Treinamento', '#0E7490'], ['VENDENDO', 'Primeira venda', '#0E9F6E'], ['PERDIDO', 'Perdido', '#9F1239']];
+const etapaLead = l => l.etapaFunil || ({ NOVO: 'LEAD', CONTATADO: 'CONTATO', NEGOCIANDO: 'VISITA', FECHADO: 'CADASTRO', PERDIDO: 'PERDIDO' })[l.status] || 'LEAD';
+function vFunil(el) {
+  const leads = (C.fonte.lead || []).slice(), mes = hoje().slice(0, 7), ganhos = leads.filter(l => etapaLead(l) === 'VENDENDO' && String(l.etapaEmIso || '').startsWith(mes)), metas = C.cfg.metaFunil || {}, com = C.equipe.filter(u => u.fila === 'comercial' && u.ativo !== false);
+  const conv = (a, b) => { const na = leads.filter(l => FUNIL.findIndex(f => f[0] === etapaLead(l)) >= FUNIL.findIndex(f => f[0] === a) && etapaLead(l) !== 'PERDIDO').length, nb = leads.filter(l => FUNIL.findIndex(f => f[0] === etapaLead(l)) >= FUNIL.findIndex(f => f[0] === b) && etapaLead(l) !== 'PERDIDO').length; return na ? Math.round(nb / na * 100) : 0; };
+  el.innerHTML = topoKb('Funil das lojas parceiras', `<span class="hint">${leads.length} lead(s) nos últimos 30 dias · conversão lead → venda ${conv('LEAD', 'VENDENDO')}%</span>`) + `
+    ${com.length || dono() ? `<div style="padding:12px 20px 0;display:flex;gap:10px;flex-wrap:wrap">${(com.length ? com : [{ id: C.me.uid, nome: C.me.nome }]).map(u => { const g = ganhos.filter(l => l.etapaUid === u.id).length, m = +(metas[u.id] || 0); return `<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px;min-width:200px"><b style="font-size:13px">${esc(u.nome)}</b><div class="hint">${g} loja(s) vendendo no mês${m ? ' · meta ' + m : ''}</div>${m ? `<div style="height:6px;border-radius:99px;background:#EEF1F7;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, g / m * 100)}%;background:var(--ok)"></i></div>` : ''}${dono() ? `<button class="btn sec sm" data-mt="${u.id}" style="margin-top:6px">Meta do mês</button>` : ''}</div>`; }).join('')}</div>` : ''}
+    <div class="kb-c">${FUNIL.map(([k, n, c]) => { const l = leads.filter(x => etapaLead(x) === k); return `<div class="col" data-fn="${k}"><div class="col-h"><i style="background:${c}"></i>${n}<span>${l.length}</span></div><div class="col-b">${l.map(x => `<div class="kc" draggable="true" data-ld="${x.id}"><div class="l1"><b>${esc(x.loja || x.nome || 'Lead')}</b></div><p>${esc([x.nome, x.cidade, fmtTel(x.whatsapp || '')].filter(Boolean).join(' · '))}</p><div class="l3"><span class="hint" style="font-size:11.5px">${x.etapaPor ? esc(x.etapaPor.split(' ')[0]) + ' · ' : ''}${quando(x.atualizadoEm || x.criadoEm)}</span></div></div>`).join('') || '<p class="hint" style="text-align:center;margin:24px 0">Vazio</p>'}</div></div>`; }).join('')}</div>`;
+  ligaMenu(el);
+  $$('.kc[data-ld]', el).forEach(k => { k.onclick = () => abrir('lead:' + k.dataset.ld); k.ondragstart = e => e.dataTransfer.setData('text/plain', k.dataset.ld); });
+  $$('.col[data-fn]', el).forEach(c => { c.ondragover = e => { e.preventDefault(); c.classList.add('alvo'); }; c.ondragleave = () => c.classList.remove('alvo');
+    c.ondrop = async e => { e.preventDefault(); c.classList.remove('alvo'); const id = e.dataTransfer.getData('text/plain'), l = leads.find(x => x.id === id); if (!l) return; const et = c.dataset.fn;
+      await DB.set('leads', id, { etapaFunil: et, etapaEm: Date.now(), etapaEmIso: hoje(), etapaPor: C.me.nome, etapaUid: C.me.uid, atualizadoEm: Date.now(), status: et === 'PERDIDO' ? 'PERDIDO' : et === 'VENDENDO' || et === 'CADASTRO' || et === 'TREINAMENTO' ? 'FECHADO' : et === 'LEAD' ? 'NOVO' : 'NEGOCIANDO', historico: [...(l.historico || []), { em: Date.now(), por: C.me.nome, obs: 'Funil: ' + FUNIL.find(f => f[0] === et)[1] }] }).then(() => toast('Lead em: ' + FUNIL.find(f => f[0] === et)[1])).catch(er => toast(er.code || er.message, true)); }; });
+  $$('[data-mt]', el).forEach(b => b.onclick = () => { const v = prompt('Meta de lojas vendendo no mês:', metas[b.dataset.mt] || ''); if (v == null) return; DB.set('config', 'crm', { metaFunil: { ...metas, [b.dataset.mt]: +v || 0 } }).then(() => toast('Meta salva')); });
+}
+
+/* ---------- menu, telas e painel ---------- */
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'), ref = el && $('[data-vw="retornos"]', el); if (!ref) return;
+  const n = (v, c) => v ? `<span class="n ${c ? 'r' : ''}">${v}</span>` : '', h = hoje(), at = C.cob.vendas ? atrasados() : [], prom = at.filter(x => x.prom?.status === 'PENDENTE' && x.prom.data <= h).length, alN = C.alertas.filter(a => !C.alertasVistos[a.id]).length, sla = C.itens.filter(i => i.etapa !== 'fim' && (dono() || i.fila === C.papel) && estourou(i)).length;
+  const bt = (v, ic, t, badge) => `<button data-vw="${v}" class="${C.view === v ? 'on' : ''}">${I(ic)}<span>${t}</span>${badge || ''}</button>`;
+  ref.insertAdjacentHTML('afterend', (sla ? `<button data-vw="inbox" id="nvSla" style="color:#FCA5A5">${I('relogio')}<span>Prazo estourado</span>${n(sla, 1)}</button>` : '') + (fin() ? bt('cobranca', 'moeda', 'Cobrança', n(prom || at.length, prom)) + bt('alertas', 'escudo', 'Alertas de fraude', n(alN, 1)) + bt('campanhas', 'sino', 'Mensagens em massa') : '') + (dono() || C.papel === 'comercial' ? bt('funil', 'barras', 'Funil das lojas') : ''));
+  $$('[data-vw]', el).forEach(x => { if (x._ok) return; x._ok = 1; if (['cobranca', 'alertas', 'campanhas', 'funil'].includes(x.dataset.vw)) x.onclick = () => { C.view = x.dataset.vw; el.classList.remove('aberto'); desenhar(); }; });
+  const s = $('#nvSla', el); if (s) s.onclick = () => { C.view = 'inbox'; C.f.etapa = 'semresp'; salvarF(); desenhar(); }; }; }
+{ const _ds = desenhar; desenhar = function () { if (C.me && $('#app') && ['cobranca', 'alertas', 'campanhas', 'funil'].includes(C.view)) { desenharNav(); if (!$('#kb')) { $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; desenharNav(); }
+  return ({ cobranca: vCobranca, alertas: vAlertas, campanhas: vCampanhas, funil: vFunil })[C.view]($('#kb')); } return _ds(); }; }
+{ const _vp = vPainel; vPainel = async function (el) { _vp(el); const box = el.querySelector('div[style*="grid-template-columns:repeat(auto-fit"]'); if (!box) return;
+  const desde = Date.now() - 30 * 864e5, [av, at] = await Promise.all([DB.list('crmAvaliacoes', [['em', '>=', desde]]).catch(() => []), DB.list('crmAtrib', [['em', '>=', desde]]).catch(() => [])]);
+  const porA = {}; av.forEach(a => { const k = a.nome || '—'; (porA[k] ||= []).push(a.nota); }); const med = l => (l.reduce((s, x) => s + x, 0) / l.length).toFixed(1);
+  const mot = {}; at.filter(a => a.motivo).forEach(a => mot[a.motivo] = (mot[a.motivo] || 0) + 1); const totM = Object.values(mot).reduce((s, x) => s + x, 0);
+  const sla = C.itens.filter(i => i.etapa !== 'fim' && (dono() || i.fila === C.papel) && estourou(i)), caixa = (t, b) => `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh)"><h3 style="margin:0 0 10px;font-size:15px">${t}</h3>${b}</div>`;
+  box.insertAdjacentHTML('beforeend', caixa(`Satisfação (30 dias) · ${av.length ? med(av.map(a => a.nota)) + ' de 5' : 'sem notas'}`, `<div class="eq">${Object.entries(porA).sort((a, b) => med(b[1]) - med(a[1])).map(([n, l]) => `<div class="eq-i"><div class="av" style="background:${cor(n)};width:34px;height:34px;font-size:12px">${esc(ini(n))}</div><div class="eq-t"><b>${esc(n)}</b><span>${l.length} nota(s)</span></div><div class="eq-n"><b style="color:${med(l) >= 4 ? 'var(--ok)' : med(l) >= 3 ? 'var(--warn)' : 'var(--bad)'}">${med(l)}</b><span>de 5</span></div></div>`).join('') || '<p class="hint">As notas chegam pela pesquisa enviada ao finalizar.</p>'}</div>`)
+    + caixa('Motivos de contato (30 dias)', Object.entries(mot).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, q]) => `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(k)}</span><b>${q}</b></div><div style="height:7px;border-radius:99px;background:#EEF1F7;overflow:hidden"><i style="display:block;height:100%;width:${q / totM * 100}%;background:var(--pri)"></i></div></div>`).join('') || '<p class="hint">Os motivos são escolhidos ao finalizar cada atendimento.</p>')
+    + caixa(`Prazo de resposta · ${sla.length} estourado(s)`, `<p class="hint" style="margin:0 0 8px">Prazo: ${Object.keys(FILAS).map(f => `${FILAS[f][0]} ${slaMin(f)} min`).join(' · ')}. Passando do dobro, o atendimento vai para quem tem menos abertos na fila.</p>${sla.slice(0, 6).map(i => `<div class="hist"><div data-ab="${esc(i.key)}"><b>${esc(i.nome)}</b> <span class="hint">· ${FILAS[i.fila][0]} · espera ${Math.round((Date.now() - i.em) / 6e4)} min · ${esc(i.resp?.nome || 'sem responsável')}</span></div></div>`).join('')}`));
+  $$('[data-ab]', box).forEach(d => d.onclick = () => abrir(d.dataset.ab)); }; }
+{ const _vc = vConfig; vConfig = function (el) { _vc(el); if (!dono()) return; const g = el.querySelector('div[style*="display:grid"]'); if (!g) return;
+  g.insertAdjacentHTML('beforeend', `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--sh)"><h3 style="margin:0 0 4px;font-size:15px">Prazos, motivos e pesquisa</h3><p class="hint" style="margin:0 0 10px">Prazo de resposta de cada fila (minutos), motivos de contato (um por linha) e a pesquisa de satisfação.</p>
+    <div class="row" style="gap:8px">${Object.keys(FILAS).map(f => `<label style="flex:1"><span class="small">${FILAS[f][0]}</span><input class="inp" type="number" min="1" data-sla="${f}" value="${slaMin(f)}"></label>`).join('')}</div>
+    <label style="display:block;margin-top:10px"><span class="small">Motivos</span><textarea class="inp" id="cfMot" rows="5">${esc(motivos().join('\n'))}</textarea></label>
+    <label style="display:block;margin-top:10px"><span class="small">Pergunta da pesquisa</span><textarea class="inp" id="cfPq" rows="2">${esc(msgDe('pesquisa'))}</textarea></label>
+    <div class="row" style="gap:8px;margin-top:10px"><label style="flex:1"><span class="small">Desconto máximo no acordo (%)</span><input class="inp" type="number" id="cfDesc" value="${C.cfg.descontoMax ?? 20}"></label><label style="flex:1"><span class="small">Mensagens em massa por dia</span><input class="inp" type="number" id="cfLim" value="${C.cfg.limiteMassaDia || 40}"></label></div>
+    <button class="btn" id="cfMais" style="margin-top:12px">${I('ok')}Salvar</button></div>`);
+  $('#cfMais').onclick = () => DB.set('config', 'crm', { sla: Object.fromEntries($$('[data-sla]').map(x => [x.dataset.sla, +x.value || SLA_PAD[x.dataset.sla]])), motivos: $('#cfMot').value.split('\n').map(s => s.trim()).filter(Boolean), msgs: { ...(C.cfg.msgs || {}), pesquisa: $('#cfPq').value.trim() || MSG_PAD.pesquisa }, descontoMax: Math.min(50, +$('#cfDesc').value || 0), limiteMassaDia: Math.min(200, +$('#cfLim').value || 40) }).then(() => toast('Configuração salva')); }; }
+setInterval(() => { if (C.me && fin()) { carregarCob().then(() => carregarAlertas()).catch(() => { }); } }, 10 * 60e3);
+{ const _en = entrou; entrou = async function (u) { await _en(u); if (C.me && fin()) setTimeout(() => carregarCob(true).then(carregarAlertas).catch(() => { }), 2500); }; }
 
 /* ---------- início ---------- */
 (async () => {

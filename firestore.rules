@@ -539,6 +539,12 @@ service cloud.firestore {
       allow write: if hasRole(['DONO', 'FINANCEIRO']);
     }
     match /crmRetornos/{id} { allow read, write: if crmEquipe(); }
+    // CRM: promessas e acordos de cobrança, envios em massa, notas da pesquisa e alertas de fraude
+    match /crmPromessas/{id} { allow read, write: if crmEquipe(); }
+    match /crmAcordos/{id} { allow read, write: if crmEquipe(); }
+    match /crmEnvios/{id} { allow read, write: if crmEquipe(); }
+    match /crmAvaliacoes/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
+    match /crmAlertas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO']); }
 
     match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista

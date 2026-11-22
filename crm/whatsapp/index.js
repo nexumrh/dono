@@ -47,6 +47,12 @@ async function recebida(m) {
   const dados = { numero, nome: c.nome || m.pushName || '', ultimaMsg: texto.slice(0, 200), ultimaDe: 'cliente', atualizadoEm: agora, naoLido: true, fim: false };
   if (!c.criadoEm) { dados.criadoEm = agora; const cli = await acharCliente(numero); if (cli) Object.assign(dados, { cpf: cli.cpf, nome: cli.nome || dados.nome, cliente: true }); }
   await ref.collection('msgs').add({ de: 'cliente', t: texto, em: agora, id: m.key.id });
+  // resposta da pesquisa de satisfação (nota de 1 a 5) enviada ao finalizar o atendimento
+  if (c.pesquisaEm && agora - c.pesquisaEm < 24 * 3600e3 && /^[1-5]$/.test(texto.trim())) {
+    await db.collection('crmAvaliacoes').add({ key: c.pesquisaKey || 'wa:' + numero, nota: +texto.trim(), uid: c.pesquisaUid || '', nome: c.pesquisaAtendente || '', fila: c.pesquisaFila || '', canal: 'wa', numero, em: agora, via: 'whatsapp' });
+    await enviarTexto(numero, 'Obrigado pela sua avaliação! A NexumCell agradece.', true);
+    await ref.set({ ...dados, naoLido: false, fim: true, pesquisaEm: null }, { merge: true }); return;
+  }
   // robô de triagem: conversa nova (ou finalizada) pergunta a fila; a resposta 1/2/3 escolhe
   if (robo && (!c.fila || c.fim)) {
     const opc = FILA_OPC[texto.trim().slice(0, 1)];
@@ -62,19 +68,28 @@ async function enviarTexto(numero, texto, doRobo) {
   if (doRobo) await db.collection('waConversas').doc(so(numero)).collection('msgs').add({ de: 'robo', t: texto, em: Date.now() });
 }
 
-// fila de saída gravada pelo CRM
-function ouvirSaida() {
-  return db.collection('waSaida').where('status', '==', 'PENDENTE').onSnapshot(async (s) => {
-    for (const d of s.docs) {
-      const x = d.data();
+// fila de saída gravada pelo CRM: uma de cada vez; mensagens em massa respeitam o horário (naoAntes) e um intervalo entre elas
+let saidaOcupada = false;
+async function processarSaida() {
+  if (saidaOcupada || !sock) return; saidaOcupada = true;
+  try {
+    const s = await db.collection('waSaida').where('status', '==', 'PENDENTE').limit(30).get();
+    const docs = s.docs.sort((a, b) => (a.data().em || 0) - (b.data().em || 0));
+    for (const d of docs) {
+      const x = d.data(); if ((x.naoAntes || 0) > Date.now()) continue;
       try {
         await d.ref.update({ status: 'ENVIANDO' });
         let t = x.texto || ''; if (x.arquivo?.url) t = (t ? t + '\n' : '') + `📎 ${x.arquivo.nome}: ${x.arquivo.url}`;
         await enviarTexto(x.numero, t || ' ');
         await d.ref.update({ status: 'ENVIADO', enviadoEm: Date.now() });
+        if (x.campanha) await new Promise((r) => setTimeout(r, 10000 + Math.random() * 8000));
       } catch (e) { await d.ref.update({ status: 'ERRO', erro: e.message }).catch(() => {}); }
     }
-  }, (e) => console.error('waSaida', e.message));
+  } catch (e) { console.error('waSaida', e.message); } finally { saidaOcupada = false; }
+}
+function ouvirSaida() {
+  setInterval(processarSaida, 5000);
+  return db.collection('waSaida').where('status', '==', 'PENDENTE').onSnapshot(() => processarSaida(), (e) => console.error('waSaida', e.message));
 }
 
 async function conectar() {
