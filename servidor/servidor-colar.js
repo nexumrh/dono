@@ -318,10 +318,10 @@ function avaliarIos(d, agora = Date.now()) {
   let maior = 0, atrasadas = 0;
   for (const p of d.parcelas || []) {
     if (p.pago || !p.venc) continue;
-    const dias4 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
-    if (dias4 > 0) {
+    const dias5 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
+    if (dias5 > 0) {
       atrasadas++;
-      maior = Math.max(maior, dias4);
+      maior = Math.max(maior, dias5);
     }
   }
   if (maior >= etapaTotal(d)) return { travar: true, motivo: atrasadas === 1 ? "1 parcela em atraso" : `${atrasadas} parcelas em atraso` };
@@ -423,10 +423,10 @@ function cors(req, res) {
 var r2 = (n) => Math.round(n * 100) / 100;
 var hoje = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 function encargos(p, ap, data = hoje()) {
-  const dias4 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
-  if (dias4 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
-  if (dias4 === 0) return p.valor;
-  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias4));
+  const dias5 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
+  if (dias5 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
+  if (dias5 === 0) return p.valor;
+  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias5));
 }
 async function baixarParcela(vendaId, n, valorPago, forma, obs, por = "Asaas (autom\xE1tico)") {
   const ref = db.collection("vendas").doc(vendaId);
@@ -1225,7 +1225,7 @@ async function handler5(req, res) {
 function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
   const vs = (vendas || []).filter((v) => !["REPROVADA", "CANCELADA"].includes(v.status));
   if (!vs.length) return { score: 500, faixa: "Sem hist\xF3rico", pagas: 0, atrasadas: 0 };
-  const dias4 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
+  const dias5 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
   let s = 550, pagas = 0, atrasadas = 0;
   for (const v of vs) {
     if (v.status === "QUITADA") s += 60;
@@ -1233,11 +1233,11 @@ function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0,
     for (const p of v.parcelas || []) {
       if (p.pago) {
         pagas++;
-        const d = p.pagoEm ? dias4(p.venc, String(p.pagoEm).slice(0, 10)) : 0;
+        const d = p.pagoEm ? dias5(p.venc, String(p.pagoEm).slice(0, 10)) : 0;
         s += d <= 3 ? 12 : d <= 15 ? 4 : d <= 30 ? -10 : -30;
       } else if (p.venc < h) {
         atrasadas++;
-        s -= Math.min(250, 40 + dias4(p.venc, h) * 2);
+        s -= Math.min(250, 40 + dias5(p.venc, h) * 2);
       }
     }
   }
@@ -1813,9 +1813,9 @@ async function saasPagamento(event, payment) {
   }
 }
 async function saasRotina() {
-  const cfg = await config(), dias4 = Number(cfg.saasDiasBloqueio ?? 5);
-  if (!(dias4 > 0)) return { bloqueadas: 0 };
-  const limite = addDias(hoje(), -dias4);
+  const cfg = await config(), dias5 = Number(cfg.saasDiasBloqueio ?? 5);
+  if (!(dias5 > 0)) return { bloqueadas: 0 };
+  const limite = addDias(hoje(), -dias5);
   const atras = (await db.collection("empresas").where("situacao", "==", "ATRASADA").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.atrasadaDesde && e.atrasadaDesde <= limite && !e.bloqueadaPorAtraso);
   for (const e of atras) {
     await mudarBloqueio(e.id, true, `Mensalidade do sistema em atraso desde ${e.atrasadaDesde.split("-").reverse().join("/")}. Pague pelo link enviado por e-mail para liberar na hora.`);
@@ -2244,9 +2244,9 @@ async function negativacaoRotina(cfg) {
     }
   }
   if (cfg.negativarAuto !== "sim") return r;
-  const dias4 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
+  const dias5 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
   const ativas = (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
-  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias4 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
+  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias5 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
   for (const { v, p } of alvo) {
     try {
       let parc = p;
@@ -2381,8 +2381,8 @@ async function relatorioSemanal(cfg, forcar = false) {
   for (const v of vendas) {
     const atr = (v.parcelas || []).filter((p) => !p.pago && p.venc < h);
     if (!atr.length) continue;
-    const dias4 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
-    (lojas[v.lojaId] ||= []).push({ v, dias: dias4, devido, n: atr.length });
+    const dias5 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
+    (lojas[v.lojaId] ||= []).push({ v, dias: dias5, devido, n: atr.length });
   }
   const gerentes = (await db.collection("users").where("role", "==", "GERENTE").get()).docs.map((d) => d.data()).filter((u) => u.ativo !== false && u.email);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
@@ -2841,9 +2841,281 @@ async function handler13(req, res) {
   }
 }
 
+// api/crm-ia.js
+var MODELO3 = process.env.GROQ_MODELO_CRM || "llama-3.3-70b-versatile";
+var REGRAS = "Voc\xEA trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece cr\xE9dito. Responda sempre em portugu\xEAs do Brasil, com educa\xE7\xE3o e frases curtas. Nunca prometa aprova\xE7\xE3o de cr\xE9dito, desconto ou libera\xE7\xE3o que a equipe n\xE3o confirmou. Nunca pe\xE7a senha, c\xF3digo ou pagamento em conta de terceiros. Pagamento \xE9 s\xF3 pelo app NexumCell (aba Parcelas \u2192 Pix) ou pelo Pix enviado pela equipe. N\xE3o use emojis.";
+var ESTILOS = {
+  curta: "Reescreva a mensagem de forma mais curta e direta, mantendo todas as informa\xE7\xF5es importantes.",
+  formal: "Reescreva a mensagem num tom mais formal e profissional, como um banco.",
+  empatica: "Reescreva a mensagem num tom mais acolhedor e emp\xE1tico, mostrando que entendemos a situa\xE7\xE3o do cliente, sem perder a clareza.",
+  firme: "Reescreva a mensagem num tom firme e respeitoso de cobran\xE7a, deixando claro o valor, o prazo e o que acontece se n\xE3o pagar, sem amea\xE7as.",
+  corrigir: "Corrija a ortografia, a pontua\xE7\xE3o e a clareza da mensagem, mudando o m\xEDnimo poss\xEDvel."
+};
+var IDIOMAS = { es: "espanhol (do Paraguai/Argentina, claro e simples)", pt: "portugu\xEAs do Brasil", en: "ingl\xEAs simples" };
+async function groq(mensagens, { temperatura = 0.3, max = 400, json = false } = {}) {
+  const chave = await chaveIA();
+  if (!chave) throw Object.assign(new Error("IA sem chave: coloque a chave da IA em Configura\xE7\xF5es do Painel do Dono"), { status: 400 });
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: MODELO3, temperature: temperatura, max_tokens: max, ...json ? { response_format: { type: "json_object" } } : {}, messages: mensagens })
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error("IA: " + (j.error?.message || r.status)), { status: 502 });
+  return String(j.choices?.[0]?.message?.content || "").trim();
+}
+async function baseConhecimento() {
+  const c = (await db.collection("config").doc("crm").get()).data() || {};
+  const rs = (c.respostas || []).flatMap(([g, l]) => (l || []).map(([t, x]) => `- ${g} / ${t}: ${String(x || "").replace(/\s+/g, " ").slice(0, 400)}`)).slice(0, 60).join("\n");
+  return { cfg: c, texto: `${c.iaOrientacoes ? "Orienta\xE7\xF5es do dono:\n" + String(c.iaOrientacoes).slice(0, 2500) + "\n\n" : ""}Respostas aprovadas pela equipe (use como base, troque {vari\xE1veis} pelos dados reais ou deixe de fora):
+${rs}` };
+}
+var PEDIDO_AUTO = 'Voc\xEA est\xE1 respondendo sozinho porque a equipe n\xE3o est\xE1 dispon\xEDvel agora. Responda a \xDALTIMA mensagem do cliente usando s\xF3 as informa\xE7\xF5es da ficha, das orienta\xE7\xF5es e das respostas aprovadas. Se o cliente pedir para falar com uma pessoa, reclamar, pedir desconto, acordo, libera\xE7\xE3o do aparelho, cancelamento, troca, ou se voc\xEA n\xE3o tiver a informa\xE7\xE3o, diga com educa\xE7\xE3o que um atendente vai continuar o atendimento assim que poss\xEDvel e marque humano=true. Responda em JSON: {"resposta":"texto de no m\xE1ximo 4 frases","humano":true|false}. Se o cliente escreveu em espanhol, responda em espanhol.';
+async function handler14(req, res) {
+  if (cors(req, res)) return;
+  try {
+    await exigirEquipe(req, ["DONO", "SUPORTE", "FINANCEIRO", "COMERCIAL"]);
+    const b = req.body || {}, txt6 = String(b.texto || "").slice(0, 4e3);
+    if (b.acao === "reescrever") {
+      if (!txt6.trim()) throw Object.assign(new Error("Escreva a mensagem primeiro"), { status: 400 });
+      return res.json({ texto: await groq([{ role: "system", content: REGRAS }, { role: "user", content: `${ESTILOS[b.estilo] || ESTILOS.corrigir} Devolva s\xF3 a mensagem pronta, sem aspas e sem coment\xE1rios.
+
+Mensagem:
+${txt6}` }], { temperatura: 0.3 }) });
+    }
+    if (b.acao === "traduzir") {
+      if (!txt6.trim()) throw Object.assign(new Error("Nada para traduzir"), { status: 400 });
+      return res.json({ texto: await groq([{ role: "system", content: "Voc\xEA \xE9 um tradutor. Devolva s\xF3 a tradu\xE7\xE3o, sem aspas e sem coment\xE1rios." }, { role: "user", content: `Traduza para ${IDIOMAS[b.idioma] || IDIOMAS.pt}:
+
+${txt6}` }], { temperatura: 0.1 }) });
+    }
+    if (b.acao === "modelo") {
+      const p = String(b.pedido || "").slice(0, 600);
+      if (p.length < 5) throw Object.assign(new Error("Descreva a situa\xE7\xE3o"), { status: 400 });
+      const t = await groq([{ role: "system", content: REGRAS }, { role: "user", content: `Escreva uma resposta r\xE1pida (modelo reutiliz\xE1vel) para o atendimento usar nesta situa\xE7\xE3o: "${p}". Use estas vari\xE1veis quando fizer sentido: {nome} (primeiro nome do cliente), {atendente}, {protocolo}, {contrato}, {parcela}, {valor}, {venc}, {loja}. No m\xE1ximo 4 frases. Responda em JSON: {"titulo":"t\xEDtulo curto de at\xE9 4 palavras","categoria":"Sauda\xE7\xE3o|Pagamento|Cobran\xE7a|Aparelho|Cr\xE9dito|Suporte|Encerramento","texto":"..."}` }], { temperatura: 0.4, json: true });
+      let j = {};
+      try {
+        j = JSON.parse(t);
+      } catch (e) {
+        j = { titulo: "Nova resposta", categoria: "Suporte", texto: t };
+      }
+      return res.json(j);
+    }
+    const conversa = String(b.conversa || "").slice(-9e3), ficha = String(b.ficha || "").slice(0, 2500);
+    if (b.acao === "automatica") {
+      const base3 = await baseConhecimento();
+      const t = await groq([{ role: "system", content: REGRAS + "\n\n" + base3.texto }, { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
+Cliente: ${String(b.cliente || "").slice(0, 80)}
+
+Ficha do cliente:
+${ficha}
+
+Conversa:
+${conversa}
+
+${PEDIDO_AUTO}` }], { temperatura: 0.2, json: true });
+      let j = {};
+      try {
+        j = JSON.parse(t);
+      } catch (e) {
+        j = { resposta: t, humano: true };
+      }
+      return res.json({ texto: String(j.resposta || ""), humano: !!j.humano });
+    }
+    const base2 = b.acao === "sugestao" ? await baseConhecimento().catch(() => ({ texto: "" })) : { texto: "" };
+    const pedido = b.acao === "resumo" ? 'Resuma este atendimento em no m\xE1ximo 3 linhas curtas: o que o cliente quer, o que j\xE1 foi feito e o que falta fazer. Use t\xF3picos iniciados por "- ".' : `Escreva a pr\xF3xima mensagem que o atendente ${String(b.atendente || "").slice(0, 30)} deve mandar ao cliente, pronta para enviar, com no m\xE1ximo 3 frases. Use os dados da ficha quando ajudarem (parcelas, atraso, aparelho) e as respostas aprovadas como base. ${ESTILOS[b.estilo] ? "Estilo: " + ESTILOS[b.estilo] : ""} Se o cliente escreveu em espanhol, responda em espanhol.`;
+    const texto = await groq([
+      { role: "system", content: REGRAS + (base2.texto ? "\n\n" + base2.texto : "") },
+      { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
+Cliente: ${String(b.cliente || "").slice(0, 80)}
+
+Ficha do cliente:
+${ficha}
+
+Conversa:
+${conversa}
+
+${pedido}` }
+    ], { temperatura: b.acao === "resumo" ? 0.1 : 0.4, max: 300 });
+    return res.json({ texto });
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
+// api/crm-auto.js
+var MAX_SEGUIDAS = 3;
+var brl5 = (n) => "R$ " + (Number(n) || 0).toFixed(2).replace(".", ",");
+var fmtD = (d) => String(d || "").slice(0, 10).split("-").reverse().join("/");
+function dentroDoHorario(cfg, agora = Date.now()) {
+  const d = new Date(agora - 3 * 36e5), dia = d.getUTCDay(), m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const hm = (s, p) => {
+    const [h, mi] = String(s || p).split(":").map(Number);
+    return h * 60 + (mi || 0);
+  };
+  if (dia === 0 && !cfg.iaDomingo) return false;
+  const ini = hm(cfg.iaHoraIni, "08:00"), fim = hm(dia === 6 ? cfg.iaHoraFimSab || "13:00" : cfg.iaHoraFim, "19:00");
+  return m >= ini && m < fim;
+}
+async function fichaDe({ cpf, token, numero }) {
+  let vs = [];
+  try {
+    if (cpf) vs = (await db.collection("vendas").where("clienteCpf", "==", cpf).get()).docs.map((d) => d.data());
+    else if (token) vs = (await db.collection("vendas").where("aparelhoToken", "==", token).get()).docs.map((d) => d.data());
+    else if (numero) vs = (await db.collection("vendas").where("numero", "==", Number(numero)).get()).docs.map((d) => d.data());
+  } catch (e) {
+  }
+  if (!vs.length) return "Cliente sem contrato encontrado.";
+  const h = hoje();
+  return vs.filter((v) => !["REPROVADA", "CANCELADA"].includes(v.status)).slice(0, 3).map((v) => {
+    const ab = (v.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)), atr = ab.filter((p) => p.venc < h);
+    return `Contrato n\xBA ${v.numero} (${v.status}) \xB7 ${[v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(" ")} \xB7 loja ${v.lojaNome || ""}. ${ab.length} parcela(s) em aberto${ab[0] ? `, a pr\xF3xima \xE9 a ${ab[0].n}\xAA de ${brl5(ab[0].valor)} com vencimento em ${fmtD(ab[0].venc)}` : ""}. ` + (atr.length ? `${atr.length} em atraso, total ${brl5(atr.reduce((s, p) => s + (+p.valor || 0), 0))} (desde ${fmtD(atr[0].venc)}).` : "Sem atraso.");
+  }).join("\n");
+}
+async function responder(base2, canal, cliente, ficha, conversa) {
+  const t = await groq([{ role: "system", content: REGRAS + "\n\n" + base2.texto }, { role: "user", content: `Canal: ${canal}
+Cliente: ${cliente}
+
+Ficha do cliente:
+${ficha}
+
+Conversa:
+${conversa}
+
+${PEDIDO_AUTO}` }], { temperatura: 0.2, max: 350, json: true });
+  let j = {};
+  try {
+    j = JSON.parse(t);
+  } catch (e) {
+    j = { resposta: "", humano: true };
+  }
+  const resposta = String(j.resposta || "").trim() || "Recebemos a sua mensagem. Um atendente da NexumCell vai continuar o seu atendimento assim que poss\xEDvel.";
+  return { resposta, humano: !!j.humano };
+}
+var seguidasIA = (msgs, ehCliente) => {
+  let n = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (ehCliente(m)) continue;
+    if (m.ia) n++;
+    else if (!m.auto) break;
+  }
+  return n;
+};
+async function crmIaAutomatica() {
+  const base2 = await baseConhecimento(), cfg = base2.cfg;
+  if (!cfg.iaAuto) return { iaAuto: "desligada" };
+  if (cfg.iaAutoSoFora && dentroDoHorario(cfg)) return { iaAuto: "hor\xE1rio de atendimento" };
+  const espera = Math.max(1, Number(cfg.iaAutoMin) || 5) * 6e4, agora = Date.now(), r = { iaApp: 0, iaWa: 0, iaHumano: 0 };
+  const sa = (await db.collection("suporteApp").where("naoLidoSuporte", "==", true).get()).docs;
+  for (const s of sa.slice(0, 25)) {
+    const c = s.data();
+    if (c.iaHumano && (c.iaUltimaEm || 0) > agora - 864e5 || (c.atualizadoEm || 0) > agora - espera) continue;
+    const msgs = (await s.ref.collection("msgs").get()).docs.map((d) => d.data()).sort((a, b) => a.em - b.em), ult = msgs[msgs.length - 1];
+    if (!ult || ult.de !== "cliente" || ult.em > agora - espera || seguidasIA(msgs, (m) => m.de === "cliente") >= MAX_SEGUIDAS) continue;
+    try {
+      const conversa = msgs.slice(-14).map((m) => `${m.de === "cliente" ? "Cliente" : "NexumCell"}: ${String(m.texto || "").slice(0, 500)}`).join("\n");
+      const x = await responder(base2, "chat do app", c.clienteNome || "Cliente", await fichaDe({ token: s.id, numero: c.vendaNumero }), conversa);
+      await s.ref.collection("msgs").add({ de: "suporte", texto: x.resposta, em: Date.now(), porNome: "Assistente NexumCell", auto: true, ia: true });
+      await s.ref.set({ naoLidoCliente: true, ultimaMsg: x.resposta.slice(0, 200), iaUltimaEm: Date.now(), ...x.humano ? { iaHumano: true } : {} }, { merge: true });
+      pushNotificacao(s.id, "NexumCell respondeu", x.resposta.slice(0, 120)).catch(() => {
+      });
+      r.iaApp++;
+      if (x.humano) r.iaHumano++;
+    } catch (e) {
+      console.error("ia app", e.message);
+      if (/sem chave/.test(e.message)) return { iaAuto: e.message };
+    }
+  }
+  if (cfg.iaAutoWa !== false) {
+    const wa = (await db.collection("waConversas").where("naoLido", "==", true).get()).docs;
+    for (const s of wa.slice(0, 25)) {
+      const c = s.data();
+      if (c.iaHumano && (c.iaUltimaEm || 0) > agora - 864e5 || c.aguardandoMenu || c.fim || (c.atualizadoEm || 0) > agora - espera) continue;
+      const msgs = (await s.ref.collection("msgs").get()).docs.map((d) => d.data()).sort((a, b) => a.em - b.em), ult = msgs[msgs.length - 1];
+      if (!ult || ult.de !== "cliente" || ult.em > agora - espera || seguidasIA(msgs, (m) => m.de === "cliente") >= MAX_SEGUIDAS) continue;
+      try {
+        const conversa = msgs.slice(-14).map((m) => `${m.de === "cliente" ? "Cliente" : "NexumCell"}: ${String(m.t || "").slice(0, 500)}`).join("\n");
+        const x = await responder(base2, "WhatsApp", c.nome || "Cliente", await fichaDe({ cpf: c.cpf }), conversa);
+        await db.collection("waSaida").add({ numero: s.id, texto: x.resposta, status: "PENDENTE", em: Date.now(), por: "Assistente NexumCell (IA)", ia: true });
+        await s.ref.collection("msgs").add({ de: "equipe", t: x.resposta, em: Date.now(), por: "Assistente NexumCell (IA)", auto: true, ia: true });
+        await s.ref.set({ ultimaMsg: x.resposta.slice(0, 200), ultimaDe: "equipe", iaUltimaEm: Date.now(), ...x.humano ? { iaHumano: true } : {} }, { merge: true });
+        r.iaWa++;
+        if (x.humano) r.iaHumano++;
+      } catch (e) {
+        console.error("ia wa", e.message);
+        if (/sem chave/.test(e.message)) return { iaAuto: e.message };
+      }
+    }
+  }
+  return r;
+}
+
+// api/comportamento.js
+var dias3 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
+var soD2 = (s) => String(s || "").replace(/\D/g, "");
+var isoBr = (ms) => new Date(ms - 3 * 36e5).toISOString();
+async function alertar(id, a) {
+  const ref = db.collection("alertasSeg").doc(id.replace(/[^\w-]/g, "_").slice(0, 140));
+  if ((await ref.get()).exists) return 0;
+  await ref.set({ em: Date.now(), visto: false, origem: "comportamento", ...a });
+  return 1;
+}
+async function alertasComportamento(cfg = {}) {
+  const agora = Date.now(), h = hoje(), desde = agora - 120 * 864e5;
+  const vs = (await db.collection("vendas").where("criadoEm", ">=", desde).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const lojas = Object.fromEntries((await db.collection("lojas").get()).docs.map((d) => [d.id, d.data()]));
+  let n = 0;
+  const minEnt = Number(cfg.entradaPct) || 0;
+  const v30 = vs.filter((v) => v.criadoEm >= agora - 30 * 864e5), porVend = {};
+  v30.forEach((v) => {
+    const k = v.vendedorUid || v.criadoPorUid;
+    if (k) (porVend[k] ||= []).push(v);
+  });
+  for (const [uid, l] of Object.entries(porVend)) {
+    const canc = l.filter((v) => v.status === "CANCELADA");
+    if (canc.length >= 3 && canc.length / l.length >= 0.25)
+      n += await alertar(`cmp_canc_${uid}_${h.slice(0, 7)}`, { tipo: "Muitos cancelamentos", detalhe: `${canc.length} de ${l.length} vendas canceladas nos \xFAltimos 30 dias. Confira os motivos e se o aparelho voltou para o estoque.`, nome: l[0].vendedorNome || "", role: "VENDEDOR", lojaNome: l[0].lojaNome || "", grav: canc.length >= 5 ? "alta" : "media", uid });
+  }
+  for (const v of vs.filter((x) => x.criadoEm >= agora - 7 * 864e5 && !["CANCELADA", "REPROVADA"].includes(x.status))) {
+    const val = Number(v.valor) || 0, ent = Number(v.entrada) || 0;
+    if (minEnt && val > 0 && ent / val * 100 < minEnt - 5)
+      n += await alertar(`cmp_ent_${v.id}`, { tipo: "Entrada abaixo do m\xEDnimo", detalhe: `Contrato n\xBA ${v.numero}: entrada de ${Math.round(ent / val * 100)}% (m\xEDnimo ${minEnt}%). Confira se houve desconto autorizado.`, nome: v.vendedorNome || "", role: "VENDEDOR", lojaNome: v.lojaNome || "", grav: ent / val * 100 < minEnt / 2 ? "alta" : "media", vendaId: v.id });
+    const hr = lojas[v.lojaId]?.horario;
+    if (hr?.abre && hr?.fecha) {
+      const t = isoBr(v.criadoEm), hm = t.slice(11, 16), dow = (/* @__PURE__ */ new Date(t.slice(0, 10) + "T12:00:00Z")).getUTCDay(), fecha = dow === 6 && hr.sabadoFecha ? hr.sabadoFecha : hr.fecha;
+      if (dow === 0 && !hr.domingo || hm < hr.abre || hm > fecha)
+        n += await alertar(`cmp_hor_${v.id}`, { tipo: "Venda fora do hor\xE1rio da loja", detalhe: `Contrato n\xBA ${v.numero} feito em ${t.slice(0, 10).split("-").reverse().join("/")} \xE0s ${hm} (loja abre ${hr.abre}\u2013${fecha}${dow === 0 ? ", domingo" : ""}).`, nome: v.vendedorNome || "", role: "VENDEDOR", lojaNome: v.lojaNome || "", grav: "media", vendaId: v.id });
+    }
+  }
+  const porTel = {};
+  vs.filter((v) => !["REPROVADA"].includes(v.status)).forEach((v) => {
+    const t = soD2((v.cliente?.telefones || [])[0] || v.clienteTel1 || v.cliente?.telefone).slice(-11);
+    if (t.length >= 10) (porTel[t] ||= []).push(v);
+  });
+  for (const [t, l] of Object.entries(porTel)) {
+    const cpfs = [...new Set(l.map((v) => v.clienteCpf))];
+    if (cpfs.length < 2) continue;
+    n += await alertar(`cmp_tel_${t}_${cpfs.sort().join("_")}`, { tipo: "Mesmo telefone em CPFs diferentes", detalhe: `O telefone final ${t.slice(-4)} aparece em ${cpfs.length} clientes: ${l.map((v) => `${v.clienteNome} (n\xBA ${v.numero}, ${v.lojaNome || ""})`).join("; ")}.`, nome: [...new Set(l.map((v) => v.vendedorNome).filter(Boolean))].join(", "), role: "VENDEDOR", lojaNome: [...new Set(l.map((v) => v.lojaNome).filter(Boolean))].join(", "), grav: "alta" });
+  }
+  const fpd = {};
+  vs.filter((v) => v.status !== "CANCELADA" && v.status !== "REPROVADA" && (v.parcelas || [])[0]).forEach((v) => {
+    const p = v.parcelas[0];
+    if (dias3(p.venc, h) < 5) return;
+    const k = v.vendedorUid || v.criadoPorUid;
+    if (!k) return;
+    const r = fpd[k] ||= { n: 0, ruins: 0, nome: v.vendedorNome || "", loja: v.lojaNome || "" };
+    r.n++;
+    if (!p.pago) r.ruins++;
+  });
+  for (const [uid, r] of Object.entries(fpd)) if (r.ruins >= 3 && r.ruins / r.n >= 0.3)
+    n += await alertar(`cmp_fpd_${uid}_${h.slice(0, 7)}`, { tipo: "Muitas 1\xAA parcelas n\xE3o pagas", detalhe: `${r.ruins} de ${r.n} clientes deste vendedor n\xE3o pagaram a 1\xAA parcela. Revise as vendas e o treinamento de an\xE1lise.`, nome: r.nome, role: "VENDEDOR", lojaNome: r.loja, grav: r.ruins / r.n >= 0.5 ? "alta" : "media", uid });
+  return { alertasComportamento: n };
+}
+
 // api/cron.js
-var dias3 = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
-var brl5 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+var dias4 = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
+var brl6 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 var dataBR = (d) => String(d || "").split("-").reverse().join("/");
 var primeiroNome2 = (n) => String(n || "").trim().split(/\s+/)[0] || "";
 var urlCliente = () => process.env.PORTAL_CLIENTE_URL || (process.env.PORTAL_ORIGEM || "https://nexumrh.github.io") + "/cliente/";
@@ -2852,9 +3124,9 @@ function dadosAviso(v, cfg, tipo) {
   const atrasadas = abertas.filter((p2) => p2.venc < hoje()), p = (tipo === "atraso" ? atrasadas[0] : abertas[0]) || abertas[0] || {};
   const ap = { descontoPct: cfg.descontoAntecipadoPct, multaPct: cfg.multaPct, moraDiaPct: cfg.moraDiaPct };
   const valor = tipo === "atraso" ? r2(atrasadas.reduce((s, x) => s + encargos(x, ap), 0)) : p.valor ? encargos(p, ap) : 0;
-  const nome = primeiroNome2(v.clienteNome), loja = cfg.empresa || "NexumCell", d = p.venc ? Math.max(0, dias3(p.venc, hoje())) : 0;
-  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl5(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl5(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
-  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl5(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
+  const nome = primeiroNome2(v.clienteNome), loja = cfg.empresa || "NexumCell", d = p.venc ? Math.max(0, dias4(p.venc, hoje())) : 0;
+  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl6(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl6(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
+  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl6(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
 }
 async function vendasAtivas() {
   return (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -2864,13 +3136,22 @@ async function regua(cfg, vendas) {
   const passos = (cfg.regua || []).filter((x) => x && Number.isFinite(+x.dia) && (x.canais || []).length);
   const max = Number(process.env.ROTINA_MAX) || 1e3;
   let enviados = 0, falhas = 0, restantes = 0;
+  const promessas = {};
+  try {
+    (await db.collection("crmPromessas").where("status", "==", "PENDENTE").get()).docs.forEach((d) => {
+      const p = d.data();
+      if (p.vendaId && p.data) promessas[p.vendaId] = p.data > (promessas[p.vendaId] || "") ? p.data : promessas[p.vendaId];
+    });
+  } catch (e) {
+  }
   for (const v of vendas) {
     if (v.pixAutomatico?.status === "ATIVO") continue;
     const abertas = (v.parcelas || []).filter((p2) => !p2.pago).sort((a, b) => a.venc.localeCompare(b.venc));
     if (!abertas.length) continue;
-    const atrasada = abertas.find((p2) => p2.venc < hoje()), p = atrasada || abertas[0], d = dias3(p.venc, hoje());
+    const atrasada = abertas.find((p2) => p2.venc < hoje()), p = atrasada || abertas[0], d = dias4(p.venc, hoje());
     const passo = passos.find((x) => +x.dia === d);
     if (!passo) continue;
+    if (promessas[v.id] && promessas[v.id] >= hoje()) continue;
     const chave = `${p.n}:R${d}`;
     if (v.avisosBrevo?.[chave]) continue;
     if (enviados + falhas >= max) {
@@ -2945,7 +3226,7 @@ async function filaRotina(vendas) {
       clienteNome: v.clienteNome || "",
       tel: (v.cliente?.telefones || [])[0] || "",
       aparelho: [v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(" "),
-      dias: atr.length ? dias3(atr[0].venc, h) : 0,
+      dias: atr.length ? dias4(atr[0].venc, h) : 0,
       valor: r2((atr.length ? atr : [abertas[0]]).reduce((s, p) => s + (+p.valor || 0), 0)),
       venc: (atr[0] || abertas[0]).venc,
       lembrete: !atr.length,
@@ -2969,7 +3250,7 @@ async function preAprovados(cfg) {
     if (n >= max) break;
     const ok = vs.every((v) => {
       const ps = v.parcelas || [], pagas = ps.filter((p) => p.pago);
-      const atrasoMax = Math.max(0, ...pagas.map((p) => p.pagoEm ? dias3(p.venc, String(p.pagoEm).slice(0, 10)) : 0));
+      const atrasoMax = Math.max(0, ...pagas.map((p) => p.pagoEm ? dias4(p.venc, String(p.pagoEm).slice(0, 10)) : 0));
       const aberto = ps.some((p) => !p.pago && p.venc < hoje()), faltam = ps.length - pagas.length;
       return !aberto && atrasoMax <= 3 && !(v.acordos || []).length && (v.status === "QUITADA" || ps.length >= 2 && faltam <= 1);
     });
@@ -2999,7 +3280,7 @@ async function lembretes(cfg, vendas) {
     if (v.pixAutomatico?.status === "ATIVO") continue;
     const abertas = (v.parcelas || []).filter((p2) => !p2.pago).sort((a, b) => a.venc.localeCompare(b.venc));
     if (!abertas.length) continue;
-    const p = abertas[0], d = dias3(hoje(), p.venc);
+    const p = abertas[0], d = dias4(hoje(), p.venc);
     let tipo = null, chave = "";
     if (d === antes || d === 0) {
       tipo = "lembrete";
@@ -3030,7 +3311,7 @@ async function roboVoz(cfg, vendas) {
     if (ligados + desligados + erros >= max) break;
     const cust = v.asaas?.customer;
     if (!cust) continue;
-    const atraso = Math.max(0, ...(v.parcelas || []).filter((p) => !p.pago).map((p) => dias3(p.venc, hoje())));
+    const atraso = Math.max(0, ...(v.parcelas || []).filter((p) => !p.pago).map((p) => dias4(p.venc, hoje())));
     const querLigado = atraso >= limite;
     if (querLigado === !!v.roboVoz?.ligado) continue;
     try {
@@ -3081,9 +3362,9 @@ async function resumoDoDia(cfg) {
   });
   const linhas = [
     `Vendas hoje: ${ativadas.length} ativada(s)${novas.length > ativadas.length ? ` + ${novas.length - ativadas.length} em andamento` : ""}${Object.keys(porLoja).length ? " (" + Object.entries(porLoja).map(([l, n]) => `${l}: ${n}`).join(", ") + ")" : ""}`,
-    `Entradas recebidas: ${brl5(entradas)}`,
-    `Parcelas recebidas: ${nParc} \xB7 ${brl5(recebido)}`,
-    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl5(atrasoValor)}`,
+    `Entradas recebidas: ${brl6(entradas)}`,
+    `Parcelas recebidas: ${nParc} \xB7 ${brl6(recebido)}`,
+    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl6(atrasoValor)}`,
     `Vencem amanh\xE3: ${amanha.length} contrato(s)`,
     analise ? `Propostas esperando an\xE1lise: ${analise}` : "",
     semSinal.length ? `\u26A0\uFE0F Aparelhos sem sinal h\xE1 mais de ${semSinalDias} dias: ${semSinal.length} (${semSinal.slice(0, 5).map((a) => "n\xBA " + a.vendaNumero).join(", ")}${semSinal.length > 5 ? "\u2026" : ""})` : ""
@@ -3196,6 +3477,11 @@ async function rotinas(qual) {
     } catch (e) {
       console.error("emprestimo", e.message);
     }
+    try {
+      r.crmIa = await crmIaAutomatica();
+    } catch (e) {
+      console.error("crmIa", e.message);
+    }
     return r;
   }
   let ios = {};
@@ -3206,6 +3492,11 @@ async function rotinas(qual) {
   }
   if (qual === "noite") {
     const r = await resumoDoDia(cfg);
+    try {
+      Object.assign(r, await alertasComportamento(cfg));
+    } catch (e) {
+      console.error("comportamento", e.message);
+    }
     try {
       r.saas = await saasRotina();
     } catch (e) {
@@ -3294,7 +3585,7 @@ async function rotinas(qual) {
 }
 
 // api/avisos.js
-async function handler14(req, res) {
+async function handler15(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3466,7 +3757,7 @@ var resumo2 = (j) => ({
   qrcode: j.qrcode_url || "",
   em: Date.now()
 });
-async function handler15(req, res) {
+async function handler16(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3527,7 +3818,7 @@ function htmlParaMarkdown(html) {
   return String(html || "").replace(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gis, "\n## $1\n").replace(/<h4[^>]*>(.*?)<\/h4>/gis, "\n### $1\n").replace(/<(b|strong)>(.*?)<\/\1>/gis, "**$2**").replace(/<li[^>]*>/gi, "\n- ").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 var ipDo = (req) => String(req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || "").trim();
-async function handler16(req, res) {
+async function handler17(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3601,7 +3892,7 @@ async function handler16(req, res) {
 }
 
 // api/zapsign-webhook.js
-async function handler17(req, res) {
+async function handler18(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   if (process.env.ZAPSIGN_WEBHOOK_TOKEN && req.headers["x-nexum-token"] !== process.env.ZAPSIGN_WEBHOOK_TOKEN) return res.status(401).json({ erro: "token inv\xE1lido" });
   try {
@@ -3784,7 +4075,7 @@ async function avisarDono(assunto, texto) {
     console.error("aviso dono", e.message);
   }
 }
-async function handler18(req, res) {
+async function handler19(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3940,7 +4231,7 @@ Aprove no Painel do Dono \u2192 Lojas parceiras.`);
 }
 
 // api/push.js
-async function handler19(req, res) {
+async function handler20(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3982,7 +4273,7 @@ async function acharVenda(token) {
   if (Date.now() - (v.remota?.criadoEm || 0) > 7 * 864e5) throw erro6("Este link venceu. Pe\xE7a um novo ao vendedor.", 410);
   return { id: d.id, v };
 }
-async function handler20(req, res) {
+async function handler21(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4265,7 +4556,7 @@ async function liberarBot(token, pedido) {
   await registrarBot(ap, v, `Pediu libera\xE7\xE3o pelo app; a assistente n\xE3o liberou (${motivoBot}). Pedido enviado ao suporte.`, agora);
   return { ok: false, pendente: true, sugestao };
 }
-async function handler21(req, res) {
+async function handler22(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4284,7 +4575,7 @@ async function handler21(req, res) {
 
 // api/ios.js
 var erro8 = (m, s = 400) => Object.assign(new Error(m), { status: s });
-async function handler22(req, res) {
+async function handler23(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4375,7 +4666,7 @@ ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
 <p class="muted">C\xF3digo v\xE1lido s\xF3 hoje. D\xFAvidas: fale com o Dono/Suporte Nexum.</p>`}</div></body></html>`;
 }
-async function handler23(req, res) {
+async function handler24(req, res) {
   if (cors(req, res)) return;
   if (!SEG()) return res.status(500).json({ erro: "MESTRE_REMOCAO n\xE3o configurado no servidor." });
   if (req.method === "GET") {
@@ -4396,7 +4687,7 @@ async function handler23(req, res) {
 // api/lead.js
 var txt4 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n || 120);
 var dig4 = (s) => String(s || "").replace(/\D/g, "");
-async function handler24(req, res) {
+async function handler25(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ erro: "M\xE9todo n\xE3o permitido" });
   try {
@@ -4423,45 +4714,9 @@ async function handler24(req, res) {
   }
 }
 
-// api/crm-ia.js
-var MODELO3 = process.env.GROQ_MODELO_CRM || "llama-3.3-70b-versatile";
-var REGRAS = "Voc\xEA trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece cr\xE9dito. Responda sempre em portugu\xEAs do Brasil, com educa\xE7\xE3o e frases curtas. Nunca prometa aprova\xE7\xE3o de cr\xE9dito, desconto ou libera\xE7\xE3o que a equipe n\xE3o confirmou. Nunca pe\xE7a senha, c\xF3digo ou pagamento em conta de terceiros. Pagamento \xE9 s\xF3 pelo app NexumCell (aba Parcelas \u2192 Pix) ou pelo Pix enviado pela equipe.";
-async function handler25(req, res) {
-  if (cors(req, res)) return;
-  try {
-    await exigirEquipe(req, ["DONO", "SUPORTE", "FINANCEIRO", "COMERCIAL"]);
-    const b = req.body || {}, chave = await chaveIA();
-    if (!chave) return res.status(400).json({ erro: "IA sem chave: coloque a chave da IA em Configura\xE7\xF5es do Painel do Dono" });
-    const conversa = String(b.conversa || "").slice(-9e3), ficha = String(b.ficha || "").slice(0, 2500);
-    const pedido = b.acao === "resumo" ? 'Resuma este atendimento em no m\xE1ximo 3 linhas curtas: o que o cliente quer, o que j\xE1 foi feito e o que falta fazer. Use t\xF3picos iniciados por "- ".' : `Escreva a pr\xF3xima mensagem que o atendente ${String(b.atendente || "").slice(0, 30)} deve mandar ao cliente, pronta para enviar, com no m\xE1ximo 3 frases. Use os dados da ficha quando ajudarem (parcelas, atraso, aparelho). N\xE3o use emojis.`;
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODELO3, temperature: b.acao === "resumo" ? 0.1 : 0.4, max_tokens: 300, messages: [
-        { role: "system", content: REGRAS },
-        { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
-Cliente: ${String(b.cliente || "").slice(0, 80)}
-
-Ficha do cliente:
-${ficha}
-
-Conversa:
-${conversa}
-
-${pedido}` }
-      ] })
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(502).json({ erro: "IA: " + (j.error?.message || r.status) });
-    return res.json({ texto: String(j.choices?.[0]?.message?.content || "").trim() });
-  } catch (e) {
-    return res.status(e.status || 500).json({ erro: e.message });
-  }
-}
-
 // api/ouvidoria.js
 var PRAZO_UTEIS = 10;
-var soD2 = (s) => String(s || "").replace(/\D/g, "");
+var soD3 = (s) => String(s || "").replace(/\D/g, "");
 var txt5 = (s, n) => String(s || "").replace(/[<>]/g, "").trim().slice(0, n);
 var erro9 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 var TIPOS2 = ["RECLAMACAO", "DENUNCIA", "SUGESTAO", "ELOGIO", "LGPD"];
@@ -4474,7 +4729,7 @@ function maisUteis(d, n) {
   return x.toISOString().slice(0, 10);
 }
 function cpfOk4(c) {
-  c = soD2(c);
+  c = soD3(c);
   if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
   for (let t = 9; t < 11; t++) {
     let s = 0;
@@ -4488,15 +4743,15 @@ async function handler26(req, res) {
   try {
     const b = req.body || {};
     if (b.acao === "abrir") {
-      const cpf = soD2(b.cpf), nome = txt5(b.nome, 100), relato = txt5(b.relato, 4e3), tipo = TIPOS2.includes(b.tipo) ? b.tipo : "RECLAMACAO";
+      const cpf = soD3(b.cpf), nome = txt5(b.nome, 100), relato = txt5(b.relato, 4e3), tipo = TIPOS2.includes(b.tipo) ? b.tipo : "RECLAMACAO";
       if (nome.length < 3) throw erro9("Informe o seu nome.");
       if (!cpfOk4(cpf)) throw erro9("CPF inv\xE1lido.");
       if (relato.length < 15) throw erro9("Conte o que aconteceu (pelo menos 15 letras).");
-      if (soD2(b.telefone).length < 10 && !/@/.test(b.email || "")) throw erro9("Informe um WhatsApp ou e-mail para a resposta.");
+      if (soD3(b.telefone).length < 10 && !/@/.test(b.email || "")) throw erro9("Informe um WhatsApp ou e-mail para a resposta.");
       const ini = Date.now() - 864e5, doDia = (await db.collection("ouvidoria").where("cpf", "==", cpf).get()).docs.filter((d) => (d.data().em || 0) >= ini).length;
       if (doDia >= 3) throw erro9("Voc\xEA j\xE1 abriu protocolos hoje. Aguarde a resposta.", 429);
       const protocolo = "OUV" + (/* @__PURE__ */ new Date()).toISOString().slice(2, 10).replace(/-/g, "") + String(Math.floor(Math.random() * 1e5)).padStart(5, "0");
-      const doc = { protocolo, cpf, nome, telefone: soD2(b.telefone).slice(0, 13), email: txt5(b.email, 120), tipo, assunto: txt5(b.assunto, 120), relato, status: "ABERTO", em: Date.now(), prazo: maisUteis(/* @__PURE__ */ new Date(), PRAZO_UTEIS), historico: [{ em: Date.now(), por: "Cliente", obs: "Protocolo aberto" }], ip: req.headers["cf-connecting-ip"] || "" };
+      const doc = { protocolo, cpf, nome, telefone: soD3(b.telefone).slice(0, 13), email: txt5(b.email, 120), tipo, assunto: txt5(b.assunto, 120), relato, status: "ABERTO", em: Date.now(), prazo: maisUteis(/* @__PURE__ */ new Date(), PRAZO_UTEIS), historico: [{ em: Date.now(), por: "Cliente", obs: "Protocolo aberto" }], ip: req.headers["cf-connecting-ip"] || "" };
       await db.collection("ouvidoria").doc(protocolo).set(doc);
       try {
         if (brevoLigado() && process.env.DONO_EMAIL) await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `Ouvidoria ${protocolo}: ${tipo.toLowerCase()} de ${nome}`, titulo: "Novo protocolo na ouvidoria", texto: `${nome} (CPF final ${cpf.slice(-3)})
@@ -4512,7 +4767,7 @@ Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
     }
     if (b.acao === "consultar") {
       const p = (await db.collection("ouvidoria").doc(txt5(b.protocolo, 20).toUpperCase()).get()).data();
-      if (!p || p.cpf.slice(-4) !== soD2(b.cpfFim)) throw erro9("Protocolo n\xE3o encontrado. Confira o n\xFAmero e os 4 \xFAltimos d\xEDgitos do CPF.", 404);
+      if (!p || p.cpf.slice(-4) !== soD3(b.cpfFim)) throw erro9("Protocolo n\xE3o encontrado. Confira o n\xFAmero e os 4 \xFAltimos d\xEDgitos do CPF.", 404);
       return res.json({ protocolo: p.protocolo, status: p.status, prazo: p.prazo, tipo: p.tipo, assunto: p.assunto, em: p.em, resposta: p.resposta || "", respondidoEm: p.respondidoEm || null });
     }
     if (b.acao === "responder") {
@@ -4530,7 +4785,7 @@ Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
 }
 
 // worker/index.js
-var ROTAS = { equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler25, ouvidoria: handler26, ios: handler22, codigo, acordo, instalacao: handler11, "cliente-app": handler21, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler14, nf: handler15, assinatura: handler16, "zapsign-webhook": handler17, preanalise: handler4, credenciamento: handler18, push: handler19, saas: handler7, motor: handler12, repasse: handler10, remota: handler20, "remover-codigo": handler23, lead: handler24 };
+var ROTAS = { equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler26, ios: handler23, codigo, acordo, instalacao: handler11, "cliente-app": handler22, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler15, nf: handler16, assinatura: handler17, "zapsign-webhook": handler18, preanalise: handler4, credenciamento: handler19, push: handler20, saas: handler7, motor: handler12, repasse: handler10, remota: handler21, "remover-codigo": handler24, lead: handler25 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};

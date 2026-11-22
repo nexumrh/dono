@@ -1,0 +1,40 @@
+# Confere se o servidor NexumCell (Cloudflare) está no ar a cada 30 minutos.
+# Se cair, abre um aviso (issue) neste repositório: o GitHub manda e-mail para você.
+# Quando voltar, fecha o aviso sozinho. O endereço do servidor vem do Firestore (publico/vitrine → servidor).
+name: Monitor do servidor
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+permissions:
+  issues: write
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir o servidor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          SERV=$(curl -s --max-time 20 "https://firestore.googleapis.com/v1/projects/nexumcell/databases/(default)/documents/publico/vitrine" | python3 -c "import sys,json; print(json.load(sys.stdin).get('fields',{}).get('servidor',{}).get('stringValue','').rstrip('/'))" 2>/dev/null)
+          if [ -z "$SERV" ]; then echo "Endereço do servidor não configurado na vitrine"; exit 0; fi
+          OK=0
+          for i in 1 2 3; do
+            CODE=$(curl -s -o /tmp/r.txt -w "%{http_code}" --max-time 20 "$SERV/api" || echo 000)
+            if [ "$CODE" = "200" ] && grep -q "no ar" /tmp/r.txt; then OK=1; break; fi
+            sleep 30
+          done
+          ABERTO=$(gh issue list -R "$REPO" --label servidor-fora --state open --json number --jq '.[0].number' 2>/dev/null)
+          if [ "$OK" = "1" ]; then
+            echo "Servidor no ar"
+            if [ -n "$ABERTO" ]; then gh issue close "$ABERTO" -R "$REPO" -c "O servidor voltou a responder em $(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M')."; fi
+          else
+            echo "Servidor fora do ar (código $CODE)"
+            if [ -z "$ABERTO" ]; then
+              gh label create servidor-fora -R "$REPO" --color B60205 --description "Servidor NexumCell fora do ar" 2>/dev/null || true
+              gh issue create -R "$REPO" --label servidor-fora --title "Servidor NexumCell fora do ar" --body "O servidor ($SERV) não respondeu em 3 tentativas às $(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M') (código $CODE).
+
+          O que conferir: painel da Cloudflare (Workers) → nexumcell → Logs; se o código foi colado com erro, cole de novo o servidor-colar.js. Este aviso fecha sozinho quando o servidor voltar."
+            fi
+          fi

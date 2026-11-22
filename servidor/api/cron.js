@@ -19,6 +19,8 @@ import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MOD
 import { iosRotina } from './_ios.js';
 import { autoAprovarEquipe } from './equipe.js';
 import { iaAutonomaRotina } from './ia-autonoma.js';
+import { crmIaAutomatica } from './crm-auto.js';
+import { alertasComportamento } from './comportamento.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
 const brl = (n) => 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -48,11 +50,13 @@ const preencher = (t, dd) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => ({ 
 async function regua(cfg, vendas) {
   const passos = (cfg.regua || []).filter((x) => x && Number.isFinite(+x.dia) && (x.canais || []).length);
   const max = Number(process.env.ROTINA_MAX) || 1000; let enviados = 0, falhas = 0, restantes = 0;
+  const promessas = {}; try { (await db.collection('crmPromessas').where('status', '==', 'PENDENTE').get()).docs.forEach((d) => { const p = d.data(); if (p.vendaId && p.data) promessas[p.vendaId] = p.data > (promessas[p.vendaId] || '') ? p.data : promessas[p.vendaId]; }); } catch (e) { }
   for (const v of vendas) {
     if (v.pixAutomatico?.status === 'ATIVO') continue;
     const abertas = (v.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)); if (!abertas.length) continue;
     const atrasada = abertas.find((p) => p.venc < hoje()), p = atrasada || abertas[0], d = dias(p.venc, hoje());   // d: dias após o vencimento
     const passo = passos.find((x) => +x.dia === d); if (!passo) continue;
+    if (promessas[v.id] && promessas[v.id] >= hoje()) continue;   // cliente prometeu pagar (CRM → Cobrança): a régua espera a data
     const chave = `${p.n}:R${d}`; if (v.avisosBrevo?.[chave]) continue;
     if (enviados + falhas >= max) { restantes++; continue; }
     const dd = dadosAviso(v, cfg, d > 0 ? 'atraso' : 'lembrete'); const texto = passo.texto ? preencher(passo.texto, dd) : dd.texto; const r = {};
@@ -284,9 +288,9 @@ export async function statsIndicacao(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } try { r.ia = await iaAutonomaRotina(); } catch (e) { console.error('ia', e.message); } try { r.emp = await emprestimoRotina(); } catch (e) { console.error('emprestimo', e.message); } return r; }
+  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } try { r.ia = await iaAutonomaRotina(); } catch (e) { console.error('ia', e.message); } try { r.emp = await emprestimoRotina(); } catch (e) { console.error('emprestimo', e.message); } try { r.crmIa = await crmIaAutomatica(); } catch (e) { console.error('crmIa', e.message); } return r; }
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
-  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
+  if (qual === 'noite') { const r = await resumoDoDia(cfg); try { Object.assign(r, await alertasComportamento(cfg)); } catch (e) { console.error('comportamento', e.message); } try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();
   try { await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); }
   try { await filaRotina(vendas); } catch (e) { console.error('fila', e.message); }
