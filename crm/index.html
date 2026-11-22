@@ -186,7 +186,7 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .loc-box{border:1px solid var(--line2);border-radius:14px;overflow:hidden}.loc-box .pf-sec:last-child{border-bottom:0}
 @media(max-width:900px){.loc-c{grid-template-columns:1fr}}
 html.embutido .nav .eu button{display:none}
-</style>
+@media(max-width:640px){#tResIn .rq-lb{display:none}}</style>
 </head>
 <body>
 <div id="root"></div><div id="mr"></div><div id="toast"></div>
@@ -1311,6 +1311,52 @@ vConfig = function (el) {
 { const _ds = desenhar; desenhar = function () { if (C.me && $('#app') && C.view === 'respostas') { if (!$('#kb')) { $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; } desenharNav(); return vRespostas($('#kb')); } return _ds(); }; }
 { const _cc = concluir; concluir = async function (i) { const r = await _cc(i); try { if (i.canal === 'app') await DB.set('suporteApp', i.id, { iaHumano: false }); if (i.canal === 'wa') await DB.set('waConversas', i.id, { iaHumano: false }); } catch (e) { } return r; }; }
 { const _en = entrou; entrou = async function (...a) { const r = await _en(...a); rqCarregarMinhas().then(() => C.view === 'respostas' && desenhar()).catch(() => { }); return r; }; }
+
+/* ---------- botão de respostas rápidas dentro da conversa (painel em cima do campo de mensagem) ---------- */
+function rqPainel(i) {
+  const cp = $('#cp'); if (!cp) return; const ja = $('#rqPn'); if (ja) { ja.remove(); return; }
+  const todas = rqTodas(), cats = ['Todas', ...new Set(todas.map(r => r.g))]; let cat = C.rqPnCat && cats.includes(C.rqPnCat) ? C.rqPnCat : 'Todas', q = '', k = 0, lista = [];
+  const pn = document.createElement('div'); pn.id = 'rqPn';
+  pn.style.cssText = 'position:absolute;left:12px;right:12px;bottom:calc(100% + 6px);z-index:40;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px rgba(10,23,51,.22);display:flex;flex-direction:column;max-height:min(460px,60vh);overflow:hidden';
+  pn.innerHTML = `<div style="padding:10px 12px 8px;border-bottom:1px solid var(--line)"><div style="display:flex;align-items:center;gap:8px"><b style="font-size:14px;display:flex;align-items:center;gap:6px">${I('raio')}Respostas rápidas</b><span style="flex:1"></span><button class="ferr" id="rqPnNova">${I('mais')}Nova</button><button class="ferr" id="rqPnGer">${I('engrenagem')}Gerenciar</button><button class="ib" id="rqPnX" aria-label="Fechar" style="width:30px;height:30px">${I('x')}</button></div>
+    <div class="busca" style="margin-top:8px">${I('busca')}<input class="inp" id="rqPnQ" placeholder="Buscar resposta ou atalho" autocomplete="off"></div>
+    <div id="rqPnC" style="display:flex;gap:4px;overflow-x:auto;margin-top:8px;padding-bottom:2px"></div></div><div id="rqPnL" style="overflow:auto;padding:6px"></div>
+    <div class="hint" style="padding:6px 12px;border-top:1px solid var(--line);font-size:11.5px">Clique para colocar no campo e revisar · <b>Enviar</b> manda direto · ↑ ↓ e Enter pelo teclado</div>`;
+  cp.appendChild(pn);
+  const pinta = () => {
+    $('#rqPnC').innerHTML = cats.map(c => `<button data-pc="${esc(c)}" style="flex:none;border:1px solid ${cat === c ? 'var(--pri)' : 'var(--line)'};background:${cat === c ? 'var(--pri-s)' : '#fff'};color:${cat === c ? 'var(--pri-d)' : 'var(--txt)'};border-radius:99px;padding:4px 11px;font:600 12px inherit;cursor:pointer;white-space:nowrap">${esc(c)}</button>`).join('');
+    lista = todas.filter(r => (cat === 'Todas' || r.g === cat) && (!r.f || !i.fila || r.f === i.fila || cat !== 'Todas') && (!q || (r.t + ' ' + r.x + ' ' + r.a + ' ' + r.g).toLowerCase().includes(q))).sort((a, b) => (rqUso[rqChave(b.x)] || 0) - (rqUso[rqChave(a.x)] || 0));
+    k = Math.min(k, Math.max(0, lista.length - 1));
+    const prev = t => { const x = String(t).replace(/\{\w+\}/g, m => { const v = preencherPrev(m, i); return v; }); return esc(x.length > 170 ? x.slice(0, 170) + '…' : x); };
+    $('#rqPnL').innerHTML = lista.map((r, n) => `<div data-pi="${n}" style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:11px;cursor:pointer;background:${n === k ? 'var(--pri-s)' : 'none'}"><div style="flex:1;min-width:0"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">${esc(r.t)}</b>${r.a ? `<span class="pill" style="background:#0A1733;color:#fff;font-family:monospace">/${esc(r.a)}</span>` : ''}${cat === 'Todas' ? `<span class="pill">${esc(r.g)}</span>` : ''}</div><div style="font-size:12.5px;color:var(--mut);margin-top:2px;line-height:1.45">${prev(r.x)}</div></div><button class="btn" data-pe="${n}" style="flex:none;padding:5px 10px;font-size:12px" title="Enviar agora">${I('enviar')}Enviar</button></div>`).join('') || `<p class="hint" style="padding:16px;text-align:center;margin:0">Nenhuma resposta${q ? ' para "' + esc(q) + '"' : ''}. <a href="#" id="rqPnCriar">Criar uma nova</a></p>`;
+    $$('[data-pc]', pn).forEach(b => b.onclick = () => { cat = C.rqPnCat = b.dataset.pc; k = 0; pinta(); });
+    $$('[data-pi]', pn).forEach(d => { d.onmouseenter = () => { k = +d.dataset.pi; $$('[data-pi]', pn).forEach(x => x.style.background = +x.dataset.pi === k ? 'var(--pri-s)' : 'none'); }; d.onclick = e => { if (e.target.closest('[data-pe]')) return; usa(lista[+d.dataset.pi], false); }; });
+    $$('[data-pe]', pn).forEach(b => b.onclick = e => { e.stopPropagation(); usa(lista[+b.dataset.pe], true); });
+    $('#rqPnCriar')?.addEventListener('click', e => { e.preventDefault(); fecha(); rqEditor({ t: '', x: $('#tTxt')?.value || '', g: MINHAS, a: '', f: '', minha: !dono(), novo: true }); });
+    $(`[data-pi="${k}"]`, pn)?.scrollIntoView({ block: 'nearest' });
+  };
+  const fecha = () => { pn.remove(); document.removeEventListener('mousedown', fora); };
+  const fora = e => { if (!pn.contains(e.target) && !e.target.closest('#tRes,#tResIn')) fecha(); };
+  const usa = (r, enviarJa) => { if (!r) return; const tx = $('#tTxt'), t = preencher(r.x, i); fecha();
+    if (enviarJa) { tx.value = t; tx.dispatchEvent(new Event('input')); return enviar(i); }
+    const s = tx.selectionStart ?? tx.value.length, antes = tx.value.slice(0, s).replace(/\/\S*$/, ''), depois = tx.value.slice(tx.selectionEnd ?? s);
+    tx.value = antes + (antes && !/\s$/.test(antes) ? ' ' : '') + t + depois; tx.dispatchEvent(new Event('input')); tx.focus(); tx.setSelectionRange(tx.value.length - depois.length, tx.value.length - depois.length); };
+  setTimeout(() => document.addEventListener('mousedown', fora));
+  $('#rqPnX').onclick = fecha; $('#rqPnGer').onclick = () => { fecha(); C.view = 'respostas'; desenhar(); };
+  $('#rqPnNova').onclick = () => { fecha(); rqEditor({ t: '', x: $('#tTxt')?.value || '', g: MINHAS, a: '', f: '', minha: !dono(), novo: true }); };
+  const qi = $('#rqPnQ'); qi.oninput = () => { q = qi.value.toLowerCase().trim(); k = 0; pinta(); };
+  qi.onkeydown = e => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); k = (k + (e.key === 'ArrowDown' ? 1 : -1) + lista.length) % Math.max(1, lista.length); pinta(); } else if (e.key === 'Enter') { e.preventDefault(); usa(lista[k], e.ctrlKey || e.metaKey); } else if (e.key === 'Escape') fecha(); };
+  pinta(); qi.focus();
+}
+function preencherPrev(m, i) { const d = i && C.sel && i.key === C.sel ? rqDadosCliente() : {}, k = m.slice(1, -1);
+  if (d[k] != null && d[k] !== '') return d[k]; if (k === 'nome') return String(i?.nome || '').split(' ')[0] || m; if (k === 'atendente') return String(C.me?.nome || '').split(' ')[0]; if (k === 'protocolo') return i?.protocolo || m; return m; }
+escolherResposta = function (i) { rqPainel(i); };
+{ const _cp2 = compositor; compositor = function (i) { _cp2(i); const r = $('#cp .cp-r'), tx = $('#tTxt'); if (!r || !tx || $('#tResIn')) return;
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'tResIn'; b.className = 'ib'; b.title = 'Respostas rápidas (Ctrl+/)'; b.setAttribute('aria-label', 'Respostas rápidas');
+  b.style.cssText = 'flex:none;width:auto;height:36px;padding:0 10px;gap:5px;border:0;background:#0A1733;color:#fff;border-radius:10px;font:600 12.5px inherit;align-self:flex-end;margin-left:-6px'; b.innerHTML = `${I('raio')}<span class="rq-lb">Respostas</span>`;
+  b.querySelector('svg').style.color = '#E2B33B'; r.insertBefore(b, r.firstChild); b.onclick = e => { e.preventDefault(); rqPainel(i); };
+  const tr = $('#tRes'); if (tr) { tr.style.cssText += ';background:#0A1733;color:#fff;border-color:#0A1733'; tr.querySelector('svg') && (tr.querySelector('svg').style.color = '#E2B33B'); tr.lastChild.textContent = 'Respostas rápidas'; }
+  tx.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); rqPainel(i); } }); }; }
 
 /* ---------- início ---------- */
 (async () => {
