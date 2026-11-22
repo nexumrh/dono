@@ -11066,11 +11066,14 @@ Object.assign(ACT,{
   const ga=NAV_GRUPOS.find(g=>g[0]==='Atendimento'); if(ga) ga[1]=['crm','localizar']; else NAV_GRUPOS.splice(1,0,['Atendimento',['crm','localizar']]);
   if(['suporte','financeiro'].includes(PORTAL)){ const i=NAV_GRUPOS.findIndex(g=>g[0]==='Atendimento'); const [g]=NAV_GRUPOS.splice(i,1); NAV_GRUPOS.splice(NAV_GRUPOS[0][0]===''?1:0,0,g); }
   const crmSrc=h=>{ const u=new URL(typeof urlCrm==='function'?urlCrm():new URL('../dono/crm/',location.href).href); u.searchParams.set('embed','1'); u.searchParams.set('app','nexumcell-'+PORTAL); u.hash=h||''; return u.href; };
-  const crmTela=h=>{
-    $('#topActions').innerHTML=`<a class="btn" href="${esc(crmSrc(h).replace(/[?&]embed=1/,''))}" target="_blank" rel="noopener">Abrir em tela cheia</a>`;
-    $('#view').innerHTML=`<iframe id="crmFrame" title="CRM NexumCell" src="${esc(crmSrc(h))}" allow="camera; microphone; clipboard-write" style="width:100%;border:1px solid #E3E7F0;border-radius:18px;background:#fff;display:block;box-shadow:0 10px 30px rgba(10,23,51,.07)"></iframe>`;
-    const ajusta=()=>{ const f=$('#crmFrame'); if(!f) return; f.style.height=Math.max(560,innerHeight-(f.getBoundingClientRect().top+scrollY)-16)+'px'; }; ajusta(); setTimeout(ajusta,300); addEventListener('resize',ajusta);
-  };
+  const crmUrl=h=>{ const u=new URL(crmSrc(h)); u.searchParams.delete('embed'); return u.href; };
+  const crmTela=h=>{ const url=crmUrl(h);
+    $('#topActions').innerHTML=`<a class="btn gold" href="${esc(url)}" target="crm-nexumcell" rel="opener">Abrir o CRM</a>`;
+    $('#view').innerHTML=`<div class="card" style="max-width:760px;margin:20px auto;text-align:center;padding:34px 26px"><div style="width:64px;height:64px;border-radius:18px;background:#EAF0FF;color:#1D5BFF;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${svg(IC.crm||'')}</div>
+      <h2 style="margin:0 0 6px">${h==='localizar'?'Localizar cliente, loja ou vendedor':'CRM de atendimento NexumCell'}</h2><p class="muted" style="margin:0 auto 18px;max-width:560px">O CRM abre numa aba só dele, com o mesmo login deste portal. Lá ficam o atendimento, o WhatsApp da NexumCell, o kanban e a busca de clientes pela Device Tag, lojas, gerentes e vendedores.</p>
+      <a class="btn gold" href="${esc(url)}" target="crm-nexumcell" rel="opener">Abrir o CRM numa nova aba</a></div>`; };
+  const abrirCrm=h=>{ const w=window.open(crmUrl(h),'crm-nexumcell'); if(w){ try{ w.focus(); }catch(e){} return true; } return false; };
+  document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#nav [data-tab="crm"],#nav [data-tab="localizar"]'); if(!b) return; if(abrirCrm(b.dataset.tab==='localizar'?'localizar':'')){ e.preventDefault(); e.stopImmediatePropagation(); } },true);
   PAGES.crm=()=>crmTela(S._crmHash||''); PAGES.localizar=()=>crmTela('localizar');
   Object.keys(VELHAS).forEach(t=>{ PAGES[t]=()=>{ S._crmHash='canal='+VELHAS[t]; S.tab='crm'; render(); S._crmHash=''; }; });
   const _rn=render; render=async(...a)=>{ if(VELHAS[S.tab]){ S._crmHash='canal='+VELHAS[S.tab]; S.tab='crm'; const r=await _rn(...a); S._crmHash=''; return r; } return _rn(...a); };
