@@ -11251,6 +11251,26 @@ Object.assign(ACT, {
     await log('Prêmio de indicação', 'vendas', `${v.clienteNome}: ${brl(valor)} na parcela ${ps[i].n}`); toast('Desconto aplicado na próxima parcela', 'ok'); render(); },
 });
 
+/* ===================== ANÚNCIOS E SITE: Pixel, Analytics, depoimentos reais e IA do site (nov/2026) ===================== */
+if (PORTAL === 'dono') { const _cfgS = PAGES.config; PAGES.config = async (...a) => { await _cfgS(...a); const vw = $('#view'); if (!vw || $('#mkCard')) return; const vit = await DB.get('publico', 'vitrine').catch(() => null) || {}, m = vit.marketing || {}, dep = vit.depoimentos || [], crm = await DB.get('config', 'crm').catch(() => null) || {};
+  vw.insertAdjacentHTML('beforeend', `<div class="card mt" id="mkCard"><h2 style="margin:0 0 4px">Anúncios e site de vendas</h2><p class="small muted" style="margin:0 0 12px">Códigos de medição do site de vendas e da página "Seja cliente". Só carregam depois que o visitante aceita os cookies. Deixe em branco para não usar.</p>
+    <div class="grid g2"><label>Pixel do Meta (Facebook/Instagram)<input id="mkPx" inputmode="numeric" placeholder="Ex.: 123456789012345" value="${esc(m.metaPixel || '')}"></label><label>Google Analytics 4<input id="mkGa" placeholder="Ex.: G-ABC123XYZ" value="${esc(m.ga4 || '')}"></label></div>
+    <label class="mt">O que a IA do chat do site precisa saber (opcional)<textarea id="mkIa" rows="3" placeholder="Ex.: Atendemos lojas do Paraná e de Santa Catarina. A demonstração dura 20 minutos.">${esc(crm.iaSite || '')}</textarea></label>
+    <h3 style="margin:18px 0 4px;font-size:15px">Depoimentos de lojas parceiras</h3><p class="small muted" style="margin:0 0 8px">Aparecem no site só os marcados como autorizados. Publique apenas relatos reais, com autorização por escrito da loja.</p>
+    <div id="mkDeps">${dep.map((d, k) => mkDepLinha(d, k)).join('')}</div><button class="btn sm mt" data-act="mkDepAdd">+ Depoimento</button>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" data-act="mkSalvar">Salvar</button></div></div>`); }; }
+function mkDepLinha(d = {}, k = 0) { return `<div class="mk-dep" style="border:1px solid #E3E7F0;border-radius:12px;padding:10px 12px;margin-bottom:8px"><div class="grid g3"><label>Nome de quem falou<input data-f="nome" value="${esc(d.nome || '')}"></label><label>Loja<input data-f="loja" value="${esc(d.loja || '')}"></label><label>Cidade<input data-f="cidade" value="${esc(d.cidade || '')}"></label></div>
+  <div class="grid g2"><label>Número em destaque (opcional)<input data-f="numero" placeholder="Ex.: 40 vendas no 1º mês" value="${esc(d.numero || '')}"></label><label>Relato<input data-f="texto" maxlength="300" value="${esc(d.texto || '')}"></label></div>
+  <div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><label class="check"><input type="checkbox" data-f="autorizado" ${d.autorizado ? 'checked' : ''}> <span>A loja autorizou por escrito a publicação</span></label><button class="btn sm" data-act="mkDepDel">Remover</button></div></div>`; }
+Object.assign(ACT, {
+  mkDepAdd: () => $('#mkDeps').insertAdjacentHTML('beforeend', mkDepLinha()),
+  mkDepDel: (d, b) => b.closest('.mk-dep').remove(),
+  mkSalvar: async (d, b) => { const px = onlyDig($('#mkPx').value), ga = $('#mkGa').value.trim().toUpperCase();
+    if (px && !/^\d{6,20}$/.test(px)) return toast('O Pixel do Meta tem só números', 'err'); if (ga && !/^G-[A-Z0-9]{4,20}$/.test(ga)) return toast('O código do Google Analytics começa com G-', 'err');
+    const deps = empAll('#mkDeps .mk-dep').map(x => { const o = {}; x.querySelectorAll('[data-f]').forEach(i => o[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value.trim().slice(0, 300)); return o; }).filter(o => o.texto);
+    b.disabled = true; try { await DB.set('publico', 'vitrine', { marketing: { metaPixel: px, ga4: ga }, depoimentos: deps }); await DB.set('config', 'crm', { iaSite: $('#mkIa').value.trim().slice(0, 2000) }); toast('Salvo', 'ok'); } catch (e) { toast(e.message, 'err'); } b.disabled = false; },
+});
+
 </script>
 </body>
 </html>
