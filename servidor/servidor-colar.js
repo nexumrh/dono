@@ -2852,13 +2852,13 @@ var ESTILOS = {
   corrigir: "Corrija a ortografia, a pontua\xE7\xE3o e a clareza da mensagem, mudando o m\xEDnimo poss\xEDvel."
 };
 var IDIOMAS = { es: "espanhol (do Paraguai/Argentina, claro e simples)", pt: "portugu\xEAs do Brasil", en: "ingl\xEAs simples" };
-async function groq(mensagens, { temperatura = 0.3, max = 400, json = false } = {}) {
+async function groq(mensagens, { temperatura = 0.3, max = 400, json = false, modelo = MODELO3 } = {}) {
   const chave = await chaveIA();
   if (!chave) throw Object.assign(new Error("IA sem chave: coloque a chave da IA em Configura\xE7\xF5es do Painel do Dono"), { status: 400 });
   const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODELO3, temperature: temperatura, max_tokens: max, ...json ? { response_format: { type: "json_object" } } : {}, messages: mensagens })
+    body: JSON.stringify({ model: modelo, temperature: temperatura, max_tokens: max, ...json ? { response_format: { type: "json_object" } } : {}, messages: mensagens })
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error("IA: " + (j.error?.message || r.status)), { status: 502 });
@@ -2900,6 +2900,46 @@ ${txt6}` }], { temperatura: 0.1 }) });
         j = { titulo: "Nova resposta", categoria: "Suporte", texto: t };
       }
       return res.json(j);
+    }
+    if (b.acao === "comprovante") {
+      const img2 = String(b.imagem || "");
+      if (!/^data:image\/(png|jpe?g|webp);base64,/.test(img2) || img2.length > 55e5) throw Object.assign(new Error("Mande uma foto (JPG ou PNG) de at\xE9 4 MB"), { status: 400 });
+      const t = await groq(
+        [
+          { role: "system", content: "Voc\xEA l\xEA comprovantes de pagamento brasileiros (Pix, TED, boleto, dep\xF3sito). Extraia os dados exatamente como aparecem. N\xE3o invente: campo que n\xE3o aparece fica vazio." },
+          { role: "user", content: [{ type: "text", text: 'Leia este comprovante e responda em JSON: {"ehComprovante":true|false,"tipo":"PIX|TED|BOLETO|DEPOSITO|OUTRO","valor":0.00,"data":"AAAA-MM-DD","hora":"HH:MM","pagador":"nome de quem pagou","recebedor":"nome de quem recebeu","banco":"banco ou app","idTransacao":"c\xF3digo/ID/autentica\xE7\xE3o da transa\xE7\xE3o","duvidas":"algo estranho na imagem (editada, cortada, valor ileg\xEDvel) ou vazio"}' }, { type: "image_url", image_url: { url: img2 } }] }
+        ],
+        { temperatura: 0, max: 400, json: true, modelo: process.env.GROQ_MODELO_VISAO || "meta-llama/llama-4-scout-17b-16e-instruct" }
+      );
+      let j = {};
+      try {
+        j = JSON.parse(t);
+      } catch (e) {
+        throw Object.assign(new Error("A IA n\xE3o conseguiu ler o comprovante"), { status: 502 });
+      }
+      const id = String(j.idTransacao || "").replace(/\s+/g, "").slice(0, 80), usado = id ? (await db.collection("comprovantes").doc(id.replace(/[\/]/g, "_")).get()).data() : null;
+      return res.json({ ...j, valor: Math.round((+String(j.valor || 0).toString().replace(",", ".") || 0) * 100) / 100, idTransacao: id, jaUsado: usado ? { em: usado.em, vendaNumero: usado.vendaNumero, parcela: usado.n, por: usado.por } : null });
+    }
+    if (b.acao === "baixarComprovante") {
+      const eu = await exigirEquipe(req, ["DONO", "FINANCEIRO"]);
+      const id = String(b.idTransacao || "").replace(/\s+/g, "").slice(0, 80), n = +b.n, valor = Math.round(+b.valor * 100) / 100;
+      if (!b.vendaId || !(n > 0) || !(valor > 0)) throw Object.assign(new Error("Escolha a parcela e o valor"), { status: 400 });
+      const vref = db.collection("vendas").doc(String(b.vendaId)), v = (await vref.get()).data();
+      if (!v) throw Object.assign(new Error("Contrato n\xE3o encontrado"), { status: 404 });
+      const p = (v.parcelas || []).find((x) => x.n === n);
+      if (!p || p.pago) throw Object.assign(new Error("Essa parcela j\xE1 est\xE1 paga"), { status: 409 });
+      if (id) {
+        const cref = db.collection("comprovantes").doc(id.replace(/[\/]/g, "_"));
+        await db.runTransaction(async (t) => {
+          const c = await t.get(cref);
+          if (c.exists) throw Object.assign(new Error(`Este comprovante j\xE1 foi usado no contrato n\xBA ${c.data().vendaNumero}, parcela ${c.data().n}`), { status: 409 });
+          t.set(cref, { em: Date.now(), vendaId: b.vendaId, vendaNumero: v.numero, n, valor, data: String(b.data || "").slice(0, 10), por: eu.nome, arquivoId: String(b.arquivoId || "").slice(0, 60) });
+        });
+      }
+      await baixarParcela(String(b.vendaId), n, valor, "PIX (comprovante)", `Comprovante lido no CRM${id ? " \xB7 ID " + id : ""}${b.data ? " \xB7 pago em " + String(b.data).slice(0, 10) : ""}`, eu.nome + " (CRM)");
+      if (p.asaasId) await asaas("/payments/" + p.asaasId, { method: "DELETE" }).catch(() => {
+      });
+      return res.json({ ok: true });
     }
     const conversa = String(b.conversa || "").slice(-9e3), ficha = String(b.ficha || "").slice(0, 2500);
     if (b.acao === "automatica") {
@@ -3049,6 +3089,33 @@ async function crmIaAutomatica() {
     }
   }
   return r;
+}
+async function agendadasRotina() {
+  const agora = Date.now();
+  let n = 0;
+  const l = (await db.collection("crmAgendadas").where("status", "==", "PENDENTE").get()).docs.filter((d) => (d.data().quando || 0) <= agora && ["app", "portal"].includes(d.data().canal));
+  for (const d of l.slice(0, 50)) {
+    const a = d.data();
+    try {
+      if (a.canal === "app") {
+        const ref = db.collection("suporteApp").doc(a.alvoId);
+        await ref.collection("msgs").add({ de: "suporte", texto: a.texto, em: Date.now(), porNome: a.por || "NexumCell", agendada: true });
+        await ref.set({ naoLidoCliente: true, ultimaMsg: String(a.texto).slice(0, 200), atualizadoEm: Date.now() }, { merge: true });
+        pushNotificacao(a.alvoId, "NexumCell", String(a.texto).slice(0, 120)).catch(() => {
+        });
+      }
+      if (a.canal === "portal") {
+        const ref = db.collection("atendimentos").doc(a.alvoId), at = (await ref.get()).data() || {};
+        await ref.set({ msgs: [...at.msgs || [], { de: "atendente", t: a.texto, em: Date.now(), por: a.por || "NexumCell", agendada: true }], naoLidoUser: true, atualizadoEm: Date.now() }, { merge: true });
+      }
+      await d.ref.set({ status: "ENVIADA", enviadaEm: Date.now() }, { merge: true });
+      n++;
+    } catch (e) {
+      await d.ref.set({ status: "ERRO", erro: e.message }, { merge: true }).catch(() => {
+      });
+    }
+  }
+  return { agendadas: n };
 }
 
 // api/comportamento.js
@@ -3481,6 +3548,11 @@ async function rotinas(qual) {
       r.crmIa = await crmIaAutomatica();
     } catch (e) {
       console.error("crmIa", e.message);
+    }
+    try {
+      r.agendadas = await agendadasRotina();
+    } catch (e) {
+      console.error("agendadas", e.message);
     }
     return r;
   }
@@ -4687,26 +4759,69 @@ async function handler24(req, res) {
 // api/lead.js
 var txt4 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n || 120);
 var dig4 = (s) => String(s || "").replace(/\D/g, "");
+var sha2 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
+var SOBRE = `Voc\xEA \xE9 o consultor virtual do site de vendas da NexumCell para LOJISTAS (lojas de celular) que querem vender celular parcelado no credi\xE1rio.
+Fatos que voc\xEA pode usar:
+- A NexumCell d\xE1 \xE0 loja os sistemas (portal do vendedor, do gerente e do dono, app do cliente) e a trava do aparelho, que limita fun\xE7\xF5es do celular em caso de atraso e libera quando o cliente paga.
+- A an\xE1lise de cr\xE9dito \xE9 pr\xF3pria, sem consulta ao SPC/Serasa, ent\xE3o a loja vende para quem os bancos recusam.
+- O cliente paga as parcelas por Pix ou boleto pelo app; a cobran\xE7a tem r\xE9gua de avisos e a equipe NexumCell acompanha os atrasos.
+- O cadastro da loja \xE9 feito no pr\xF3prio site (matriz e filiais) e a loja recebe treinamento em v\xEDdeo para vendedores e gerentes.
+- Pre\xE7os: h\xE1 mensalidade por loja e licen\xE7a por venda. NUNCA diga valores: pe\xE7a para a pessoa ver a se\xE7\xE3o "Planos" do site ou falar com um consultor.
+Regras: responda em portugu\xEAs do Brasil (ou em espanhol se a pessoa escrever em espanhol), no m\xE1ximo 3 frases, sem emojis. N\xE3o prometa aprova\xE7\xE3o, lucro, prazos ou condi\xE7\xF5es que n\xE3o est\xE3o acima. Se n\xE3o souber, diga que um consultor responde. Quando a pessoa mostrar interesse (quer cadastrar, quer pre\xE7o, quer conversar, quer demonstra\xE7\xE3o), convide a deixar nome da loja, cidade e WhatsApp e marque pedirContato=true.
+Responda em JSON: {"resposta":"...","pedirContato":true|false}`;
 async function handler25(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ erro: "M\xE9todo n\xE3o permitido" });
   try {
     const b = req.body || {};
-    const whatsapp = dig4(b.whatsapp);
+    if (b.acao === "chat") {
+      const ip = String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || "x").split(",")[0].trim(), hora = (/* @__PURE__ */ new Date()).toISOString().slice(0, 13);
+      const ref = db.collection("siteChat").doc(await sha2(ip + hora)), c = (await ref.get()).data() || {};
+      if ((c.n || 0) >= 25) return res.status(429).json({ erro: "Muitas mensagens. Deixe seu WhatsApp que um consultor responde." });
+      await ref.set({ n: (c.n || 0) + 1, em: Date.now() }, { merge: true });
+      const ms = (Array.isArray(b.mensagens) ? b.mensagens : []).slice(-10).map((m) => ({ role: m.de === "nexum" ? "assistant" : "user", content: txt4(m.t, 600) })).filter((m) => m.content);
+      if (!ms.length || ms[ms.length - 1].role !== "user") return res.status(400).json({ erro: "Escreva a sua pergunta" });
+      let extra = "";
+      try {
+        extra = String((await db.collection("config").doc("crm").get()).data()?.iaSite || "").slice(0, 2e3);
+      } catch (e) {
+      }
+      const t = await groq([{ role: "system", content: SOBRE + (extra ? "\n\nInforma\xE7\xF5es do dono:\n" + extra : "") }, ...ms], { temperatura: 0.3, max: 300, json: true });
+      let j = {};
+      try {
+        j = JSON.parse(t);
+      } catch (e) {
+        j = { resposta: t, pedirContato: false };
+      }
+      return res.json({ resposta: txt4(j.resposta, 800) || "Um consultor da NexumCell pode te ajudar. Deixe seu WhatsApp.", pedirContato: !!j.pedirContato });
+    }
+    const whatsapp = dig4(b.whatsapp), u = b.utm || {};
+    const demo = b.demo && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(b.demo.quando || "")) ? { quando: String(b.demo.quando), confirmado: false } : null;
     const lead = {
       nome: txt4(b.nome, 80),
       loja: txt4(b.loja, 80),
       cidade: txt4(b.cidade, 80),
       whatsapp,
-      mensagem: txt4(b.mensagem, 500),
+      mensagem: txt4(b.mensagem, 1500),
       origem: txt4(b.origem, 40) || "site",
       status: "NOVO",
       criadoEm: Date.now(),
-      historico: [{ em: Date.now(), status: "NOVO", obs: "Veio pelo site de vendas" }]
+      ...demo ? { demo } : {},
+      ...u.source || u.campaign ? { utm: { source: txt4(u.source, 60), medium: txt4(u.medium, 60), campaign: txt4(u.campaign, 80), pagina: txt4(u.pagina, 120) } } : {},
+      historico: [{ em: Date.now(), status: "NOVO", obs: demo ? `Pediu demonstra\xE7\xE3o para ${demo.quando.replace("T", " \xE0s ").split("-").reverse().join("/")}` : "Veio pelo site de vendas" }]
     };
     if (!whatsapp && !lead.loja && !lead.nome) return res.status(400).json({ erro: "Informe ao menos o WhatsApp ou o nome da loja." });
     const id = "lead_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
     await db.collection("leads").doc(id).set({ id, ...lead });
+    if (demo && brevoLigado() && process.env.DONO_EMAIL) {
+      const [d, h] = demo.quando.split("T");
+      await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `Demonstra\xE7\xE3o agendada: ${lead.loja || lead.nome} (${d.split("-").reverse().join("/")} \xE0s ${h})`, titulo: "Nova demonstra\xE7\xE3o pelo site", texto: `${lead.nome || ""} \xB7 ${lead.loja || ""} \xB7 ${lead.cidade || ""}
+WhatsApp: ${whatsapp}
+Quando: ${d.split("-").reverse().join("/")} \xE0s ${h}
+
+O lead est\xE1 no CRM, no funil comercial. Confirme o hor\xE1rio pelo WhatsApp.` }).catch(() => {
+      });
+    }
     return res.status(200).json({ ok: true, id });
   } catch (e) {
     console.error(e);

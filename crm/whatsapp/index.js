@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import admin from 'firebase-admin';
 import QRCode from 'qrcode';
 import pino from 'pino';
-import baileys, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import baileys, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } from '@whiskeysockets/baileys';
 
 const VERSAO = '1.0';
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -39,14 +39,34 @@ async function acharCliente(numero) {
   return null;
 }
 
+const CRM_URL = (process.env.CRM_URL || 'https://nexumrh.github.io/dono/crm/').replace(/\/?$/, '/');
+let _chaveIA = null;
+async function chaveIA() { if (_chaveIA && _chaveIA.em > Date.now() - 600e3) return _chaveIA.v; let v = process.env.GROQ_API_KEY || '';
+  if (!v) try { v = (await db.collection('segredos').doc('ia').get()).data()?.chave || ''; } catch (e) { }
+  if (!v) try { v = (await db.collection('config').doc('sistema').get()).data()?.iaChave || ''; } catch (e) { }
+  _chaveIA = { em: Date.now(), v }; return v; }
+async function transcrever(buf, tipo) { const chave = await chaveIA(); if (!chave || buf.length > 20e6) return '';
+  const fd = new FormData(); fd.append('file', new Blob([buf], { type: tipo.split(';')[0] }), 'audio.ogg'); fd.append('model', 'whisper-large-v3-turbo'); fd.append('language', 'pt'); fd.append('response_format', 'json');
+  const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + chave }, body: fd });
+  if (!r.ok) { console.error('transcrição', r.status, await r.text().catch(() => '')); return ''; } return String((await r.json()).text || '').trim(); }
+
 async function recebida(m) {
   if (!m.message || m.key.fromMe || m.key.remoteJid.endsWith('@g.us') || m.key.remoteJid === 'status@broadcast') return;
   const numero = so(m.key.remoteJid.split('@')[0]);
-  const msg = m.message, texto = msg.conversation || msg.extendedTextMessage?.text || msg.imageMessage?.caption || msg.documentMessage?.fileName || (msg.audioMessage ? '[áudio]' : msg.imageMessage ? '[foto]' : msg.stickerMessage ? '[figurinha]' : '[mensagem]');
+  const msg = m.message; let texto = msg.conversation || msg.extendedTextMessage?.text || msg.imageMessage?.caption || msg.documentMessage?.fileName || (msg.audioMessage ? '[áudio]' : msg.imageMessage ? '[foto]' : msg.stickerMessage ? '[figurinha]' : '[mensagem]');
   const ref = db.collection('waConversas').doc(numero), c = (await ref.get()).data() || {}, agora = Date.now();
   const dados = { numero, nome: c.nome || m.pushName || '', ultimaMsg: texto.slice(0, 200), ultimaDe: 'cliente', atualizadoEm: agora, naoLido: true, fim: false };
   if (!c.criadoEm) { dados.criadoEm = agora; const cli = await acharCliente(numero); if (cli) Object.assign(dados, { cpf: cli.cpf, nome: cli.nome || dados.nome, cliente: true }); }
-  await ref.collection('msgs').add({ de: 'cliente', t: texto, em: agora, id: m.key.id });
+  const extra = {};
+  // áudio: transcreve com a IA (Groq Whisper) para a equipe ler no CRM
+  if (msg.audioMessage) { try { const buf = await downloadMediaMessage(m, 'buffer', {}); const tr = await transcrever(buf, msg.audioMessage.mimetype || 'audio/ogg'); if (tr) { texto = '[áudio] ' + tr; extra.transcrito = true; } } catch (e) { console.error('áudio', e.message); } }
+  // foto ou PDF: guarda para o CRM abrir (e ler o comprovante com a IA)
+  const midia = msg.imageMessage || (msg.documentMessage && /pdf|image/.test(msg.documentMessage.mimetype || '') ? msg.documentMessage : null);
+  if (midia) { try { const buf = await downloadMediaMessage(m, 'buffer', {}); if (buf.length <= 900000) { const tipo = midia.mimetype || 'image/jpeg', nome = midia.fileName || (tipo.includes('pdf') ? 'documento.pdf' : 'foto.jpg');
+    const a = await db.collection('crmArquivos').add({ nome, tipo, data: `data:${tipo};base64,${buf.toString('base64')}`, em: agora, por: 'Cliente (WhatsApp)', key: 'wa:' + numero });
+    extra.arquivo = { nome, tipo, id: a.id, url: CRM_URL + 'arquivo.html?id=' + a.id }; } } catch (e) { console.error('mídia', e.message); } }
+  dados.ultimaMsg = texto.slice(0, 200);
+  await ref.collection('msgs').add({ de: 'cliente', t: texto, em: agora, id: m.key.id, ...extra });
   // resposta da pesquisa de satisfação (nota de 1 a 5) enviada ao finalizar o atendimento
   if (c.pesquisaEm && agora - c.pesquisaEm < 24 * 3600e3 && /^[1-5]$/.test(texto.trim())) {
     await db.collection('crmAvaliacoes').add({ key: c.pesquisaKey || 'wa:' + numero, nota: +texto.trim(), uid: c.pesquisaUid || '', nome: c.pesquisaAtendente || '', fila: c.pesquisaFila || '', canal: 'wa', numero, em: agora, via: 'whatsapp' });

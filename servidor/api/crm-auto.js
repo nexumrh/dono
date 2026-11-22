@@ -84,3 +84,22 @@ export async function crmIaAutomatica() {
   }
   return r;
 }
+
+// Mensagens agendadas no CRM (crmAgendadas): na hora marcada vão para o chat do app ou dos portais.
+// WhatsApp com o programa ligado já sai pela fila waSaida (com naoAntes); no WhatsApp Web vira lembrete no CRM.
+export async function agendadasRotina() {
+  const agora = Date.now(); let n = 0;
+  const l = (await db.collection('crmAgendadas').where('status', '==', 'PENDENTE').get()).docs.filter((d) => (d.data().quando || 0) <= agora && ['app', 'portal'].includes(d.data().canal));
+  for (const d of l.slice(0, 50)) { const a = d.data();
+    try {
+      if (a.canal === 'app') { const ref = db.collection('suporteApp').doc(a.alvoId);
+        await ref.collection('msgs').add({ de: 'suporte', texto: a.texto, em: Date.now(), porNome: a.por || 'NexumCell', agendada: true });
+        await ref.set({ naoLidoCliente: true, ultimaMsg: String(a.texto).slice(0, 200), atualizadoEm: Date.now() }, { merge: true });
+        pushNotificacao(a.alvoId, 'NexumCell', String(a.texto).slice(0, 120)).catch(() => {}); }
+      if (a.canal === 'portal') { const ref = db.collection('atendimentos').doc(a.alvoId), at = (await ref.get()).data() || {};
+        await ref.set({ msgs: [...(at.msgs || []), { de: 'atendente', t: a.texto, em: Date.now(), por: a.por || 'NexumCell', agendada: true }], naoLidoUser: true, atualizadoEm: Date.now() }, { merge: true }); }
+      await d.ref.set({ status: 'ENVIADA', enviadaEm: Date.now() }, { merge: true }); n++;
+    } catch (e) { await d.ref.set({ status: 'ERRO', erro: e.message }, { merge: true }).catch(() => {}); }
+  }
+  return { agendadas: n };
+}
