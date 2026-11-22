@@ -76,6 +76,7 @@ export default async function handler(req, res) {
         aparelho: txt(b.aparelho, 120), entrada: Math.max(0, Number(b.entrada) || 0), lojaId: loja.id || '', lojaNome: loja.nome || '',
         aceiteLgpd: true, status: 'NOVA', criadoEm: Date.now(), via: b.vendedorUid ? 'link do vendedor' : 'servidor',
         ...(b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {}),
+        ...(/^N[A-Z]{7}$/.test(String(b.indicadoPor || '')) ? { indicadoPor: b.indicadoPor } : {}),
       };
       const cfg = await config();
       if (cfg.preAutomatica !== 'nao') {

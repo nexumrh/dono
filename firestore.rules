@@ -545,6 +545,14 @@ service cloud.firestore {
     match /crmEnvios/{id} { allow read, write: if crmEquipe(); }
     match /crmAvaliacoes/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     match /crmAlertas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO']); }
+    // contrato assinado do empréstimo (gravado só pelo servidor)
+    match /empContratos/{id} { allow get: if hasRole(['DONO', 'FINANCEIRO']); allow list, write: if false; }
+    // ouvidoria: o cliente abre pelo servidor; a equipe lê e responde pelo servidor
+    match /ouvidoria/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE']);
+      allow update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resposta', 'respondidoEm', 'respondidoPor', 'historico']);
+      allow create, delete: if false;
+    }
 
     match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista
@@ -683,7 +691,8 @@ service cloud.firestore {
 
     // ---------- Vitrine pública (aparelhos e lojas para a pré-análise online) ----------
     match /publico/{id} {
-      allow get: if signed();
+      // a vitrine (aparelhos, lojas e endereço do servidor) é pública: a ouvidoria e a página Seja cliente leem sem login
+      allow get: if signed() || id == 'vitrine';
       allow write: if hasRole(['DONO']);
     }
 

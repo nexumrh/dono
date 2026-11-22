@@ -1144,6 +1144,23 @@ function vFunil(el) {
 setInterval(() => { if (C.me && fin()) { carregarCob().then(() => carregarAlertas()).catch(() => { }); } }, 10 * 60e3);
 { const _en = entrou; entrou = async function (u) { await _en(u); if (C.me && fin()) setTimeout(() => carregarCob(true).then(carregarAlertas).catch(() => { }), 2500); }; }
 
+/* ---------- score do cliente e parcelas de empréstimo na cobrança (nov/2026) ---------- */
+function scoreNx(vendas, h = hoje()) {
+  const vs = (vendas || []).filter(v => !['REPROVADA', 'CANCELADA'].includes(v.status)); if (!vs.length) return { score: 500, faixa: 'Sem histórico', pagas: 0, atrasadas: 0 };
+  let s = 550, pagas = 0, atrasadas = 0;
+  for (const v of vs) { if (v.status === 'QUITADA') s += 60; if (v.status === 'RETOMADA') s -= 300;
+    for (const p of v.parcelas || []) { if (p.pago) { pagas++; const d = p.pagoEm ? diasEntre(p.venc, String(p.pagoEm).slice(0, 10)) : 0; s += d <= 3 ? 12 : d <= 15 ? 4 : d <= 30 ? -10 : -30; } else if (p.venc < h) { atrasadas++; s -= Math.min(250, 40 + diasEntre(p.venc, h) * 2); } } }
+  const score = Math.max(0, Math.min(1000, Math.round(s))); return { score, faixa: score >= 750 ? 'Excelente' : score >= 600 ? 'Bom' : score >= 450 ? 'Regular' : 'Risco', pagas, atrasadas };
+}
+{ const _sc2 = secCliente; secCliente = function (r) { const html = _sc2(r); if (!r?.vs) return html; const sc = scoreNx(r.vs), cor = sc.score >= 750 ? 'var(--ok)' : sc.score >= 600 ? '#2456C8' : sc.score >= 450 ? '#B7791F' : 'var(--bad)';
+  return `<div class="pf-sec"><h4>Score NexumCell</h4><div style="display:flex;align-items:center;gap:12px"><b style="font-size:26px;color:${cor}">${sc.score}</b><div><b style="color:${cor}">${sc.faixa}</b><div style="font-size:12px;color:var(--mut)">${sc.pagas} parcela(s) paga(s) · ${sc.atrasadas} em atraso · escala de 0 a 1000</div></div></div><div style="height:6px;border-radius:6px;background:var(--line);margin-top:8px;overflow:hidden"><div style="height:100%;width:${sc.score / 10}%;background:${cor}"></div></div></div>` + html; }; }
+{ const _cc = carregarCob; carregarCob = async function (forcar) { const antes = C.cob.em; await _cc(forcar); if (!fin() || !C.cob.vendas || (C.cob.em === antes && C.cob._emp)) return;
+  const es = await DB.list('emprestimos', [['status', '==', 'CONTRATADO']]).catch(() => []);
+  C.cob.vendas = C.cob.vendas.filter(v => !v._emp).concat(es.filter(e => e.parcelas?.length).map(e => ({ id: 'emp_' + e.id, _emp: e.id, numero: 'EMP-' + e.id.slice(0, 6).toUpperCase(), clienteNome: e.cliente?.nome || 'Cliente', clienteCpf: e.cpf, cliente: { telefones: [e.cliente?.telefone || ''] }, clienteTel1: e.cliente?.telefone || '', lojaNome: e.lojaNome, status: 'ATIVA', parcelas: e.parcelas.filter(p => p.forma !== 'FOLHA') })));
+  C.cob._emp = Date.now(); desenharNav(); }; }
+{ const _vp = vendaPorId; vendaPorId = async function (id) { if (String(id).startsWith('emp_')) return (C.cob.vendas || []).find(v => v.id === id) || null; return _vp(id); }; }
+{ const _api = api; api = async function (rota, corpo) { if (rota === 'pix' && String(corpo?.vendaId || '').startsWith('emp_')) return _api('emprestimo', { acao: 'pix', id: corpo.vendaId.slice(4), n: corpo.n }); return _api(rota, corpo); }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }

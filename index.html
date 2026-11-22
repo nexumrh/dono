@@ -11145,6 +11145,112 @@ async function acFaixa(){
 }
 { const _r=render; render=async(...a)=>{ const r=await _r(...a); if(['inicio','painel'].includes(S.tab)) acFaixa(); return r; }; }
 
+
+/* ===================== SCORE, CONTRATO DO EMPRÉSTIMO, RISCO POR SAFRA, INDICAÇÕES E OUVIDORIA (nov/2026) ===================== */
+const p10Hero = (t, x, m = [], a = '') => typeof empHero === 'function' ? empHero(t, x, m, a) : `<div class="card mb"><h2 style="margin:0 0 4px">${t}</h2><p class="muted" style="margin:0">${x}</p></div>`;
+function nxTag(n) { let x = (Math.max(0, Math.floor(+n || 0)) * 1103515245 + 12345) % 8031810176, s = ''; for (let i = 0; i < 7; i++) { s = String.fromCharCode(65 + (x % 26)) + s; x = Math.floor(x / 26); } return 'N' + s; }
+function scoreNx(vendas, h = hoje()) {
+  const vs = (vendas || []).filter(v => !['REPROVADA', 'CANCELADA'].includes(v.status)); if (!vs.length) return { score: 500, faixa: 'Sem histórico', pagas: 0, atrasadas: 0 };
+  const dias = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(String(a).slice(0, 10) + 'T12:00:00Z')) / 864e5); let s = 550, pagas = 0, atrasadas = 0;
+  for (const v of vs) { if (v.status === 'QUITADA') s += 60; if (v.status === 'RETOMADA') s -= 300;
+    for (const p of v.parcelas || []) { if (p.pago) { pagas++; const d = p.pagoEm ? dias(p.venc, String(p.pagoEm).slice(0, 10)) : 0; s += d <= 3 ? 12 : d <= 15 ? 4 : d <= 30 ? -10 : -30; } else if (p.venc < h) { atrasadas++; s -= Math.min(250, 40 + dias(p.venc, h) * 2); } } }
+  const score = Math.max(0, Math.min(1000, Math.round(s))); return { score, faixa: score >= 750 ? 'Excelente' : score >= 600 ? 'Bom' : score >= 450 ? 'Regular' : 'Risco', pagas, atrasadas };
+}
+const scoreCor = s => s >= 750 ? 'green' : s >= 600 ? 'blue' : s >= 450 ? 'amber' : 'red';
+const scoreBadge = r => badge(`Score ${r.score} · ${r.faixa}`, scoreCor(r.score));
+
+/* ---------- empréstimo: contrato para assinar, parcelas e Pix ---------- */
+if (typeof empDetalhe === 'function') { const _ed = empDetalhe; empDetalhe = function (p) { _ed(p); const mb = $('#mbody'); if (!mb) return; const gestor = can('DONO', 'FINANCEIRO'), h = hoje();
+  const hist = [...mb.querySelectorAll('h4')].find(x => /Histórico/.test(x.textContent)); if (!hist) return; let html = '';
+  if (p.produto !== 'cartao') {
+    const ct = p.contrato || {}; html += `<div class="mt" style="border:1px solid #E3E7F0;border-radius:14px;padding:12px 14px"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h4 style="margin:0">Contrato (cédula de crédito)</h4>${ct.status === 'ASSINADO' ? badge('Assinado em ' + new Date(ct.em).toLocaleString('pt-BR').slice(0, 16), 'green') : ct.status === 'ENVIADO' ? badge('Aguardando a assinatura do cliente', 'amber') : badge('Não gerado', 'gray')}</div>
+      ${ct.status === 'ASSINADO' ? `<p class="small muted" style="margin:6px 0 0">Assinatura eletrônica com CPF, selfie${ct.rosto === 'APROVADA' ? ' (rosto confere)' : ct.rosto === 'REPROVADA' ? ' <b style="color:#C23B3B">(rosto NÃO confere)</b>' : ''} e IP ${esc(ct.ip || '')}. Código do documento: <span style="font-family:monospace">${esc(String(ct.hash || '').slice(0, 16))}…</span></p>` : ''}
+      ${gestor && p.status === 'APROVADO' && ct.status !== 'ASSINADO' ? `<div class="row mt" style="gap:8px"><button class="btn gold sm" data-act="empContrato" data-id="${p.id}">${ct.status === 'ENVIADO' ? 'Gerar novo link de assinatura' : 'Gerar contrato e enviar para assinar'}</button></div>` : ''}</div>`;
+  }
+  if (p.parcelas?.length) html += `<div class="mt" style="border:1px solid #E3E7F0;border-radius:14px;padding:12px 14px"><h4 style="margin:0 0 6px">Parcelas</h4><div class="tablewrap"><table><tr><th>Nº</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th></th></tr>${p.parcelas.map(x => `<tr><td>${x.n}</td><td>${x.venc.split('-').reverse().join('/')}</td><td>${brl(x.valor)}</td><td>${x.pago ? badge('Paga', 'green') : x.forma === 'FOLHA' ? badge('Desconto em folha', 'blue') : x.venc < h ? badge('Em atraso', 'red') : badge('Em aberto', 'gray')}</td><td class="right">${!x.pago && x.forma !== 'FOLHA' && gestor ? `<button class="btn sm" data-act="empPix" data-id="${p.id}" data-n="${x.n}">Pix</button>` : ''}</td></tr>`).join('')}</table></div></div>`;
+  if (html) hist.insertAdjacentHTML('beforebegin', html);
+  DB.list('vendas', [['clienteCpf', '==', p.cpf]]).then(vs => { const t = mb.querySelector('h2'); if (t && !mb.querySelector('.sc-b')) t.insertAdjacentHTML('afterend', `<div class="sc-b" style="margin-top:4px">${scoreBadge(scoreNx(vs))}</div>`); }).catch(() => { }); }; }
+Object.assign(ACT, {
+  empContrato: async (d, b) => { b.disabled = true; try { const r = await apiServ('emprestimo', { acao: 'gerarContrato', id: d.id }); const p = await DB.get('emprestimos', d.id);
+    const url = (window.NEXUMCELL_URLS?.dono || 'https://nexumrh.github.io/dono/') + 'emprestimo/?c=' + r.token, tel = onlyDig(p?.cliente?.telefone || ''), n55 = tel.startsWith('55') ? tel : '55' + tel;
+    const msg = `Olá, ${String(p?.cliente?.nome || '').split(' ')[0]}! O seu ${(EMP_PROD[p.produto]?.nome || 'crédito').toLowerCase()} foi aprovado. Para receber o dinheiro, leia e assine o contrato pelo celular (leva 2 minutos): ${url}\nO link vale por 72 horas.`;
+    closeModal(); openModal(`<h2 style="margin-top:0">Contrato gerado</h2><p class="muted" style="margin-top:0">Envie o link ao cliente. Ele lê a cédula de crédito, confirma o CPF, faz uma selfie e assina com o dedo. Depois de assinado, marque "Dinheiro liberado".</p><div class="row"><input readonly value="${esc(url)}"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar</button></div>
+      <div class="row mt" style="justify-content:flex-end;gap:8px">${tel.length >= 10 ? `<a class="btn gold" target="_blank" rel="noopener" href="https://wa.me/${n55}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a>` : ''}<button class="btn" data-act="closeModal">Fechar</button></div>`); }
+    catch (e) { toast(e.message, 'err'); b.disabled = false; } },
+  empPix: async (d, b) => { b.disabled = true; try { const r = await apiServ('emprestimo', { acao: 'pix', id: d.id, n: +d.n }); openModal(`<h2 style="margin-top:0">Pix da parcela ${d.n}</h2><p><b>${brl(r.valor)}</b></p>${r.qrBase64 ? `<img src="data:image/png;base64,${r.qrBase64}" width="200" height="200" style="display:block;margin:0 auto 10px">` : ''}<textarea readonly rows="4" style="width:100%">${esc(r.copiaECola)}</textarea><div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" data-act="copiarTexto" data-t="${esc(r.copiaECola)}">Copiar</button><button class="btn" data-act="closeModal">Fechar</button></div>`); } catch (e) { toast(e.message, 'err'); } b.disabled = false; },
+});
+if (ACT.empLimSug) { const _ls = ACT.empLimSug; ACT.empLimSug = async (d, b) => { await _ls(d, b); const cpf = onlyDig($('#lmC')?.value || ''); if (cpf.length !== 11) return; const vs = await DB.list('vendas', [['clienteCpf', '==', cpf]]).catch(() => []), sc = scoreNx(vs), c = S._empCfg || {};
+  const sug = sc.faixa === 'Excelente' ? Math.round((c.pessoal?.limiteBom || 2000) * 1.5) : sc.faixa === 'Bom' ? (c.pessoal?.limiteBom || 2000) : sc.faixa === 'Risco' ? 0 : (c.pessoal?.limiteNovo || 500);
+  $('#lmV').value = sug; $('#lmSug').insertAdjacentHTML('beforeend', `<div class="mt">${scoreBadge(sc)} <span class="small muted">${sc.pagas} parcela(s) paga(s), ${sc.atrasadas} em atraso. Limite sugerido pelo score: ${brl(sug)}.</span></div>`); }; }
+
+/* ---------- telas novas: risco por safra, indicações e ouvidoria ---------- */
+if (['dono', 'financeiro', 'suporte'].includes(PORTAL)) {
+  IC.safras = '<path d="M3 3v18h18"/><path d="M7 16v-4M11 16V8M15 16v-6M19 16V5"/>'; IC.indicacoes = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>'; IC.ouvidoria = '<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a3 3 0 0 1 0 6M18 6a7 7 0 0 1 0 12"/>';
+  TABS.push({ id: 'safras', label: 'Risco por safra', roles: ['DONO', 'FINANCEIRO'] }, { id: 'indicacoes', label: 'Indicações', roles: ['DONO', 'FINANCEIRO'] }, { id: 'ouvidoria', label: 'Ouvidoria', roles: ['DONO', 'FINANCEIRO', 'SUPORTE'] });
+  const add = (t, g) => { if (!TABS.find(x => x.id === t).roles.some(r => can(r) || r === ({ dono: 'DONO', financeiro: 'FINANCEIRO', suporte: 'SUPORTE' })[PORTAL])) return; if (!P.tabs.includes(t)) P.tabs.push(t); const gr = NAV_GRUPOS.find(x => x[0] === g) || NAV_GRUPOS.find(x => x[0] === 'Sistema'); if (gr && !gr[1].includes(t)) gr[1].push(t); };
+  add('safras', 'Cobrança'); add('indicacoes', 'Vendas'); add('ouvidoria', 'Atendimento');
+}
+PAGES.safras = async () => {
+  const vs = (await DB.list('vendas').catch(() => [])).filter(v => !['REPROVADA', 'CANCELADA', 'EM_ANALISE', 'PRE_APROVADA'].includes(v.status) && v.criadoEm), h = hoje(), dias = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 864e5);
+  const atr30 = v => (v.parcelas || []).some(p => !p.pago && p.venc < h && dias(p.venc, h) > 30), fpd = v => { const p = (v.parcelas || [])[0]; if (!p || dias(p.venc, h) < 30) return null; return !p.pago || (p.pagoEm && dias(p.venc, String(p.pagoEm).slice(0, 10)) > 30); };
+  const devido = v => (v.parcelas || []).filter(p => !p.pago && p.venc < h).reduce((s, p) => s + (+p.valor || 0), 0), fin = v => +v.valorFinanciado || +v.total || (v.parcelas || []).reduce((s, p) => s + (+p.valor || 0), 0);
+  const cor = pct => pct >= 25 ? '#FDE2E2' : pct >= 15 ? '#FFE9CC' : pct >= 8 ? '#FFF6D6' : '#E6F6EE', pctF = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const meses = [...new Set(vs.map(v => isoDate(new Date(v.criadoEm)).slice(0, 7)))].sort().slice(-12), dim = S.safDim || 'loja', chave = v => dim === 'loja' ? (v.lojaNome || '—') : (v.vendedorNome || v.criadoPorNome || '—');
+  const linhas = meses.map(m => { const l = vs.filter(v => isoDate(new Date(v.criadoEm)).startsWith(m)), f = l.map(fpd).filter(x => x !== null); return { m, n: l.length, valor: l.reduce((s, v) => s + fin(v), 0), a30: pctF(l.filter(atr30).length, l.length), fpd: f.length ? pctF(f.filter(Boolean).length, f.length) : null, dev: l.reduce((s, v) => s + devido(v), 0) }; });
+  const desde = isoDate(new Date(Date.now() - 180 * 864e5)), rec = vs.filter(v => isoDate(new Date(v.criadoEm)) >= desde), grupos = {};
+  rec.forEach(v => (grupos[chave(v)] ||= []).push(v));
+  const rk = Object.entries(grupos).map(([k, l]) => { const f = l.map(fpd).filter(x => x !== null); return { k, n: l.length, a30: pctF(l.filter(atr30).length, l.length), fpd: f.length ? pctF(f.filter(Boolean).length, f.length) : null, dev: l.reduce((s, v) => s + devido(v), 0) }; }).sort((a, b) => b.a30 - a.a30 || b.dev - a.dev);
+  const tot = linhas.reduce((s, x) => s + x.n, 0), totA = vs.filter(atr30).length;
+  $('#topActions').innerHTML = '';
+  $('#view').innerHTML = p10Hero('Risco por safra', 'Cada safra é o grupo de vendas feitas no mesmo mês. Acompanhe quanto de cada safra está com mais de 30 dias de atraso e a 1ª parcela não paga (FPD): é o sinal mais cedo de loja ou vendedor aprovando quem não paga.', [['Contratos analisados', tot], ['Com atraso acima de 30 dias', pctF(totA, vs.length) + '%', totA ? 'r' : ''], ['Em atraso agora', brl(vs.reduce((s, v) => s + devido(v), 0)), 'o']])
+    + `<div class="card mb"><h2 style="margin:0 0 8px">Safras (mês da venda)</h2><div class="tablewrap"><table><tr><th>Safra</th><th>Contratos</th><th>Financiado</th><th>1ª parcela não paga (FPD)</th><th>Atraso acima de 30 dias</th><th>Em atraso agora</th></tr>${linhas.reverse().map(x => `<tr><td><b>${x.m.split('-').reverse().join('/')}</b></td><td>${x.n}</td><td>${brl(x.valor)}</td><td style="background:${x.fpd == null ? '' : cor(x.fpd)}">${x.fpd == null ? '<span class="muted">ainda não venceu</span>' : x.fpd + '%'}</td><td style="background:${cor(x.a30)}"><b>${x.a30}%</b></td><td>${brl(x.dev)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Sem vendas.</td></tr>'}</table></div></div>
+    <div class="card"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Quem está aprovando quem não paga (últimos 6 meses)</h2><div class="tabs" style="margin:0">${[['loja', 'Por loja'], ['vendedor', 'Por vendedor']].map(([k, n]) => `<button data-act="safDim" data-d="${k}" class="${dim === k ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+      <div class="tablewrap mt"><table><tr><th>${dim === 'loja' ? 'Loja' : 'Vendedor'}</th><th>Contratos</th><th>FPD</th><th>Atraso acima de 30 dias</th><th>Em atraso agora</th></tr>${rk.map(x => `<tr><td><b>${esc(x.k)}</b></td><td>${x.n}</td><td style="background:${x.fpd == null ? '' : cor(x.fpd)}">${x.fpd == null ? '—' : x.fpd + '%'}</td><td style="background:${cor(x.a30)}"><b>${x.a30}%</b></td><td>${brl(x.dev)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Sem dados.</td></tr>'}</table></div>
+      <p class="small muted mt">Cores: verde até 8%, amarelo até 15%, laranja até 25%, vermelho acima. Loja ou vendedor no vermelho: aumente a entrada exigida, revise as vendas e o treinamento.</p></div>`;
+};
+PAGES.indicacoes = async () => {
+  const pres = (await DB.list('preanalises').catch(() => [])).filter(p => p.indicadoPor).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0)), vs = await DB.list('vendas').catch(() => []);
+  const tagDe = v => nxTag(v.numero), porTag = {}; vs.forEach(v => { const t = tagDe(v); if (t) porTag[t] = v; });
+  const valor = +(S.cfg.indicacaoValor || 20);
+  const linhas = pres.map(p => { const ind = porTag[p.indicadoPor], virou = vs.find(v => v.clienteCpf === p.cpf && ['ATIVA', 'QUITADA'].includes(v.status)); return { p, ind, virou }; });
+  $('#topActions').innerHTML = `<button class="btn" data-act="indValor">Valor do prêmio: ${brl(valor)}</button>`;
+  $('#view').innerHTML = p10Hero('Indicações', 'O cliente indica um amigo pelo link "Indique e ganhe" do app. Quando o amigo compra e a venda fica ativa, o cliente que indicou ganha desconto na próxima parcela.', [['Indicações', pres.length], ['Viraram venda', linhas.filter(x => x.virou).length, 'g'], ['Prêmios pagos', linhas.filter(x => x.p.indicacaoPaga).length]])
+    + `<div class="card"><div class="tablewrap"><table><tr><th>Data</th><th>Indicado</th><th>Quem indicou</th><th>Situação</th><th></th></tr>${linhas.map(({ p, ind, virou }) => `<tr><td>${new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td><td><b>${esc(p.nome || '')}</b><br><span class="small muted">${esc(p.aparelho || '')} · ${esc(p.lojaNome || '')}</span></td>
+      <td>${ind ? `<b>${esc(ind.clienteNome)}</b><br><span class="small muted">${esc(p.indicadoPor)} · contrato ${ind.numero}</span>` : `<span class="small muted">${esc(p.indicadoPor)} (não encontrado)</span>`}</td>
+      <td>${p.indicacaoPaga ? badge('Prêmio pago ' + brl(p.indicacaoPaga.valor), 'green') : virou ? badge('Virou venda', 'blue') : badge(p.status || 'Pré-análise', 'gray')}</td>
+      <td class="right">${virou && ind && !p.indicacaoPaga && can('DONO', 'FINANCEIRO') ? `<button class="btn sm gold" data-act="indPagar" data-id="${p.id}" data-v="${ind.id}">Dar ${brl(valor)} de desconto</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Nenhuma indicação ainda. O link fica no app do cliente, em Início.</td></tr>'}</table></div></div>`;
+};
+PAGES.ouvidoria = async () => {
+  const l = (await DB.list('ouvidoria').catch(() => [])).sort((a, b) => (b.em || 0) - (a.em || 0)), h = hoje(), f = S.ouvF || 'abertos';
+  const vis = l.filter(o => f === 'todos' || (f === 'abertos' ? !['RESPONDIDO', 'ENCERRADO'].includes(o.status) : o.status === f)), venc = l.filter(o => !['RESPONDIDO', 'ENCERRADO'].includes(o.status) && o.prazo < h);
+  const TIPO = { RECLAMACAO: 'Reclamação', DENUNCIA: 'Denúncia', SUGESTAO: 'Sugestão', ELOGIO: 'Elogio', LGPD: 'Dados pessoais (LGPD)' };
+  $('#topActions').innerHTML = `<a class="btn" href="${esc((window.NEXUMCELL_URLS?.cliente || 'https://nexumrh.github.io/cliente/') + 'ouvidoria.html')}" target="_blank" rel="noopener">Abrir a página da ouvidoria</a>`;
+  $('#view').innerHTML = p10Hero('Ouvidoria', 'Reclamações, denúncias, sugestões e pedidos sobre dados pessoais, com protocolo e prazo de resposta de 10 dias úteis. O cliente acompanha pelo número do protocolo.', [['Em aberto', l.filter(o => !['RESPONDIDO', 'ENCERRADO'].includes(o.status)).length, 'o'], ['Prazo vencido', venc.length, venc.length ? 'r' : ''], ['Respondidos', l.filter(o => o.status === 'RESPONDIDO' || o.status === 'ENCERRADO').length, 'g']])
+    + `<div class="card"><div class="tabs">${[['abertos', 'Em aberto'], ['RESPONDIDO', 'Respondidos'], ['ENCERRADO', 'Encerrados'], ['todos', 'Todos']].map(([k, n]) => `<button data-act="ouvF" data-f="${k}" class="${f === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+      <div class="tablewrap"><table><tr><th>Protocolo</th><th>Cliente</th><th>Tipo</th><th>Prazo</th><th>Situação</th><th></th></tr>${vis.map(o => `<tr><td><b>${esc(o.protocolo)}</b><br><span class="small muted">${new Date(o.em).toLocaleString('pt-BR').slice(0, 16)}</span></td><td>${esc(o.nome)}<br><span class="small muted">CPF ${fmtCpf(o.cpf)}</span></td><td>${TIPO[o.tipo] || o.tipo}<br><span class="small muted">${esc(o.assunto || '')}</span></td>
+        <td>${['RESPONDIDO', 'ENCERRADO'].includes(o.status) ? '—' : o.prazo < h ? badge('Vencido ' + o.prazo.split('-').reverse().join('/'), 'red') : badge(o.prazo.split('-').reverse().join('/'), 'amber')}</td><td>${badge({ ABERTO: 'Aberto', EM_ANALISE: 'Em análise', RESPONDIDO: 'Respondido', ENCERRADO: 'Encerrado' }[o.status] || o.status, o.status === 'ABERTO' ? 'amber' : o.status === 'EM_ANALISE' ? 'blue' : 'green')}</td>
+        <td class="right"><button class="btn sm" data-act="ouvAbrir" data-id="${o.id}">Abrir</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nada aqui.</td></tr>'}</table></div></div>`;
+  S._ouv = l;
+};
+Object.assign(ACT, {
+  safDim: d => { S.safDim = d.d; render(); },
+  ouvF: d => { S.ouvF = d.f; render(); },
+  ouvAbrir: d => { const o = (S._ouv || []).find(x => x.id === d.id); if (!o) return; const tel = onlyDig(o.telefone || ''), n55 = tel.startsWith('55') ? tel : '55' + tel;
+    openModal(`<h2 style="margin-top:0">${esc(o.protocolo)}</h2><p class="small muted" style="margin-top:-6px">${esc(o.nome)} · CPF ${fmtCpf(o.cpf)} · ${esc(o.telefone || '')} ${o.email ? '· ' + esc(o.email) : ''}</p>
+      <div class="msg"><b>${esc(o.assunto || o.tipo)}</b><br>${esc(o.relato).replace(/\n/g, '<br>')}</div>${o.resposta ? `<div class="msg" style="background:#E6F6EE"><small>Resposta · ${esc(o.respondidoPor || '')}</small><br>${esc(o.resposta).replace(/\n/g, '<br>')}</div>` : ''}
+      <label class="mt" style="display:block">Resposta ao cliente<textarea id="ouvR" rows="5">${esc(o.resposta || '')}</textarea></label>
+      <div class="row mt" style="justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn" data-act="ouvSalvar" data-id="${o.id}" data-s="EM_ANALISE">Marcar em análise</button><button class="btn gold" data-act="ouvSalvar" data-id="${o.id}" data-s="RESPONDIDO" data-t="${tel.length >= 10 ? n55 : ''}">Responder</button><button class="btn" data-act="ouvSalvar" data-id="${o.id}" data-s="ENCERRADO">Encerrar</button></div>`, true); },
+  ouvSalvar: async (d, b) => { const r = $('#ouvR')?.value.trim() || ''; if (d.s === 'RESPONDIDO' && r.length < 10) return toast('Escreva a resposta ao cliente', 'err'); b.disabled = true;
+    try { await apiServ('ouvidoria', { acao: 'responder', protocolo: d.id, resposta: r, status: d.s }); toast('Salvo', 'ok'); closeModal();
+      if (d.s === 'RESPONDIDO' && d.t) window.open(`https://wa.me/${d.t}?text=${encodeURIComponent(`Ouvidoria NexumCell · protocolo ${d.id}\n\n${r}`)}`, '_blank', 'noopener'); render(); } catch (e) { toast(e.message, 'err'); b.disabled = false; } },
+  indValor: async () => { const v = prompt('Valor do desconto para quem indica (R$):', S.cfg.indicacaoValor || 20); if (v == null) return; await DB.set('config', 'sistema', { indicacaoValor: Math.max(0, +v || 0) }); await DB.set('publico', 'vitrine', { indicacaoValor: Math.max(0, +v || 0) }).catch(() => { }); S.cfg.indicacaoValor = Math.max(0, +v || 0); toast('Salvo', 'ok'); render(); },
+  indPagar: async (d, b) => { const valor = +(S.cfg.indicacaoValor || 20), v = await DB.get('vendas', d.v); if (!v) return; const ps = [...(v.parcelas || [])], i = ps.findIndex(p => !p.pago); if (i < 0) return toast('O cliente não tem parcela em aberto', 'err');
+    if (!confirm(`Dar ${brl(valor)} de desconto na parcela ${ps[i].n} de ${v.clienteNome}?`)) return; b.disabled = true;
+    ps[i] = { ...ps[i], valorOriginal: ps[i].valorOriginal || ps[i].valor, valor: Math.max(0, +(ps[i].valor - valor).toFixed(2)), descontoIndicacao: valor };
+    await DB.set('vendas', v.id, { parcelas: ps }); await DB.set('preanalises', d.id, { indicacaoPaga: { valor, em: Date.now(), por: S.me.nome, vendaId: v.id, parcela: ps[i].n } });
+    await log('Prêmio de indicação', 'vendas', `${v.clienteNome}: ${brl(valor)} na parcela ${ps[i].n}`); toast('Desconto aplicado na próxima parcela', 'ok'); render(); },
+});
+
 </script>
 </body>
 </html>
