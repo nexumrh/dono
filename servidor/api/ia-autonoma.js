@@ -14,7 +14,7 @@ const dias = (a, b) => Math.round((new Date(String(b).slice(0, 10) + 'T12:00:00'
 const POR = 'IA NexumCell';
 
 let _chave = null;
-async function chaveIA() {
+export async function chaveIA() {
   if (_chave && _chave.em > Date.now() - 300e3) return _chave.v;
   let v = process.env.GROQ_API_KEY_2 || '';
   if (!v) { try { v = (await db.collection('segredos').doc('ia').get()).data()?.chave || ''; } catch (e) { v = ''; } }

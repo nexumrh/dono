@@ -4,6 +4,7 @@
 //   noite (19h de Brasília): resumo do dia para o dono (notificação no portal + e-mail + WhatsApp/SMS)
 // Cloudflare: roda sozinho pelos "Cron Triggers" do wrangler.toml.
 // Vercel: vercel.json chama GET /api/cron?r=manha e ?r=noite com o cabeçalho Authorization: Bearer CRON_SECRET.
+import { emprestimoRotina } from './emprestimo.js';
 import { db, asaas, hoje, r2, encargos, config, asaasLigadoSrv, pushNotificacao } from './_base.js';
 import { saasRotina } from './saas.js';
 import { repasseRotina } from './repasse.js';
@@ -282,7 +283,7 @@ export async function statsIndicacao(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } try { r.ia = await iaAutonomaRotina(); } catch (e) { console.error('ia', e.message); } return r; }
+  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } try { r.ia = await iaAutonomaRotina(); } catch (e) { console.error('ia', e.message); } try { r.emp = await emprestimoRotina(); } catch (e) { console.error('emprestimo', e.message); } return r; }
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
   if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();
