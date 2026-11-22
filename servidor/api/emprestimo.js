@@ -10,6 +10,8 @@
 // ou correspondente bancário; no consignado CLT, habilitação no MTE e contrato com a Dataprev).
 import { db, cors, exigirEquipe, hoje } from './_base.js';
 import { chaveIA } from './ia-autonoma.js';
+import { scoreDe } from './score.js';
+import { asaas } from './_base.js';
 
 const PAD = {
   instituicao: { tipo: 'NENHUMA' }, dataprev: { modo: 'MANUAL' },
@@ -84,7 +86,8 @@ export async function analisar(id) {
     else if (b.status === 'REPROVADA') recusa('Biometria facial: o rosto não confere com o documento' + (b.observacao ? ` (${b.observacao})` : ''));
     else if (b.status === 'DUVIDA') duvida('Biometria facial em dúvida: a equipe confere as fotos');
     else ok(`Biometria facial confere (${b.confianca ?? '—'}%)`);
-    const h = await historicoCpf(p.cpf);
+    const h = await historicoCpf(p.cpf), sc = scoreDe((await db.collection('vendas').where('clienteCpf', '==', p.cpf).get()).docs.map((d) => d.data()));
+    if (h.contratos) { if (sc.score < 300) recusa(`Score NexumCell ${sc.score} (${sc.faixa})`); else if (sc.score < 450) duvida(`Score NexumCell ${sc.score} (${sc.faixa})`); else ok(`Score NexumCell ${sc.score} (${sc.faixa})`); }
     if (h.atrasadas) recusa(`${h.atrasadas} parcela(s) em atraso na NexumCell`);
     else if (h.atrasoMax > 30) recusa(`Já atrasou ${h.atrasoMax} dias na NexumCell`);
     else if (h.pagas) ok(`${h.pagas} parcela(s) paga(s) na NexumCell, ${h.emDia} em dia`);
@@ -115,9 +118,36 @@ async function decidir(id, status, obs, quem) {
     const lr = db.collection('limitesCliente').doc(p.cpf), l = (await lr.get()).data() || {};
     await lr.set({ nome: p.cliente?.nome || l.nome || '', limite: l.limite ?? p.valor, usado: (+l.usado || 0) + (+p.valor || 0), atualizadoEm: Date.now(), por: quem }, { merge: true });
   }
-  await ref.set({ status, decididoPor: quem, decididoEm: Date.now(), atualizadoEm: Date.now(), historico: [...(p.historico || []), { em: Date.now(), por: quem, obs: ST[status] + (obs ? ': ' + obs : '') }] }, { merge: true });
+  let extra = {};
+  if (status === 'CONTRATADO' && ['pessoal', 'clt'].includes(p.produto) && !p.parcelas) {
+    const base = new Date(); base.setUTCDate(base.getUTCDate() + 30);
+    extra.parcelas = Array.from({ length: +p.prazo || 1 }, (_, k) => { const d = new Date(base); d.setUTCMonth(d.getUTCMonth() + k); return { n: k + 1, venc: d.toISOString().slice(0, 10), valor: +p.parcela, pago: false, ...(p.produto === 'clt' ? { forma: 'FOLHA' } : {}) }; });
+    extra.contratadoEm = Date.now();
+  }
+  await ref.set({ ...extra, status, decididoPor: quem, decididoEm: Date.now(), atualizadoEm: Date.now(), historico: [...(p.historico || []), { em: Date.now(), por: quem, obs: ST[status] + (obs ? ': ' + obs : '') }] }, { merge: true });
   return { status };
 }
+
+function textoContrato(p, c) {
+  const brlx = brl, d = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }), cl = p.cliente || {};
+  return [`CÉDULA DE CRÉDITO · ${NOME[p.produto].toUpperCase()} · Nº ${p.protocolo || ''}`,
+    `CREDOR: ${c.instituicao?.nome || 'NexumCell'}${c.instituicao?.cnpj ? ', CNPJ ' + c.instituicao.cnpj : ''}${c.instituicao?.tipo === 'CORRESPONDENTE' ? ' (por meio da NexumCell, correspondente)' : ''}.`,
+    `EMITENTE (CLIENTE): ${cl.nome || ''}, CPF ${String(p.cpf).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}, telefone ${cl.telefone || ''}.`,
+    `1. VALOR E PAGAMENTO. O cliente recebe ${brlx(p.valor)} e pagará ${p.prazo} parcelas mensais de ${brlx(p.parcela)}, total de ${brlx(p.total)}, com a 1ª em 30 dias${p.produto === 'clt' ? ', descontadas em folha de pagamento pelo empregador, até o limite da margem consignável' : ', por Pix ou boleto'}.`,
+    `2. CUSTO. Juros de ${p.taxa?.modo === 'TOTAL' ? p.taxa.valor + '% sobre o total' : (p.taxa?.valor || 0) + '% ao mês'}${p.iof ? `, IOF de ${brlx(p.iof)}` : ''}. Custo Efetivo Total (CET): ${p.cetMes ?? '—'}% ao mês e ${p.cetAno ?? '—'}% ao ano.`,
+    `3. ATRASO. Parcela em atraso tem multa de 2% e juros de mora de 1% ao mês, e o nome pode ser incluído nos órgãos de proteção ao crédito após aviso prévio.`,
+    `4. QUITAÇÃO ANTECIPADA. O cliente pode antecipar parcelas ou quitar o contrato com redução proporcional dos juros.`,
+    `5. ARREPENDIMENTO. O cliente pode desistir em até 7 dias da assinatura, devolvendo o valor recebido, sem juros.`,
+    `6. DADOS (LGPD). Os dados e a biometria facial são usados para identificar o cliente, analisar o crédito e cobrar, e ficam guardados com segurança pelo prazo legal.`,
+    `7. ASSINATURA ELETRÔNICA. O cliente assina eletronicamente, com confirmação do CPF, selfie e registro de data, hora e endereço IP, que valem como prova de autoria.`,
+    `Foz do Iguaçu/PR, ${d}.`].join('\n\n');
+}
+async function porContrato(t) {
+  if (!/^[a-f0-9]{24,64}$/.test(String(t || ''))) throw erro('Link inválido', 404);
+  const d = (await db.collection('emprestimos').where('contratoToken', '==', t).get()).docs[0]; if (!d) throw erro('Link inválido', 404);
+  return { id: d.id, p: d.data() };
+}
+async function sha256(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
 
 async function porToken(t) {
   if (!/^[a-f0-9]{24,64}$/.test(String(t || ''))) throw erro('Link inválido', 404);
@@ -139,6 +169,20 @@ export default async function handler(req, res) {
   const b = req.body || {};
   try {
     if (b.acao === 'cliente') { const { p } = await porToken(b.t); return res.json(resumo(p)); }
+    if (b.acao === 'contrato') { const { p } = await porContrato(b.c); return res.json({ ...resumo(p), status: p.status, assinado: p.contrato?.status === 'ASSINADO', expirado: (p.contratoExpira || 0) < Date.now(), texto: p.contratoTexto || '' }); }
+    if (b.acao === 'assinar') {
+      const { id, p } = await porContrato(b.c);
+      if (p.contrato?.status === 'ASSINADO') throw erro('Este contrato já foi assinado.');
+      if ((p.contratoExpira || 0) < Date.now()) throw erro('O link venceu. Peça um novo à loja.');
+      if (b.aceite !== true) throw erro('Marque que leu e aceita o contrato.');
+      if (soD(b.cpfFim) !== String(p.cpf).slice(-4)) throw erro('Os 4 últimos números do CPF não conferem.');
+      for (const k of ['assinatura', 'selfie']) if (!/^data:image\/(png|jpeg|webp);base64,/.test(String(b[k] || '')) || b[k].length > 400000) throw erro('Falta a ' + (k === 'selfie' ? 'selfie' : 'assinatura') + '.');
+      const bio = (await db.collection('empBiometria').doc(id).get()).data(), conf = bio?.documento ? await conferirRosto({ documento: bio.documento, selfie: b.selfie, selfie2: b.selfie }) : { status: 'DUVIDA' };
+      const ip = req.headers['cf-connecting-ip'] || '', hash = await sha256(p.contratoTexto || '');
+      await db.collection('empContratos').doc(id).set({ texto: p.contratoTexto, hash, assinatura: b.assinatura, selfie: b.selfie, ip, aparelho: String(req.headers['user-agent'] || '').slice(0, 160), em: Date.now(), rosto: conf.status, confianca: conf.confianca ?? null });
+      await db.collection('emprestimos').doc(id).set({ contrato: { status: 'ASSINADO', em: Date.now(), hash, ip, rosto: conf.status }, contratoToken: null, atualizadoEm: Date.now(), historico: [...(p.historico || []), { em: Date.now(), por: 'Cliente (link)', obs: 'Contrato assinado eletronicamente' + (conf.status === 'REPROVADA' ? ' · ATENÇÃO: rosto não confere' : '') }] }, { merge: true });
+      return res.json({ ok: true, rosto: conf.status });
+    }
     if (b.acao === 'clienteEnviar') {
       const { id, p } = await porToken(b.t);
       if (p.status !== 'AGUARDANDO_CLIENTE') throw erro('Esta proposta já foi enviada.');
@@ -164,7 +208,33 @@ export default async function handler(req, res) {
     }
     if (b.acao === 'biometria') { const p = await daLoja(b.id); await salvarBiometria(b.id, p, b, { modo: 'LOJA', por: eu.nome }); return res.json(await analisar(b.id)); }
     if (b.acao === 'analisar') { await daLoja(b.id); return res.json(await analisar(b.id)); }
+    if (b.acao === 'gerarContrato') {
+      if (!['DONO', 'FINANCEIRO'].includes(eu.role)) throw erro('sem permissão', 403);
+      const p = await daLoja(b.id); if (p.status !== 'APROVADO') throw erro('Só proposta aprovada gera contrato.');
+      const c = await cfgEmp(), tk = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, '0')).join('');
+      await db.collection('emprestimos').doc(b.id).set({ contratoToken: tk, contratoExpira: Date.now() + 72 * 3600e3, contratoTexto: textoContrato(p, c), contrato: { status: 'ENVIADO', em: Date.now() }, historico: [...(p.historico || []), { em: Date.now(), por: eu.nome, obs: 'Contrato gerado e enviado para assinatura' }] }, { merge: true });
+      return res.json({ token: tk });
+    }
+    if (b.acao === 'pix') {
+      const p = await daLoja(b.id), parc = (p.parcelas || []).find((x) => x.n === +b.n); if (!parc || parc.pago) throw erro('Parcela inexistente ou já paga.'); if (parc.forma === 'FOLHA') throw erro('Esta parcela é descontada em folha.');
+      let cli = (await asaas('/customers?cpfCnpj=' + p.cpf)).data?.[0];
+      if (!cli) cli = await asaas('/customers', { method: 'POST', body: JSON.stringify({ name: p.cliente?.nome, cpfCnpj: p.cpf, mobilePhone: soD(p.cliente?.telefone) }) });
+      const ref = `emp:${b.id}:${parc.n}`; let cob = (await asaas('/payments?externalReference=' + encodeURIComponent(ref) + '&status=PENDING')).data?.[0];
+      if (!cob) cob = await asaas('/payments', { method: 'POST', body: JSON.stringify({ customer: cli.id, billingType: 'PIX', value: parc.valor, dueDate: hoje(), externalReference: ref, description: `NexumCell ${NOME[p.produto]} ${p.protocolo || ''} parcela ${parc.n}` }) });
+      const qr = await asaas(`/payments/${cob.id}/pixQrCode`);
+      return res.json({ valor: parc.valor, copiaECola: qr.payload, qrBase64: qr.encodedImage, cobranca: cob.id });
+    }
     if (b.acao === 'decidir') { if (!['DONO', 'FINANCEIRO'].includes(eu.role)) throw erro('sem permissão', 403); return res.json(await decidir(b.id, b.status, String(b.obs || '').slice(0, 300), eu.nome)); }
     throw erro('ação inválida');
   } catch (e) { res.status(e.status || 500).json({ erro: e.message }); }
+}
+
+// baixa automática da parcela de empréstimo paga pelo Pix do Asaas (externalReference emp:<id>:<n>)
+export async function baixarParcelaEmprestimo(ref, valor, cobrancaId) {
+  const [, id, n] = String(ref).split(':'); const r = db.collection('emprestimos').doc(id), p = (await r.get()).data(); if (!p) return false;
+  const parcelas = (p.parcelas || []).map((x) => (x.n === +n && !x.pago ? { ...x, pago: true, pagoEm: new Date().toISOString(), valorPago: +valor, forma: 'PIX (Asaas)', cobranca: cobrancaId } : x));
+  const quitado = parcelas.every((x) => x.pago);
+  await r.set({ parcelas, ...(quitado ? { quitadoEm: Date.now() } : {}), atualizadoEm: Date.now() }, { merge: true });
+  if (quitado && p.produto === 'pessoal') { const lr = db.collection('limitesCliente').doc(p.cpf), l = (await lr.get()).data(); if (l) await lr.set({ usado: Math.max(0, (+l.usado || 0) - (+p.valor || 0)) }, { merge: true }); }
+  return true;
 }

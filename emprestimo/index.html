@@ -69,7 +69,32 @@ async function enviar(){
     else fim('rel','Recebemos tudo!','A equipe da NexumCell está conferindo e responde em breve pelo WhatsApp.'); }
   catch(er){ b.disabled=false; b.textContent='Enviar para análise'; m(esc(er.message)); }
 }
-(async()=>{ if(!T||!SRV) return fim('x','Link inválido','Peça um novo link à loja.');
+const CT=new URLSearchParams(location.search).get('c')||'';
+async function apiC(d){ const r=await fetch(SRV+'/api/emprestimo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...d,c:CT})}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.erro||'Erro '+r.status); return j; }
+function telaContrato(){
+  const p=P; document.querySelector('header h1').textContent='Assinatura do contrato'; document.querySelector('header p').textContent='Leia o contrato, confirme que é você e assine com o dedo.';
+  $('#app').innerHTML=`<div class="card"><div class="mut">${esc(p.produto)} · ${esc(p.loja)} · ${esc(p.protocolo||'')}</div><div class="big">${p.prazo}x de ${brl(p.parcela)}</div><div class="kv"><span>Você recebe</span><b>${brl(p.valor)}</b><span>Total a pagar</span><b>${brl(p.total)}</b>${p.cetMes!=null?`<span>CET</span><b>${String(p.cetMes).replace('.',',')}% a.m. · ${String(p.cetAno).replace('.',',')}% a.a.</b>`:''}</div></div>
+  <div class="card"><h2>Contrato</h2><div style="max-height:320px;overflow:auto;white-space:pre-wrap;font-size:13.5px;line-height:1.55;border:1px solid #E3E7F0;border-radius:12px;padding:12px;background:#FAFBFE">${esc(p.texto)}</div></div>
+  <div class="card"><h2>1. Confirme que é você</h2><p class="mut" style="margin:0 0 8px">Digite os 4 últimos números do seu CPF.</p><input id="cpf" inputmode="numeric" maxlength="4" placeholder="0000"></div>
+  <div class="card"><h2>2. Selfie</h2><p class="mut" style="margin:0 0 8px" id="camTx">Olhe para a câmera, com o rosto inteiro no oval.</p><div class="cam" id="camBox"><video id="cam" autoplay playsinline muted></video><div class="oval"></div></div><button class="btn" id="foto">Tirar selfie</button></div>
+  <div class="card"><h2>3. Assine com o dedo</h2><canvas id="ass" width="600" height="220" style="width:100%;height:150px;border:1.5px dashed #9DB7F5;border-radius:12px;background:#fff;touch-action:none"></canvas><button class="btn sec" id="limpar" style="height:40px">Limpar assinatura</button></div>
+  <div class="card"><label class="chk"><input type="checkbox" id="ac"><span>Li o contrato, concordo com todas as condições e assino eletronicamente.</span></label><div id="err"></div><button class="btn" id="env">Assinar o contrato</button></div>`;
+  const cv=$('#ass'), x=cv.getContext('2d'); x.lineWidth=3; x.lineCap='round'; x.strokeStyle='#0A1733'; let des=false, rab=false;
+  const pt=e=>{ const r=cv.getBoundingClientRect(), t=e.touches?e.touches[0]:e; return [(t.clientX-r.left)*cv.width/r.width,(t.clientY-r.top)*cv.height/r.height]; };
+  const ini=e=>{ e.preventDefault(); des=true; const [a,b]=pt(e); x.beginPath(); x.moveTo(a,b); }, mov=e=>{ if(!des) return; e.preventDefault(); const [a,b]=pt(e); x.lineTo(a,b); x.stroke(); rab=true; }, fimD=()=>des=false;
+  cv.addEventListener('pointerdown',ini); cv.addEventListener('pointermove',mov); addEventListener('pointerup',fimD);
+  $('#limpar').onclick=()=>{ x.clearRect(0,0,cv.width,cv.height); rab=false; };
+  (async()=>{ try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false}); const v=$('#cam'); v.srcObject=stream; await v.play().catch(()=>{}); }catch(e){ $('#camTx').innerHTML='<b style="color:#C23B3B">Permita o uso da câmera para continuar.</b>'; } })();
+  $('#foto').onclick=async()=>{ const v=$('#cam'); if(!v||!v.videoWidth) return; const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const g=c.getContext('2d'); g.translate(c.width,0); g.scale(-1,1); g.drawImage(v,0,0); B.selfie=red(await img(c.toDataURL('image/jpeg',.9)),640);
+    stream?.getTracks().forEach(t=>t.stop()); stream=null; $('#camBox').innerHTML=`<img src="${B.selfie}" alt="Selfie">`; $('#foto').textContent='Selfie tirada'; $('#foto').disabled=true; };
+  $('#env').onclick=async()=>{ const m=t=>$('#err').innerHTML=`<div class="err">${t}</div>`, cpf=$('#cpf').value.replace(/\D/g,'');
+    if(cpf.length!==4) return m('Digite os 4 últimos números do CPF.'); if(!B.selfie) return m('Falta a selfie.'); if(!rab) return m('Falta a sua assinatura.'); if(!$('#ac').checked) return m('Marque que leu e concorda com o contrato.');
+    const b=$('#env'); b.disabled=true; b.textContent='Assinando…';
+    try{ await apiC({acao:'assinar',cpfFim:cpf,selfie:B.selfie,assinatura:cv.toDataURL('image/png'),aceite:true}); fim('ok','Contrato assinado!','Pronto. A NexumCell vai liberar o dinheiro e avisar você pelo WhatsApp. Guarde o protocolo '+esc(p.protocolo||'')+'.'); }
+    catch(e){ b.disabled=false; b.textContent='Assinar o contrato'; m(esc(e.message)); } };
+}
+(async()=>{ if(CT&&SRV){ try{ P=await apiC({acao:'contrato'}); if(P.assinado) return fim('ok','Contrato já assinado','Este contrato já foi assinado. Qualquer dúvida, fale com a loja.'); if(P.expirado) return fim('x','O link venceu','Peça um novo link à loja.'); return telaContrato(); }catch(e){ return fim('x','Link inválido',esc(e.message)); } }
+  if(!T||!SRV) return fim('x','Link inválido','Peça um novo link à loja.');
   try{ P=await api({acao:'cliente'});
     if(P.status!=='AGUARDANDO_CLIENTE') return fim('rel','Proposta já enviada','Esta proposta já foi enviada para análise. A loja te avisa do resultado.');
     if(P.expirado) return fim('x','O link venceu','O link vale por 48 horas. Peça um novo à loja.');

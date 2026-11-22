@@ -28,8 +28,9 @@ import equipe from '../api/equipe.js';
 import ia from '../api/ia-autonoma.js';
 import emprestimo from '../api/emprestimo.js';
 import crmIa from '../api/crm-ia.js';
+import ouvidoria from '../api/ouvidoria.js';
 
-const ROTAS = { equipe, ia, emprestimo, 'crm-ia': crmIa, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
+const ROTAS = { equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };

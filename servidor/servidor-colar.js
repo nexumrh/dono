@@ -873,383 +873,6 @@ async function handler3(req, res) {
   }
 }
 
-// api/_brevo.js
-var env = () => globalThis.process?.env || {};
-var brevoLigado = () => !!env().BREVO_API_KEY;
-async function brevo(caminho, corpo) {
-  if (!brevoLigado()) throw new Error("Brevo n\xE3o configurado (falta BREVO_API_KEY)");
-  const r = await fetch("https://api.brevo.com/v3" + caminho, {
-    method: "POST",
-    headers: { "api-key": env().BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify(corpo)
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error("Brevo " + r.status + ": " + (j.message || j.code || JSON.stringify(j)));
-  return j;
-}
-var escHtml = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-function moldura(titulo, corpoTexto, rodape = "") {
-  const corpo = String(corpoTexto).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${escHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
-  return `<!doctype html><html><body style="margin:0;background:#F2F4F8;font-family:Arial,Helvetica,sans-serif;color:#1B2540">
-  <div style="max-width:560px;margin:0 auto;padding:24px 14px"><div style="background:#0E1A3A;color:#F3D98B;border-radius:14px 14px 0 0;padding:18px 22px;font-size:19px;font-weight:bold">${escHtml(titulo)}</div>
-  <div style="background:#fff;border-radius:0 0 14px 14px;padding:22px;font-size:15px;line-height:1.5">${corpo}</div>
-  <p style="font-size:12px;color:#7A86A3;text-align:center;margin-top:14px">${escHtml(rodape || "Mensagem autom\xE1tica do sistema NexumCell.")}</p></div></body></html>`;
-}
-async function enviarEmail({ para, assunto, html, texto, titulo, anexos }) {
-  const to = (Array.isArray(para) ? para : [para]).filter(Boolean).map((x) => typeof x === "string" ? { email: x } : x);
-  if (!to.length) throw new Error("sem destinat\xE1rio");
-  return brevo("/smtp/email", {
-    sender: { email: env().BREVO_REMETENTE, name: env().BREVO_REMETENTE_NOME || "NexumCell" },
-    to,
-    subject: String(assunto).slice(0, 200),
-    htmlContent: html || moldura(titulo || assunto, texto || ""),
-    ...texto ? { textContent: texto } : {},
-    ...anexos?.length ? { attachment: anexos } : {}
-    // [{name:'relatorio.csv', content:'<base64>'}]
-  });
-}
-var telInter = (t) => {
-  const d = String(t || "").replace(/\D/g, "");
-  if (!d) return "";
-  return d.startsWith("55") && d.length >= 12 ? d : "55" + d;
-};
-async function enviarSms(tel, texto) {
-  const n = telInter(tel);
-  if (!n) throw new Error("sem telefone");
-  return brevo("/transactionalSMS/send", { sender: (env().BREVO_SMS_REMETENTE || "NexumCell").replace(/\s/g, "").slice(0, 11), recipient: n, content: String(texto).slice(0, 640), type: "transactional", unicodeEnabled: false });
-}
-async function enviarWhatsapp(tel, { templateId, params, texto }) {
-  const n = telInter(tel);
-  if (!n) throw new Error("sem telefone");
-  if (!env().BREVO_WHATSAPP_NUMERO) throw new Error("falta BREVO_WHATSAPP_NUMERO");
-  const corpo = { senderNumber: telInter(env().BREVO_WHATSAPP_NUMERO), contactNumbers: [n] };
-  if (templateId) Object.assign(corpo, { templateId: +templateId, params: params || {} });
-  else corpo.text = String(texto || "");
-  return brevo("/whatsapp/sendMessage", corpo);
-}
-var MODELOS = {
-  lembrete: () => env().BREVO_WA_TEMPLATE_LEMBRETE,
-  // parcela vencendo: NOME, VALOR, VENCIMENTO, LINK
-  atraso: () => env().BREVO_WA_TEMPLATE_ATRASO,
-  // parcela atrasada: NOME, VALOR, DIAS, LINK
-  recibo: () => env().BREVO_WA_TEMPLATE_RECIBO,
-  // pagamento recebido: NOME, VALOR, PARCELA
-  resumo: () => env().BREVO_WA_TEMPLATE_RESUMO
-  // resumo do dono: TEXTO
-};
-async function avisarCliente(tel, canal, { modelo, params, texto }) {
-  const r = { whatsapp: null, sms: null };
-  if (["whatsapp", "ambos", "whatsapp_ou_sms"].includes(canal)) {
-    try {
-      const id = MODELOS[modelo]?.();
-      if (!id) throw new Error('modelo de WhatsApp "' + modelo + '" n\xE3o configurado');
-      await enviarWhatsapp(tel, { templateId: id, params });
-      r.whatsapp = "ok";
-    } catch (e) {
-      r.whatsapp = e.message;
-    }
-  }
-  if (["sms", "ambos"].includes(canal) || canal === "whatsapp_ou_sms" && r.whatsapp !== "ok") {
-    try {
-      await enviarSms(tel, texto);
-      r.sms = "ok";
-    } catch (e) {
-      r.sms = e.message;
-    }
-  }
-  return r;
-}
-
-// api/saas.js
-var addDias = (iso, n) => {
-  const d = /* @__PURE__ */ new Date(iso + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-async function valorEmpresa(empresaId) {
-  const e = (await db.collection("empresas").doc(empresaId).get()).data();
-  if (!e) throw Object.assign(new Error("Empresa n\xE3o encontrada"), { status: 404 });
-  const lojas = (await db.collection("lojas").where("empresaId", "==", empresaId).get()).docs.map((d) => d.data()).filter((l) => !l.encerrada);
-  const valor = Math.round((Number(e.porLoja) || 0) * Math.max(1, lojas.length) * 100) / 100;
-  return { e, lojas: lojas.length, valor };
-}
-async function handler4(req, res) {
-  if (cors(req, res)) return;
-  if (req.method !== "POST") return res.status(405).end();
-  try {
-    const b0 = req.body || {};
-    if (b0.acao === "licSaldo" || b0.acao === "licComprar") {
-      const eu = await exigirEquipe(req, b0.acao === "licSaldo" ? void 0 : ["DONO", "GERENTE"]);
-      const lojaId = ["DONO", "FINANCEIRO", "SUPORTE"].includes(eu.role) ? String(b0.lojaId || "") : eu.lojaId;
-      if (!lojaId) throw Object.assign(new Error("loja n\xE3o informada"), { status: 400 });
-      if (b0.acao === "licSaldo") return res.status(200).json({ ok: true, ...await saldoLicencas(lojaId) });
-      return res.status(200).json(await comprarLicencas(lojaId, b0.q, eu));
-    }
-    if (b0.acao === "senhaPadrao") {
-      const eu = await exigirEquipe(req, ["DONO", "GERENTE"]), uid = String(b0.uid || "");
-      const ur = db.collection("users").doc(uid), u = (await ur.get()).data();
-      if (!u || !["GERENTE", "VENDEDOR"].includes(u.role)) throw Object.assign(new Error("Usu\xE1rio n\xE3o encontrado"), { status: 404 });
-      if (eu.role === "GERENTE" && (u.role !== "VENDEDOR" || u.lojaId !== eu.lojaId)) throw Object.assign(new Error("sem permiss\xE3o"), { status: 403 });
-      await auth.updateUser(uid, { password: "nx-12345" });
-      await ur.set({ senhaTemporaria: true, senhaResetEm: Date.now(), senhaResetPor: eu.nome }, { merge: true });
-      await db.collection("logs").add({ em: Date.now(), acao: "Senha voltou para a inicial", alvo: uid, det: u.nome || "", por: eu.nome });
-      return res.status(200).json({ ok: true });
-    }
-    await exigirEquipe(req, ["DONO"]);
-    if (!await asaasLigadoSrv()) throw Object.assign(new Error("Asaas n\xE3o configurado: cole a chave em Configura\xE7\xF5es \u2192 Asaas."), { status: 400 });
-    const b = req.body || {}, id = String(b.empresaId || "");
-    if (!/^e_\d{14}$/.test(id)) throw Object.assign(new Error("empresa inv\xE1lida"), { status: 400 });
-    const ref = db.collection("empresas").doc(id);
-    const { e, lojas, valor } = await valorEmpresa(id);
-    if (b.acao === "assinar") {
-      if (e.asaasAssinatura) return res.status(200).json({ ok: true, ja: true, assinatura: e.asaasAssinatura, valor });
-      const cfg = await config();
-      let cliente = e.asaasCliente;
-      if (!cliente) {
-        const c = await asaas("/customers", { method: "POST", body: JSON.stringify({ name: e.razao || e.fantasia, cpfCnpj: e.cnpj, email: e.respEmail, mobilePhone: e.respTelefone, externalReference: "saas:" + id, notificationDisabled: false }) });
-        cliente = c.id;
-      }
-      const venc = addDias(hoje(), Math.max(1, Number(cfg.saasDiasTeste ?? 7) || 1));
-      const s = await asaas("/subscriptions", { method: "POST", body: JSON.stringify({
-        customer: cliente,
-        billingType: "UNDEFINED",
-        value: valor,
-        nextDueDate: venc,
-        cycle: "MONTHLY",
-        description: `${cfg.empresa || "NexumCell"} \u2014 plano ${e.planoNome || e.plano} (${lojas} loja(s))`,
-        externalReference: "saas:" + id
-      }) });
-      if (Number(cfg.saasAdesao) > 0 && !e.adesaoCobrada) {
-        await asaas("/payments", { method: "POST", body: JSON.stringify({ customer: cliente, billingType: "UNDEFINED", value: Number(cfg.saasAdesao), dueDate: addDias(hoje(), 3), description: "Taxa de ades\xE3o", externalReference: "saas:" + id }) });
-      }
-      await ref.set({ asaasCliente: cliente, asaasAssinatura: s.id, mensalidade: valor, lojasCobradas: lojas, situacao: "TESTE", primeiroVencimento: venc, assinadaEm: Date.now(), ...Number(cfg.saasAdesao) > 0 ? { adesaoCobrada: true } : {} }, { merge: true });
-      return res.status(200).json({ ok: true, assinatura: s.id, valor, vencimento: venc });
-    }
-    if (b.acao === "atualizar") {
-      if (!e.asaasAssinatura) return res.status(200).json({ ok: true, semAssinatura: true, valor });
-      await asaas("/subscriptions/" + e.asaasAssinatura, { method: "POST", body: JSON.stringify({ value: valor, updatePendingPayments: true }) });
-      await ref.set({ mensalidade: valor, lojasCobradas: lojas, atualizadaEm: Date.now() }, { merge: true });
-      return res.status(200).json({ ok: true, valor });
-    }
-    if (b.acao === "cancelar") {
-      if (e.asaasAssinatura) await asaas("/subscriptions/" + e.asaasAssinatura, { method: "DELETE" });
-      await ref.set({ asaasAssinatura: "", situacao: "CANCELADA", canceladaEm: Date.now() }, { merge: true });
-      return res.status(200).json({ ok: true });
-    }
-    return res.status(400).json({ erro: "a\xE7\xE3o desconhecida" });
-  } catch (e) {
-    console.error(e);
-    return res.status(e.status || 500).json({ erro: e.message });
-  }
-}
-var USA_LICENCA = ["ATIVA", "QUITADA", "INSTALANDO", "RETOMADA", "CANCELADA"];
-async function saldoLicencas(lojaId) {
-  const lr = await db.collection("lojas").doc(lojaId).get();
-  if (!lr.exists) throw Object.assign(new Error("Loja n\xE3o encontrada"), { status: 404 });
-  const l = lr.data(), cfg = await config();
-  const vs = (await db.collection("vendas").where("lojaId", "==", lojaId).get()).docs.map((d) => d.data()).filter((v) => USA_LICENCA.includes(v.status));
-  const usadas = vs.reduce((s, v) => s + (Number(v.licencas) || Math.max(1, Math.ceil((Number(v.nParcelas) || 0) / 12))), 0);
-  const compradas = Number(l.licencasCompradas) || 0;
-  let cortesia = false;
-  if (l.empresaId) {
-    const e = (await db.collection("empresas").doc(l.empresaId).get()).data();
-    cortesia = !!e?.cortesia;
-  }
-  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: !cortesia, cortesia };
-}
-async function comprarLicencas(lojaId, q, eu) {
-  q = Math.floor(Number(q) || 0);
-  if (q < 1 || q > 500) throw Object.assign(new Error("Quantidade de licen\xE7as inv\xE1lida (1 a 500)."), { status: 400 });
-  if (!await asaasLigadoSrv()) throw Object.assign(new Error("Cobran\xE7a indispon\xEDvel: o Asaas n\xE3o est\xE1 configurado. Fale com a NexumCell."), { status: 400 });
-  const l = (await db.collection("lojas").doc(lojaId).get()).data();
-  if (!l) throw Object.assign(new Error("Loja n\xE3o encontrada"), { status: 404 });
-  if (!l.empresaId) throw Object.assign(new Error("Esta loja n\xE3o tem empresa cadastrada. Fale com a NexumCell."), { status: 400 });
-  const eref = db.collection("empresas").doc(l.empresaId), e = (await eref.get()).data();
-  if (!e) throw Object.assign(new Error("Empresa n\xE3o encontrada"), { status: 404 });
-  const cfg = await config(), unit = Number(cfg.saasLicencaValor) || 54.99, valor = Math.round(unit * q * 100) / 100;
-  let cliente = e.asaasCliente;
-  if (!cliente) {
-    const c = await asaas("/customers", { method: "POST", body: JSON.stringify({ name: e.razao || e.fantasia, cpfCnpj: e.cnpj, email: e.respEmail, mobilePhone: e.respTelefone, externalReference: "saas:" + l.empresaId }) });
-    cliente = c.id;
-    await eref.set({ asaasCliente: cliente }, { merge: true });
-  }
-  const ped = db.collection("licencasPedidos").doc(), venc = addDias(hoje(), 3);
-  const p = await asaas("/payments", { method: "POST", body: JSON.stringify({ customer: cliente, billingType: "UNDEFINED", value: valor, dueDate: venc, description: `${cfg.empresa || "NexumCell"} \u2014 ${q} licen\xE7a(s) de venda \xB7 ${l.nome || ""}`, externalReference: "lic:" + ped.id }) });
-  await ped.set({ lojaId, lojaNome: l.nome || "", empresaId: l.empresaId, q, unit, valor, status: "PENDENTE", pagamento: p.id, link: p.invoiceUrl || "", vencimento: venc, criadoEm: Date.now(), por: eu.nome, porUid: eu.uid });
-  await db.collection("logs").add({ em: Date.now(), acao: "Pedido de licen\xE7as", alvo: lojaId, det: `${q} licen\xE7a(s) \xB7 R$ ${valor}`, por: eu.nome });
-  return { ok: true, pedido: ped.id, valor, link: p.invoiceUrl || "", vencimento: venc };
-}
-async function licPagamento(event, payment) {
-  if (!["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event)) return;
-  const ref = db.collection("licencasPedidos").doc(String(payment.externalReference || "").slice(4)), ped = (await ref.get()).data();
-  if (!ped || ped.status === "PAGO") return;
-  await ref.set({ status: "PAGO", pagoEm: Date.now() }, { merge: true });
-  const lref = db.collection("lojas").doc(ped.lojaId), l = (await lref.get()).data() || {};
-  await lref.set({ licencasCompradas: (Number(l.licencasCompradas) || 0) + ped.q, licencasHist: [...l.licencasHist || [], { q: ped.q, valor: ped.valor, em: Date.now(), por: "Asaas (pago)" }] }, { merge: true });
-  await db.collection("logs").add({ em: Date.now(), acao: "Licen\xE7as pagas (Asaas)", alvo: ped.lojaId, det: `${ped.q} licen\xE7a(s) \xB7 R$ ${ped.valor}`, por: "Asaas" });
-}
-async function mudarBloqueio(empresaId, bloquear, motivo) {
-  const lojas = (await db.collection("lojas").where("empresaId", "==", empresaId).get()).docs;
-  for (const l of lojas) {
-    const d = l.data();
-    if (bloquear && d.bloqueada) continue;
-    if (!bloquear && !d.bloqueioAuto) continue;
-    await db.collection("lojas").doc(l.id).set(bloquear ? { bloqueada: true, bloqueioAuto: true, motivoBloqueio: motivo, bloqueadaEm: Date.now(), bloqueadaPor: "Sistema (mensalidade)" } : { bloqueada: false, bloqueioAuto: false, motivoBloqueio: "", desbloqueadaEm: Date.now(), desbloqueadaPor: "Sistema (pagamento)" }, { merge: true });
-    const us = (await db.collection("users").where("lojaId", "==", l.id).get()).docs;
-    for (const u of us) await db.collection("users").doc(u.id).set(bloquear ? { lojaBloqueada: true, motivoBloqueio: motivo, lojaNome: d.nome || "" } : { lojaBloqueada: false, ...u.data().bloqueadoPeloDono ? {} : { motivoBloqueio: "" } }, { merge: true });
-  }
-}
-async function saasPagamento(event, payment) {
-  const empresaId = String(payment.externalReference || "").slice(5), ref = db.collection("empresas").doc(empresaId);
-  if (!(await ref.get()).exists) return;
-  if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event)) {
-    await ref.set({ situacao: "EM_DIA", atrasadaDesde: null, ultimoPagamento: { valor: payment.value, em: Date.now(), vencimento: payment.dueDate || "" } }, { merge: true });
-    await mudarBloqueio(empresaId, false);
-    await db.collection("logs").add({ em: Date.now(), acao: "Mensalidade paga (Asaas)", alvo: empresaId, det: `R$ ${payment.value}`, por: "Asaas" });
-  } else if (event === "PAYMENT_OVERDUE") {
-    const e = (await ref.get()).data();
-    await ref.set({ situacao: "ATRASADA", atrasadaDesde: e.atrasadaDesde || payment.dueDate || hoje(), linkPagamento: payment.invoiceUrl || "" }, { merge: true });
-  }
-}
-async function saasRotina() {
-  const cfg = await config(), dias4 = Number(cfg.saasDiasBloqueio ?? 5);
-  if (!(dias4 > 0)) return { bloqueadas: 0 };
-  const limite = addDias(hoje(), -dias4);
-  const atras = (await db.collection("empresas").where("situacao", "==", "ATRASADA").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.atrasadaDesde && e.atrasadaDesde <= limite && !e.bloqueadaPorAtraso);
-  for (const e of atras) {
-    await mudarBloqueio(e.id, true, `Mensalidade do sistema em atraso desde ${e.atrasadaDesde.split("-").reverse().join("/")}. Pague pelo link enviado por e-mail para liberar na hora.`);
-    await db.collection("empresas").doc(e.id).set({ bloqueadaPorAtraso: true, bloqueadaEm: Date.now() }, { merge: true });
-  }
-  const pagas = (await db.collection("empresas").where("situacao", "==", "EM_DIA").get()).docs.filter((d) => d.data().bloqueadaPorAtraso);
-  for (const d of pagas) await db.collection("empresas").doc(d.id).set({ bloqueadaPorAtraso: false }, { merge: true });
-  return { bloqueadas: atras.length };
-}
-
-// api/asaas-webhook.js
-async function handler5(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
-  {
-    const tk = (await asaasConf()).webhookToken;
-    if (!tk || req.headers["asaas-access-token"] !== tk) return res.status(401).json({ erro: "token inv\xE1lido" });
-  }
-  const { event, payment } = req.body || {};
-  try {
-    if (String(event || "").startsWith("PIX_AUTOMATIC")) {
-      const a = req.body.pixAutomaticAuthorization || req.body.authorization || req.body.pixAutomaticRecurringAuthorization || {};
-      const contrato = String(a.contractId || "");
-      if (contrato.startsWith("v")) {
-        const st = event.includes("ACTIVATED") ? "ATIVO" : event.includes("CANCEL") || event.includes("REFUSED") && event.includes("AUTHORIZATION") ? "CANCELADO" : null;
-        const dados = { pixAutomatico: { id: a.id || "", status: st || "EVENTO", ultimoEvento: event, em: Date.now() } };
-        await db.collection("vendas").doc(contrato).set(dados, { merge: true });
-        const vt = (await db.collection("vendas").doc(contrato).get()).data()?.aparelhoToken;
-        if (vt) await db.collection("aparelhos").doc(vt).set({ pixAutomatico: { status: dados.pixAutomatico.status, em: Date.now() } }, { merge: true });
-        if (st === "ATIVO") {
-          const v = (await db.collection("vendas").doc(contrato).get()).data() || {}, parcelas = [...v.parcelas || []];
-          for (const p of parcelas) if (!p.pago && p.asaasId && p.n !== v.pixAutomatico?.parcelaInicial) {
-            try {
-              await asaas("/payments/" + p.asaasId, { method: "DELETE" });
-            } catch (e) {
-            }
-            delete p.asaasId;
-            delete p.asaasLink;
-          }
-          await db.collection("vendas").doc(contrato).update({ parcelas });
-        }
-        if (event.includes("INSTRUCTION_REFUSED")) await db.collection("logs").add({ em: Date.now(), acao: "PIX Autom\xE1tico: d\xE9bito recusado", alvo: contrato, det: event, por: "Asaas" });
-      }
-      return res.status(200).json({ ok: true });
-    }
-    if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event) && String(payment?.externalReference || "").startsWith("cartao:")) {
-      const id = payment.externalReference.slice(7);
-      await db.collection("linksCartao").doc(id).set({ status: "PAGO", pagoEm: Date.now(), valorLiquido: payment.netValue || null }, { merge: true });
-      return res.status(200).json({ ok: true });
-    }
-    if (String(payment?.externalReference || "").startsWith("lic:")) {
-      await licPagamento(event, payment);
-      return res.status(200).json({ ok: true });
-    }
-    if (String(payment?.externalReference || "").startsWith("saas:")) {
-      await saasPagamento(event, payment);
-      return res.status(200).json({ ok: true });
-    }
-    if (!["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event) || !payment) return res.status(200).json({ ok: true, ignorado: event });
-    const alvo = await parcelaDaCobranca(payment);
-    if (!alvo) return res.status(200).json({ ok: true, ignorado: "sem refer\xEAncia NexumCell" });
-    const forma = payment.billingType === "PIX" ? payment.pixAutomaticAuthorizationId ? "PIX Autom\xE1tico (Asaas)" : "PIX (Asaas)" : payment.billingType === "BOLETO" ? "Boleto (Asaas)" : payment.billingType === "CREDIT_CARD" ? "Cart\xE3o (Asaas)" : payment.billingType + " (Asaas)";
-    await baixarParcela(alvo.vendaId, alvo.n, payment.value, forma, "Cobran\xE7a " + payment.id);
-    try {
-      const cfg = await config();
-      if (brevoLigado() && cfg.brevoRecibo === "sim" && (cfg.brevoCanal || "nenhum") !== "nenhum") {
-        const v = (await db.collection("vendas").doc(alvo.vendaId).get()).data() || {}, tel = (v.cliente?.telefones || [])[0];
-        const valor = "R$ " + Number(payment.value).toFixed(2).replace(".", ","), nome = String(v.clienteNome || "").split(" ")[0];
-        if (tel) await avisarCliente(tel, cfg.brevoCanal, {
-          modelo: "recibo",
-          params: { NOME: nome, VALOR: valor, PARCELA: `${alvo.n}/${(v.parcelas || []).length}` },
-          texto: `${cfg.empresa || "NexumCell"}: ${nome}, recebemos ${valor} da parcela ${alvo.n}/${(v.parcelas || []).length}. Obrigado!`
-        });
-      }
-    } catch (e) {
-      console.error("recibo", e.message);
-    }
-    return res.status(200).json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ erro: e.message });
-  }
-}
-
-// api/assistente.js
-var MODELO = process.env.GROQ_MODELO || "openai/gpt-oss-120b";
-async function handler6(req, res) {
-  if (cors(req, res)) return;
-  if (req.method !== "POST") return res.status(405).end();
-  try {
-    const { token, pergunta, origem } = req.body || {};
-    if (!token || !pergunta || String(pergunta).length > 500) return res.status(400).json({ erro: "pedido inv\xE1lido" });
-    const chave = process.env.GROQ_API_KEY || (await config()).iaChave || "";
-    if (!chave) return res.status(200).json({ resposta: null });
-    const s = await db.collection("aparelhos").doc(String(token)).get();
-    if (!s.exists) return res.status(404).json({ erro: "contrato n\xE3o encontrado" });
-    const ap = s.data();
-    const parcelas = (ap.parcelas || []).map((p) => ({ n: p.n, vencimento: p.venc, valor: p.valor, pago: !!p.pago, valorHoje: p.pago ? 0 : encargos(p, ap) }));
-    const contexto = {
-      hoje: hoje(),
-      loja: ap.lojaNome,
-      telefoneLoja: origem === "app" ? void 0 : ap.lojaTelefone,
-      chavePix: ap.chavePix,
-      aparelho: `${ap.marca} ${ap.modelo}`,
-      contrato: ap.vendaNumero,
-      cliente: ap.clienteNome,
-      descontoAntecipadoPct: ap.descontoPct,
-      multaPct: ap.multaPct,
-      jurosDiaPct: ap.moraDiaPct,
-      quitado: !!ap.quitado,
-      bloqueioTotalComDiasDeAtraso: ap.etapaTotalDias,
-      limitacaoComDiasDeAtraso: ap.etapaParcialDias,
-      parcelas
-    };
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODELO,
-        temperature: 0.2,
-        max_tokens: 400,
-        messages: [
-          { role: "system", content: origem === "app" ? "Voc\xEA \xE9 a assistente virtual da NexumCell dentro do app do cliente, no celular financiado. Responda em portugu\xEAs do Brasil, em texto simples, sem markdown, sem asteriscos e sem listas com s\xEDmbolos; no m\xE1ximo 4 frases curtas. Use s\xF3 os DADOS DO CONTRATO; nunca invente valores, datas, promo\xE7\xF5es ou regras e n\xE3o prometa descontos nem libera\xE7\xE3o. Valores sempre no formato R$ 0,00 e datas dd/mm/aaaa. Nunca cite telefone, WhatsApp, e-mail ou site. Caminhos que existem no app: aba Parcelas \u2192 Pagar com PIX ou Cart\xE3o ou boleto em cada parcela; aba Parcelas \u2192 Quitar com PIX; aba Parcelas \u2192 Atualizar; aba Contrato \u2192 Baixar contrato assinado e Mudar dia do vencimento; aba Suporte \u2192 Iniciar atendimento. O aparelho libera sozinho alguns minutos depois que o pagamento \xE9 confirmado. Se o caso precisar de uma pessoa (defeito, roubo, contesta\xE7\xE3o, pagamento que n\xE3o caiu depois de 30 minutos), diga para tocar em N\xE3o, logo abaixo da resposta, que a assistente chama a equipe." : "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp informado em telefoneLoja, exatamente como est\xE1 nos dados. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo." },
-          { role: "system", content: "DADOS DO CONTRATO: " + JSON.stringify(contexto) },
-          { role: "user", content: String(pergunta) }
-        ]
-      })
-    });
-    const j = await r.json();
-    return res.status(200).json({ resposta: j.choices?.[0]?.message?.content?.trim() || null });
-  } catch (e) {
-    console.error(e);
-    return res.status(200).json({ resposta: null });
-  }
-}
-
 // api/preanalise.js
 var dig = (s) => String(s || "").replace(/\D/g, "");
 function cpfOk(c) {
@@ -1293,7 +916,7 @@ async function decidir(p, vit, cfg) {
   return { status: "RECUSADA", resposta: "Com a renda informada n\xE3o conseguimos aprovar online agora. Se tiver uma entrada maior, passe na loja para conversar.", auto: { limite, parcelaMax } };
 }
 var erro = (msg, status = 400) => Object.assign(new Error(msg), { status });
-async function handler7(req, res) {
+async function handler4(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -1329,7 +952,8 @@ async function handler7(req, res) {
         status: "NOVA",
         criadoEm: Date.now(),
         via: b.vendedorUid ? "link do vendedor" : "servidor",
-        ...b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {}
+        ...b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {},
+        .../^N[A-Z]{7}$/.test(String(b.indicadoPor || "")) ? { indicadoPor: b.indicadoPor } : {}
       };
       const cfg = await config();
       if (cfg.preAutomatica !== "nao") {
@@ -1365,7 +989,7 @@ async function handler7(req, res) {
 }
 
 // api/ia-autonoma.js
-var MODELO2 = process.env.GROQ_MODELO_AUTONOMA || "llama-3.3-70b-versatile";
+var MODELO = process.env.GROQ_MODELO_AUTONOMA || "llama-3.3-70b-versatile";
 var dias = (a, b) => Math.round((/* @__PURE__ */ new Date(String(b).slice(0, 10) + "T12:00:00") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00")) / 864e5);
 var POR = "IA NexumCell";
 var _chave = null;
@@ -1390,7 +1014,7 @@ async function parecerIA(tarefa, dados) {
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODELO2, temperature: 0.1, max_tokens: 300, response_format: { type: "json_object" }, messages: [
+      body: JSON.stringify({ model: MODELO, temperature: 0.1, max_tokens: 300, response_format: { type: "json_object" }, messages: [
         { role: "system", content: 'Voc\xEA \xE9 o analista de risco da NexumCell, financeira de celulares com trava para clientes negativados. Responda SOMENTE em JSON {"parecer":"at\xE9 2 frases em portugu\xEAs do Brasil, objetivas","risco":"baixo|medio|alto"}. Use s\xF3 os dados recebidos; n\xE3o invente.' },
         { role: "user", content: tarefa + "\nDADOS: " + JSON.stringify(dados).slice(0, 6e3) }
       ] })
@@ -1587,7 +1211,7 @@ async function iaAutonomaRotina() {
   }
   return r;
 }
-async function handler8(req, res) {
+async function handler5(req, res) {
   if (cors(req, res)) return;
   try {
     await exigirEquipe(req, ["DONO", "FINANCEIRO", "SUPORTE"]);
@@ -1595,6 +1219,30 @@ async function handler8(req, res) {
   } catch (e) {
     res.status(e.status || 500).json({ erro: e.message });
   }
+}
+
+// api/score.js
+function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  const vs = (vendas || []).filter((v) => !["REPROVADA", "CANCELADA"].includes(v.status));
+  if (!vs.length) return { score: 500, faixa: "Sem hist\xF3rico", pagas: 0, atrasadas: 0 };
+  const dias4 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
+  let s = 550, pagas = 0, atrasadas = 0;
+  for (const v of vs) {
+    if (v.status === "QUITADA") s += 60;
+    if (v.status === "RETOMADA") s -= 300;
+    for (const p of v.parcelas || []) {
+      if (p.pago) {
+        pagas++;
+        const d = p.pagoEm ? dias4(p.venc, String(p.pagoEm).slice(0, 10)) : 0;
+        s += d <= 3 ? 12 : d <= 15 ? 4 : d <= 30 ? -10 : -30;
+      } else if (p.venc < h) {
+        atrasadas++;
+        s -= Math.min(250, 40 + dias4(p.venc, h) * 2);
+      }
+    }
+  }
+  const score = Math.max(0, Math.min(1e3, Math.round(s)));
+  return { score, faixa: score >= 750 ? "Excelente" : score >= 600 ? "Bom" : score >= 450 ? "Regular" : "Risco", pagas, atrasadas };
 }
 
 // api/emprestimo.js
@@ -1701,7 +1349,12 @@ async function analisar(id) {
     else if (b.status === "REPROVADA") recusa("Biometria facial: o rosto n\xE3o confere com o documento" + (b.observacao ? ` (${b.observacao})` : ""));
     else if (b.status === "DUVIDA") duvida("Biometria facial em d\xFAvida: a equipe confere as fotos");
     else ok(`Biometria facial confere (${b.confianca ?? "\u2014"}%)`);
-    const h = await historicoCpf(p.cpf);
+    const h = await historicoCpf(p.cpf), sc = scoreDe((await db.collection("vendas").where("clienteCpf", "==", p.cpf).get()).docs.map((d) => d.data()));
+    if (h.contratos) {
+      if (sc.score < 300) recusa(`Score NexumCell ${sc.score} (${sc.faixa})`);
+      else if (sc.score < 450) duvida(`Score NexumCell ${sc.score} (${sc.faixa})`);
+      else ok(`Score NexumCell ${sc.score} (${sc.faixa})`);
+    }
     if (h.atrasadas) recusa(`${h.atrasadas} parcela(s) em atraso na NexumCell`);
     else if (h.atrasoMax > 30) recusa(`J\xE1 atrasou ${h.atrasoMax} dias na NexumCell`);
     else if (h.pagas) ok(`${h.pagas} parcela(s) paga(s) na NexumCell, ${h.emDia} em dia`);
@@ -1739,8 +1392,45 @@ async function decidir2(id, status, obs, quem) {
     const lr = db.collection("limitesCliente").doc(p.cpf), l = (await lr.get()).data() || {};
     await lr.set({ nome: p.cliente?.nome || l.nome || "", limite: l.limite ?? p.valor, usado: (+l.usado || 0) + (+p.valor || 0), atualizadoEm: Date.now(), por: quem }, { merge: true });
   }
-  await ref.set({ status, decididoPor: quem, decididoEm: Date.now(), atualizadoEm: Date.now(), historico: [...p.historico || [], { em: Date.now(), por: quem, obs: ST[status] + (obs ? ": " + obs : "") }] }, { merge: true });
+  let extra = {};
+  if (status === "CONTRATADO" && ["pessoal", "clt"].includes(p.produto) && !p.parcelas) {
+    const base2 = /* @__PURE__ */ new Date();
+    base2.setUTCDate(base2.getUTCDate() + 30);
+    extra.parcelas = Array.from({ length: +p.prazo || 1 }, (_, k) => {
+      const d = new Date(base2);
+      d.setUTCMonth(d.getUTCMonth() + k);
+      return { n: k + 1, venc: d.toISOString().slice(0, 10), valor: +p.parcela, pago: false, ...p.produto === "clt" ? { forma: "FOLHA" } : {} };
+    });
+    extra.contratadoEm = Date.now();
+  }
+  await ref.set({ ...extra, status, decididoPor: quem, decididoEm: Date.now(), atualizadoEm: Date.now(), historico: [...p.historico || [], { em: Date.now(), por: quem, obs: ST[status] + (obs ? ": " + obs : "") }] }, { merge: true });
   return { status };
+}
+function textoContrato(p, c) {
+  const brlx = brl2, d = (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }), cl = p.cliente || {};
+  return [
+    `C\xC9DULA DE CR\xC9DITO \xB7 ${NOME[p.produto].toUpperCase()} \xB7 N\xBA ${p.protocolo || ""}`,
+    `CREDOR: ${c.instituicao?.nome || "NexumCell"}${c.instituicao?.cnpj ? ", CNPJ " + c.instituicao.cnpj : ""}${c.instituicao?.tipo === "CORRESPONDENTE" ? " (por meio da NexumCell, correspondente)" : ""}.`,
+    `EMITENTE (CLIENTE): ${cl.nome || ""}, CPF ${String(p.cpf).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}, telefone ${cl.telefone || ""}.`,
+    `1. VALOR E PAGAMENTO. O cliente recebe ${brlx(p.valor)} e pagar\xE1 ${p.prazo} parcelas mensais de ${brlx(p.parcela)}, total de ${brlx(p.total)}, com a 1\xAA em 30 dias${p.produto === "clt" ? ", descontadas em folha de pagamento pelo empregador, at\xE9 o limite da margem consign\xE1vel" : ", por Pix ou boleto"}.`,
+    `2. CUSTO. Juros de ${p.taxa?.modo === "TOTAL" ? p.taxa.valor + "% sobre o total" : (p.taxa?.valor || 0) + "% ao m\xEAs"}${p.iof ? `, IOF de ${brlx(p.iof)}` : ""}. Custo Efetivo Total (CET): ${p.cetMes ?? "\u2014"}% ao m\xEAs e ${p.cetAno ?? "\u2014"}% ao ano.`,
+    `3. ATRASO. Parcela em atraso tem multa de 2% e juros de mora de 1% ao m\xEAs, e o nome pode ser inclu\xEDdo nos \xF3rg\xE3os de prote\xE7\xE3o ao cr\xE9dito ap\xF3s aviso pr\xE9vio.`,
+    `4. QUITA\xC7\xC3O ANTECIPADA. O cliente pode antecipar parcelas ou quitar o contrato com redu\xE7\xE3o proporcional dos juros.`,
+    `5. ARREPENDIMENTO. O cliente pode desistir em at\xE9 7 dias da assinatura, devolvendo o valor recebido, sem juros.`,
+    `6. DADOS (LGPD). Os dados e a biometria facial s\xE3o usados para identificar o cliente, analisar o cr\xE9dito e cobrar, e ficam guardados com seguran\xE7a pelo prazo legal.`,
+    `7. ASSINATURA ELETR\xD4NICA. O cliente assina eletronicamente, com confirma\xE7\xE3o do CPF, selfie e registro de data, hora e endere\xE7o IP, que valem como prova de autoria.`,
+    `Foz do Igua\xE7u/PR, ${d}.`
+  ].join("\n\n");
+}
+async function porContrato(t) {
+  if (!/^[a-f0-9]{24,64}$/.test(String(t || ""))) throw erro2("Link inv\xE1lido", 404);
+  const d = (await db.collection("emprestimos").where("contratoToken", "==", t).get()).docs[0];
+  if (!d) throw erro2("Link inv\xE1lido", 404);
+  return { id: d.id, p: d.data() };
+}
+async function sha256(t) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 async function porToken(t) {
   if (!/^[a-f0-9]{24,64}$/.test(String(t || ""))) throw erro2("Link inv\xE1lido", 404);
@@ -1777,13 +1467,30 @@ async function emprestimoRotina() {
   }
   return { emprestimos: n };
 }
-async function handler9(req, res) {
+async function handler6(req, res) {
   if (cors(req, res)) return;
   const b = req.body || {};
   try {
     if (b.acao === "cliente") {
       const { p } = await porToken(b.t);
       return res.json(resumo(p));
+    }
+    if (b.acao === "contrato") {
+      const { p } = await porContrato(b.c);
+      return res.json({ ...resumo(p), status: p.status, assinado: p.contrato?.status === "ASSINADO", expirado: (p.contratoExpira || 0) < Date.now(), texto: p.contratoTexto || "" });
+    }
+    if (b.acao === "assinar") {
+      const { id, p } = await porContrato(b.c);
+      if (p.contrato?.status === "ASSINADO") throw erro2("Este contrato j\xE1 foi assinado.");
+      if ((p.contratoExpira || 0) < Date.now()) throw erro2("O link venceu. Pe\xE7a um novo \xE0 loja.");
+      if (b.aceite !== true) throw erro2("Marque que leu e aceita o contrato.");
+      if (soD(b.cpfFim) !== String(p.cpf).slice(-4)) throw erro2("Os 4 \xFAltimos n\xFAmeros do CPF n\xE3o conferem.");
+      for (const k of ["assinatura", "selfie"]) if (!/^data:image\/(png|jpeg|webp);base64,/.test(String(b[k] || "")) || b[k].length > 4e5) throw erro2("Falta a " + (k === "selfie" ? "selfie" : "assinatura") + ".");
+      const bio = (await db.collection("empBiometria").doc(id).get()).data(), conf = bio?.documento ? await conferirRosto({ documento: bio.documento, selfie: b.selfie, selfie2: b.selfie }) : { status: "DUVIDA" };
+      const ip = req.headers["cf-connecting-ip"] || "", hash = await sha256(p.contratoTexto || "");
+      await db.collection("empContratos").doc(id).set({ texto: p.contratoTexto, hash, assinatura: b.assinatura, selfie: b.selfie, ip, aparelho: String(req.headers["user-agent"] || "").slice(0, 160), em: Date.now(), rosto: conf.status, confianca: conf.confianca ?? null });
+      await db.collection("emprestimos").doc(id).set({ contrato: { status: "ASSINADO", em: Date.now(), hash, ip, rosto: conf.status }, contratoToken: null, atualizadoEm: Date.now(), historico: [...p.historico || [], { em: Date.now(), por: "Cliente (link)", obs: "Contrato assinado eletronicamente" + (conf.status === "REPROVADA" ? " \xB7 ATEN\xC7\xC3O: rosto n\xE3o confere" : "") }] }, { merge: true });
+      return res.json({ ok: true, rosto: conf.status });
     }
     if (b.acao === "clienteEnviar") {
       const { id, p } = await porToken(b.t);
@@ -1824,6 +1531,26 @@ async function handler9(req, res) {
       await daLoja(b.id);
       return res.json(await analisar(b.id));
     }
+    if (b.acao === "gerarContrato") {
+      if (!["DONO", "FINANCEIRO"].includes(eu.role)) throw erro2("sem permiss\xE3o", 403);
+      const p = await daLoja(b.id);
+      if (p.status !== "APROVADO") throw erro2("S\xF3 proposta aprovada gera contrato.");
+      const c = await cfgEmp(), tk = [...crypto.getRandomValues(new Uint8Array(18))].map((x) => x.toString(16).padStart(2, "0")).join("");
+      await db.collection("emprestimos").doc(b.id).set({ contratoToken: tk, contratoExpira: Date.now() + 72 * 36e5, contratoTexto: textoContrato(p, c), contrato: { status: "ENVIADO", em: Date.now() }, historico: [...p.historico || [], { em: Date.now(), por: eu.nome, obs: "Contrato gerado e enviado para assinatura" }] }, { merge: true });
+      return res.json({ token: tk });
+    }
+    if (b.acao === "pix") {
+      const p = await daLoja(b.id), parc = (p.parcelas || []).find((x) => x.n === +b.n);
+      if (!parc || parc.pago) throw erro2("Parcela inexistente ou j\xE1 paga.");
+      if (parc.forma === "FOLHA") throw erro2("Esta parcela \xE9 descontada em folha.");
+      let cli = (await asaas("/customers?cpfCnpj=" + p.cpf)).data?.[0];
+      if (!cli) cli = await asaas("/customers", { method: "POST", body: JSON.stringify({ name: p.cliente?.nome, cpfCnpj: p.cpf, mobilePhone: soD(p.cliente?.telefone) }) });
+      const ref = `emp:${b.id}:${parc.n}`;
+      let cob = (await asaas("/payments?externalReference=" + encodeURIComponent(ref) + "&status=PENDING")).data?.[0];
+      if (!cob) cob = await asaas("/payments", { method: "POST", body: JSON.stringify({ customer: cli.id, billingType: "PIX", value: parc.valor, dueDate: hoje(), externalReference: ref, description: `NexumCell ${NOME[p.produto]} ${p.protocolo || ""} parcela ${parc.n}` }) });
+      const qr = await asaas(`/payments/${cob.id}/pixQrCode`);
+      return res.json({ valor: parc.valor, copiaECola: qr.payload, qrBase64: qr.encodedImage, cobranca: cob.id });
+    }
     if (b.acao === "decidir") {
       if (!["DONO", "FINANCEIRO"].includes(eu.role)) throw erro2("sem permiss\xE3o", 403);
       return res.json(await decidir2(b.id, b.status, String(b.obs || "").slice(0, 300), eu.nome));
@@ -1831,6 +1558,400 @@ async function handler9(req, res) {
     throw erro2("a\xE7\xE3o inv\xE1lida");
   } catch (e) {
     res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+async function baixarParcelaEmprestimo(ref, valor, cobrancaId) {
+  const [, id, n] = String(ref).split(":");
+  const r = db.collection("emprestimos").doc(id), p = (await r.get()).data();
+  if (!p) return false;
+  const parcelas = (p.parcelas || []).map((x) => x.n === +n && !x.pago ? { ...x, pago: true, pagoEm: (/* @__PURE__ */ new Date()).toISOString(), valorPago: +valor, forma: "PIX (Asaas)", cobranca: cobrancaId } : x);
+  const quitado = parcelas.every((x) => x.pago);
+  await r.set({ parcelas, ...quitado ? { quitadoEm: Date.now() } : {}, atualizadoEm: Date.now() }, { merge: true });
+  if (quitado && p.produto === "pessoal") {
+    const lr = db.collection("limitesCliente").doc(p.cpf), l = (await lr.get()).data();
+    if (l) await lr.set({ usado: Math.max(0, (+l.usado || 0) - (+p.valor || 0)) }, { merge: true });
+  }
+  return true;
+}
+
+// api/_brevo.js
+var env = () => globalThis.process?.env || {};
+var brevoLigado = () => !!env().BREVO_API_KEY;
+async function brevo(caminho, corpo) {
+  if (!brevoLigado()) throw new Error("Brevo n\xE3o configurado (falta BREVO_API_KEY)");
+  const r = await fetch("https://api.brevo.com/v3" + caminho, {
+    method: "POST",
+    headers: { "api-key": env().BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify(corpo)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error("Brevo " + r.status + ": " + (j.message || j.code || JSON.stringify(j)));
+  return j;
+}
+var escHtml = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+function moldura(titulo, corpoTexto, rodape = "") {
+  const corpo = String(corpoTexto).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${escHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
+  return `<!doctype html><html><body style="margin:0;background:#F2F4F8;font-family:Arial,Helvetica,sans-serif;color:#1B2540">
+  <div style="max-width:560px;margin:0 auto;padding:24px 14px"><div style="background:#0E1A3A;color:#F3D98B;border-radius:14px 14px 0 0;padding:18px 22px;font-size:19px;font-weight:bold">${escHtml(titulo)}</div>
+  <div style="background:#fff;border-radius:0 0 14px 14px;padding:22px;font-size:15px;line-height:1.5">${corpo}</div>
+  <p style="font-size:12px;color:#7A86A3;text-align:center;margin-top:14px">${escHtml(rodape || "Mensagem autom\xE1tica do sistema NexumCell.")}</p></div></body></html>`;
+}
+async function enviarEmail({ para, assunto, html, texto, titulo, anexos }) {
+  const to = (Array.isArray(para) ? para : [para]).filter(Boolean).map((x) => typeof x === "string" ? { email: x } : x);
+  if (!to.length) throw new Error("sem destinat\xE1rio");
+  return brevo("/smtp/email", {
+    sender: { email: env().BREVO_REMETENTE, name: env().BREVO_REMETENTE_NOME || "NexumCell" },
+    to,
+    subject: String(assunto).slice(0, 200),
+    htmlContent: html || moldura(titulo || assunto, texto || ""),
+    ...texto ? { textContent: texto } : {},
+    ...anexos?.length ? { attachment: anexos } : {}
+    // [{name:'relatorio.csv', content:'<base64>'}]
+  });
+}
+var telInter = (t) => {
+  const d = String(t || "").replace(/\D/g, "");
+  if (!d) return "";
+  return d.startsWith("55") && d.length >= 12 ? d : "55" + d;
+};
+async function enviarSms(tel, texto) {
+  const n = telInter(tel);
+  if (!n) throw new Error("sem telefone");
+  return brevo("/transactionalSMS/send", { sender: (env().BREVO_SMS_REMETENTE || "NexumCell").replace(/\s/g, "").slice(0, 11), recipient: n, content: String(texto).slice(0, 640), type: "transactional", unicodeEnabled: false });
+}
+async function enviarWhatsapp(tel, { templateId, params, texto }) {
+  const n = telInter(tel);
+  if (!n) throw new Error("sem telefone");
+  if (!env().BREVO_WHATSAPP_NUMERO) throw new Error("falta BREVO_WHATSAPP_NUMERO");
+  const corpo = { senderNumber: telInter(env().BREVO_WHATSAPP_NUMERO), contactNumbers: [n] };
+  if (templateId) Object.assign(corpo, { templateId: +templateId, params: params || {} });
+  else corpo.text = String(texto || "");
+  return brevo("/whatsapp/sendMessage", corpo);
+}
+var MODELOS = {
+  lembrete: () => env().BREVO_WA_TEMPLATE_LEMBRETE,
+  // parcela vencendo: NOME, VALOR, VENCIMENTO, LINK
+  atraso: () => env().BREVO_WA_TEMPLATE_ATRASO,
+  // parcela atrasada: NOME, VALOR, DIAS, LINK
+  recibo: () => env().BREVO_WA_TEMPLATE_RECIBO,
+  // pagamento recebido: NOME, VALOR, PARCELA
+  resumo: () => env().BREVO_WA_TEMPLATE_RESUMO
+  // resumo do dono: TEXTO
+};
+async function avisarCliente(tel, canal, { modelo, params, texto }) {
+  const r = { whatsapp: null, sms: null };
+  if (["whatsapp", "ambos", "whatsapp_ou_sms"].includes(canal)) {
+    try {
+      const id = MODELOS[modelo]?.();
+      if (!id) throw new Error('modelo de WhatsApp "' + modelo + '" n\xE3o configurado');
+      await enviarWhatsapp(tel, { templateId: id, params });
+      r.whatsapp = "ok";
+    } catch (e) {
+      r.whatsapp = e.message;
+    }
+  }
+  if (["sms", "ambos"].includes(canal) || canal === "whatsapp_ou_sms" && r.whatsapp !== "ok") {
+    try {
+      await enviarSms(tel, texto);
+      r.sms = "ok";
+    } catch (e) {
+      r.sms = e.message;
+    }
+  }
+  return r;
+}
+
+// api/saas.js
+var addDias = (iso, n) => {
+  const d = /* @__PURE__ */ new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+async function valorEmpresa(empresaId) {
+  const e = (await db.collection("empresas").doc(empresaId).get()).data();
+  if (!e) throw Object.assign(new Error("Empresa n\xE3o encontrada"), { status: 404 });
+  const lojas = (await db.collection("lojas").where("empresaId", "==", empresaId).get()).docs.map((d) => d.data()).filter((l) => !l.encerrada);
+  const valor = Math.round((Number(e.porLoja) || 0) * Math.max(1, lojas.length) * 100) / 100;
+  return { e, lojas: lojas.length, valor };
+}
+async function handler7(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    const b0 = req.body || {};
+    if (b0.acao === "licSaldo" || b0.acao === "licComprar") {
+      const eu = await exigirEquipe(req, b0.acao === "licSaldo" ? void 0 : ["DONO", "GERENTE"]);
+      const lojaId = ["DONO", "FINANCEIRO", "SUPORTE"].includes(eu.role) ? String(b0.lojaId || "") : eu.lojaId;
+      if (!lojaId) throw Object.assign(new Error("loja n\xE3o informada"), { status: 400 });
+      if (b0.acao === "licSaldo") return res.status(200).json({ ok: true, ...await saldoLicencas(lojaId) });
+      return res.status(200).json(await comprarLicencas(lojaId, b0.q, eu));
+    }
+    if (b0.acao === "senhaPadrao") {
+      const eu = await exigirEquipe(req, ["DONO", "GERENTE"]), uid = String(b0.uid || "");
+      const ur = db.collection("users").doc(uid), u = (await ur.get()).data();
+      if (!u || !["GERENTE", "VENDEDOR"].includes(u.role)) throw Object.assign(new Error("Usu\xE1rio n\xE3o encontrado"), { status: 404 });
+      if (eu.role === "GERENTE" && (u.role !== "VENDEDOR" || u.lojaId !== eu.lojaId)) throw Object.assign(new Error("sem permiss\xE3o"), { status: 403 });
+      await auth.updateUser(uid, { password: "nx-12345" });
+      await ur.set({ senhaTemporaria: true, senhaResetEm: Date.now(), senhaResetPor: eu.nome }, { merge: true });
+      await db.collection("logs").add({ em: Date.now(), acao: "Senha voltou para a inicial", alvo: uid, det: u.nome || "", por: eu.nome });
+      return res.status(200).json({ ok: true });
+    }
+    await exigirEquipe(req, ["DONO"]);
+    if (!await asaasLigadoSrv()) throw Object.assign(new Error("Asaas n\xE3o configurado: cole a chave em Configura\xE7\xF5es \u2192 Asaas."), { status: 400 });
+    const b = req.body || {}, id = String(b.empresaId || "");
+    if (!/^e_\d{14}$/.test(id)) throw Object.assign(new Error("empresa inv\xE1lida"), { status: 400 });
+    const ref = db.collection("empresas").doc(id);
+    const { e, lojas, valor } = await valorEmpresa(id);
+    if (b.acao === "assinar") {
+      if (e.asaasAssinatura) return res.status(200).json({ ok: true, ja: true, assinatura: e.asaasAssinatura, valor });
+      const cfg = await config();
+      let cliente = e.asaasCliente;
+      if (!cliente) {
+        const c = await asaas("/customers", { method: "POST", body: JSON.stringify({ name: e.razao || e.fantasia, cpfCnpj: e.cnpj, email: e.respEmail, mobilePhone: e.respTelefone, externalReference: "saas:" + id, notificationDisabled: false }) });
+        cliente = c.id;
+      }
+      const venc = addDias(hoje(), Math.max(1, Number(cfg.saasDiasTeste ?? 7) || 1));
+      const s = await asaas("/subscriptions", { method: "POST", body: JSON.stringify({
+        customer: cliente,
+        billingType: "UNDEFINED",
+        value: valor,
+        nextDueDate: venc,
+        cycle: "MONTHLY",
+        description: `${cfg.empresa || "NexumCell"} \u2014 plano ${e.planoNome || e.plano} (${lojas} loja(s))`,
+        externalReference: "saas:" + id
+      }) });
+      if (Number(cfg.saasAdesao) > 0 && !e.adesaoCobrada) {
+        await asaas("/payments", { method: "POST", body: JSON.stringify({ customer: cliente, billingType: "UNDEFINED", value: Number(cfg.saasAdesao), dueDate: addDias(hoje(), 3), description: "Taxa de ades\xE3o", externalReference: "saas:" + id }) });
+      }
+      await ref.set({ asaasCliente: cliente, asaasAssinatura: s.id, mensalidade: valor, lojasCobradas: lojas, situacao: "TESTE", primeiroVencimento: venc, assinadaEm: Date.now(), ...Number(cfg.saasAdesao) > 0 ? { adesaoCobrada: true } : {} }, { merge: true });
+      return res.status(200).json({ ok: true, assinatura: s.id, valor, vencimento: venc });
+    }
+    if (b.acao === "atualizar") {
+      if (!e.asaasAssinatura) return res.status(200).json({ ok: true, semAssinatura: true, valor });
+      await asaas("/subscriptions/" + e.asaasAssinatura, { method: "POST", body: JSON.stringify({ value: valor, updatePendingPayments: true }) });
+      await ref.set({ mensalidade: valor, lojasCobradas: lojas, atualizadaEm: Date.now() }, { merge: true });
+      return res.status(200).json({ ok: true, valor });
+    }
+    if (b.acao === "cancelar") {
+      if (e.asaasAssinatura) await asaas("/subscriptions/" + e.asaasAssinatura, { method: "DELETE" });
+      await ref.set({ asaasAssinatura: "", situacao: "CANCELADA", canceladaEm: Date.now() }, { merge: true });
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ erro: "a\xE7\xE3o desconhecida" });
+  } catch (e) {
+    console.error(e);
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+var USA_LICENCA = ["ATIVA", "QUITADA", "INSTALANDO", "RETOMADA", "CANCELADA"];
+async function saldoLicencas(lojaId) {
+  const lr = await db.collection("lojas").doc(lojaId).get();
+  if (!lr.exists) throw Object.assign(new Error("Loja n\xE3o encontrada"), { status: 404 });
+  const l = lr.data(), cfg = await config();
+  const vs = (await db.collection("vendas").where("lojaId", "==", lojaId).get()).docs.map((d) => d.data()).filter((v) => USA_LICENCA.includes(v.status));
+  const usadas = vs.reduce((s, v) => s + (Number(v.licencas) || Math.max(1, Math.ceil((Number(v.nParcelas) || 0) / 12))), 0);
+  const compradas = Number(l.licencasCompradas) || 0;
+  let cortesia = false;
+  if (l.empresaId) {
+    const e = (await db.collection("empresas").doc(l.empresaId).get()).data();
+    cortesia = !!e?.cortesia;
+  }
+  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: !cortesia, cortesia };
+}
+async function comprarLicencas(lojaId, q, eu) {
+  q = Math.floor(Number(q) || 0);
+  if (q < 1 || q > 500) throw Object.assign(new Error("Quantidade de licen\xE7as inv\xE1lida (1 a 500)."), { status: 400 });
+  if (!await asaasLigadoSrv()) throw Object.assign(new Error("Cobran\xE7a indispon\xEDvel: o Asaas n\xE3o est\xE1 configurado. Fale com a NexumCell."), { status: 400 });
+  const l = (await db.collection("lojas").doc(lojaId).get()).data();
+  if (!l) throw Object.assign(new Error("Loja n\xE3o encontrada"), { status: 404 });
+  if (!l.empresaId) throw Object.assign(new Error("Esta loja n\xE3o tem empresa cadastrada. Fale com a NexumCell."), { status: 400 });
+  const eref = db.collection("empresas").doc(l.empresaId), e = (await eref.get()).data();
+  if (!e) throw Object.assign(new Error("Empresa n\xE3o encontrada"), { status: 404 });
+  const cfg = await config(), unit = Number(cfg.saasLicencaValor) || 54.99, valor = Math.round(unit * q * 100) / 100;
+  let cliente = e.asaasCliente;
+  if (!cliente) {
+    const c = await asaas("/customers", { method: "POST", body: JSON.stringify({ name: e.razao || e.fantasia, cpfCnpj: e.cnpj, email: e.respEmail, mobilePhone: e.respTelefone, externalReference: "saas:" + l.empresaId }) });
+    cliente = c.id;
+    await eref.set({ asaasCliente: cliente }, { merge: true });
+  }
+  const ped = db.collection("licencasPedidos").doc(), venc = addDias(hoje(), 3);
+  const p = await asaas("/payments", { method: "POST", body: JSON.stringify({ customer: cliente, billingType: "UNDEFINED", value: valor, dueDate: venc, description: `${cfg.empresa || "NexumCell"} \u2014 ${q} licen\xE7a(s) de venda \xB7 ${l.nome || ""}`, externalReference: "lic:" + ped.id }) });
+  await ped.set({ lojaId, lojaNome: l.nome || "", empresaId: l.empresaId, q, unit, valor, status: "PENDENTE", pagamento: p.id, link: p.invoiceUrl || "", vencimento: venc, criadoEm: Date.now(), por: eu.nome, porUid: eu.uid });
+  await db.collection("logs").add({ em: Date.now(), acao: "Pedido de licen\xE7as", alvo: lojaId, det: `${q} licen\xE7a(s) \xB7 R$ ${valor}`, por: eu.nome });
+  return { ok: true, pedido: ped.id, valor, link: p.invoiceUrl || "", vencimento: venc };
+}
+async function licPagamento(event, payment) {
+  if (!["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event)) return;
+  const ref = db.collection("licencasPedidos").doc(String(payment.externalReference || "").slice(4)), ped = (await ref.get()).data();
+  if (!ped || ped.status === "PAGO") return;
+  await ref.set({ status: "PAGO", pagoEm: Date.now() }, { merge: true });
+  const lref = db.collection("lojas").doc(ped.lojaId), l = (await lref.get()).data() || {};
+  await lref.set({ licencasCompradas: (Number(l.licencasCompradas) || 0) + ped.q, licencasHist: [...l.licencasHist || [], { q: ped.q, valor: ped.valor, em: Date.now(), por: "Asaas (pago)" }] }, { merge: true });
+  await db.collection("logs").add({ em: Date.now(), acao: "Licen\xE7as pagas (Asaas)", alvo: ped.lojaId, det: `${ped.q} licen\xE7a(s) \xB7 R$ ${ped.valor}`, por: "Asaas" });
+}
+async function mudarBloqueio(empresaId, bloquear, motivo) {
+  const lojas = (await db.collection("lojas").where("empresaId", "==", empresaId).get()).docs;
+  for (const l of lojas) {
+    const d = l.data();
+    if (bloquear && d.bloqueada) continue;
+    if (!bloquear && !d.bloqueioAuto) continue;
+    await db.collection("lojas").doc(l.id).set(bloquear ? { bloqueada: true, bloqueioAuto: true, motivoBloqueio: motivo, bloqueadaEm: Date.now(), bloqueadaPor: "Sistema (mensalidade)" } : { bloqueada: false, bloqueioAuto: false, motivoBloqueio: "", desbloqueadaEm: Date.now(), desbloqueadaPor: "Sistema (pagamento)" }, { merge: true });
+    const us = (await db.collection("users").where("lojaId", "==", l.id).get()).docs;
+    for (const u of us) await db.collection("users").doc(u.id).set(bloquear ? { lojaBloqueada: true, motivoBloqueio: motivo, lojaNome: d.nome || "" } : { lojaBloqueada: false, ...u.data().bloqueadoPeloDono ? {} : { motivoBloqueio: "" } }, { merge: true });
+  }
+}
+async function saasPagamento(event, payment) {
+  const empresaId = String(payment.externalReference || "").slice(5), ref = db.collection("empresas").doc(empresaId);
+  if (!(await ref.get()).exists) return;
+  if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event)) {
+    await ref.set({ situacao: "EM_DIA", atrasadaDesde: null, ultimoPagamento: { valor: payment.value, em: Date.now(), vencimento: payment.dueDate || "" } }, { merge: true });
+    await mudarBloqueio(empresaId, false);
+    await db.collection("logs").add({ em: Date.now(), acao: "Mensalidade paga (Asaas)", alvo: empresaId, det: `R$ ${payment.value}`, por: "Asaas" });
+  } else if (event === "PAYMENT_OVERDUE") {
+    const e = (await ref.get()).data();
+    await ref.set({ situacao: "ATRASADA", atrasadaDesde: e.atrasadaDesde || payment.dueDate || hoje(), linkPagamento: payment.invoiceUrl || "" }, { merge: true });
+  }
+}
+async function saasRotina() {
+  const cfg = await config(), dias4 = Number(cfg.saasDiasBloqueio ?? 5);
+  if (!(dias4 > 0)) return { bloqueadas: 0 };
+  const limite = addDias(hoje(), -dias4);
+  const atras = (await db.collection("empresas").where("situacao", "==", "ATRASADA").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.atrasadaDesde && e.atrasadaDesde <= limite && !e.bloqueadaPorAtraso);
+  for (const e of atras) {
+    await mudarBloqueio(e.id, true, `Mensalidade do sistema em atraso desde ${e.atrasadaDesde.split("-").reverse().join("/")}. Pague pelo link enviado por e-mail para liberar na hora.`);
+    await db.collection("empresas").doc(e.id).set({ bloqueadaPorAtraso: true, bloqueadaEm: Date.now() }, { merge: true });
+  }
+  const pagas = (await db.collection("empresas").where("situacao", "==", "EM_DIA").get()).docs.filter((d) => d.data().bloqueadaPorAtraso);
+  for (const d of pagas) await db.collection("empresas").doc(d.id).set({ bloqueadaPorAtraso: false }, { merge: true });
+  return { bloqueadas: atras.length };
+}
+
+// api/asaas-webhook.js
+async function handler8(req, res) {
+  if (req.method !== "POST") return res.status(405).end();
+  {
+    const tk = (await asaasConf()).webhookToken;
+    if (!tk || req.headers["asaas-access-token"] !== tk) return res.status(401).json({ erro: "token inv\xE1lido" });
+  }
+  const { event, payment } = req.body || {};
+  try {
+    if (String(event || "").startsWith("PIX_AUTOMATIC")) {
+      const a = req.body.pixAutomaticAuthorization || req.body.authorization || req.body.pixAutomaticRecurringAuthorization || {};
+      const contrato = String(a.contractId || "");
+      if (contrato.startsWith("v")) {
+        const st = event.includes("ACTIVATED") ? "ATIVO" : event.includes("CANCEL") || event.includes("REFUSED") && event.includes("AUTHORIZATION") ? "CANCELADO" : null;
+        const dados = { pixAutomatico: { id: a.id || "", status: st || "EVENTO", ultimoEvento: event, em: Date.now() } };
+        await db.collection("vendas").doc(contrato).set(dados, { merge: true });
+        const vt = (await db.collection("vendas").doc(contrato).get()).data()?.aparelhoToken;
+        if (vt) await db.collection("aparelhos").doc(vt).set({ pixAutomatico: { status: dados.pixAutomatico.status, em: Date.now() } }, { merge: true });
+        if (st === "ATIVO") {
+          const v = (await db.collection("vendas").doc(contrato).get()).data() || {}, parcelas = [...v.parcelas || []];
+          for (const p of parcelas) if (!p.pago && p.asaasId && p.n !== v.pixAutomatico?.parcelaInicial) {
+            try {
+              await asaas("/payments/" + p.asaasId, { method: "DELETE" });
+            } catch (e) {
+            }
+            delete p.asaasId;
+            delete p.asaasLink;
+          }
+          await db.collection("vendas").doc(contrato).update({ parcelas });
+        }
+        if (event.includes("INSTRUCTION_REFUSED")) await db.collection("logs").add({ em: Date.now(), acao: "PIX Autom\xE1tico: d\xE9bito recusado", alvo: contrato, det: event, por: "Asaas" });
+      }
+      return res.status(200).json({ ok: true });
+    }
+    if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event) && String(payment?.externalReference || "").startsWith("cartao:")) {
+      const id = payment.externalReference.slice(7);
+      await db.collection("linksCartao").doc(id).set({ status: "PAGO", pagoEm: Date.now(), valorLiquido: payment.netValue || null }, { merge: true });
+      return res.status(200).json({ ok: true });
+    }
+    if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event) && String(payment?.externalReference || "").startsWith("emp:")) {
+      await baixarParcelaEmprestimo(payment.externalReference, payment.value, payment.id);
+      return res.status(200).json({ ok: true });
+    }
+    if (String(payment?.externalReference || "").startsWith("lic:")) {
+      await licPagamento(event, payment);
+      return res.status(200).json({ ok: true });
+    }
+    if (String(payment?.externalReference || "").startsWith("saas:")) {
+      await saasPagamento(event, payment);
+      return res.status(200).json({ ok: true });
+    }
+    if (!["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(event) || !payment) return res.status(200).json({ ok: true, ignorado: event });
+    const alvo = await parcelaDaCobranca(payment);
+    if (!alvo) return res.status(200).json({ ok: true, ignorado: "sem refer\xEAncia NexumCell" });
+    const forma = payment.billingType === "PIX" ? payment.pixAutomaticAuthorizationId ? "PIX Autom\xE1tico (Asaas)" : "PIX (Asaas)" : payment.billingType === "BOLETO" ? "Boleto (Asaas)" : payment.billingType === "CREDIT_CARD" ? "Cart\xE3o (Asaas)" : payment.billingType + " (Asaas)";
+    await baixarParcela(alvo.vendaId, alvo.n, payment.value, forma, "Cobran\xE7a " + payment.id);
+    try {
+      const cfg = await config();
+      if (brevoLigado() && cfg.brevoRecibo === "sim" && (cfg.brevoCanal || "nenhum") !== "nenhum") {
+        const v = (await db.collection("vendas").doc(alvo.vendaId).get()).data() || {}, tel = (v.cliente?.telefones || [])[0];
+        const valor = "R$ " + Number(payment.value).toFixed(2).replace(".", ","), nome = String(v.clienteNome || "").split(" ")[0];
+        if (tel) await avisarCliente(tel, cfg.brevoCanal, {
+          modelo: "recibo",
+          params: { NOME: nome, VALOR: valor, PARCELA: `${alvo.n}/${(v.parcelas || []).length}` },
+          texto: `${cfg.empresa || "NexumCell"}: ${nome}, recebemos ${valor} da parcela ${alvo.n}/${(v.parcelas || []).length}. Obrigado!`
+        });
+      }
+    } catch (e) {
+      console.error("recibo", e.message);
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ erro: e.message });
+  }
+}
+
+// api/assistente.js
+var MODELO2 = process.env.GROQ_MODELO || "openai/gpt-oss-120b";
+async function handler9(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    const { token, pergunta, origem } = req.body || {};
+    if (!token || !pergunta || String(pergunta).length > 500) return res.status(400).json({ erro: "pedido inv\xE1lido" });
+    const chave = process.env.GROQ_API_KEY || (await config()).iaChave || "";
+    if (!chave) return res.status(200).json({ resposta: null });
+    const s = await db.collection("aparelhos").doc(String(token)).get();
+    if (!s.exists) return res.status(404).json({ erro: "contrato n\xE3o encontrado" });
+    const ap = s.data();
+    const parcelas = (ap.parcelas || []).map((p) => ({ n: p.n, vencimento: p.venc, valor: p.valor, pago: !!p.pago, valorHoje: p.pago ? 0 : encargos(p, ap) }));
+    const contexto = {
+      hoje: hoje(),
+      loja: ap.lojaNome,
+      telefoneLoja: origem === "app" ? void 0 : ap.lojaTelefone,
+      chavePix: ap.chavePix,
+      aparelho: `${ap.marca} ${ap.modelo}`,
+      contrato: ap.vendaNumero,
+      cliente: ap.clienteNome,
+      descontoAntecipadoPct: ap.descontoPct,
+      multaPct: ap.multaPct,
+      jurosDiaPct: ap.moraDiaPct,
+      quitado: !!ap.quitado,
+      bloqueioTotalComDiasDeAtraso: ap.etapaTotalDias,
+      limitacaoComDiasDeAtraso: ap.etapaParcialDias,
+      parcelas
+    };
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODELO2,
+        temperature: 0.2,
+        max_tokens: 400,
+        messages: [
+          { role: "system", content: origem === "app" ? "Voc\xEA \xE9 a assistente virtual da NexumCell dentro do app do cliente, no celular financiado. Responda em portugu\xEAs do Brasil, em texto simples, sem markdown, sem asteriscos e sem listas com s\xEDmbolos; no m\xE1ximo 4 frases curtas. Use s\xF3 os DADOS DO CONTRATO; nunca invente valores, datas, promo\xE7\xF5es ou regras e n\xE3o prometa descontos nem libera\xE7\xE3o. Valores sempre no formato R$ 0,00 e datas dd/mm/aaaa. Nunca cite telefone, WhatsApp, e-mail ou site. Caminhos que existem no app: aba Parcelas \u2192 Pagar com PIX ou Cart\xE3o ou boleto em cada parcela; aba Parcelas \u2192 Quitar com PIX; aba Parcelas \u2192 Atualizar; aba Contrato \u2192 Baixar contrato assinado e Mudar dia do vencimento; aba Suporte \u2192 Iniciar atendimento. O aparelho libera sozinho alguns minutos depois que o pagamento \xE9 confirmado. Se o caso precisar de uma pessoa (defeito, roubo, contesta\xE7\xE3o, pagamento que n\xE3o caiu depois de 30 minutos), diga para tocar em N\xE3o, logo abaixo da resposta, que a assistente chama a equipe." : "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp informado em telefoneLoja, exatamente como est\xE1 nos dados. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo." },
+          { role: "system", content: "DADOS DO CONTRATO: " + JSON.stringify(contexto) },
+          { role: "user", content: String(pergunta) }
+        ]
+      })
+    });
+    const j = await r.json();
+    return res.status(200).json({ resposta: j.choices?.[0]?.message?.content?.trim() || null });
+  } catch (e) {
+    console.error(e);
+    return res.status(200).json({ resposta: null });
   }
 }
 
@@ -3398,8 +3519,8 @@ async function zapsign(caminho, opts = {}) {
   if (!r.ok) throw new Error("ZapSign " + r.status + ": " + (j.detail || j.message || JSON.stringify(j)));
   return j;
 }
-async function sha256(txt5) {
-  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt5));
+async function sha2562(txt6) {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt6));
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 function htmlParaMarkdown(html) {
@@ -3418,7 +3539,7 @@ async function handler16(req, res) {
       if (a.status !== "ASSINADO") return res.status(400).json({ erro: "ainda n\xE3o assinado" });
       if (a.carimbo) return res.status(200).json(a.carimbo);
       if (Date.now() - (a.assinadoEm || 0) > 15 * 6e4) return res.status(400).json({ erro: "assinatura antiga: carimbo s\xF3 na hora da assinatura" });
-      const hashConteudo = await sha256([a.contrato, a.assinatura, a.assinadoEm, a.vendaId].join("|"));
+      const hashConteudo = await sha2562([a.contrato, a.assinatura, a.assinadoEm, a.vendaId].join("|"));
       const carimbo = {
         servidorEm: Date.now(),
         servidorData: (/* @__PURE__ */ new Date()).toISOString(),
@@ -4009,7 +4130,7 @@ function historicoBot(v, h) {
   const maior = atr.length ? Math.round((Date.parse(h + "T12:00:00Z") - Date.parse(atr[0].venc + "T12:00:00Z")) / 864e5) : 0;
   return { pagas: pagas.length, emDia, pctEmDia: pagas.length ? emDia / pagas.length : null, atr, maior };
 }
-async function registrarBot(ap, v, txt5, em) {
+async function registrarBot(ap, v, txt6, em) {
   try {
     const cref = db.collection("cobrancas").doc(ap.vendaId), c = (await cref.get()).data() || {};
     await cref.set({
@@ -4018,9 +4139,9 @@ async function registrarBot(ap, v, txt5, em) {
       clienteNome: v.clienteNome,
       lojaId: v.lojaId,
       atualizadoEm: em,
-      contatos: [...c.contatos || [], { em, canal: "Assistente do app", resultado: "Pedido do cliente", obs: txt5, por: "Cliente" }]
+      contatos: [...c.contatos || [], { em, canal: "Assistente do app", resultado: "Pedido do cliente", obs: txt6, por: "Cliente" }]
     }, { merge: true });
-    await db.collection("logs").add({ em, acao: "Assistente do app", alvo: ap.vendaId, det: txt5, por: "Cliente" });
+    await db.collection("logs").add({ em, acao: "Assistente do app", alvo: ap.vendaId, det: txt6, por: "Cliente" });
   } catch (e) {
     console.warn("registrarBot", e.message);
   }
@@ -4242,13 +4363,13 @@ async function conferirLink(tok) {
   const mac = await hmac(LINK(), "LINK|" + exp);
   return b64url2(mac) === b;
 }
-function pagina(cod, erro9) {
+function pagina(cod, erro10) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexumCell \u2014 Remover a trava</title>
 <style>body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0B1E35;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:#071424;border:1px solid #1b3350;border-radius:14px;padding:24px;max-width:460px;width:100%}
 h1{font-size:18px;margin:0 0 6px}.cod{font-size:42px;letter-spacing:6px;font-weight:800;color:#C9A84C;text-align:center;margin:18px 0}
 ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9FB0C3;font-size:13px}.err{color:#E07A5F}</style></head>
-<body><div class="card">${erro9 ? `<h1>Remover a trava</h1><p class="err">${erro9}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
+<body><div class="card">${erro10 ? `<h1>Remover a trava</h1><p class="err">${erro10}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
 <p class="muted">No aparelho, na tela do app NexumCell, toque em \u201CProblema? Inserir c\xF3digo de remo\xE7\xE3o da loja\u201D e digite o c\xF3digo:</p>
 <div class="cod">${cod}</div>
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
@@ -4338,8 +4459,78 @@ ${pedido}` }
   }
 }
 
+// api/ouvidoria.js
+var PRAZO_UTEIS = 10;
+var soD2 = (s) => String(s || "").replace(/\D/g, "");
+var txt5 = (s, n) => String(s || "").replace(/[<>]/g, "").trim().slice(0, n);
+var erro9 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+var TIPOS2 = ["RECLAMACAO", "DENUNCIA", "SUGESTAO", "ELOGIO", "LGPD"];
+function maisUteis(d, n) {
+  const x = new Date(d);
+  while (n > 0) {
+    x.setDate(x.getDate() + 1);
+    if (x.getDay() !== 0 && x.getDay() !== 6) n--;
+  }
+  return x.toISOString().slice(0, 10);
+}
+function cpfOk4(c) {
+  c = soD2(c);
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (let t = 9; t < 11; t++) {
+    let s = 0;
+    for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i);
+    if (s * 10 % 11 % 10 !== +c[t]) return false;
+  }
+  return true;
+}
+async function handler26(req, res) {
+  if (cors(req, res)) return;
+  try {
+    const b = req.body || {};
+    if (b.acao === "abrir") {
+      const cpf = soD2(b.cpf), nome = txt5(b.nome, 100), relato = txt5(b.relato, 4e3), tipo = TIPOS2.includes(b.tipo) ? b.tipo : "RECLAMACAO";
+      if (nome.length < 3) throw erro9("Informe o seu nome.");
+      if (!cpfOk4(cpf)) throw erro9("CPF inv\xE1lido.");
+      if (relato.length < 15) throw erro9("Conte o que aconteceu (pelo menos 15 letras).");
+      if (soD2(b.telefone).length < 10 && !/@/.test(b.email || "")) throw erro9("Informe um WhatsApp ou e-mail para a resposta.");
+      const ini = Date.now() - 864e5, doDia = (await db.collection("ouvidoria").where("cpf", "==", cpf).get()).docs.filter((d) => (d.data().em || 0) >= ini).length;
+      if (doDia >= 3) throw erro9("Voc\xEA j\xE1 abriu protocolos hoje. Aguarde a resposta.", 429);
+      const protocolo = "OUV" + (/* @__PURE__ */ new Date()).toISOString().slice(2, 10).replace(/-/g, "") + String(Math.floor(Math.random() * 1e5)).padStart(5, "0");
+      const doc = { protocolo, cpf, nome, telefone: soD2(b.telefone).slice(0, 13), email: txt5(b.email, 120), tipo, assunto: txt5(b.assunto, 120), relato, status: "ABERTO", em: Date.now(), prazo: maisUteis(/* @__PURE__ */ new Date(), PRAZO_UTEIS), historico: [{ em: Date.now(), por: "Cliente", obs: "Protocolo aberto" }], ip: req.headers["cf-connecting-ip"] || "" };
+      await db.collection("ouvidoria").doc(protocolo).set(doc);
+      try {
+        if (brevoLigado() && process.env.DONO_EMAIL) await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `Ouvidoria ${protocolo}: ${tipo.toLowerCase()} de ${nome}`, titulo: "Novo protocolo na ouvidoria", texto: `${nome} (CPF final ${cpf.slice(-3)})
+Tipo: ${tipo}
+Assunto: ${doc.assunto}
+
+${relato}
+
+Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
+      } catch (e) {
+      }
+      return res.json({ protocolo, prazo: doc.prazo });
+    }
+    if (b.acao === "consultar") {
+      const p = (await db.collection("ouvidoria").doc(txt5(b.protocolo, 20).toUpperCase()).get()).data();
+      if (!p || p.cpf.slice(-4) !== soD2(b.cpfFim)) throw erro9("Protocolo n\xE3o encontrado. Confira o n\xFAmero e os 4 \xFAltimos d\xEDgitos do CPF.", 404);
+      return res.json({ protocolo: p.protocolo, status: p.status, prazo: p.prazo, tipo: p.tipo, assunto: p.assunto, em: p.em, resposta: p.resposta || "", respondidoEm: p.respondidoEm || null });
+    }
+    if (b.acao === "responder") {
+      const eu = await exigirEquipe(req, ["DONO", "FINANCEIRO", "SUPORTE"]);
+      const ref = db.collection("ouvidoria").doc(txt5(b.protocolo, 20)), p = (await ref.get()).data();
+      if (!p) throw erro9("Protocolo n\xE3o encontrado", 404);
+      const status = ["EM_ANALISE", "RESPONDIDO", "ENCERRADO"].includes(b.status) ? b.status : "RESPONDIDO", resposta = txt5(b.resposta, 4e3);
+      await ref.set({ status, ...resposta ? { resposta, respondidoEm: Date.now(), respondidoPor: eu.nome } : {}, historico: [...p.historico || [], { em: Date.now(), por: eu.nome, obs: status + (resposta ? ": " + resposta.slice(0, 200) : "") }] }, { merge: true });
+      return res.json({ ok: true });
+    }
+    throw erro9("a\xE7\xE3o inv\xE1lida");
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
 // worker/index.js
-var ROTAS = { equipe: handler13, ia: handler8, emprestimo: handler9, "crm-ia": handler25, ios: handler22, codigo, acordo, instalacao: handler11, "cliente-app": handler21, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler14, nf: handler15, assinatura: handler16, "zapsign-webhook": handler17, preanalise: handler7, credenciamento: handler18, push: handler19, saas: handler4, motor: handler12, repasse: handler10, remota: handler20, "remover-codigo": handler23, lead: handler24 };
+var ROTAS = { equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler25, ouvidoria: handler26, ios: handler22, codigo, acordo, instalacao: handler11, "cliente-app": handler21, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler14, nf: handler15, assinatura: handler16, "zapsign-webhook": handler17, preanalise: handler4, credenciamento: handler18, push: handler19, saas: handler7, motor: handler12, repasse: handler10, remota: handler20, "remover-codigo": handler23, lead: handler24 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
