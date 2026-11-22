@@ -10725,6 +10725,334 @@ if(['dono','suporte','financeiro'].includes(PORTAL)){
   { const _rd=render; render=async(...a)=>{ const r=await _rd(...a); try{ limparEmoji(); if(S.tab==='repasses'){ [...$('#view').querySelectorAll('.card')].find(c=>/A repassar/.test(c.textContent)&&/Já repassado/.test(c.textContent)&&!c.closest('.bk-hero')&&c.querySelectorAll('table').length===0)?.remove(); } }catch(e){} return r; }; }
 }
 
+
+/* ===================== EMPRÉSTIMOS E CRÉDITO (nov/2026): consignado CLT (Crédito do Trabalhador / Dataprev),
+   empréstimo pessoal, iPhone no limite do cartão, limites por cliente e liberação por loja ===================== */
+document.head.insertAdjacentHTML('beforeend',`<style id="empCss">
+.em-hero{position:relative;overflow:hidden;border-radius:18px;padding:22px 24px;margin:0 0 16px;color:#fff;background:radial-gradient(900px 300px at 100% 0%,rgba(46,139,255,.28),transparent 60%),linear-gradient(135deg,#071633 0%,#0F2E6B 100%);box-shadow:0 14px 40px rgba(10,23,51,.18)}
+.em-hero h2{color:#fff;font-size:21px;margin:0 0 4px}.em-hero p{color:#C9D4EE;margin:0;max-width:780px;font-size:14px}
+.em-hero .em-m{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+.em-hero .em-m div{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px}
+.em-hero .em-m small{display:block;color:#AEBBDA;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.em-hero .em-m b{display:block;font-size:20px;margin-top:3px;color:#fff}
+.em-hero .em-m b.g{color:#7EE2B8}.em-hero .em-m b.r{color:#FFB4A8}.em-hero .em-m b.o{color:#F3D98B}
+.em-hero .em-a{position:absolute;right:20px;top:18px;display:flex;gap:8px}@media(max-width:700px){.em-hero .em-a{position:static;margin-top:12px}}
+.em-tabs{display:inline-flex;gap:3px;background:#EAEEF6;border-radius:12px;padding:4px;flex-wrap:wrap;margin-bottom:14px}
+.em-tabs button{border:0;border-radius:9px;padding:7px 14px;font-weight:700;color:#4B556B;background:transparent;cursor:pointer}.em-tabs button.on{background:#fff;color:#0A1733;box-shadow:0 1px 3px rgba(10,23,51,.14)}
+.em-prods{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px}
+.em-prod{border:1.5px solid #E3E7F0;border-radius:14px;padding:14px;background:#fff;cursor:pointer;text-align:left;display:flex;gap:12px;align-items:flex-start}
+.em-prod:hover{border-color:#9DB7F5}.em-prod.on{border-color:#1D5BFF;box-shadow:0 0 0 3px rgba(29,91,255,.12)}.em-prod[disabled]{opacity:.45;cursor:not-allowed}
+.em-prod .ic{width:40px;height:40px;border-radius:12px;background:#EAF0FF;color:#1D5BFF;display:flex;align-items:center;justify-content:center;flex:none}.em-prod .ic svg{width:21px;height:21px}
+.em-prod b{display:block;font-size:14.5px}.em-prod span{font-size:12.5px;color:#5B6478}
+.em-sim{background:linear-gradient(135deg,#F5F8FF,#EEF3FF);border:1px solid #D9E3FF;border-radius:14px;padding:14px 16px}
+.em-sim .big{font-size:26px;font-weight:800;color:#0A1733;letter-spacing:-.02em}.em-sim .kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13.5px;margin-top:8px}.em-sim .kv span{color:#5B6478}
+.em-aviso{display:flex;gap:10px;align-items:flex-start;background:#FFF7E6;border:1px solid #F5D9A0;color:#6E4A0B;border-radius:12px;padding:11px 13px;font-size:13.5px;margin-bottom:12px}
+.em-ok{display:flex;gap:10px;align-items:flex-start;background:#E9F8F1;border:1px solid #B5E6CF;color:#0B5E3E;border-radius:12px;padding:11px 13px;font-size:13.5px;margin-bottom:12px}
+.em-aviso svg,.em-ok svg{width:18px;height:18px;flex:none;margin-top:1px}
+.em-mot{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:5px}.em-mot li{display:flex;gap:8px;font-size:13.5px}.em-mot li i{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.em-bio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.em-bio>div{border:1.5px dashed #C9D4EE;border-radius:14px;padding:10px;text-align:center;background:#FAFBFE;min-height:150px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
+.em-bio img,.em-bio video{width:100%;max-height:170px;object-fit:cover;border-radius:10px;background:#0A1733}.em-bio .ok{border-style:solid;border-color:#7EE2B8;background:#F3FBF7}.em-bio small{color:#5B6478}
+.em-modo{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:600px){.em-bio{grid-template-columns:1fr}.em-modo{grid-template-columns:1fr}}
+.em-fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.em-fotos figure{margin:0}.em-fotos img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;border:1px solid #E3E7F0;cursor:zoom-in}.em-fotos figcaption{font-size:11.5px;color:#5B6478;text-align:center;margin-top:3px}
+.em-tg{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap}
+</style>`);
+IC.emprestimos='<circle cx="9" cy="9" r="6"/><path d="M15.5 4.6A6 6 0 1 1 9.4 15"/><path d="M9 6.5v5M7.3 7.8h2.6a1.1 1.1 0 0 1 0 2.2H8.1a1.1 1.1 0 0 0 0 2.2h2.6"/>';
+TABS.push({id:'emprestimos',label:'Empréstimos e crédito',roles:['DONO','FINANCEIRO','GERENTE','VENDEDOR']});
+{ const g=NAV_GRUPOS.find(x=>x[0]==='Vendas'); if(g) g[1].push('emprestimos'); else NAV_GRUPOS.splice(1,0,['Crédito',['emprestimos']]);
+  if(['dono','financeiro'].includes(PORTAL)&&!P.tabs.includes('emprestimos')){ const k=P.tabs.indexOf('analise'); P.tabs.splice(k>=0?k+1:2,0,'emprestimos'); } }
+
+const EMP_PROD={
+  clt:{nome:'Consignado CLT',sub:'Crédito do Trabalhador · desconto em folha pela Dataprev/eSocial',ic:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',legal:true},
+  pessoal:{nome:'Empréstimo pessoal',sub:'Dinheiro na conta, taxa da NexumCell, parcelas no boleto ou Pix',ic:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',legal:true},
+  cartao:{nome:'iPhone no cartão',sub:'Compra do aparelho no limite do cartão de crédito do cliente',ic:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>'},
+};
+const EMP_ST={SIMULACAO:['Simulação','gray'],AGUARDANDO_CLIENTE:['Aguardando o cliente','amber'],EM_ANALISE:['Em análise','blue'],PENDENTE:['Aguardando decisão','amber'],APROVADO:['Aprovado','green'],RECUSADO:['Recusado','red'],CONTRATADO:['Contratado','navy'],CANCELADO:['Cancelado','gray']};
+const EMP_PAD={
+  instituicao:{tipo:'NENHUMA',nome:'',cnpj:'',registro:''},
+  dataprev:{modo:'MANUAL'},
+  clt:{ativo:false,taxaMes:3.4,prazoMax:48,valorMin:500,valorMax:50000,tempoMin:6,idadeMax:70,margemPct:35},
+  pessoal:{ativo:false,modoTaxa:'TOTAL',taxa:100,prazoMax:12,valorMin:200,valorMax:5000,comprometeMax:30,limiteNovo:500,limiteBom:2000,iof:true},
+  cartao:{ativo:true,parcelasMax:18,repassar:true,taxas:'1:3.49 2:5.39 3:6.29 4:7.19 5:8.09 6:8.99 7:9.89 8:10.79 9:11.69 10:12.59 11:13.49 12:14.39 13:15.29 14:16.19 15:17.09 16:17.99 17:18.89 18:19.79'},
+};
+const empFmtD=s=>s?String(s).slice(0,10).split('-').reverse().join('/'):'';
+const fdtE=ms=>ms?new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+const empPct=n=>(+n||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const empAll=(s,r=document)=>[...r.querySelectorAll(s)];
+const empAutorizada=c=>(c.instituicao?.tipo||'NENHUMA')!=='NENHUMA';
+async function empCfg(){ let d={}; try{ d=await DB.get('config','emprestimos')||{}; }catch(e){}
+  const c={}; for(const k of Object.keys(EMP_PAD)) c[k]={...EMP_PAD[k],...(d[k]||{})}; S._empCfg=c; return c; }
+const empTaxasCartao=c=>Object.fromEntries(String(c.cartao.taxas||'').split(/[\s,;]+/).map(x=>x.split(':').map(Number)).filter(([n,t])=>n>0&&t>=0));
+const empPmt=(P,i,n)=>i<=0?P/n:P*i/(1-Math.pow(1+i,-n));
+function empCet(P,parc,n){ if(parc*n<=P) return 0; let a=0,b=5; for(let k=0;k<80;k++){ const m=(a+b)/2; empPmt(P,m,n)>parc?b=m:a=m; } return (a+b)/2; }
+const empIof=(P,n)=>+(P*(0.0038+0.000082*Math.min(365,n*30))).toFixed(2);
+function empSimular(prod,d,c){
+  const n=Math.max(1,+d.prazo||1), V=+d.valor||0;
+  if(prod==='cartao'){ const t=(empTaxasCartao(c)[n]||0)/100, cobrar=c.cartao.repassar?V/(1-t):V, lim=+d.limite||0;
+    return {parcela:cobrar/n,total:cobrar,liquido:cobrar*(1-t),taxaMaquina:t*100,maxAparelho:lim?lim*(1-t)*(c.cartao.repassar?1:1/(1-t)):0,cabeNoLimite:!lim||cobrar<=lim}; }
+  const p=c[prod], iof=prod==='pessoal'&&p.iof?empIof(V,n):prod==='clt'?empIof(V,n):0, fin=V+iof; let parcela,total;
+  if(prod==='pessoal'&&p.modoTaxa==='TOTAL'){ total=fin*(1+(+p.taxa||0)/100); parcela=total/n; }
+  else { const i=(prod==='clt'?+p.taxaMes:+p.taxa)/100; parcela=empPmt(fin,i,n); total=parcela*n; }
+  const cm=empCet(V,parcela,n); return {parcela,total,juros:total-fin,iof,cetMes:cm*100,cetAno:(Math.pow(1+cm,12)-1)*100,liquido:V};
+}
+const empHero=(t,p,m=[],acoes='')=>`<div class="em-hero">${acoes?`<div class="em-a">${acoes}</div>`:''}<h2>${t}</h2><p>${p}</p>${m.length?`<div class="em-m">${m.map(([l,v,c])=>`<div><small>${l}</small><b class="${c||''}">${v}</b></div>`).join('')}</div>`:''}</div>`;
+const empIcAviso='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></svg>';
+const empIcOk='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>';
+const empStatus=s=>badge((EMP_ST[s]||[s])[0],(EMP_ST[s]||[0,'gray'])[1]);
+const empLojaPode=(prod,c)=>can('DONO','FINANCEIRO')?!!c[prod].ativo:!!(c[prod].ativo&&S._empLoja?.[prod]);
+
+/* ---------- liberação por loja: gerente e vendedor só veem a aba se o dono liberou ---------- */
+{ const _rn=render; render=async(...a)=>{
+  if(['gerente','vendedor'].includes(PORTAL)&&S.me&&!S._empChk){ S._empChk=1;
+    Promise.all([DB.get('lojas',S.me.lojaId).catch(()=>null),empCfg()]).then(([l,c])=>{ S._empLoja=l?.emprestimos||{}; S._empLojaNome=l?.nome||'';
+      const tem=Object.keys(EMP_PROD).some(k=>empLojaPode(k,c));
+      if(tem&&!P.tabs.includes('emprestimos')){ const k=P.tabs.indexOf('vendas'); P.tabs.splice(k>=0?k+1:1,0,'emprestimos'); render(); }
+      if(!tem&&P.tabs.includes('emprestimos')){ P.tabs=P.tabs.filter(t=>t!=='emprestimos'); if(S.tab==='emprestimos') S.tab=P.tabs[0]; render(); } }); }
+  return _rn(...a); }; }
+
+/* ---------- página ---------- */
+PAGES.emprestimos=async()=>{
+  const c=await empCfg(), gestor=can('DONO','FINANCEIRO'), desde=Date.now()-180*864e5;
+  let ps=[]; try{ ps=gestor?await DB.list('emprestimos',[['criadoEm','>=',desde]]):await DB.list('emprestimos',[['lojaId','==',S.me.lojaId]]); }catch(e){ console.warn('emprestimos',e); }
+  ps.sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0)); S._emp=ps;
+  const mes=hoje().slice(0,7), doMes=ps.filter(p=>isoDate(new Date(p.criadoEm||0)).startsWith(mes)), contr=ps.filter(p=>p.status==='CONTRATADO');
+  const abas=gestor?[['painel','Visão geral'],['propostas','Propostas'],['limites','Limites dos clientes'],...(can('DONO')?[['produtos','Produtos e taxas'],['lojas','Liberar para lojas']]:[])]:[['propostas','Propostas da loja']];
+  if(!abas.some(a=>a[0]===S.empAba)) S.empAba=abas[0][0];
+  const podeNova=Object.keys(EMP_PROD).some(k=>empLojaPode(k,c)||(can('DONO')&&k==='cartao'));
+  $('#topActions').innerHTML=podeNova?`<button class="btn gold" data-act="empNova">Nova proposta</button>`:'';
+  const hero=empHero('Empréstimos e crédito',gestor?'Consignado CLT pelo Crédito do Trabalhador (margem consultada na Dataprev), empréstimo pessoal com a taxa da NexumCell, iPhone no limite do cartão e limite de crédito de cada cliente. Você escolhe quais lojas podem oferecer cada produto.':`Ofereça ao cliente os produtos de crédito que a NexumCell liberou para a ${esc(S._empLojaNome||'sua loja')}. A análise sai na hora; o que ficar em dúvida a NexumCell decide.`,
+    [['Propostas no mês',doMes.length],['Aprovadas no mês',doMes.filter(p=>['APROVADO','CONTRATADO'].includes(p.status)).length,'g'],['Aguardando decisão',ps.filter(p=>p.status==='PENDENTE').length,ps.some(p=>p.status==='PENDENTE')?'o':''],['Liberado (contratados)',brl(contr.reduce((s,p)=>s+(+p.valor||0),0))],['A receber',brl(contr.reduce((s,p)=>s+(+p.total||0),0)),'o']],
+    podeNova?`<button class="btn gold" data-act="empNova">Nova proposta</button>`:'');
+  const tabs=abas.length>1?`<div class="em-tabs">${abas.map(([k,n])=>`<button data-act="empAba" data-a="${k}" class="${S.empAba===k?'on':''}">${n}</button>`).join('')}</div>`:'';
+  $('#view').innerHTML=hero+tabs+`<div id="empCorpo"></div>`;
+  await ({painel:empPainel,propostas:empPropostas,limites:empLimites,produtos:empProdutos,lojas:empLojas}[S.empAba])(c,ps);
+};
+function empSituacao(c){
+  const a=empAutorizada(c), t={NENHUMA:'',CORRESPONDENTE:'correspondente bancário',SCD:'Sociedade de Crédito Direto (SCD)',SEP:'Sociedade de Empréstimo entre Pessoas (SEP)',FINANCEIRA:'financeira (SCFI)'}[c.instituicao.tipo];
+  return a?`<div class="em-ok">${empIcOk}<div><b>Operando como ${esc(t)}${c.instituicao.nome?' · '+esc(c.instituicao.nome):''}</b>${c.instituicao.cnpj?' · CNPJ '+esc(c.instituicao.cnpj):''}. Consignado CLT e empréstimo pessoal podem ser ligados e liberados para as lojas.</div></div>`
+    :`<div class="em-aviso">${empIcAviso}<div><b>Consignado CLT e empréstimo pessoal ficam só em simulação até a NexumCell estar habilitada.</b> Emprestar dinheiro com juros acima de 12% ao ano exige autorização do Banco Central (financeira, SCD ou SEP) ou atuar como correspondente de um banco; o consignado CLT exige ainda a habilitação no Ministério do Trabalho e o contrato com a Dataprev. Quando tiver, preencha em <b>Produtos e taxas → Instituição</b>. O iPhone no cartão já pode ser usado.</div></div>`;
+}
+async function empPainel(c,ps){
+  const por=k=>ps.filter(p=>p.produto===k), el=$('#empCorpo');
+  el.innerHTML=empSituacao(c)+`<div class="em-prods" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${Object.entries(EMP_PROD).map(([k,p])=>{ const l=por(k), ct=l.filter(x=>x.status==='CONTRATADO');
+    return `<div class="em-prod" style="cursor:default"><div class="ic">${svg(p.ic)}</div><div style="flex:1"><b>${p.nome}</b><span>${p.sub}</span><div class="row mt" style="gap:6px;flex-wrap:wrap">${c[k].ativo?badge('Ligado','green'):badge('Desligado','gray')}${badge(l.length+' proposta(s)','blue')}${ct.length?badge(brl(ct.reduce((s,x)=>s+(+x.valor||0),0))+' liberado','navy'):''}</div></div></div>`; }).join('')}</div>
+    <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Aguardando a sua decisão</h2><button class="btn sm" data-act="empAba" data-a="propostas">Ver todas</button></div>${empTabela(ps.filter(p=>p.status==='PENDENTE'),'Nada aguardando decisão.')}</div>`;
+}
+function empTabela(l,vazio='Nenhuma proposta ainda.'){
+  return `<div class="tablewrap mt"><table><tr><th>Data</th><th>Cliente</th><th>Produto</th><th>Valor</th><th>Parcelas</th><th>Situação</th><th>Loja</th><th></th></tr>${l.map(p=>`<tr data-act="empVer" data-id="${p.id}" style="cursor:pointer"><td>${fdtE(p.criadoEm)}</td><td><b>${esc(p.cliente?.nome||'')}</b><br><span class="small muted">${fmtCpf(p.cpf||'')}</span></td><td>${esc(EMP_PROD[p.produto]?.nome||p.produto)}</td><td>${brl(p.valor)}</td><td>${p.prazo}x ${brl(p.parcela)}</td><td>${empStatus(p.status)}</td><td>${esc(p.lojaNome||'NexumCell')}</td><td class="right"><button class="btn sm" data-act="empVer" data-id="${p.id}">Abrir</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">${vazio}</td></tr>`}</table></div>`;
+}
+async function empPropostas(c,ps){
+  const f=S.empF||'todas', l=ps.filter(p=>f==='todas'||p.status===f||p.produto===f);
+  $('#empCorpo').innerHTML=(can('DONO','FINANCEIRO')?'':empSituacao(c).includes('em-aviso')&&!Object.keys(EMP_PROD).some(k=>k!=='cartao'&&empLojaPode(k,c))?'':'')+`<div class="card"><div class="row" style="gap:8px;flex-wrap:wrap"><select id="empF" style="width:auto"><option value="todas">Todas</option>${Object.entries(EMP_ST).map(([k,[n]])=>`<option value="${k}" ${f===k?'selected':''}>${n}</option>`).join('')}${Object.entries(EMP_PROD).map(([k,p])=>`<option value="${k}" ${f===k?'selected':''}>${p.nome}</option>`).join('')}</select><span class="small muted">${l.length} proposta(s)</span></div>${empTabela(l)}</div>`;
+  $('#empF').onchange=e=>{ S.empF=e.target.value; empPropostas(c,ps); };
+}
+async function empLimites(c){
+  let l=[]; try{ l=await DB.list('limitesCliente',[['atualizadoEm','>=',0]]); }catch(e){}
+  l.sort((a,b)=>(b.atualizadoEm||0)-(a.atualizadoEm||0));
+  $('#empCorpo').innerHTML=`<div class="card mb"><h2 style="margin:0 0 4px">Liberar ou mudar limite</h2><p class="small muted" style="margin:0">Limite de crédito do cliente na NexumCell para o empréstimo pessoal. Sem limite definido, vale ${brl(c.pessoal.limiteNovo)} para cliente novo e ${brl(c.pessoal.limiteBom)} para quem já pagou em dia na NexumCell. A sugestão olha os contratos de celular do CPF.</p>
+    <div class="grid g4 mt"><label>CPF do cliente<input id="lmC" inputmode="numeric" placeholder="000.000.000-00"></label><label>Novo limite (R$)<input id="lmV" type="number" min="0" step="50"></label><label>Motivo<input id="lmM" placeholder="Ex.: bom pagador, 12 parcelas em dia"></label><label>&nbsp;<div class="row" style="gap:6px"><button class="btn" data-act="empLimSug">Sugerir</button><button class="btn gold" data-act="empLimSalvar">Salvar limite</button></div></label></div><div id="lmSug" class="mt"></div></div>
+    <div class="card"><h2 style="margin:0">Clientes com limite</h2><div class="tablewrap mt"><table><tr><th>Cliente</th><th>Limite</th><th>Em uso</th><th>Disponível</th><th>Última mudança</th><th></th></tr>${l.map(x=>`<tr><td><b>${esc(x.nome||'')}</b><br><span class="small muted">${fmtCpf(x.id)}</span></td><td>${brl(x.limite)}</td><td>${brl(x.usado||0)}</td><td><b>${brl(Math.max(0,(+x.limite||0)-(+x.usado||0)))}</b></td><td class="small">${esc(x.motivo||'')}<br><span class="muted">${esc(x.por||'')} · ${fdtE(x.atualizadoEm)}</span></td><td class="right">${x.bloqueado?badge('Bloqueado','red'):''} <button class="btn sm" data-act="empLimBloq" data-id="${x.id}" data-b="${x.bloqueado?'':'1'}">${x.bloqueado?'Desbloquear':'Bloquear'}</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum limite definido ainda.</td></tr>'}</table></div></div>`;
+}
+async function empHistorico(cpf){
+  let vs=[]; try{ vs=await DB.list('vendas',[['clienteCpf','==',cpf]]); }catch(e){}
+  const h=hoje(); let pagas=0,emDia=0,atrasoMax=0,atrasadas=0;
+  for(const v of vs) for(const p of v.parcelas||[]){ if(p.pago){ pagas++; const d=p.pagoEm?Math.round((new Date(p.pagoEm)-new Date(p.venc))/864e5):0; if(d<=3) emDia++; atrasoMax=Math.max(atrasoMax,d); } else if(p.venc<h){ atrasadas++; atrasoMax=Math.max(atrasoMax,Math.round((new Date(h)-new Date(p.venc))/864e5)); } }
+  return {vs,pagas,emDia,atrasoMax,atrasadas,nome:vs[0]?.clienteNome||''};
+}
+function empSugestao(h,c){
+  if(h.atrasadas) return [0,`Tem ${h.atrasadas} parcela(s) em atraso agora. Não liberar até regularizar.`];
+  if(h.atrasoMax>30) return [0,`Já atrasou ${h.atrasoMax} dias. Não liberar.`];
+  if(!h.pagas) return [c.pessoal.limiteNovo,'Cliente sem histórico na NexumCell: limite de cliente novo.'];
+  const v=Math.min(c.pessoal.valorMax,Math.round((c.pessoal.limiteNovo+h.emDia*150)/50)*50);
+  return [Math.max(v,h.emDia>=6?c.pessoal.limiteBom:c.pessoal.limiteNovo),`${h.pagas} parcela(s) paga(s), ${h.emDia} em dia, maior atraso ${h.atrasoMax} dia(s).`];
+}
+async function empProdutos(c){
+  const n=(k,f,l,step='0.01',ex='')=>`<label>${l}<input type="number" step="${step}" data-ep="${k}.${f}" value="${esc(c[k][f])}" ${ex}></label>`;
+  const at=(k)=>`<label>Situação<select data-ep="${k}.ativo"><option value="1">Ligado</option><option value="" ${c[k].ativo?'':'selected'}>Desligado</option></select></label>`;
+  $('#empCorpo').innerHTML=empSituacao(c)+`
+  <div class="card mb"><h2 style="margin:0 0 4px">Instituição</h2><p class="small muted" style="margin:0 0 10px">Como a NexumCell opera o crédito. Consignado CLT e empréstimo pessoal só ligam depois de preencher.</p>
+    <div class="grid g4"><label>Forma de operar<select data-ep="instituicao.tipo">${[['NENHUMA','Ainda não habilitada'],['CORRESPONDENTE','Correspondente bancário de um banco'],['SCD','SCD autorizada pelo Banco Central'],['SEP','SEP autorizada pelo Banco Central'],['FINANCEIRA','Financeira (SCFI)']].map(([k,t])=>`<option value="${k}" ${c.instituicao.tipo===k?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label>Instituição (ou banco parceiro)<input data-ep="instituicao.nome" value="${esc(c.instituicao.nome)}"></label><label>CNPJ<input data-ep="instituicao.cnpj" value="${esc(c.instituicao.cnpj)}"></label><label>Autorização / habilitação MTE<input data-ep="instituicao.registro" value="${esc(c.instituicao.registro)}" placeholder="nº do ato ou da habilitação"></label></div></div>
+  <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.clt.nome}</h2><p class="small muted" style="margin:0 0 10px">Parcela até ${c.clt.margemPct}% da remuneração disponível, descontada em folha pelo eSocial. A margem vem da Dataprev, pela API do banco parceiro, ou é conferida no holerite pela equipe.</p>
+    <div class="grid g4">${at('clt')}${n('clt','taxaMes','Taxa ao mês (%)')}${n('clt','prazoMax','Prazo máximo (meses)','1')}${n('clt','tempoMin','Tempo mínimo de empresa (meses)','1')}${n('clt','valorMin','Valor mínimo (R$)','1')}${n('clt','valorMax','Valor máximo (R$)','1')}${n('clt','idadeMax','Idade máxima','1')}${n('clt','margemPct','Margem consignável (%)','1','max="35"')}</div>
+    <div class="grid g4 mt"><label>Consulta da margem<select data-ep="dataprev.modo"><option value="MANUAL">Holerite conferido pela equipe</option><option value="PARCEIRO" ${c.dataprev.modo==='PARCEIRO'?'selected':''}>API do banco parceiro / Dataprev</option></select></label><label>Endereço da API<input id="dpUrl" placeholder="https://… (guardado só no servidor)"></label><label>Token da API<input id="dpTok" type="password" placeholder="guardado só no servidor"></label><label>&nbsp;<span class="small muted">A API recebe {cpf} e devolve a margem, o salário, a admissão e o empregador.</span></label></div></div>
+  <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.pessoal.nome}</h2><p class="small muted" style="margin:0 0 10px">Taxa da NexumCell. Em "Juros sobre o total", 100% quer dizer que o cliente paga o dobro do valor, dividido nas parcelas. O sistema mostra o CET ao mês e ao ano em toda simulação.</p>
+    <div class="grid g4">${at('pessoal')}<label>Forma da taxa<select data-ep="pessoal.modoTaxa"><option value="TOTAL">Juros sobre o total (%)</option><option value="MES" ${c.pessoal.modoTaxa==='MES'?'selected':''}>Taxa ao mês (%)</option></select></label>${n('pessoal','taxa','Taxa (%)')}${n('pessoal','prazoMax','Prazo máximo (meses)','1')}${n('pessoal','valorMin','Valor mínimo (R$)','1')}${n('pessoal','valorMax','Valor máximo (R$)','1')}${n('pessoal','comprometeMax','Parcela até (% da renda)','1')}<label>IOF<select data-ep="pessoal.iof"><option value="1">Cobrar IOF</option><option value="" ${c.pessoal.iof?'':'selected'}>Sem IOF</option></select></label>${n('pessoal','limiteNovo','Limite de cliente novo (R$)','1')}${n('pessoal','limiteBom','Limite de bom pagador (R$)','1')}</div></div>
+  <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.cartao.nome}</h2><p class="small muted" style="margin:0 0 10px">A operadora do cartão aprova; a NexumCell recebe à vista (antecipado). Com o repasse ligado, o cliente paga a taxa da maquininha e a loja recebe o valor cheio do aparelho.</p>
+    <div class="grid g4">${at('cartao')}${n('cartao','parcelasMax','Parcelas no cartão até','1','max="21"')}<label>Taxa da maquininha<select data-ep="cartao.repassar"><option value="1">Repassar ao cliente</option><option value="" ${c.cartao.repassar?'':'selected'}>A loja absorve</option></select></label></div>
+    <label class="mt" style="display:block">Taxas por parcela (parcelas:taxa %)<textarea data-ep="cartao.taxas" rows="2">${esc(c.cartao.taxas)}</textarea></label></div>
+  <div class="row" style="justify-content:flex-end"><button class="btn gold" data-act="empSalvarCfg">Salvar produtos e taxas</button></div>`;
+}
+async function empLojas(c){
+  const lojas=await DB.list('lojas').catch(()=>[]);
+  const tg=(l,k)=>{ const on=!!l.emprestimos?.[k], off=!c[k].ativo; return `<label class="em-tg" title="${off?'Ligue o produto em Produtos e taxas':''}"><input type="checkbox" data-emlj="${l.id}" data-k="${k}" ${on?'checked':''} ${off?'disabled':''}> ${on?'Liberado':'Bloqueado'}</label>`; };
+  $('#empCorpo').innerHTML=`<div class="card"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><div><h2 style="margin:0">Quais lojas podem oferecer</h2><p class="small muted" style="margin:2px 0 0">O gerente e os vendedores da loja só veem a aba Empréstimos se tiver ao menos um produto liberado. Produto desligado em Produtos e taxas fica bloqueado para todas.</p></div>
+    <div class="row" style="gap:6px"><button class="btn sm" data-act="empLjTodas" data-v="1">Liberar tudo para todas</button><button class="btn sm" data-act="empLjTodas" data-v="">Bloquear todas</button></div></div>
+    <div class="tablewrap mt"><table><tr><th>Loja</th>${Object.values(EMP_PROD).map(p=>`<th>${p.nome}</th>`).join('')}</tr>${lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b><br><span class="small muted">${esc(l.cidade||'')}</span></td>${Object.keys(EMP_PROD).map(k=>`<td>${tg(l,k)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhuma loja.</td></tr>'}</table></div></div>`;
+  empAll('[data-emlj]').forEach(x=>x.onchange=async()=>{ const l=lojas.find(y=>y.id===x.dataset.emlj), e={...(l.emprestimos||{}),[x.dataset.k]:x.checked};
+    try{ await DB.set('lojas',l.id,{emprestimos:e}); l.emprestimos=e; x.parentElement.lastChild.textContent=' '+(x.checked?'Liberado':'Bloqueado'); await log((x.checked?'Liberou ':'Bloqueou ')+EMP_PROD[x.dataset.k].nome,'lojas',l.nome); toast('Salvo','ok'); }catch(er){ x.checked=!x.checked; toast('Não salvou: '+er.message,'err'); } });
+}
+
+/* ---------- modal da proposta ---------- */
+function empModal(prod){
+  S._empBio=S._empBio||{}; S._empModo=S._empModo||'LOJA';
+  const c=S._empCfg, disp=Object.keys(EMP_PROD).filter(k=>empLojaPode(k,c)||(can('DONO')&&k==='cartao'));
+  prod=prod&&disp.includes(prod)?prod:disp[0]; S._empProd=prod; if(!prod) return toast('Nenhum produto de crédito liberado.','err');
+  const p=c[prod], parc=prod==='cartao'?c.cartao.parcelasMax:p.prazoMax, simulacao=EMP_PROD[prod].legal&&!empAutorizada(c);
+  const cli=`<div class="grid g3"><label>Nome completo<input id="epN" required></label><label>CPF<input id="epC" inputmode="numeric" required></label><label>WhatsApp<input id="epT" inputmode="tel"></label>${prod!=='cartao'?`<label>Nascimento<input id="epNa" type="date"></label><label>E-mail<input id="epE" type="email"></label>`:''}</div>`;
+  const extra={
+    clt:`<h3 class="mt" style="margin-bottom:6px">Emprego (CLT)</h3><div class="grid g3"><label>Empresa<input id="epEmp"></label><label>CNPJ do empregador<input id="epCnpj" inputmode="numeric"></label><label>Admissão<input id="epAdm" type="date"></label><label>Salário líquido (R$)<input id="epSal" type="number" step="0.01"></label><label>Consignados que já tem (R$/mês)<input id="epJa" type="number" step="0.01" value="0"></label><label>Margem disponível (R$)<input id="epMg" type="number" step="0.01" placeholder="calculada"></label></div>
+      <label class="chk mt"><input type="checkbox" id="epCons"> O cliente autorizou a consulta dos dados dele (LGPD) e a proposta pela Carteira de Trabalho Digital</label>
+      <div class="row mt" style="gap:8px"><button class="btn sm" data-act="empDataprev">Consultar margem na Dataprev</button><span class="small muted" id="epDpMsg">${c.dataprev.modo==='PARCEIRO'?'Consulta pela API do banco parceiro.':'Sem API ligada: a equipe confere o holerite.'}</span></div>`,
+    pessoal:`<h3 class="mt" style="margin-bottom:6px">Renda</h3><div class="grid g3"><label>Renda mensal (R$)<input id="epRen" type="number" step="0.01"></label><label>Ocupação<input id="epOc"></label><label>Chave Pix para receber<input id="epPix"></label></div>`,
+    cartao:`<h3 class="mt" style="margin-bottom:6px">Aparelho e cartão</h3><div class="grid g3"><label>Aparelho<input id="epAp" placeholder="Ex.: iPhone 15 128 GB" list="epApL"></label><label>Limite disponível no cartão (R$)<input id="epLim" type="number" step="0.01"></label><label>Código da transação (NSU)<input id="epNsu" placeholder="depois de passar o cartão"></label></div><datalist id="epApL">${['iPhone 13 128 GB','iPhone 14 128 GB','iPhone 15 128 GB','iPhone 15 Pro 256 GB','iPhone 16 128 GB','iPhone 16 Pro 256 GB','iPhone 17 256 GB'].map(x=>`<option>${x}</option>`).join('')}</datalist>` };
+  openModal(`<h2 style="margin-top:0">Nova proposta de crédito</h2>
+    <div class="em-prods">${Object.entries(EMP_PROD).map(([k,x])=>`<button type="button" class="em-prod ${k===prod?'on':''}" data-act="empTroca" data-p="${k}" ${disp.includes(k)?'':'disabled'}><div class="ic">${svg(x.ic)}</div><div><b>${x.nome}</b><span>${x.sub}</span></div></button>`).join('')}</div>
+    ${simulacao?`<div class="em-aviso">${empIcAviso}<div>Só simulação: a NexumCell ainda não está habilitada para este produto.</div></div>`:''}
+    ${prod!=='cartao'&&!simulacao?`<h3 style="margin:0 0 6px">Onde é feita a análise</h3><div class="em-modo">${[['LOJA','Na loja','Biometria facial agora, com o documento e a câmera daqui'],['VIRTUAL','Virtual','O cliente recebe um link no WhatsApp, faz a biometria facial e aceita pelo celular']].map(([k,t,s])=>`<button type="button" class="em-prod ${S._empModo===k?'on':''}" data-act="empModo" data-m="${k}"><div class="ic">${svg(k==='LOJA'?'<path d="M3 9 5 4h14l2 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>':'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>')}</div><div><b>${t}</b><span>${s}</span></div></button>`).join('')}</div>`:''}
+    ${cli}${extra[prod]}
+    ${prod!=='cartao'&&!simulacao&&S._empModo==='LOJA'?`<h3 class="mt" style="margin-bottom:6px">Biometria facial</h3><p class="small muted" style="margin:0 0 8px">Foto do documento com foto (RG ou CNH) e duas selfies ao vivo do cliente: de frente e virando um pouco o rosto. A IA confere se é a mesma pessoa do documento e se não é foto de tela ou papel.</p>
+      <div class="em-bio"><div id="bioDoc"><small>Documento com foto</small><label class="btn sm">Fotografar documento<input type="file" accept="image/*" capture="environment" hidden id="bioDocF"></label></div><div id="bioS1"><small>Selfie de frente</small><button type="button" class="btn sm" data-act="empCam" data-n="1">Abrir câmera</button></div><div id="bioS2"><small>Selfie virando o rosto</small><button type="button" class="btn sm" data-act="empCam" data-n="2">Abrir câmera</button></div></div>`:''}
+    <h3 class="mt" style="margin-bottom:6px">${prod==='cartao'?'Valor do aparelho':'Valor e prazo'}</h3><div class="grid g3"><label>${prod==='cartao'?'Preço à vista (R$)':'Valor que o cliente recebe (R$)'}<input id="epV" type="number" step="0.01" min="0"></label><label>Parcelas<select id="epP">${Array.from({length:parc},(_,i)=>i+1).filter(n=>prod==='cartao'||n>=2).map(n=>`<option ${n===Math.min(parc,prod==='cartao'?12:Math.min(12,parc))?'selected':''}>${n}</option>`).join('')}</select></label><label>&nbsp;<button class="btn" type="button" data-act="empMelhor">${prod==='cartao'?'Maior aparelho no limite':prod==='clt'?'Maior valor na margem':'Maior valor na renda'}</button></label></div>
+    <div class="em-sim mt" id="epSim"></div>
+    <div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" data-act="empEnviar">${prod==='cartao'?'Registrar venda no cartão':simulacao?'Salvar simulação':S._empModo==='VIRTUAL'?'Gerar link para o cliente':'Enviar para análise'}</button></div>`,true);
+  empAll('#mbody input,#mbody select').forEach(x=>x.addEventListener('input',empPintarSim)); empPintarSim();
+  const df=$('#bioDocF'); if(df) df.onchange=async()=>{ const f=df.files[0]; if(!f) return; const img=await carregarImg(await lerArquivo(f)); S._empBio.documento=redimensionar(img,900,0.78); empBioPintar(); };
+  empBioPintar();
+}
+function empBioPintar(){
+  const b=S._empBio||{}, set=(id,url,t)=>{ const el=$('#'+id); if(!el||!url) return; el.classList.add('ok'); el.innerHTML=`<img src="${url}" alt="${t}"><small>${t}</small><button type="button" class="btn sm" ${id==='bioDoc'?'onclick="document.getElementById(\'bioDocF2\').click()"':`data-act="empCam" data-n="${id.slice(-1)}"`}>Refazer</button>${id==='bioDoc'?'<input type="file" accept="image/*" capture="environment" hidden id="bioDocF2">':''}`; };
+  set('bioDoc',b.documento,'Documento'); set('bioS1',b.selfie,'Selfie de frente'); set('bioS2',b.selfie2,'Selfie virando o rosto');
+  const d2=$('#bioDocF2'); if(d2) d2.onchange=async()=>{ const f=d2.files[0]; if(!f) return; const img=await carregarImg(await lerArquivo(f)); S._empBio.documento=redimensionar(img,900,0.78); empBioPintar(); };
+}
+let _empStream=null;
+async function empCamera(n){
+  const box=$('#bioS'+n); if(!box) return; box.classList.remove('ok');
+  box.innerHTML=`<video autoplay playsinline muted style="transform:scaleX(-1)"></video><small>${n==='1'?'Olhe para a câmera, rosto inteiro':'Agora vire o rosto um pouco para o lado'}</small><button type="button" class="btn sm gold">Tirar foto</button>`;
+  try{ _empStream?.getTracks().forEach(t=>t.stop()); _empStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:720}},audio:false}); box.querySelector('video').srcObject=_empStream; }
+  catch(e){ box.innerHTML='<small style="color:#C23B3B">Permita a câmera no navegador.</small>'; return; }
+  box.querySelector('button').onclick=async()=>{ const v=box.querySelector('video'); if(!v.videoWidth) return; const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0);
+    const img=await carregarImg(c.toDataURL('image/jpeg',0.9));
+    if('FaceDetector' in window){ try{ const k=(await new FaceDetector({maxDetectedFaces:3}).detect(img)).length; if(k!==1){ box.querySelector('small').textContent=k?'Só o cliente na foto.':'Nenhum rosto encontrado. Enquadre o rosto.'; return; } }catch(e){} }
+    _empStream.getTracks().forEach(t=>t.stop()); _empStream=null; S._empBio[n==='1'?'selfie':'selfie2']=redimensionar(img,640,0.78); empBioPintar(); };
+}
+function empMargem(){ const sal=+($('#epSal')?.value||0), ja=+($('#epJa')?.value||0), m=$('#epMg'); if(!m) return 0; if(m.dataset.dp) return +m.value||0;
+  const v=Math.max(0,sal*S._empCfg.clt.margemPct/100-ja); m.placeholder=sal?brl(v):'calculada'; return m.value?+m.value:v; }
+function empPintarSim(){
+  const el=$('#epSim'); if(!el) return; const prod=S._empProd, c=S._empCfg, d={valor:+$('#epV').value||0,prazo:+$('#epP').value,limite:+($('#epLim')?.value||0)};
+  if(!d.valor){ el.innerHTML='<span class="muted">Digite o valor para ver a simulação.</span>'; return; }
+  const r=empSimular(prod,d,c); S._empSim=r;
+  if(prod==='cartao'){ el.innerHTML=`<div class="small muted">No cartão do cliente</div><div class="big">${d.prazo}x de ${brl(r.parcela)}</div><div class="kv"><span>Total no cartão</span><b>${brl(r.total)}</b><span>Taxa da maquininha (${d.prazo}x)</span><b>${empPct(r.taxaMaquina)}%</b><span>A loja recebe</span><b>${brl(r.liquido)}</b>${d.limite?`<span>Limite do cartão</span><b style="color:${r.cabeNoLimite?'#0E8A5F':'#C23B3B'}">${brl(d.limite)} · ${r.cabeNoLimite?'cabe':'não cabe'}</b><span>Maior aparelho nesse limite</span><b>${brl(r.maxAparelho)}</b>`:''}</div>`; return; }
+  let alerta='';
+  if(prod==='clt'){ const m=empMargem(); alerta=m&&r.parcela>m?`<div class="em-aviso mt" style="margin:8px 0 0">${empIcAviso}<div>A parcela passa da margem disponível (${brl(m)}).</div></div>`:''; }
+  if(prod==='pessoal'){ const ren=+($('#epRen')?.value||0), mx=ren*c.pessoal.comprometeMax/100; alerta=ren&&r.parcela>mx?`<div class="em-aviso mt" style="margin:8px 0 0">${empIcAviso}<div>A parcela passa de ${c.pessoal.comprometeMax}% da renda (${brl(mx)}).</div></div>`:''; }
+  el.innerHTML=`<div class="small muted">O cliente recebe ${brl(d.valor)} e paga</div><div class="big">${d.prazo}x de ${brl(r.parcela)}</div><div class="kv"><span>Total a pagar</span><b>${brl(r.total)}</b><span>Juros</span><b>${brl(r.juros)}</b>${r.iof?`<span>IOF estimado</span><b>${brl(r.iof)}</b>`:''}<span>CET</span><b>${empPct(r.cetMes)}% a.m. · ${empPct(r.cetAno)}% a.a.</b></div>${alerta}`;
+}
+async function empLerForm(){
+  const prod=S._empProd, c=S._empCfg, cpf=onlyDig($('#epC').value), nome=$('#epN').value.trim(), v=+$('#epV').value||0, n=+$('#epP').value, r=S._empSim;
+  if(!nome||!cpfOk(cpf)) throw new Error('Preencha o nome e um CPF válido.');
+  if(!v) throw new Error('Digite o valor.');
+  if(prod!=='cartao'&&(v<c[prod].valorMin||v>c[prod].valorMax)) throw new Error(`Valor entre ${brl(c[prod].valorMin)} e ${brl(c[prod].valorMax)}.`);
+  if(prod==='clt'&&!$('#epCons').checked) throw new Error('Marque a autorização do cliente para a consulta (LGPD).');
+  const loja=can('DONO','FINANCEIRO')?{lojaId:'',lojaNome:'NexumCell'}:{lojaId:S.me.lojaId,lojaNome:S._empLojaNome||''};
+  const d={produto:prod,cpf,cliente:{nome,cpf,telefone:onlyDig($('#epT').value),nascimento:$('#epNa')?.value||'',email:$('#epE')?.value.trim()||''},valor:v,prazo:n,parcela:+r.parcela.toFixed(2),total:+r.total.toFixed(2),
+    ...loja,criadoEm:Date.now(),atualizadoEm:Date.now(),criadoPor:S.me.uid,criadoPorNome:S.me.nome,protocolo:'EMP-'+Date.now().toString(36).toUpperCase().slice(-6),historico:[{em:Date.now(),por:S.me.nome,obs:'Proposta criada'}]};
+  if(prod==='cartao'){ Object.assign(d,{cartao:{aparelho:$('#epAp').value.trim(),limite:+$('#epLim').value||0,nsu:$('#epNsu').value.trim(),taxaMaquina:+r.taxaMaquina.toFixed(2),lojaRecebe:+r.liquido.toFixed(2)}}); d.status=d.cartao.nsu?'CONTRATADO':'SIMULACAO'; if(!d.cartao.aparelho) throw new Error('Informe o aparelho.'); }
+  else { Object.assign(d,{taxa:prod==='clt'?{modo:'MES',valor:c.clt.taxaMes}:{modo:c.pessoal.modoTaxa,valor:c.pessoal.taxa},iof:r.iof||0,cetMes:+r.cetMes.toFixed(2),cetAno:+r.cetAno.toFixed(1)});
+    if(prod==='clt') d.emprego={empresa:$('#epEmp').value.trim(),cnpj:onlyDig($('#epCnpj').value),admissao:$('#epAdm').value,salarioLiquido:+$('#epSal').value||0,consignadosAtuais:+$('#epJa').value||0,consentimento:Date.now()}, d.margem={disponivel:+empMargem().toFixed(2),fonte:$('#epMg').dataset.dp?'DATAPREV':'MANUAL'};
+    if(prod==='pessoal') d.renda={mensal:+$('#epRen').value||0,ocupacao:$('#epOc').value.trim(),pix:$('#epPix').value.trim()};
+    d.status=EMP_PROD[prod].legal&&!empAutorizada(c)?'SIMULACAO':'EM_ANALISE';
+    if(d.status==='EM_ANALISE'){ d.analiseModo=S._empModo;
+      if(S._empModo==='LOJA'){ const b=S._empBio||{}; if(!b.documento||!b.selfie||!b.selfie2) throw new Error('Faça a biometria facial: documento e as duas selfies.'); }
+      else { if(onlyDig(d.cliente.telefone).length<10) throw new Error('Para a análise virtual, informe o WhatsApp do cliente.'); d.status='AGUARDANDO_CLIENTE'; d.linkToken=Array.from(crypto.getRandomValues(new Uint8Array(18)),x=>x.toString(16).padStart(2,'0')).join(''); d.linkExpira=Date.now()+48*3600e3; } } }
+  return d;
+}
+function empDetalhe(p){
+  const gestor=can('DONO','FINANCEIRO'), a=p.analise||{}, kv=(l)=>`<div class="kv" style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13.5px">${l.filter(Boolean).map(([k,v])=>`<span class="muted">${k}</span><b>${v}</b>`).join('')}</div>`;
+  openModal(`<div class="row" style="justify-content:space-between;align-items:flex-start;gap:10px"><div><h2 style="margin:0">${esc(p.cliente?.nome||'')}</h2><span class="small muted">${esc(EMP_PROD[p.produto]?.nome||'')} · ${esc(p.protocolo||p.id)} · ${esc(p.lojaNome||'NexumCell')}</span></div>${empStatus(p.status)}</div>
+    <div class="em-sim mt"><div class="small muted">${p.produto==='cartao'?esc(p.cartao?.aparelho||'Aparelho'):'O cliente recebe '+brl(p.valor)}</div><div class="big">${p.prazo}x de ${brl(p.parcela)}</div>${kv([['Total',brl(p.total)],p.cetMes!=null&&['CET',`${empPct(p.cetMes)}% a.m. · ${empPct(p.cetAno)}% a.a.`],p.iof&&['IOF',brl(p.iof)],p.cartao&&['A loja recebe',brl(p.cartao.lojaRecebe)],p.cartao?.nsu&&['NSU',esc(p.cartao.nsu)]])}</div>
+    <div class="grid g2 mt"><div class="bk-card" style="border:1px solid #E3E7F0;border-radius:14px;padding:12px 14px"><h4 style="margin:0 0 8px">Cliente</h4>${kv([['CPF',fmtCpf(p.cpf)],p.cliente?.telefone&&['WhatsApp',esc(p.cliente.telefone)],p.cliente?.nascimento&&['Nascimento',empFmtD(p.cliente.nascimento)],p.emprego&&['Empresa',esc(p.emprego.empresa||'—')],p.emprego&&['Admissão',p.emprego.admissao?empFmtD(p.emprego.admissao):'—'],p.emprego&&['Salário líquido',brl(p.emprego.salarioLiquido)],p.margem&&['Margem',brl(p.margem.disponivel)+' · '+(p.margem.fonte==='DATAPREV'?'Dataprev':'holerite')],p.renda&&['Renda',brl(p.renda.mensal)],p.renda?.pix&&['Pix',esc(p.renda.pix)]])}</div>
+      <div style="border:1px solid #E3E7F0;border-radius:14px;padding:12px 14px"><h4 style="margin:0 0 4px">Análise</h4>${a.em?`<div class="small muted">${a.por||'Análise automática'} · ${fdtE(a.em)}</div><ul class="em-mot">${(a.motivos||[]).map(m=>`<li><i style="background:${m.ok?'#0E8A5F':m.alerta?'#C98A00':'#C23B3B'}"></i>${esc(m.t)}</li>`).join('')}</ul>`:`<p class="small muted">${p.status==='SIMULACAO'?'Simulação: não vai para análise.':'A análise sai em instantes.'}</p>`}</div></div>
+    ${p.analiseModo&&p.produto!=='cartao'?`<div class="mt" style="border:1px solid #E3E7F0;border-radius:14px;padding:12px 14px"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h4 style="margin:0">Biometria facial · ${p.analiseModo==='VIRTUAL'?'análise virtual (celular do cliente)':'na loja'}</h4>${p.biometria?badge(p.biometria.status==='APROVADA'?'Rosto confere · '+(p.biometria.confianca??'—')+'%':p.biometria.status==='REPROVADA'?'Rosto não confere':'Conferir rosto',p.biometria.status==='APROVADA'?'green':p.biometria.status==='REPROVADA'?'red':'amber'):badge('Aguardando','amber')}</div>
+      ${p.biometria?.observacao?`<p class="small muted" style="margin:6px 0 0">${esc(p.biometria.observacao)}</p>`:''}<div id="empFotos" class="mt"><span class="small muted">${p.biometria?'Carregando fotos…':p.status==='AGUARDANDO_CLIENTE'?'O cliente ainda não fez a biometria pelo link.':''}</span></div></div>`:''}
+    <h4 class="mt" style="margin-bottom:6px">Histórico</h4><div class="small">${(p.historico||[]).map(h=>`<div style="padding:4px 0;border-bottom:1px solid #EEF1F7"><b>${fdtE(h.em)}</b> · ${esc(h.por||'')} · ${esc(h.obs||'')}</div>`).join('')}</div>
+    <div class="row mt" style="justify-content:flex-end;gap:8px;flex-wrap:wrap">${gestor&&['EM_ANALISE','PENDENTE'].includes(p.status)?`<button class="btn" data-act="empDecidir" data-id="${p.id}" data-s="RECUSADO">Recusar</button><button class="btn gold" data-act="empDecidir" data-id="${p.id}" data-s="APROVADO">Aprovar</button>`:''}
+      ${gestor&&p.status==='APROVADO'?`<button class="btn gold" data-act="empDecidir" data-id="${p.id}" data-s="CONTRATADO">Dinheiro liberado / contrato assinado</button>`:''}
+      ${p.status==='AGUARDANDO_CLIENTE'?`<button class="btn" data-act="empLink" data-id="${p.id}">Link do cliente</button>`:''}
+      ${p.produto==='cartao'&&p.status==='SIMULACAO'?`<button class="btn gold" data-act="empCartaoPago" data-id="${p.id}">Cartão passado (informar NSU)</button>`:''}
+      ${!['CONTRATADO','CANCELADO','RECUSADO'].includes(p.status)?`<button class="btn" data-act="empDecidir" data-id="${p.id}" data-s="CANCELADO">Cancelar proposta</button>`:''}<button class="btn" data-act="closeModal">Fechar</button></div>`,true);
+  if(p.biometria) DB.get('empBiometria',p.id).then(b=>{ const el=$('#empFotos'); if(!el) return; if(!b) return el.innerHTML='<span class="small muted">Fotos visíveis só para a NexumCell.</span>';
+    el.innerHTML=`<div class="em-fotos">${[['documento','Documento'],['selfie','Selfie de frente'],['selfie2','Selfie virando o rosto']].filter(([k])=>b[k]).map(([k,t])=>`<figure><img src="${b[k]}" alt="${t}" data-act="empFoto" data-src="${b[k]}"><figcaption>${t}</figcaption></figure>`).join('')}</div><p class="small muted" style="margin:6px 0 0">${fdtE(b.em)}${b.ip?' · IP '+esc(b.ip):''}${b.aparelho?' · '+esc(b.aparelho):''}</p>`; }).catch(()=>{ const el=$('#empFotos'); if(el) el.innerHTML='<span class="small muted">Fotos visíveis só para a NexumCell.</span>'; });
+}
+function empLinkModal(p){
+  const url=(window.NEXUMCELL_URLS?.dono||'https://nexumrh.github.io/dono/')+'emprestimo/?t='+p.linkToken, tel=onlyDig(p.cliente?.telefone||''), n55=tel.startsWith('55')?tel:'55'+tel;
+  const msg=`Olá, ${String(p.cliente?.nome||'').split(' ')[0]}! Aqui é da ${p.lojaNome&&p.lojaNome!=='NexumCell'?p.lojaNome+', parceira da ':''}NexumCell. Para concluir a análise do seu ${EMP_PROD[p.produto].nome.toLowerCase()} de ${brl(p.valor)} em ${p.prazo}x de ${brl(p.parcela)}, abra o link no seu celular, confira a proposta e faça a biometria facial (leva 1 minuto): ${url}\nO link vale por 48 horas.`;
+  openModal(`<h2 style="margin-top:0">Análise virtual</h2><p class="muted" style="margin-top:0">Mande o link para o cliente. Ele confere a proposta (valor, parcelas, CET), fotografa o documento, faz as duas selfies e aceita. A análise sai sozinha e aparece aqui em Empréstimos.</p>
+    <div class="row"><input readonly value="${esc(url)}" id="emLk"><button class="btn sm" data-act="copiarTexto" data-t="${esc(url)}">Copiar</button></div>
+    <div class="row mt" style="justify-content:flex-end;gap:8px"><a class="btn gold" target="_blank" rel="noopener" href="https://wa.me/${n55}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a><button class="btn" data-act="closeModal">Fechar</button></div>`);
+}
+
+/* análise no modo demonstração (no servidor de verdade quem decide é /api/emprestimo) */
+{ const _as=apiServ; apiServ=async(rota,d={})=>{ if(rota!=='emprestimo'||!(DEMO||!fb)) return _as(rota,d);
+  await new Promise(o=>setTimeout(o,500));
+  if(d.acao==='dataprev') return {naoConfigurado:true};
+  if(d.acao==='biometria'){ await DB.set('empBiometria',d.id,{documento:d.documento,selfie:d.selfie,selfie2:d.selfie2,em:Date.now(),modo:'LOJA'}); await DB.set('emprestimos',d.id,{biometria:{status:'APROVADA',confianca:92,observacao:'Demonstração: rosto conferido.',em:Date.now()}}); d={acao:'analisar',id:d.id}; }
+  if(d.acao==='analisar'){ const p=await DB.get('emprestimos',d.id); const m=[]; let st='APROVADO';
+    if(p.produto==='clt'){ m.push({t:`Parcela ${brl(p.parcela)} ${p.parcela<=p.margem.disponivel?'cabe':'passa'} na margem de ${brl(p.margem.disponivel)}`,ok:p.parcela<=p.margem.disponivel}); if(p.parcela>p.margem.disponivel) st='RECUSADO'; else if(p.margem.fonte==='MANUAL'){ st='PENDENTE'; m.push({t:'Margem pelo holerite: a equipe confere o documento',alerta:true}); } }
+    if(p.produto==='pessoal'){ const mx=(p.renda?.mensal||0)*S._empCfg.pessoal.comprometeMax/100; m.push({t:`Parcela até ${brl(mx)} da renda`,ok:p.parcela<=mx}); if(p.parcela>mx) st='RECUSADO'; else if(p.valor>S._empCfg.pessoal.limiteNovo){ st='PENDENTE'; m.push({t:'Valor acima do limite de cliente novo',alerta:true}); } }
+    await DB.set('emprestimos',d.id,{status:st,analise:{em:Date.now(),por:'Análise automática',motivos:m},historico:[...(p.historico||[]),{em:Date.now(),por:'Análise automática',obs:EMP_ST[st][0]}]}); return {status:st,motivos:m}; }
+  return {ok:true}; }; }
+
+Object.assign(ACT,{
+  empAba:d=>{ S.empAba=d.a; render(); },
+  empNova:async()=>{ await empCfg(); empModal(); },
+  empTroca:d=>empModal(d.p),
+  empModo:d=>{ S._empModo=d.m; const keep={}; empAll('#mbody input').forEach(x=>{ if(x.id&&x.type!=='file'&&x.type!=='checkbox') keep[x.id]=x.value; }); empModal(S._empProd); Object.entries(keep).forEach(([k,v])=>{ const x=$('#'+k); if(x) x.value=v; }); empPintarSim(); },
+  empCam:d=>empCamera(d.n),
+  empLink:async d=>{ const p=await DB.get('emprestimos',d.id); if(p) empLinkModal({id:d.id,...p}); },
+  empFoto:d=>{ const w=window.open(); if(w) w.document.write(`<title>Foto</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${d.src}" style="max-width:100%;max-height:100vh">`); },
+  empMelhor:()=>{ const prod=S._empProd, c=S._empCfg, n=+$('#epP').value;
+    if(prod==='cartao'){ const L=+$('#epLim').value; if(!L) return toast('Digite o limite do cartão','err'); $('#epV').value=empSimular('cartao',{valor:1,prazo:n,limite:L},c).maxAparelho.toFixed(2); return empPintarSim(); }
+    const teto=prod==='clt'?empMargem():(+($('#epRen')?.value||0))*c.pessoal.comprometeMax/100; if(!teto) return toast(prod==='clt'?'Informe o salário ou consulte a margem':'Informe a renda','err');
+    const um=empSimular(prod,{valor:1000,prazo:n},c).parcela/1000; $('#epV').value=Math.max(0,Math.min(c[prod].valorMax,Math.floor(teto/um/10)*10)); empPintarSim(); },
+  empDataprev:async(d,b)=>{ const cpf=onlyDig($('#epC').value); if(!cpfOk(cpf)) return toast('Digite um CPF válido','err'); if(!$('#epCons').checked) return toast('Marque a autorização do cliente (LGPD)','err');
+    b.disabled=true; $('#epDpMsg').textContent='Consultando…';
+    try{ const r=await apiServ('emprestimo',{acao:'dataprev',cpf});
+      if(r.naoConfigurado){ $('#epDpMsg').textContent='Consulta automática não ligada: preencha pelo holerite (a equipe confere).'; }
+      else { const m=$('#epMg'); m.value=r.margemDisponivel; m.dataset.dp='1'; if(r.salarioLiquido) $('#epSal').value=r.salarioLiquido; if(r.admissao) $('#epAdm').value=r.admissao; if(r.empregador){ $('#epEmp').value=r.empregador.nome||''; $('#epCnpj').value=r.empregador.cnpj||''; }
+        $('#epDpMsg').innerHTML=`<b style="color:#0E8A5F">Margem da Dataprev: ${brl(r.margemDisponivel)}</b>`; empPintarSim(); } }
+    catch(e){ $('#epDpMsg').textContent='Não consultou: '+e.message; } b.disabled=false; },
+  empEnviar:async(d,b)=>{ let p; try{ p=await empLerForm(); }catch(e){ return toast(e.message,'err'); }
+    b.disabled=true; try{ const id=await DB.add('emprestimos',p); await log('Proposta de '+EMP_PROD[p.produto].nome,'emprestimos',`${p.cliente.nome} · ${brl(p.valor)} em ${p.prazo}x`);
+      if(p.status==='AGUARDANDO_CLIENTE'){ closeModal(); empLinkModal({id,...p}); S._empBio={}; render(); return; }
+      if(p.status==='EM_ANALISE'){ try{ const r=await apiServ('emprestimo',{acao:'biometria',id,...S._empBio}); S._empBio={}; toast(r.status==='APROVADO'?'Aprovado na hora':r.status==='RECUSADO'?'Recusado pela análise':'Enviado: a NexumCell decide em instantes',r.status==='RECUSADO'?'err':'ok'); }catch(e){ toast('Proposta salva. A análise roda em até 15 minutos.','ok'); } }
+      else toast(p.status==='CONTRATADO'?'Venda no cartão registrada':'Simulação salva','ok');
+      closeModal(); S.empAba=can('DONO','FINANCEIRO')?'propostas':S.empAba; render(); const n=await DB.get('emprestimos',id); if(n) empDetalhe({id,...n}); }
+    catch(e){ toast('Não salvou: '+e.message,'err'); b.disabled=false; } },
+  empVer:async d=>{ const p=(S._emp||[]).find(x=>x.id===d.id)||await DB.get('emprestimos',d.id); if(p) empDetalhe({id:d.id,...p}); },
+  empDecidir:async d=>{ const nome={APROVADO:'aprovar',RECUSADO:'recusar',CONTRATADO:'marcar como contratado',CANCELADO:'cancelar'}[d.s]; if(!confirm(`Confirma ${nome} esta proposta?`)) return;
+    const obs=d.s==='RECUSADO'||d.s==='CANCELADO'?prompt('Motivo (fica no histórico):')||'':'';
+    try{ if(can('DONO','FINANCEIRO')&&!(DEMO||!fb)) await apiServ('emprestimo',{acao:'decidir',id:d.id,status:d.s,obs});
+      else { const p=await DB.get('emprestimos',d.id); await DB.set('emprestimos',d.id,{status:d.s,atualizadoEm:Date.now(),historico:[...(p.historico||[]),{em:Date.now(),por:S.me.nome,obs:EMP_ST[d.s][0]+(obs?': '+obs:'')}]}); }
+      await log('Empréstimo: '+EMP_ST[d.s][0],'emprestimos',d.id); toast('Feito','ok'); closeModal(); render(); }catch(e){ toast(e.message,'err'); } },
+  empCartaoPago:async d=>{ const nsu=prompt('Código da transação (NSU) da maquininha:'); if(!nsu) return; const p=await DB.get('emprestimos',d.id);
+    await DB.set('emprestimos',d.id,{status:'CONTRATADO',cartao:{...p.cartao,nsu:nsu.trim()},atualizadoEm:Date.now(),historico:[...(p.historico||[]),{em:Date.now(),por:S.me.nome,obs:'Cartão passado · NSU '+nsu.trim()}]}); toast('Venda registrada','ok'); closeModal(); render(); },
+  empSalvarCfg:async()=>{ const c=JSON.parse(JSON.stringify(S._empCfg));
+    empAll('[data-ep]').forEach(x=>{ const [k,f]=x.dataset.ep.split('.'); c[k][f]=x.type==='number'?+x.value:['ativo','iof','repassar'].includes(f)?!!x.value:x.value; });
+    if(!empAutorizada(c)&&(c.clt.ativo||c.pessoal.ativo)) return toast('Para ligar o consignado CLT ou o empréstimo pessoal, preencha antes a forma de operar da NexumCell (Instituição).','err');
+    if(c.clt.margemPct>35) return toast('A margem do consignado CLT vai até 35%.','err');
+    try{ const u=$('#dpUrl').value.trim(), t=$('#dpTok').value.trim(); if(u||t){ if(u&&!u.startsWith('https://')) return toast('O endereço da API começa com https://','err'); await DB.set('segredos','dataprev',{...(u?{url:u}:{}),...(t?{token:t}:{}),em:Date.now()}); }
+      await DB.set('config','emprestimos',{...c,atualizadoEm:Date.now(),por:S.me.nome}); S._empCfg=c; await log('Produtos de crédito salvos','config','emprestimos'); toast('Produtos e taxas salvos','ok'); render(); }catch(e){ toast('Não salvou: '+e.message,'err'); } },
+  empLjTodas:async d=>{ if(!confirm(d.v?'Liberar todos os produtos ligados para todas as lojas?':'Bloquear o crédito em todas as lojas?')) return; const c=S._empCfg, lojas=await DB.list('lojas');
+    for(const l of lojas) await DB.set('lojas',l.id,{emprestimos:Object.fromEntries(Object.keys(EMP_PROD).map(k=>[k,!!d.v&&!!c[k].ativo]))});
+    await log(d.v?'Liberou crédito para todas as lojas':'Bloqueou crédito em todas as lojas','lojas',''); toast('Feito','ok'); render(); },
+  empLimSug:async()=>{ const cpf=onlyDig($('#lmC').value); if(!cpfOk(cpf)) return toast('CPF inválido','err'); const h=await empHistorico(cpf), [v,t]=empSugestao(h,S._empCfg);
+    $('#lmV').value=v; $('#lmM').value=t.slice(0,80); $('#lmSug').innerHTML=`<div class="${v?'em-ok':'em-aviso'}" style="margin:0">${v?empIcOk:empIcAviso}<div><b>${esc(h.nome||'Cliente')}</b>: sugestão de ${brl(v)}. ${esc(t)}</div></div>`; },
+  empLimSalvar:async()=>{ const cpf=onlyDig($('#lmC').value), v=+$('#lmV').value; if(!cpfOk(cpf)) return toast('CPF inválido','err'); if(!(v>=0)) return toast('Digite o limite','err');
+    const h=await empHistorico(cpf), at=await DB.get('limitesCliente',cpf).catch(()=>null), mot=$('#lmM').value.trim();
+    await DB.set('limitesCliente',cpf,{nome:h.nome||at?.nome||'',limite:v,usado:at?.usado||0,motivo:mot,por:S.me.nome,atualizadoEm:Date.now(),historico:[...(at?.historico||[]),{em:Date.now(),por:S.me.nome,de:at?.limite||0,para:v,motivo:mot}]});
+    await log('Limite de crédito '+brl(v),'limitesCliente',fmtCpf(cpf)); toast('Limite salvo','ok'); render(); },
+  empLimBloq:async d=>{ await DB.set('limitesCliente',d.id,{bloqueado:!!d.b,atualizadoEm:Date.now(),por:S.me.nome}); toast(d.b?'Limite bloqueado':'Limite desbloqueado','ok'); render(); },
+});
+
 </script>
 </body>
 </html>

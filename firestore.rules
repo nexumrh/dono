@@ -35,7 +35,7 @@ service cloud.firestore {
     match /config/{id} {
       allow get: if signed() && !anon();
       allow list: if staff();
-      allow create: if (id == 'sistema' && donoEmail()) || (id in ['contador', 'protocolos'] && staff()) || (id == 'crm' && hasRole(['DONO']));
+      allow create: if (id == 'sistema' && donoEmail()) || (id in ['contador', 'protocolos'] && staff()) || (id in ['crm', 'emprestimos'] && hasRole(['DONO']));
       allow update: if hasRole(['DONO']) || (id in ['contador', 'protocolos'] && staff());
     }
 
@@ -514,6 +514,32 @@ service cloud.firestore {
     // ---------- CRM NexumCell (equipe: dono, suporte, financeiro e comercial) ----------
     function crmEquipe() { return hasRole(['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']); }
     match /crmAtrib/{id} { allow read, write: if crmEquipe(); }
+    // Empréstimos e crédito (consignado CLT, empréstimo pessoal, iPhone no cartão). A análise e a biometria
+    // são gravadas pelo servidor; a loja só cria a proposta do produto que o dono liberou para ela.
+    function lojaEmp(prod) { return get(/databases/$(database)/documents/lojas/$(me().lojaId)).data.get('emprestimos', {}).get(prod, false) == true; }
+    match /emprestimos/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'COMERCIAL']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow create: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE', 'VENDEDOR']) && request.resource.data.lojaId == me().lojaId
+        && lojaEmp(request.resource.data.produto) && !('analise' in request.resource.data) && !('biometria' in request.resource.data)
+        && request.resource.data.status in ['SIMULACAO', 'EM_ANALISE', 'AGUARDANDO_CLIENTE', 'CONTRATADO']
+        && (request.resource.data.status != 'CONTRATADO' || request.resource.data.produto == 'cartao'));
+      allow update: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cartao', 'historico', 'atualizadoEm'])
+        && (request.resource.data.status == 'CANCELADO' || (resource.data.produto == 'cartao' && request.resource.data.status in ['CONTRATADO', 'SIMULACAO'])));
+      allow delete: if false;
+    }
+    match /empBiometria/{id} {
+      allow get: if hasRole(['DONO', 'FINANCEIRO', 'COMERCIAL']);
+      allow list: if false;
+      allow create, update: if hasRole(['DONO', 'FINANCEIRO']);
+      allow delete: if false;
+    }
+    match /limitesCliente/{id} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'COMERCIAL']);
+      allow write: if hasRole(['DONO', 'FINANCEIRO']);
+    }
+    match /crmRetornos/{id} { allow read, write: if crmEquipe(); }
+
     match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista
     match /crmArquivos/{id} { allow get: if true; allow list: if false; allow create: if crmEquipe() && request.resource.data.data.size() < 1000000; allow update, delete: if hasRole(['DONO']); }
