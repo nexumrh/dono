@@ -545,6 +545,11 @@ service cloud.firestore {
     match /crmEnvios/{id} { allow read, write: if crmEquipe(); }
     match /crmAvaliacoes/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     match /crmAlertas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO']); }
+    // CRM: etiquetas e conversas juntadas; mensagens agendadas; comprovantes já usados (gravados pelo servidor)
+    match /crmMarcas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'COMERCIAL']); }
+    match /crmAgendadas/{id} { allow read, create, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'COMERCIAL']); allow delete: if false; }
+    match /comprovantes/{id} { allow read: if hasRole(['DONO', 'FINANCEIRO']); allow write: if false; }
+    match /siteChat/{id} { allow read, write: if false; }
     // respostas rápidas pessoais de cada atendente do CRM
     match /crmMinhas/{uid} { allow read, write: if signed() && request.auth.uid == uid && staff(); }
     // contrato assinado do empréstimo (gravado só pelo servidor)

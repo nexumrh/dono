@@ -1358,6 +1358,185 @@ escolherResposta = function (i) { rqPainel(i); };
   const tr = $('#tRes'); if (tr) { tr.style.cssText += ';background:#0A1733;color:#fff;border-color:#0A1733'; tr.querySelector('svg') && (tr.querySelector('svg').style.color = '#E2B33B'); tr.lastChild.textContent = 'Respostas rápidas'; }
   tx.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); rqPainel(i); } }); }; }
 
+/* ======================= CRM: AGENDADAS, COMPROVANTE, LINHA DO TEMPO, ETIQUETAS, JUNTAR E PLANILHA (nov/2026) ======================= */
+Object.assign(ICN, { relogio2: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', recibo: '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2l-1 1-3-2-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8M8 16h5"/>', etiqueta: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>', juntar: '<path d="M8 3v6a4 4 0 0 0 4 4h0a4 4 0 0 1 4 4v4"/><path d="M16 3v6a4 4 0 0 1-4 4"/><path d="m5 6 3-3 3 3M13 18l3 3 3-3"/>', planilha: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>', linha: '<path d="M12 2v20"/><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/>' });
+const fdh = ms => { const d = new Date(ms); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR').slice(0, 5); };
+const kSafe = k => String(k).replace(/[/:]/g, '_');
+const cpfDe = i => soD(i?.raw?.clienteCpf || i?.raw?.cpf || i?.raw?.cliente?.cpf || ''), telDe = i => soD(i?.tel || i?.raw?.telefone || i?.raw?.whatsapp || i?.raw?.numero || '').slice(-9);
+
+/* ---------- planilha (CSV que abre no Excel e no Google Planilhas) ---------- */
+function baixarPlanilha(nome, cab, linhas) {
+  const c = v => { const s = v == null ? '' : String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = '﻿' + [cab, ...linhas].map(l => l.map(c).join(';')).join('\r\n'), a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `${nome}-${new Date().toISOString().slice(0, 10)}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('Planilha baixada');
+}
+const nBr = v => (Number(v) || 0).toFixed(2).replace('.', ',');
+function exportarAtendimentos() { const l = lista(); if (!l.length) return toast('Nada para exportar nesta lista', true);
+  baixarPlanilha('atendimentos', ['Cliente', 'Canal', 'Fila', 'Etapa', 'Protocolo', 'Responsável', 'Motivo', 'Etiquetas', 'Telefone', 'Última mensagem', 'Quando'], l.map(i => [i.nome, CANAIS[i.canal]?.[0] || i.canal, FILAS[i.fila]?.[0] || i.fila, i.etapa, i.protocolo, i.resp?.nome || '', C.atrib[i.key]?.motivo || '', (MARCAS[i.key]?.etiquetas || []).join(', '), fmtTel(i.tel || ''), String(i.ultima || i.sub || '').replace(/\s+/g, ' ').slice(0, 200), fdh(i.em)])); }
+function exportarCobranca() { const l = atrasados(); if (!l.length) return toast('Ninguém em atraso', true);
+  baixarPlanilha('cobranca', ['Cliente', 'CPF', 'Contrato', 'Loja', 'Telefone', 'Parcelas em atraso', 'Desde', 'Dias', 'Valor em atraso', 'Promessa', 'Acordo'], l.map(x => [x.v.clienteNome, fmtCpf(x.v.clienteCpf), x.v.numero, x.v.lojaNome || '', fmtTel(x.tel), x.atr.length, x.atr[0].venc.split('-').reverse().join('/'), x.dias, nBr(x.devido), x.prom ? `${x.prom.status} ${String(x.prom.data || '').split('-').reverse().join('/')}` : '', x.acordo ? 'sim' : ''])); }
+async function exportarCampanhas() { const l = await DB.list('crmEnvios', [['em', '>=', Date.now() - 90 * 864e5]]).catch(() => []); if (!l.length) return toast('Nenhum envio nos últimos 90 dias', true);
+  baixarPlanilha('mensagens-em-massa', ['Quando', 'Tipo', 'Cliente', 'Telefone', 'Por'], l.sort((a, b) => b.em - a.em).map(x => [fdh(x.em), x.tipo || '', x.nome || x.clienteNome || '', fmtTel(x.tel || x.numero || ''), x.por || ''])); }
+{ const _dl = desenharLista; desenharLista = function () { _dl(); const h = $('#lst .lst-h h2'); if (h && !$('#ls-csv')) { const b = document.createElement('button'); b.className = 'ib'; b.id = 'ls-csv'; b.title = 'Exportar esta lista para planilha'; b.innerHTML = I('planilha'); b.style.marginRight = '4px'; b.onclick = exportarAtendimentos; h.insertBefore(b, $('#ls-nova', h)); } marcasNaLista(); }; }
+{ const _vc = vCobranca; vCobranca = function (el) { _vc(el); const top = $('.kb-top', el); if (top && C.cob.vendas && !$('#cbCsv', el)) top.insertAdjacentHTML('beforeend', `<button class="btn sec sm" id="cbCsv">${I('planilha')}Planilha</button>`); $('#cbCsv', el) && ($('#cbCsv', el).onclick = exportarCobranca); }; }
+{ const _vm = vCampanhas; vCampanhas = async function (el) { const r = await _vm(el); const top = $('.kb-top', el); if (top && !$('#cmCsv', el)) { top.insertAdjacentHTML('beforeend', `<button class="btn sec sm" id="cmCsv">${I('planilha')}Planilha dos envios</button>`); $('#cmCsv', el).onclick = exportarCampanhas; } return r; }; }
+
+/* ---------- etiquetas, filtros salvos e conversas juntadas (crmMarcas) ---------- */
+let MARCAS = {};
+const ETQ_PADRAO = [['VIP', '#A97B23'], ['Quer trocar de aparelho', '#1A5CFF'], ['Reclamou', '#C23B3B'], ['Sem retorno', '#6B7390'], ['Suspeita de golpe', '#9F1239'], ['Bom pagador', '#0E8A5F']];
+const etqs = () => RQ_RAW.etiquetas?.length ? RQ_RAW.etiquetas : ETQ_PADRAO, corEtq = n => (etqs().find(e => e[0] === n) || [n, '#6B7390'])[1];
+const pillEtq = n => `<span class="pill" style="background:${corEtq(n)}1F;color:${corEtq(n)}">${I('etiqueta')}${esc(n)}</span>`;
+async function marcar(i, dados) { const k = i.key || i; MARCAS[k] = { ...(MARCAS[k] || {}), ...dados, key: k }; await DB.set('crmMarcas', kSafe(k), { key: k, ...dados, atualizadoEm: Date.now() }); }
+const mesclado = i => { const m = MARCAS[i.key]; return m?.mescladoEm && m.mescladoEm !== i.key && (i.em || 0) <= (m.mescladoQuando || 0); };
+{ const _l = lista; lista = function () { const etq = C.f.etq || ''; return _l().filter(i => !mesclado(i) && (!etq || (MARCAS[i.key]?.etiquetas || []).includes(etq))); }; }
+function marcasNaLista() {
+  const el = $('#lst'); if (!el) return;
+  $$('.it[data-it]', el).forEach(d => { const m = MARCAS[d.dataset.it]; const l3 = $('.l3', d); if (!l3 || l3.querySelector('.etq-l')) return; const ex = (m?.etiquetas || []).map(pillEtq).join('') + (Object.values(MARCAS).some(x => x.mescladoEm === d.dataset.it) ? `<span class="pill" title="Conversas juntadas">${I('juntar')}juntada</span>` : ''); if (ex) l3.insertAdjacentHTML('beforeend', `<span class="etq-l" style="display:contents">${ex}</span>`); });
+  const h = $('.lst-h', el); if (!h || $('#ls-etq', el)) return; const salvos = filtrosSalvos(), etq = C.f.etq || '';
+  h.insertAdjacentHTML('beforeend', `<div id="ls-etq" style="display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;align-items:center">
+    <select class="inp" id="ls-etqS" style="width:auto;padding:5px 8px;font-size:12.5px;flex:none"><option value="">Todas as etiquetas</option>${etqs().map(([n]) => `<option ${etq === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+    ${salvos.map((f, k) => `<button class="pill" data-fs="${k}" style="border:1px solid var(--line);cursor:pointer;flex:none;background:#fff">${esc(f.nome)}<b data-fsx="${k}" style="margin-left:4px;color:var(--mut)" title="Apagar">×</b></button>`).join('')}
+    <button class="pill" id="ls-fsN" style="border:1px dashed var(--line);cursor:pointer;flex:none;background:none" title="Guardar a fila, o canal, a etapa, a busca e a etiqueta de agora">+ Salvar filtro</button></div>`);
+  $('#ls-etqS', el).onchange = e => { C.f.etq = e.target.value; salvarF(); desenharLista(); };
+  $('#ls-fsN', el).onclick = () => { const nome = prompt('Nome do filtro (ex.: Atrasados do WhatsApp):'); if (!nome) return; const l = filtrosSalvos(); l.push({ nome: nome.slice(0, 30), f: { ...C.f } }); try { localStorage.setItem('crmnc:filtros:' + C.me.uid, JSON.stringify(l)); } catch (e) { } desenharLista(); };
+  $$('[data-fs]', el).forEach(b => b.onclick = e => { const k = +b.dataset.fs, l = filtrosSalvos(); if (e.target.dataset.fsx != null) { l.splice(k, 1); try { localStorage.setItem('crmnc:filtros:' + C.me.uid, JSON.stringify(l)); } catch (er) { } return desenharLista(); } Object.assign(C.f, l[k].f); salvarF(); desenhar(); });
+}
+const filtrosSalvos = () => { try { return JSON.parse(localStorage.getItem('crmnc:filtros:' + C.me?.uid) || '[]'); } catch (e) { return []; } };
+function editarEtiquetas(i) {
+  const atual = new Set(MARCAS[i.key]?.etiquetas || []);
+  const m = modal('Etiquetas do atendimento', `<div style="display:flex;flex-wrap:wrap;gap:8px">${etqs().map(([n, c]) => `<label style="display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer"><input type="checkbox" data-et="${esc(n)}" ${atual.has(n) ? 'checked' : ''}><span style="width:9px;height:9px;border-radius:50%;background:${c}"></span>${esc(n)}</label>`).join('')}</div>
+    ${dono() ? `<p class="hint" style="margin:12px 0 4px">Etiquetas da equipe (o dono edita), uma por linha: <b>Nome | cor</b></p><textarea class="inp" id="etL" rows="4">${esc(etqs().map(([n, c]) => `${n} | ${c}`).join('\n'))}</textarea>` : ''}`,
+    `<button class="btn sec" data-close>Cancelar</button><button class="btn" id="etOk">${I('ok')}Salvar</button>`);
+  $('#etOk', m).onclick = async () => { if (dono() && $('#etL', m)) { const l = $('#etL', m).value.split('\n').map(x => x.split('|').map(s => s.trim())).filter(x => x[0]).map(([n, c]) => [n.slice(0, 30), /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#6B7390']); await DB.set('config', 'crm', { etiquetas: l }); RQ_RAW = { ...RQ_RAW, etiquetas: l }; }
+    await marcar(i, { etiquetas: $$('[data-et]', m).filter(x => x.checked).map(x => x.dataset.et) }); fechar(); desenharLista(); pintarMarcasChat(i); toast('Etiquetas salvas'); };
+}
+function irmaos(i) { const cpf = cpfDe(i), tel = telDe(i); if (!cpf && tel.length < 8) return []; return C.itens.filter(x => x.key !== i.key && ((cpf && cpfDe(x) === cpf) || (tel.length >= 8 && telDe(x) === tel)) && (dono() || x.fila === C.papel)); }
+function pintarMarcasChat(i) {
+  $('#mkBar')?.remove(); const b = $('#ch-b'); if (!b) return; const m = MARCAS[i.key] || {}, ir = irmaos(i), abertos = ir.filter(x => x.etapa !== 'fim' && !mesclado(x)), juntados = ir.filter(x => MARCAS[x.key]?.mescladoEm === i.key);
+  const d = document.createElement('div'); d.id = 'mkBar'; d.style.cssText = 'position:sticky;top:0;z-index:5;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:rgba(255,255,255,.94);backdrop-filter:blur(4px);border-bottom:1px solid var(--line);padding:7px 12px;margin:-12px -12px 10px';
+  d.innerHTML = `${(m.etiquetas || []).map(pillEtq).join('')}<button class="pill" id="mkEt" style="border:1px dashed var(--line);cursor:pointer;background:none">${I('etiqueta')}${(m.etiquetas || []).length ? 'Editar' : 'Etiqueta'}</button>
+    ${abertos.length ? `<span class="hint" style="font-size:12px;margin-left:6px">Também falou por:</span>${abertos.map(x => `<button class="pill" data-mko="${esc(x.key)}" style="border:1px solid var(--line);cursor:pointer;background:#fff">${I(CANAL_ICN[x.canal])}${esc(CANAIS[x.canal][0])}</button>`).join('')}<button class="pill" id="mkJ" style="cursor:pointer;border:0;background:#0A1733;color:#fff">${I('juntar')}Juntar aqui</button>` : ''}
+    ${juntados.length ? `<span class="hint" style="font-size:12px;margin-left:6px">Juntadas:</span>${juntados.map(x => `<button class="pill" data-mko="${esc(x.key)}" style="border:1px solid var(--line);cursor:pointer;background:#fff">${esc(CANAIS[x.canal][0])}</button>`).join('')}` : ''}`;
+  b.prepend(d);
+  $('#mkEt', d).onclick = () => editarEtiquetas(i);
+  $$('[data-mko]', d).forEach(x => x.onclick = () => abrir(x.dataset.mko));
+  if ($('#mkJ', d)) $('#mkJ', d).onclick = async () => { if (!confirm(`Juntar ${abertos.length} conversa(s) deste cliente neste atendimento? Elas saem da lista e ficam como links aqui. Se o cliente mandar mensagem nova por lá, a conversa volta para a lista.`)) return;
+    for (const x of abertos) { await marcar(x, { mescladoEm: i.key, mescladoQuando: Date.now(), mescladoPor: C.me.nome }); }
+    const et = [...new Set([...(m.etiquetas || []), ...abertos.flatMap(x => MARCAS[x.key]?.etiquetas || [])])]; if (et.length) await marcar(i, { etiquetas: et });
+    toast('Conversas juntadas'); desenharLista(); pintarMarcasChat(i); };
+}
+{ const _cm = carregarMsgs; carregarMsgs = async function (i) { const r = await _cm(i); setTimeout(() => C.sel === i.key && pintarMarcasChat(i), 300); return r; }; }
+{ const _pm = pintarMsgs; pintarMsgs = function (ms) { const r = _pm(ms); const i = C.itens.find(x => x.key === C.sel); if (i) pintarMarcasChat(i); pintarAgendadas(); return r; }; }
+
+/* ---------- linha do tempo do cliente ---------- */
+{ const _sc3 = secCliente; secCliente = function (r) { const html = _sc3(r); if (!r?.vs?.length) return html; const cpf = r.vs[0].clienteCpf; setTimeout(() => linhaTempo(cpf, r.vs), 0);
+  return html + `<div class="pf-sec" data-tl="${esc(cpf)}"><h4 style="display:flex;align-items:center;gap:6px">${I('linha')}Linha do tempo</h4><p class="hint" style="margin:0">Carregando…</p></div>`; }; }
+async function linhaTempo(cpf, vs) {
+  const alvos = $$(`[data-tl="${cpf}"]`); if (!alvos.length || alvos.every(a => a.dataset.ok)) return; const h = hoje(), ev = [], ids = vs.map(v => v.id).slice(0, 10);
+  const [pr, ac, emp, av] = await Promise.all([ids.length ? DB.list('crmPromessas', [['vendaId', 'in', ids]]).catch(() => []) : [], ids.length ? DB.list('crmAcordos', [['vendaId', 'in', ids]]).catch(() => []) : [], DB.list('emprestimos', [['cpf', '==', cpf]]).catch(() => []), DB.list('crmAgendadas', [['cpf', '==', cpf]]).catch(() => [])]);
+  const add = (em, ic, cor, t, d) => em && ev.push({ em: typeof em === 'number' ? em : new Date(String(em).slice(0, 10) + 'T12:00:00').getTime(), ic, cor, t, d });
+  for (const v of vs) { const ap = [v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(' ');
+    add(v.criadoEm, 'cartao', '#1A5CFF', `Comprou ${ap || 'aparelho'} · contrato nº ${v.numero}`, `${v.lojaNome || ''}${v.vendedorNome ? ' · ' + v.vendedorNome : ''}`);
+    (v.parcelas || []).forEach(p => { if (p.pago) add(p.pagoEm || p.venc, 'ok', '#0E8A5F', `Pagou a parcela ${p.n} · ${brl(p.valorPago ?? p.valor)}`, `${p.forma || ''}${p.pagoEm && p.pagoEm.slice(0, 10) > p.venc ? ` · ${diasEntre(p.venc, p.pagoEm.slice(0, 10))} dia(s) de atraso` : ''}`); else if (p.venc < h) add(p.venc, 'alerta', '#C23B3B', `Parcela ${p.n} venceu sem pagamento`, brl(p.valor)); });
+    if (v.status === 'QUITADA') add(v.quitadoEm, 'okc', '#0E8A5F', `Quitou o contrato nº ${v.numero}`, ''); if (v.status === 'CANCELADA') add(v.canceladoEm, 'x', '#6B7390', `Contrato nº ${v.numero} cancelado`, v.motivoCancelamento || ''); }
+  pr.forEach(p => add(p.em, 'calendario', '#B7791F', `Prometeu pagar ${p.valor ? brl(p.valor) : ''} até ${String(p.data || '').split('-').reverse().join('/')}`, `${({ PENDENTE: 'aguardando', CUMPRIDA: 'cumpriu', QUEBRADA: 'não cumpriu' })[p.status] || p.status || ''} · ${p.por || ''}`));
+  ac.forEach(a => add(a.em, 'lapis', '#6D28D9', `Acordo de ${brl(a.total || a.valor)}${a.n ? ` em ${a.n}x` : ''}`, a.por || ''));
+  emp.forEach(e => add(e.criadoEm, 'moeda', '#1A5CFF', `${({ clt: 'Consignado CLT', pessoal: 'Empréstimo pessoal', cartao: 'iPhone no cartão' })[e.produto] || 'Crédito'} de ${brl(e.valor)}`, ({ APROVADO: 'aprovado', RECUSADO: 'recusado', CONTRATADO: 'contratado', CANCELADO: 'cancelado' })[e.status] || 'em análise'));
+  av.forEach(a => add(a.em, 'relogio2', '#6B7390', `Mensagem agendada para ${fdh(a.quando)}`, ({ ENVIADA: 'enviada', CANCELADA: 'cancelada', PENDENTE: 'aguardando', NA_FILA: 'na fila do WhatsApp' })[a.status] || a.status));
+  C.itens.filter(i => cpfDe(i) === cpf || (vs[0].cliente?.telefones || []).some(t => soD(t).slice(-9) === telDe(i))).forEach(i => add(i.criadoEm || i.em, CANAL_ICN[i.canal] || 'inbox', '#13244D', `Atendimento por ${CANAIS[i.canal][0]}${C.atrib[i.key]?.motivo ? ' · ' + C.atrib[i.key].motivo : ''}`, `${i.etapa === 'fim' ? 'finalizado' : 'aberto'}${i.resp?.nome ? ' · ' + i.resp.nome : ''}`));
+  ev.sort((a, b) => b.em - a.em);
+  const linha = e => `<div style="display:flex;gap:10px;padding:6px 0;position:relative"><span style="flex:none;width:26px;height:26px;border-radius:50%;background:${e.cor}1A;color:${e.cor};display:grid;place-items:center">${I(e.ic)}</span><div style="min-width:0"><div style="font-size:13px;font-weight:600;line-height:1.3">${esc(e.t)}</div><div class="hint" style="font-size:11.5px">${new Date(e.em).toLocaleDateString('pt-BR')}${e.d ? ' · ' + esc(e.d) : ''}</div></div></div>`;
+  alvos.forEach(a => { a.dataset.ok = 1; const curto = ev.slice(0, 8);
+    a.innerHTML = `<h4 style="display:flex;align-items:center;gap:6px">${I('linha')}Linha do tempo <span class="hint" style="font-weight:500;text-transform:none;letter-spacing:0">${ev.length} evento(s)</span></h4>${curto.map(linha).join('') || '<p class="hint" style="margin:0">Sem eventos.</p>'}${ev.length > 8 ? `<button class="ferr" data-tlmais style="margin-top:4px">Ver tudo (${ev.length})</button>` : ''}`;
+    $('[data-tlmais]', a)?.addEventListener('click', () => modal('Linha do tempo do cliente', `<div style="max-height:65vh;overflow:auto">${ev.map(linha).join('')}</div>`, '<button class="btn sec" data-close>Fechar</button>')); });
+}
+
+/* ---------- mensagens agendadas ---------- */
+let AGENDADAS = [];
+const lembreteVisto = new Set();
+function pintarAgendadas() {
+  const cp = $('#cp'), i = C.itens.find(x => x.key === C.sel); $('#agBar')?.remove(); if (!cp || !i) return;
+  const l = AGENDADAS.filter(a => a.key === i.key && ['PENDENTE', 'NA_FILA'].includes(a.status)).sort((a, b) => a.quando - b.quando); if (!l.length) return;
+  cp.insertAdjacentHTML('afterbegin', `<div id="agBar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${l.map(a => `<span class="pill" style="background:#EEF3FF;color:#1A3FA8" title="${esc(a.texto)}">${I('relogio2')}Agendada ${fdh(a.quando)}<b data-agx="${a.id}" style="cursor:pointer;margin-left:4px" title="Cancelar">×</b></span>`).join('')}</div>`);
+  $$('[data-agx]', cp).forEach(b => b.onclick = async () => { const a = AGENDADAS.find(x => x.id === b.dataset.agx); if (!a || !confirm('Cancelar esta mensagem agendada?')) return; await DB.set('crmAgendadas', a.id, { status: 'CANCELADA', canceladaPor: C.me.nome }); if (a.saidaId) await DB.set('waSaida', a.saidaId, { status: 'CANCELADA' }).catch(() => { }); toast('Agendamento cancelado'); });
+}
+function agendarMensagem(i) {
+  const tx = $('#tTxt'), base = new Date(), amanha9 = new Date(base); amanha9.setDate(base.getDate() + 1); amanha9.setHours(9, 0, 0, 0);
+  const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16), op = [['Em 1 hora', new Date(Date.now() + 36e5)], ['Hoje 18h', (() => { const d = new Date(); d.setHours(18, 0, 0, 0); return d; })()], ['Amanhã 9h', amanha9], ['Em 3 dias', new Date(Date.now() + 3 * 864e5)]].filter(([, d]) => d > Date.now() + 6e4);
+  const viaWa = !['app', 'portal', 'chamado'].includes(i.canal), webMode = viaWa && !waOn();
+  const m = modal('Agendar mensagem', `<label class="small" style="font-weight:600">Mensagem<textarea class="inp" id="agT" rows="4" maxlength="2000">${esc(tx?.value || '')}</textarea></label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px">${op.map(([n, d]) => `<button class="pill" data-agq="${iso(d)}" style="border:1px solid var(--line);cursor:pointer;background:#fff">${n}</button>`).join('')}</div>
+    <label class="small" style="font-weight:600">Enviar em<input class="inp" id="agQ" type="datetime-local" value="${iso(amanha9)}"></label>
+    <p class="hint" style="margin:10px 0 0">${i.canal === 'chamado' ? 'Chamados não aceitam agendamento.' : webMode ? 'Com o WhatsApp Web, na hora marcada o CRM avisa você e abre a conversa com o texto pronto (o CRM precisa estar aberto).' : viaWa ? 'Sai sozinha pelo WhatsApp conectado na hora marcada.' : 'Vai sozinha para o chat do cliente na hora marcada (pode atrasar até 15 minutos).'}</p>`,
+    `<button class="btn sec" data-close>Cancelar</button><button class="btn" id="agOk" ${i.canal === 'chamado' ? 'disabled' : ''}>${I('relogio2')}Agendar</button>`);
+  $$('[data-agq]', m).forEach(b => b.onclick = () => { $('#agQ', m).value = b.dataset.agq; });
+  $('#agOk', m).onclick = async e => { const texto = $('#agT', m).value.trim(), quando = new Date($('#agQ', m).value).getTime();
+    if (texto.length < 2) return toast('Escreva a mensagem', true); if (!(quando > Date.now() + 30e3)) return toast('Escolha um horário no futuro', true); e.currentTarget.disabled = true;
+    const num = soD(i.tel || i.raw?.telefone || i.raw?.whatsapp || (i.canal === 'wa' ? i.id : '')), n55 = num ? (num.startsWith('55') ? num : '55' + num) : '';
+    if (viaWa && num.length < 10) { e.currentTarget.disabled = false; return toast('Sem WhatsApp neste atendimento', true); }
+    const doc = { key: i.key, canal: viaWa ? 'wa' : i.canal, alvoId: i.id, numero: n55, nome: i.nome, cpf: cpfDe(i), texto, quando, por: C.me.nome.split(' ')[0], porUid: C.me.uid, em: Date.now(), status: 'PENDENTE' };
+    if (viaWa && !webMode) { doc.saidaId = await DB.add('waSaida', { numero: n55, texto, status: 'PENDENTE', em: quando, naoAntes: quando, por: C.me.nome, agendada: true }); doc.status = 'NA_FILA'; }
+    await DB.add('crmAgendadas', doc); if (tx && tx.value.trim() === texto) { tx.value = ''; tx.dispatchEvent(new Event('input')); }
+    fechar(); toast('Mensagem agendada para ' + fdh(quando)); };
+}
+function verificarAgendadasWeb() {   // WhatsApp Web: avisa quem agendou quando chega a hora
+  if (!C.me) return; const agora = Date.now();
+  AGENDADAS.filter(a => a.status === 'PENDENTE' && a.canal === 'wa' && a.porUid === C.me.uid && a.quando <= agora && !lembreteVisto.has(a.id)).slice(0, 3).forEach(a => { lembreteVisto.add(a.id); beep?.();
+    const d = document.createElement('div'); d.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:5000;width:min(360px,calc(100vw - 36px));background:#fff;border:1px solid var(--line);border-left:5px solid #1A5CFF;border-radius:14px;box-shadow:0 18px 40px rgba(10,23,51,.2);padding:12px 14px';
+    d.innerHTML = `<div style="font-size:11px;font-weight:700;color:#1A5CFF;text-transform:uppercase;letter-spacing:.06em">${I('relogio2')} Mensagem agendada</div><b style="display:block;margin-top:4px">${esc(a.nome || fmtTel(a.numero))}</b><div class="hint" style="margin:4px 0 10px;white-space:pre-wrap;max-height:90px;overflow:auto">${esc(a.texto)}</div><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn sec sm" data-agl="x">Depois</button><button class="btn sm" data-agl="ok">${I('wa')}Abrir no WhatsApp</button></div>`;
+    document.body.appendChild(d);
+    d.onclick = async ev => { const b = ev.target.closest('[data-agl]'); if (!b) return; d.remove(); if (b.dataset.agl === 'ok') { abrirWaWeb(`https://web.whatsapp.com/send?phone=${a.numero}&text=${encodeURIComponent(a.texto)}`); await DB.set('crmAgendadas', a.id, { status: 'ENVIADA', enviadaEm: Date.now(), via: 'WhatsApp Web' }); } else { await DB.set('crmAgendadas', a.id, { quando: Date.now() + 15 * 6e4 }); lembreteVisto.delete(a.id); } }; });
+}
+setInterval(verificarAgendadasWeb, 30e3);
+
+/* ---------- comprovante: a IA lê a foto e o financeiro dá baixa ---------- */
+async function reduzirImg(dataUrl, max = 1600) { if (!/^data:image\//.test(dataUrl)) return dataUrl; const img = await new Promise((ok, er) => { const m = new Image(); m.onload = () => ok(m); m.onerror = er; m.src = dataUrl; });
+  const s = Math.min(1, max / Math.max(img.width, img.height)); if (s === 1 && dataUrl.length < 1.5e6) return dataUrl; const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.85); }
+async function lerComprovante(i, fonte) {   // fonte: {arquivoId} | {dataUrl}
+  const m = modal('Ler comprovante', `<div id="cpvB" style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px;align-items:start"><div id="cpvImg" class="hint">Carregando a imagem…</div><div id="cpvD" class="hint">${I('ia')} A IA está lendo o comprovante…</div></div><style>@media(max-width:640px){#cpvB{grid-template-columns:1fr!important}}</style>`, '<button class="btn sec" data-close>Fechar</button>', true);
+  try {
+    let img = fonte.dataUrl; if (!img && fonte.arquivoId) img = (await DB.get('crmArquivos', fonte.arquivoId))?.data;
+    if (!img) throw new Error('Não achei a imagem'); if (/^data:application\/pdf/.test(img)) throw new Error('É um PDF: tire um print do comprovante e use "Ler comprovante" com a imagem.');
+    img = await reduzirImg(img); $('#cpvImg', m).innerHTML = `<a href="${img}" target="_blank" rel="noopener"><img src="${img}" style="width:100%;border-radius:12px;border:1px solid var(--line)"></a>`;
+    const r = await api('crm-ia', { acao: 'comprovante', imagem: img });
+    if (!r.ehComprovante) { $('#cpvD', m).innerHTML = `<div class="pill" style="background:var(--warn-s);color:var(--warn)">${I('alerta')}A IA não reconheceu um comprovante nesta imagem.</div>`; return; }
+    const cli = C._cli?.vs?.length ? C._cli : await acharCliente({ cpf: cpfDe(i), tel: i.tel }).catch(() => null), h = hoje();
+    const abertas = (cli?.vs || []).filter(v => v.status === 'ATIVA').flatMap(v => (v.parcelas || []).filter(p => !p.pago).map(p => ({ v, p }))).sort((a, b) => a.p.venc.localeCompare(b.p.venc));
+    const perto = abertas.filter(x => Math.abs((+x.p.valor || 0) - r.valor) <= Math.max(2, (+x.p.valor || 0) * 0.25)), sug = perto.find(x => x.p.venc < h) || perto[0] || abertas.find(x => x.p.venc < h) || abertas[0];
+    const linha = (t, v, ruim) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line2)"><span class="hint">${t}</span><b style="${ruim ? 'color:var(--bad)' : ''};text-align:right">${esc(v || '—')}</b></div>`;
+    const nomeCli = String(cli?.vs?.[0]?.clienteNome || i.nome || '').toLowerCase(), pagNome = String(r.pagador || '').toLowerCase(), nomeConfere = !pagNome || !nomeCli || nomeCli.split(' ')[0] && pagNome.includes(nomeCli.split(' ')[0]);
+    $('#cpvD', m).innerHTML = `${linha('Valor', brl(r.valor))}${linha('Data', [String(r.data || '').split('-').reverse().join('/'), r.hora].filter(Boolean).join(' às '), r.data && r.data > h)}${linha('Quem pagou', r.pagador, !nomeConfere)}${linha('Quem recebeu', r.recebedor)}${linha('Banco / app', r.banco)}${linha('ID da transação', r.idTransacao)}${linha('Tipo', r.tipo)}
+      ${r.jaUsado ? `<div class="pill" style="margin-top:10px;background:var(--bad-s);color:var(--bad);white-space:normal">${I('alerta')}Este comprovante já foi usado em ${fdh(r.jaUsado.em)} (contrato nº ${r.jaUsado.vendaNumero}, parcela ${r.jaUsado.parcela}, por ${esc(r.jaUsado.por || '')}).</div>` : ''}
+      ${r.duvidas ? `<div class="pill" style="margin-top:8px;background:var(--warn-s);color:var(--warn);white-space:normal">${I('alerta')}${esc(r.duvidas)}</div>` : ''}${!nomeConfere ? `<div class="hint" style="margin-top:6px;color:var(--warn)">O nome de quem pagou é diferente do cliente: pode ser outra pessoa pagando por ele. Confira.</div>` : ''}
+      <p class="hint" style="margin:10px 0 4px">Confira no extrato do banco ou no Asaas se o dinheiro entrou antes de dar baixa.</p>
+      ${fin() ? (abertas.length ? `<label class="small" style="font-weight:600">Parcela<select class="inp" id="cpvP">${abertas.map((x, k) => `<option value="${k}" ${x === sug ? 'selected' : ''}>Contrato nº ${x.v.numero} · parcela ${x.p.n} · vence ${x.p.venc.split('-').reverse().join('/')} · ${brl(x.p.valor)}${x.p.venc < h ? ' · em atraso' : ''}</option>`).join('')}</select></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><label class="small" style="font-weight:600">Valor recebido<input class="inp" id="cpvV" type="number" step="0.01" value="${r.valor || ''}"></label><label class="small" style="font-weight:600">Data do pagamento<input class="inp" id="cpvDt" type="date" value="${r.data || h}"></label></div>
+        <button class="btn" id="cpvOk" style="margin-top:10px;width:100%" ${r.jaUsado ? 'disabled' : ''}>${I('ok')}Dar baixa na parcela</button>` : '<p class="hint">Nenhuma parcela em aberto para este cliente.</p>') : `<button class="btn" id="cpvFin" style="margin-top:6px;width:100%">${I('assumir')}Passar para o financeiro dar baixa</button>`}`;
+    if ($('#cpvOk', m)) $('#cpvOk', m).onclick = async ev => { const x = abertas[+$('#cpvP', m).value], valor = +$('#cpvV', m).value; if (!(valor > 0)) return toast('Informe o valor', true);
+      if (Math.abs(valor - (+x.p.valor || 0)) > (+x.p.valor || 0) * 0.3 && !confirm(`O valor (${brl(valor)}) é bem diferente da parcela (${brl(x.p.valor)}). Dar baixa assim mesmo?`)) return;
+      ev.currentTarget.disabled = true; try { await api('crm-ia', { acao: 'baixarComprovante', vendaId: x.v.id, n: x.p.n, valor, data: $('#cpvDt', m).value, idTransacao: r.idTransacao, arquivoId: fonte.arquivoId || '' }); C.cob.em = 0; toast('Baixa feita. O aparelho libera no próximo contato.'); fechar(); }
+      catch (er) { toast(er.message, true); ev.currentTarget.disabled = false; } };
+    if ($('#cpvFin', m)) $('#cpvFin', m).onclick = async () => { await DB.set('crmAtrib', kSafe(i.key), { key: i.key, fila: 'financeiro', em: Date.now(), uid: '', nome: '', por: C.me.nome, motivo: 'Pagamento (comprovante)' }); toast('Atendimento passado para o financeiro'); fechar(); };
+  } catch (e) { $('#cpvD', m).innerHTML = `<p style="color:var(--bad)">${esc(e.message)}</p>`; if (!$('#cpvImg img', m)) $('#cpvImg', m).innerHTML = ''; }
+}
+{ const _bo = bolha; bolha = function (m) { const h = _bo(m); const a = m.arquivo; if (!a) return h; const id = a.id || (String(a.url || '').match(/[?&]id=([^&]+)/) || [])[1]; if (!id || !/image|jpe?g|png|webp/i.test((a.tipo || '') + a.nome)) return h;
+  return h.replace(/<\/a>(?!.*<\/a>)/s, `</a> <button class="ferr" data-cpv="${esc(id)}" style="margin-top:6px;color:#0E8A5F">${I('recibo')}Ler comprovante</button>`); }; }
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-cpv]'); if (!b) return; e.preventDefault(); const i = C.itens.find(x => x.key === C.sel); if (i) lerComprovante(i, { arquivoId: b.dataset.cpv }); });
+
+/* botões novos no campo de mensagem */
+{ const _cp3 = compositor; compositor = function (i) { _cp3(i); const t = $('#cp .cp-t'); if (!t || $('#tAg')) return;
+  t.insertAdjacentHTML('beforeend', `<button class="ferr" id="tAg">${I('relogio2')}Agendar</button><label class="ferr" id="tCpv" style="cursor:pointer;color:#0E8A5F">${I('recibo')}Ler comprovante<input type="file" accept="image/*" hidden></label>`);
+  $('#tAg').onclick = () => agendarMensagem(i);
+  $('#tCpv input').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > 8e6) return toast('Imagem grande demais', true); const d = await new Promise((ok, er) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = er; r.readAsDataURL(f); }); lerComprovante(i, { dataUrl: d }); };
+  pintarAgendadas(); }; }
+
+/* dados que o CRM escuta */
+{ const _ou = ouvir; ouvir = function (...a) { const r = _ou(...a);
+  C.un.push(DB.watch('crmMarcas', [['atualizadoEm', '>=', Date.now() - 120 * 864e5]], l => { MARCAS = Object.fromEntries(l.map(x => [x.key, x])); if (C.view === 'inbox') desenharLista(); }, () => { }));
+  C.un.push(DB.watch('crmAgendadas', [['status', 'in', ['PENDENTE', 'NA_FILA']]], l => { AGENDADAS = l; pintarAgendadas(); verificarAgendadasWeb(); }, () => { }));
+  return r; }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
