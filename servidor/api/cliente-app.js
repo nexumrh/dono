@@ -99,6 +99,21 @@ export async function rouboBot(token, tipo, relato, bo) {
   return { ok: true, bloqueados: bloqueados.length, tipo: T };
 }
 
+// cliente toca em "Quero meu celular novo" no app: vira um pedido de recompra para o suporte/financeiro
+export async function recompraBot(token) {
+  const as = await db.collection('aparelhos').doc(String(token)).get();
+  if (!as.exists) throw erroBot('Contrato não encontrado', 404);
+  const ap = as.data(), pre = ap.preAprovado, agora = Date.now();
+  if (!pre || !(pre.valor > 0) || String(pre.ate || '') < hoje()) throw erroBot('Você ainda não tem crédito pré-aprovado. Continue pagando em dia!');
+  const v = ap.vendaId ? (await db.collection('vendas').doc(ap.vendaId).get()).data() || {} : {};
+  const cpf = String(v.clienteCpf || ap.clienteCpf || '').replace(/\D/g, '');
+  await db.collection('recompras').doc(cpf || String(token)).set({ status: 'INTERESSE', via: 'APP', em: agora, cpf, vendaId: ap.vendaId || '', numero: v.numero || 0,
+    clienteNome: v.clienteNome || ap.clienteNome || '', tel: (v.cliente?.telefones || [])[0] || '', lojaId: v.lojaId || '', lojaNome: v.lojaNome || ap.lojaNome || '',
+    valor: pre.valor, entradaPct: pre.entradaPct ?? null, descontoPct: pre.descontoPct ?? null }, { merge: true });
+  if (v.clienteNome) await registrarBot(ap, v, `Pediu um celular novo pelo app (crédito pré-aprovado de R$ ${pre.valor}).`, agora).catch(() => {});
+  return { ok: true };
+}
+
 export async function prazoBot(token) {
   const cfg = await config();
   if (cfg.prazoBot === 'nao') throw erroBot('O prazo extra pelo app não está disponível. Fale com a loja.');
@@ -149,6 +164,7 @@ export default async function handler(req, res) {
     if (b.acao === 'promessa') return res.status(200).json(await promessa(b.token, b.data));
     if (b.acao === 'prazo') return res.status(200).json(await prazoBot(b.token));
     if (b.acao === 'liberar') return res.status(200).json(await liberarBot(b.token, b.pedido));
+    if (b.acao === 'recompra') return res.status(200).json(await recompraBot(b.token));
     if (b.acao === 'roubo') return res.status(200).json(await rouboBot(b.token, b.tipo, b.relato, b.bo));
     throw erro('ação desconhecida');
   } catch (e) { return res.status(e.status || 500).json({ erro: e.status ? e.message : 'Não foi possível agora. Tente de novo.' }); }

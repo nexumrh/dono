@@ -156,6 +156,11 @@ service cloud.firestore {
     // ---------- Vendas / propostas ----------
     function catalogoPreco(d) { return get(/databases/$(database)/documents/catalogo/$(d.aparelho.catalogoId)).data.preco; }
     function entradaMin() { return get(/databases/$(database)/documents/config/sistema).data.get('entradaPct', 30); }
+    // recompra do bom pagador: a aprovação (motor ou dono) pode baixar a entrada mínima deste contrato
+    function entradaMinVenda() {
+      return resource.data.get('analise', {}).get('recompra', {}).get('entradaPct', 999) < entradaMin()
+        ? resource.data.analise.recompra.entradaPct : entradaMin();
+    }
     function semMexer(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(campos) == false; }
     function jurosComVip(base, desc) { return desc <= base ? base - desc : 0; }
     function minhaVenda() { return hasRole(['VENDEDOR', 'GERENTE', 'DONO']) && resource.data.vendedorUid == request.auth.uid; }
@@ -230,7 +235,12 @@ service cloud.firestore {
                     && (request.resource.data.status == 'ANALISE'
                         // venda a distância: nasce aguardando o cliente mandar documento e selfie pelo link
                         || (request.resource.data.status == 'REMOTA' && request.resource.data.remota.token is string && request.resource.data.remota.token.size() >= 20))
-                    && request.resource.data.vendedorUid == request.auth.uid
+                    && (request.resource.data.vendedorUid == request.auth.uid
+                        // gerente vendendo no login dele: a venda conta para um vendedor da mesma loja (meta e comissão)
+                        || (hasRole(['GERENTE']) && request.resource.data.get('feitaPorUid', '') == request.auth.uid
+                            && request.resource.data.lojaId == me().lojaId
+                            && get(/databases/$(database)/documents/users/$(request.resource.data.vendedorUid)).data.lojaId == me().lojaId
+                            && get(/databases/$(database)/documents/users/$(request.resource.data.vendedorUid)).data.role == 'VENDEDOR'))
                     && request.resource.data.aparelho == null && request.resource.data.valor == 0
                     && notebookOk();
       allow update: if hasRole(['DONO', 'FINANCEIRO'])
@@ -275,7 +285,7 @@ service cloud.firestore {
                         && (request.resource.data.get('usado', null) == null ? 0 : request.resource.data.usado.get('valor', 0)) <= request.resource.data.valor * 0.5
                         // produto sem trava exige entrada maior
                         && request.resource.data.entrada >= request.resource.data.valor * (get(/databases/$(database)/documents/catalogo/$(request.resource.data.aparelho.catalogoId)).data.get('semTrava', false) == true
-                              ? get(/databases/$(database)/documents/config/sistema).data.get('entradaSemTravaPct', 50) : entradaMin()) / 100)
+                              ? get(/databases/$(database)/documents/config/sistema).data.get('entradaSemTravaPct', 50) : entradaMinVenda()) / 100)
                         // contraproposta do dono: entrada mínima maior e/ou valor financiado máximo
                         && request.resource.data.entrada >= request.resource.data.valor * resource.data.analise.get('contraproposta', {}).get('entradaPct', 0) / 100
                         && (resource.data.analise.get('contraproposta', {}).get('limite', null) == null
@@ -468,6 +478,39 @@ service cloud.firestore {
 
     // ---------- Metas do mês (ID: AAAA-MM) ----------
     // ---------- Ranking do mês (resumo: só primeiro nome e nº de vendas) ----------
+    // fila de cobrança enxuta da loja (sem documentos): o vendedor vê e manda a mensagem; quem mandou trava o cliente por 24 h
+    match /filaCobranca/{vendaId} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow create, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE']) && request.resource.data.lojaId == me().lojaId && (resource == null || resource.data.lojaId == me().lojaId))
+                  || (hasRole(['VENDEDOR']) && resource != null && resource.data.lojaId == me().lojaId
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['travaMsg', 'contatos', 'atualizadoEm'])
+                      && (resource.data.get('travaMsg', {}).get('ate', 0) < request.time.toMillis()
+                          || resource.data.get('travaMsg', {}).get('porUid', '') == request.auth.uid));
+      allow delete: if false;
+    }
+
+    // regras de comissão da loja (o gerente define; o vendedor vê no app Minhas Metas)
+    match /regrasComissao/{lojaId} {
+      allow read: if staff();
+      allow write: if hasRole(['DONO']) || (hasRole(['GERENTE']) && lojaId == me().lojaId);
+    }
+
+    // entregas da venda a distância
+    match /entregas/{vendaId} {
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow create, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+                  || (hasRole(['GERENTE', 'VENDEDOR']) && request.resource.data.lojaId == me().lojaId && (resource == null || resource.data.lojaId == me().lojaId));
+      allow delete: if false;
+    }
+
+    // recompra: proposta da NexumCell para quem pagou em dia (só dono, financeiro e suporte)
+    match /recompras/{id} {
+      allow read, write: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE']);
+    }
+
     match /ranking/{id} {
       allow read: if staff();
       allow write: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE']) && id.matches('.*_' + me().lojaId));

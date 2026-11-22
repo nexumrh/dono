@@ -13,8 +13,9 @@ workers_dev = true
 
 # Rotinas diárias (horário UTC): 12:00, 12:20 e 12:40 UTC = 9h/9h20/9h40 de Brasília (lembretes e robô de voz,
 # em 3 rodadas por causa do limite do plano grátis) · 22:00 UTC = 19h de Brasília (resumo do dono)
+# · "0 * * * *" = de hora em hora (aprova sozinho, em até 2 h, o vendedor cadastrado pelo gerente; atualiza a fila de cobrança)
 [triggers]
-crons = ["0 12 * * *", "20 12 * * *", "40 12 * * *", "0 22 * * *"]
+crons = ["0 12 * * *", "20 12 * * *", "40 12 * * *", "0 22 * * *", "0 * * * *"]
 
 # Variáveis que NÃO são segredo (os segredos vão com "npx wrangler secret put NOME" ou no painel)
 [vars]

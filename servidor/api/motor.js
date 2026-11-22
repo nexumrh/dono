@@ -169,6 +169,12 @@ export async function avaliarVenda(vendaId) {
     Object.assign(upd, { status, analise: { resultado: status, por: 'motor', porNome: 'Motor de crédito', em: Date.now(), score: N.score, limite: status === 'APROVADA' ? limite : 0,
       obs: status === 'APROVADA' ? ('Aprovado automaticamente pelas regras de crédito.' + (contra ? ` Entrada mínima ${entradaMin}% pela faixa ${N.faixa}.` : '')) : 'Reprovado pelas regras: ' + reprova.join('; '), checklist: { cpf: true, bio: true, doc: true }, automatico: true, ...(contra ? { contraproposta: contra } : {}) } });
   }
+  // recompra do bom pagador: entrada menor e desconto nos juros (condições do Painel do Dono → Recompra)
+  if (upd.status === 'APROVADA' && preOk && !upd.analise?.contraproposta && (pre.entradaPct != null || pre.descontoPct)) {
+    upd.analise.recompra = { entradaPct: Number(pre.entradaPct ?? 0), descontoJuros: Number(pre.descontoPct || 0) };
+    if (pre.descontoPct > 0 && !(Number(v.vip?.descontoJuros) >= Number(pre.descontoPct))) upd.vip = { nivel: 'Recompra', descontoJuros: Number(pre.descontoPct) };
+    upd.analise.obs += ` Recompra: entrada a partir de ${upd.analise.recompra.entradaPct}% e ${upd.analise.recompra.descontoJuros} ponto(s) a menos de juros.`;
+  }
   await ref.set(upd, { merge: true });
   await db.collection('logs').add({ em: Date.now(), acao: 'Motor de crédito: ' + (upd.status || resultado), alvo: vendaId, det: [...reprova, ...manual].join('; ').slice(0, 400), por: 'Motor de crédito' });
   return { resultado, status: upd.status || 'ANALISE', limite, score: N.score };
