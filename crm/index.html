@@ -1161,6 +1161,157 @@ function scoreNx(vendas, h = hoje()) {
 { const _vp = vendaPorId; vendaPorId = async function (id) { if (String(id).startsWith('emp_')) return (C.cob.vendas || []).find(v => v.id === id) || null; return _vp(id); }; }
 { const _api = api; api = async function (rota, corpo) { if (rota === 'pix' && String(corpo?.vendaId || '').startsWith('emp_')) return _api('emprestimo', { acao: 'pix', id: corpo.vendaId.slice(4), n: corpo.n }); return _api(rota, corpo); }; }
 
+/* ======================= RESPOSTAS RÁPIDAS E RESPOSTAS POR IA (nov/2026) =======================
+   - respostas da equipe (o dono cuida) + "Minhas respostas" de cada atendente
+   - cada resposta tem categoria, título, atalho (/pix) e fila; digite o atalho + espaço no chat para usar
+   - variáveis com os dados do cliente: {nome} {atendente} {protocolo} {contrato} {parcela} {valor} {venc} {atraso} {loja} {aparelho} …
+   - IA: sugerir, deixar mais curta, formal, acolhedora, cobrança firme, corrigir, traduzir; criar resposta nova com IA
+   - resposta automática da IA (servidor, a cada 15 minutos) quando a equipe não responde ou fora do horário */
+const MINHAS = 'Minhas respostas', RQ_FILAS = { '': 'Todas as filas', suporte: 'Suporte', financeiro: 'Financeiro', comercial: 'Comercial' };
+const RQ_VARS = [['nome', 'Primeiro nome'], ['atendente', 'Seu nome'], ['protocolo', 'Protocolo'], ['contrato', 'Nº do contrato'], ['parcela', 'Próxima parcela'], ['valor', 'Valor da parcela'], ['venc', 'Vencimento'], ['atraso', 'Total em atraso'], ['loja', 'Loja'], ['aparelho', 'Aparelho'], ['portalCliente', 'Link do app'], ['linkPre', 'Link da pré-análise']];
+Object.assign(ICN, { lapis: ICN.lapis || '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', copia: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', lixo: ICN.lixo || '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>', globo: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>', raioIa: '<path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>' });
+let RQ_MINHAS = [], RQ_RAW = {};
+Object.defineProperty(C, 'cfg', { configurable: true, get() { const base = (RQ_RAW.respostas || RESP_PADRAO).filter(g => g[0] !== MINHAS); return { ...RQ_RAW, respostas: RQ_MINHAS.length ? [...base, [MINHAS, RQ_MINHAS]] : base }; }, set(v) { RQ_RAW = v || {}; } });
+const rqEquipe = () => (RQ_RAW.respostas || RESP_PADRAO).filter(g => g[0] !== MINHAS).map(([g, l]) => [g, (l || []).map(x => [...x])]);
+const rqUso = (() => { try { return JSON.parse(localStorage.getItem('crmnc:uso') || '{}'); } catch (e) { return {}; } })();
+const rqChave = x => String(x || '').slice(0, 48);
+async function rqCarregarMinhas() { if (!C.me?.uid) return; const d = await DB.get('crmMinhas', C.me.uid).catch(() => null); RQ_MINHAS = (d?.lista || []).map(x => [x.t, x.x, x.a || '', x.f || '']); }
+const rqSalvarMinhas = () => DB.set('crmMinhas', C.me.uid, { lista: RQ_MINHAS.map(([t, x, a, f]) => ({ t, x, a: a || '', f: f || '' })), atualizadoEm: Date.now() });
+const rqTodas = () => resp().flatMap(([g, l]) => l.map(([t, x, a, f]) => ({ g, t, x, a: a || '', f: f || '', minha: g === MINHAS })));
+
+/* dados do cliente da conversa aberta para as variáveis */
+{ const _ac = acharCliente; acharCliente = async function (q) { const r = await _ac(q); C._cli = r; return r; }; }
+function rqDadosCliente() { const vs = (C._cli?.vs || []).filter(v => !['REPROVADA', 'CANCELADA'].includes(v.status)), v = vs.find(x => x.status === 'ATIVA') || vs[0]; if (!v) return {}; const h = hoje();
+  const ab = (v.parcelas || []).filter(p => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)), atr = ab.filter(p => p.venc < h), p = atr[0] || ab[0];
+  return { contrato: v.numero, parcela: p ? p.n + 'ª' : '', valor: p ? brl(p.valor) : '', venc: p ? p.venc.split('-').reverse().join('/') : '', atraso: brl(atr.reduce((s, x) => s + (+x.valor || 0), 0)), loja: v.lojaNome || '', aparelho: [v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(' ') }; }
+{ const _pr = preencher; preencher = function (t, i, at) { const k = rqChave(t); rqUso[k] = (rqUso[k] || 0) + 1; try { localStorage.setItem('crmnc:uso', JSON.stringify(rqUso)); } catch (e) { }
+  const d = i && C.sel && i.key === C.sel ? rqDadosCliente() : {}; return _pr(t, i, at).replace(/\{(contrato|parcela|valor|venc|atraso|loja|aparelho)\}/g, (m, k2) => d[k2] != null && d[k2] !== '' ? d[k2] : m); }; }
+
+/* atalho no chat: "/pix " vira a resposta */
+{ const _cp = compositor; compositor = function (i) { _cp(i); const tx = $('#tTxt'); if (!tx) return;
+  tx.addEventListener('input', () => { const m = tx.value.match(/(^|\s)\/([\wÀ-ú-]{2,24})\s$/); if (!m) return; const r = rqTodas().find(x => x.a && x.a.toLowerCase() === m[2].toLowerCase()); if (!r) return;
+    tx.value = tx.value.slice(0, tx.value.length - m[0].length + m[1].length) + preencher(r.x, i); tx.style.height = 'auto'; tx.style.height = Math.min(180, tx.scrollHeight) + 'px'; $('#sug')?.remove(); });
+  const t = $('#cp .cp-t'); if (!t || $('#tIaM')) return;
+  t.insertAdjacentHTML('beforeend', `<span style="position:relative;display:inline-flex"><button class="ferr" id="tIaM" style="color:#6D28D9" aria-haspopup="true">${I('raioIa')}Mais IA</button></span>`);
+  $('#tIaM').onclick = e => { e.stopPropagation(); rqMenuIa(i, e.currentTarget); }; }; }
+function rqMenuIa(i, b) {
+  document.getElementById('iaMenu')?.remove(); const tem = !!$('#tTxt')?.value.trim();
+  const ops = [['sug', 'Sugerir resposta', 'Escreve a próxima mensagem com a ficha e as respostas da equipe'], ['curta', 'Deixar mais curta', ''], ['formal', 'Deixar mais formal', ''], ['empatica', 'Deixar mais acolhedora', ''], ['firme', 'Cobrança firme e educada', ''], ['corrigir', 'Corrigir português', ''], ['es', 'Traduzir para espanhol', 'Para clientes do Paraguai e da Argentina'], ['pt', 'Traduzir para português', ''], ['ult', 'Traduzir a última mensagem do cliente', 'Mostra em português o que o cliente escreveu'], ['salvar', 'Salvar o texto como resposta rápida', '']];
+  const m = document.createElement('div'); m.id = 'iaMenu'; m.style.cssText = 'position:absolute;bottom:calc(100% + 6px);left:0;z-index:30;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(10,23,51,.18);padding:6px;width:290px';
+  m.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--mut);padding:6px 10px;text-transform:uppercase;letter-spacing:.06em">${tem ? 'Melhorar o seu texto' : 'Escreva algo ou peça uma sugestão'}</div>` + ops.map(([k, n, h]) => `<button data-ia="${k}" style="display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:9px;cursor:pointer;font:inherit;${!tem && !['sug', 'ult'].includes(k) ? 'opacity:.45' : ''}"><b style="font-size:13.5px;font-weight:600">${n}</b>${h ? `<br><span class="hint" style="font-size:12px">${h}</span>` : ''}</button>`).join('');
+  b.parentElement.appendChild(m); const fora = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('click', fora); } }; setTimeout(() => document.addEventListener('click', fora));
+  $$('[data-ia]', m).forEach(x => { x.onmouseenter = () => x.style.background = '#F3F0FF'; x.onmouseleave = () => x.style.background = 'none'; x.onclick = async () => { m.remove(); await rqIaAcao(i, x.dataset.ia); }; });
+}
+async function rqIaAcao(i, k) {
+  const tx = $('#tTxt'), txt = tx.value.trim();
+  if (k === 'sug') return iaCrm(i, 'sugestao', $('#tIaS'));
+  if (k === 'salvar') { if (!txt) return toast('Escreva o texto primeiro', true); return rqEditor({ t: '', x: txt, g: MINHAS, a: '', f: '', minha: true, novo: true }); }
+  if (k === 'ult') { const ult = [...$$('#ch-b .m:not(.nos):not(.sis)')].pop()?.innerText || ''; if (!ult.trim()) return toast('Não achei mensagem do cliente', true);
+    try { const r = await api('crm-ia', { acao: 'traduzir', idioma: 'pt', texto: ult.slice(0, 2000) }); modal('Mensagem do cliente em português', `<div class="m" style="max-width:100%;background:#F7F6FB;border-radius:12px;padding:10px 12px;white-space:pre-wrap">${esc(r.texto)}</div>`, `<button class="btn sec" data-close>Fechar</button>`); } catch (e) { toast(e.message, true); } return; }
+  if (!txt) return toast('Escreva a mensagem primeiro (ou use "Sugerir resposta")', true);
+  const antes = tx.value; tx.disabled = true; const ph = tx.placeholder; tx.placeholder = 'A IA está reescrevendo…';
+  try { const r = ['es', 'pt'].includes(k) ? await api('crm-ia', { acao: 'traduzir', idioma: k, texto: txt }) : await api('crm-ia', { acao: 'reescrever', estilo: k, texto: txt });
+    tx.value = r.texto; tx.dispatchEvent(new Event('input')); toast('Texto da IA no campo: revise antes de enviar.');
+    const d = document.createElement('button'); d.className = 'ferr'; d.id = 'tDesf'; d.innerHTML = `${I('reabrir')}Desfazer`; d.onclick = () => { tx.value = antes; tx.dispatchEvent(new Event('input')); d.remove(); }; $('#tDesf')?.remove(); $('#cp .cp-t')?.appendChild(d); setTimeout(() => d.remove(), 30e3); }
+  catch (e) { toast(e.message, true); } tx.disabled = false; tx.placeholder = ph; tx.focus();
+}
+
+/* ---------- tela: Respostas rápidas ---------- */
+function vRespostas(el) {
+  const q = (C.rqQ || '').toLowerCase(), cat = C.rqCat || '', todas = rqTodas(), podeEq = dono();
+  const cats = [...new Set(todas.map(r => r.g))], vis = todas.filter(r => (!cat || r.g === cat) && (!q || (r.t + ' ' + r.x + ' ' + r.a + ' ' + r.g).toLowerCase().includes(q))).sort((a, b) => (rqUso[rqChave(b.x)] || 0) - (rqUso[rqChave(a.x)] || 0));
+  const exemplo = t => String(t).replace(/\{(\w+)\}/g, (m, k) => `<span style="background:#EEF3FF;color:#1A3FA8;border-radius:5px;padding:0 4px;font-size:12px">${esc(RQ_VARS.find(v => v[0] === k)?.[1] || k)}</span>`);
+  el.innerHTML = topoKb('Respostas rápidas', `<button class="btn sec" id="rqIa">${I('raioIa')}Criar com IA</button><button class="btn" id="rqNova">${I('mais')}Nova resposta</button>`) + `<div style="padding:16px 20px;overflow:auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;align-items:start" class="rq-g">
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:var(--sh);position:sticky;top:0">${[['', 'Todas', todas.length], ...cats.map(c => [c, c, todas.filter(r => r.g === c).length])].map(([k, n, c]) => `<button data-rc="${esc(k)}" style="display:flex;justify-content:space-between;width:100%;border:0;background:${cat === k ? 'var(--pri-s)' : 'none'};color:${cat === k ? 'var(--pri-d)' : 'inherit'};padding:9px 12px;border-radius:10px;cursor:pointer;font:inherit;font-weight:${cat === k ? 700 : 500}"><span>${esc(n)}</span><span class="hint">${c}</span></button>`).join('')}
+      <p class="hint" style="padding:10px 12px 4px;margin:0;font-size:12px">No chat, digite <b>/</b> para buscar ou o <b>atalho + espaço</b> (ex.: <b>/pix</b>) para usar direto.</p></div>
+    <div><div class="busca" style="margin-bottom:12px">${I('busca')}<input class="inp" id="rqQ" placeholder="Buscar por título, texto ou atalho" value="${esc(C.rqQ || '')}"></div>
+      <div style="display:grid;gap:10px">${vis.map(r => { const k = todas.indexOf(r), pode = r.minha || podeEq; return `<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--sh)"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:14px">${esc(r.t)}</b>${r.a ? `<span class="pill" style="background:#0A1733;color:#fff;font-family:monospace">/${esc(r.a)}</span>` : ''}<span class="pill">${esc(r.g)}</span>${r.f ? `<span class="pill" style="background:${FILAS[r.f]?.[1] || '#888'}1A;color:${FILAS[r.f]?.[1] || '#888'}">${esc(RQ_FILAS[r.f] || r.f)}</span>` : ''}${rqUso[rqChave(r.x)] ? `<span class="hint" style="font-size:12px">usada ${rqUso[rqChave(r.x)]}x</span>` : ''}<span style="flex:1"></span>
+        <button class="ib" data-rcp="${k}" title="Copiar">${I('copia')}</button>${pode ? `<button class="ib" data-red="${k}" title="Editar">${I('lapis')}</button><button class="ib" data-rdl="${k}" title="Excluir">${I('lixo')}</button>` : `<button class="ib" data-rdu="${k}" title="Copiar para as minhas">${I('mais')}</button>`}</div>
+        <div style="margin-top:6px;color:var(--txt);font-size:13.5px;line-height:1.5;white-space:pre-wrap">${exemplo(esc(r.x))}</div></div>`; }).join('') || '<p class="hint">Nenhuma resposta encontrada.</p>'}</div></div></div>
+    <style>@media(max-width:760px){.rq-g{grid-template-columns:1fr!important}.rq-g>div:first-child{position:static!important}}</style>`;
+  ligaMenu(el);
+  $('#rqQ').oninput = e => { C.rqQ = e.target.value; clearTimeout(C._rqT); C._rqT = setTimeout(() => { vRespostas(el); const n = $('#rqQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+  $$('[data-rc]', el).forEach(b => b.onclick = () => { C.rqCat = b.dataset.rc; vRespostas(el); });
+  $('#rqNova').onclick = () => rqEditor({ t: '', x: '', g: podeEq ? (cat && cat !== MINHAS ? cat : 'Atendimento') : MINHAS, a: '', f: '', minha: !podeEq || cat === MINHAS, novo: true });
+  $('#rqIa').onclick = rqCriarIa;
+  $$('[data-rcp]', el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(todas[+b.dataset.rcp].x).then(() => toast('Copiado')));
+  $$('[data-red]', el).forEach(b => b.onclick = () => rqEditor({ ...todas[+b.dataset.red], orig: todas[+b.dataset.red] }));
+  $$('[data-rdu]', el).forEach(b => b.onclick = () => rqEditor({ ...todas[+b.dataset.rdu], g: MINHAS, minha: true, novo: true }));
+  $$('[data-rdl]', el).forEach(b => b.onclick = async () => { const r = todas[+b.dataset.rdl]; if (!confirm(`Excluir a resposta "${r.t}"?`)) return; await rqGravar(r, null); vRespostas(el); });
+}
+async function rqGravar(orig, novo) {   // orig: resposta antiga (ou null); novo: {t,x,a,f,g,minha} (ou null para excluir)
+  if ((orig && orig.minha) || (novo && novo.minha)) { if (orig?.minha) RQ_MINHAS = RQ_MINHAS.filter(x => !(x[0] === orig.t && x[1] === orig.x)); if (novo?.minha) RQ_MINHAS.push([novo.t, novo.x, novo.a, novo.f]); await rqSalvarMinhas(); }
+  if ((orig && !orig.minha) || (novo && !novo.minha)) { if (!dono()) return toast('Só o dono altera as respostas da equipe', true); let eq = rqEquipe();
+    if (orig && !orig.minha) eq = eq.map(([g, l]) => [g, l.filter(x => !(x[0] === orig.t && x[1] === orig.x))]);
+    if (novo && !novo.minha) { let g = eq.find(x => x[0] === novo.g); if (!g) eq.push(g = [novo.g, []]); g[1].push([novo.t, novo.x, novo.a, novo.f]); }
+    eq = eq.filter(([, l]) => l.length); await DB.set('config', 'crm', { respostas: eq.map(([g, l]) => [g, l.map(x => x.slice(0, 4))]), atualizadoEm: Date.now() }); RQ_RAW = { ...RQ_RAW, respostas: eq }; }
+  toast(novo ? 'Resposta salva' : 'Resposta excluída');
+}
+function rqEditor(r) {
+  const podeEq = dono(), cats = [...new Set(rqEquipe().map(g => g[0]))];
+  const m = modal(r.novo ? 'Nova resposta rápida' : 'Editar resposta rápida', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label class="small" style="font-weight:600">Título<input class="inp" id="reT" maxlength="40" value="${esc(r.t)}" placeholder="Ex.: Como pagar"></label>
+      <label class="small" style="font-weight:600">Atalho no chat<div style="display:flex;align-items:center;gap:4px"><b style="color:var(--mut)">/</b><input class="inp" id="reA" maxlength="24" value="${esc(r.a)}" placeholder="pix"></div></label>
+      <label class="small" style="font-weight:600">Onde guardar<select class="inp" id="reE" ${podeEq ? '' : 'disabled'}><option value="eq" ${!r.minha ? 'selected' : ''}>Respostas da equipe</option><option value="me" ${r.minha ? 'selected' : ''}>Só as minhas</option></select></label>
+      <label class="small" style="font-weight:600">Categoria<input class="inp" id="reG" list="reGl" value="${esc(r.minha ? (r.g === MINHAS ? 'Atendimento' : r.g) : r.g)}"><datalist id="reGl">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
+      <label class="small" style="font-weight:600;grid-column:1/-1">Fila<select class="inp" id="reF">${Object.entries(RQ_FILAS).map(([k, n]) => `<option value="${k}" ${r.f === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
+    <label class="small" style="font-weight:600;display:block;margin-top:10px">Texto<textarea class="inp" id="reX" rows="6" maxlength="1500">${esc(r.x)}</textarea></label>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${RQ_VARS.map(([k, n]) => `<button type="button" class="pill" data-rv="${k}" style="border:0;cursor:pointer;background:#EEF3FF;color:#1A3FA8">${n}</button>`).join('')}</div>
+    <p class="hint" style="margin:8px 0 0;font-size:12px">Toque numa variável para colocar no texto. Ela é trocada pelos dados do cliente quando a resposta é usada.</p>`,
+    `<button class="btn sec" id="reIa">${I('raioIa')}Melhorar com IA</button><span style="flex:1"></span><button class="btn sec" data-close>Cancelar</button><button class="btn" id="reOk">${I('ok')}Salvar</button>`);
+  const x = $('#reX', m);
+  const tg = () => { const me = $('#reE', m).value === 'me'; $('#reG', m).disabled = me; if (me) $('#reG', m).value = 'Minhas respostas'; }; $('#reE', m).onchange = tg; tg();
+  $$('[data-rv]', m).forEach(b => b.onclick = () => { const v = `{${b.dataset.rv}}`, s = x.selectionStart ?? x.value.length; x.value = x.value.slice(0, s) + v + x.value.slice(x.selectionEnd ?? s); x.focus(); x.setSelectionRange(s + v.length, s + v.length); });
+  $('#reIa', m).onclick = async e => { if (!x.value.trim()) return toast('Escreva o texto primeiro', true); e.currentTarget.disabled = true; try { x.value = (await api('crm-ia', { acao: 'reescrever', estilo: 'corrigir', texto: x.value })).texto; } catch (er) { toast(er.message, true); } e.currentTarget.disabled = false; };
+  $('#reOk', m).onclick = async () => { const n = { t: $('#reT', m).value.trim(), x: x.value.trim(), a: $('#reA', m).value.trim().replace(/^\//, '').replace(/\s+/g, '-').toLowerCase(), f: $('#reF', m).value, minha: $('#reE', m).value === 'me' || !podeEq };
+    n.g = n.minha ? MINHAS : ($('#reG', m).value.trim() || 'Atendimento');
+    if (!n.t || n.x.length < 3) return toast('Preencha o título e o texto', true);
+    if (n.a && rqTodas().some(o => o.a === n.a && !(r.orig && o.t === r.orig.t && o.x === r.orig.x))) return toast('Este atalho já está em uso', true);
+    await rqGravar(r.orig || null, n); fechar(); if (C.view === 'respostas') desenhar(); };
+  $('#reT', m).focus();
+}
+function rqCriarIa() {
+  const m = modal('Criar resposta com IA', `<p class="hint" style="margin-top:0">Descreva a situação. A IA escreve a resposta com as variáveis do cliente, e você revisa antes de salvar.</p><textarea class="inp" id="rqP" rows="3" placeholder="Ex.: cliente pergunta se pode pagar a parcela adiantada e ter desconto"></textarea>`, `<button class="btn sec" data-close>Cancelar</button><button class="btn" id="rqPg">${I('raioIa')}Escrever</button>`);
+  $('#rqPg', m).onclick = async e => { const p = $('#rqP', m).value.trim(); if (p.length < 5) return toast('Descreva a situação', true); e.currentTarget.disabled = true; e.currentTarget.innerHTML = 'Escrevendo…';
+    try { const r = await api('crm-ia', { acao: 'modelo', pedido: p }); fechar(); rqEditor({ t: r.titulo || '', x: r.texto || '', g: r.categoria || 'Atendimento', a: '', f: '', minha: !dono(), novo: true }); } catch (er) { toast(er.message, true); e.currentTarget.disabled = false; e.currentTarget.innerHTML = `${I('raioIa')}Escrever`; } };
+}
+
+/* ---------- Ajustes: links, mensagem automática e IA automática ---------- */
+vConfig = function (el) {
+  const l = links(), ro = dono() ? '' : 'disabled', c = RQ_RAW, caixa = (t, h, b) => `<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--sh)"><h3 style="margin:0 0 4px;font-size:15px">${t}</h3><p class="hint" style="margin:0 0 10px">${h}</p>${b}</div>`;
+  const chk = (id, on, t) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0;font-size:14px"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} ${ro}> ${t}</label>`;
+  el.innerHTML = topoKb('Ajustes do atendimento', dono() ? `<button class="btn" id="cfOk">${I('ok')}Salvar</button>` : '') + `<div style="padding:20px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px;align-content:start">
+    ${caixa(`${I('raioIa')} Resposta automática da IA`, 'Quando ninguém da equipe responde o cliente no chat do app ou no WhatsApp (com o programa do WhatsApp ligado), a IA responde com base na ficha do cliente, nas orientações abaixo e nas respostas rápidas. Pedido de atendente, reclamação, acordo, desconto ou liberação: a IA avisa que uma pessoa continua e deixa a conversa marcada para a equipe. No máximo 3 respostas seguidas.',
+      `${chk('iaOn', c.iaAuto, '<b>Ligar a resposta automática</b>')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"><label class="small" style="font-weight:600">Responder depois de (minutos)<input class="inp" id="iaMin" type="number" min="1" max="120" value="${+c.iaAutoMin || 5}" ${ro}></label><label class="small" style="font-weight:600">Quando<select class="inp" id="iaFora" ${ro}><option value="0" ${!c.iaAutoSoFora ? 'selected' : ''}>Sempre que a equipe demorar</option><option value="1" ${c.iaAutoSoFora ? 'selected' : ''}>Só fora do horário</option></select></label>
+      <label class="small" style="font-weight:600">Horário: abre<input class="inp" id="iaIni" type="time" value="${esc(c.iaHoraIni || '08:00')}" ${ro}></label><label class="small" style="font-weight:600">fecha (seg. a sex.)<input class="inp" id="iaFim" type="time" value="${esc(c.iaHoraFim || '19:00')}" ${ro}></label><label class="small" style="font-weight:600">fecha no sábado<input class="inp" id="iaSab" type="time" value="${esc(c.iaHoraFimSab || '13:00')}" ${ro}></label><div style="align-self:end">${chk('iaDom', c.iaDomingo, 'Atende domingo')}</div></div>
+      ${chk('iaWa', c.iaAutoWa !== false, 'Responder também no WhatsApp')}
+      <label class="small" style="font-weight:600;display:block;margin-top:6px">Orientações para a IA<textarea class="inp" id="iaOri" rows="5" ${ro} placeholder="Ex.: A loja do centro abre às 9h. Não fazemos troca de tela. Para 2ª via, mande o cliente na aba Parcelas do app.">${esc(c.iaOrientacoes || '')}</textarea></label>
+      <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><label class="small" style="font-weight:600">Testar: escreva como se fosse o cliente<div style="display:flex;gap:6px;margin-top:4px"><input class="inp" id="iaTq" placeholder="Ex.: quanto falta pagar? / quiero hablar con alguien"><button class="btn sec" id="iaTb">Testar</button></div></label><div id="iaTr"></div></div>`)}
+    <div style="display:grid;gap:14px;align-content:start">
+    ${caixa('Respostas rápidas', 'Agora ficam numa tela própria, com categorias, atalhos e as suas respostas pessoais.', `<button class="btn sec" id="cfRq">${I('raio')}Abrir respostas rápidas</button>`)}
+    ${caixa('Links de resolução', 'Uma por linha: <b>Título | link</b>. Os links entram na mensagem já com os dados do cliente.', `<textarea class="inp" id="cfL" rows="6" ${ro}>${esc(l.map(([t, u]) => `${t} | ${u}`).join('\n'))}</textarea>`)}
+    ${caixa('Mensagem automática', 'Vai sozinha quando a assistente passa o atendimento para a equipe.', `<textarea class="inp" id="cfA" rows="4" ${ro}>${esc(c.msgAck || MSG_ACK)}</textarea>`)}</div></div>`;
+  ligaMenu(el);
+  $('#cfRq').onclick = () => { C.view = 'respostas'; desenhar(); };
+  $('#iaTb').onclick = async e => { const q = $('#iaTq').value.trim(); if (!q) return; e.currentTarget.disabled = true; $('#iaTr').innerHTML = `<p class="hint">${I('ia')} Pensando…</p>`;
+    try { const r = await api('crm-ia', { acao: 'automatica', canal: 'teste', cliente: 'Cliente de teste', conversa: 'Cliente: ' + q, ficha: 'Contrato nº 123 (ATIVA) · Samsung Galaxy A15 · loja Centro. 9 parcelas em aberto, a próxima é a 4ª de R$ 149,90 com vencimento em 10/12/2026. Sem atraso.' });
+      $('#iaTr').innerHTML = `<div style="margin-top:8px;background:#F3F0FF;border:1px solid #DDD6FE;border-radius:12px;padding:10px 12px;color:#3B1A86;white-space:pre-wrap">${esc(r.texto)}</div><p class="hint" style="margin:6px 0 0">${r.humano ? 'A IA passaria esta conversa para a equipe.' : 'A IA resolveria sozinha.'} (teste com um cliente fictício)</p>`; }
+    catch (er) { $('#iaTr').innerHTML = `<p style="color:var(--bad)">${esc(er.message)}</p>`; } e.currentTarget.disabled = false; };
+  if ($('#cfOk')) $('#cfOk').onclick = async () => {
+    const lk = $('#cfL').value.split('\n').map(x => x.split('|').map(s => s.trim())).filter(x => x.length >= 2 && x[1]).map(([t, ...u]) => [t, u.join('|')]);
+    await DB.set('config', 'crm', { links: lk, msgAck: $('#cfA').value.trim() || MSG_ACK, iaAuto: $('#iaOn').checked, iaAutoMin: Math.max(1, Math.min(120, +$('#iaMin').value || 5)), iaAutoSoFora: $('#iaFora').value === '1', iaHoraIni: $('#iaIni').value || '08:00', iaHoraFim: $('#iaFim').value || '19:00', iaHoraFimSab: $('#iaSab').value || '13:00', iaDomingo: $('#iaDom').checked, iaAutoWa: $('#iaWa').checked, iaOrientacoes: $('#iaOri').value.trim().slice(0, 3000), atualizadoEm: Date.now() });
+    toast('Ajustes salvos'); };
+};
+
+/* nav, tela e liberar a conversa para a IA de novo ao concluir */
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'), ref = el && $('[data-vw="retornos"]', el); if (!ref || $('[data-vw="respostas"]', el)) return;
+  ref.insertAdjacentHTML('afterend', `<button data-vw="respostas" class="${C.view === 'respostas' ? 'on' : ''}">${I('raio')}<span>Respostas rápidas</span>${RQ_RAW.iaAuto ? `<span class="n" style="background:#6D28D9" title="Resposta automática da IA ligada">IA</span>` : ''}</button>`);
+  $('[data-vw="respostas"]', el).onclick = () => { C.view = 'respostas'; el.classList.remove('aberto'); desenhar(); }; }; }
+{ const _ds = desenhar; desenhar = function () { if (C.me && $('#app') && C.view === 'respostas') { if (!$('#kb')) { $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; } desenharNav(); return vRespostas($('#kb')); } return _ds(); }; }
+{ const _cc = concluir; concluir = async function (i) { const r = await _cc(i); try { if (i.canal === 'app') await DB.set('suporteApp', i.id, { iaHumano: false }); if (i.canal === 'wa') await DB.set('waConversas', i.id, { iaHumano: false }); } catch (e) { } return r; }; }
+{ const _en = entrou; entrou = async function (...a) { const r = await _en(...a); rqCarregarMinhas().then(() => C.view === 'respostas' && desenhar()).catch(() => { }); return r; }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }

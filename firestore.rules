@@ -545,6 +545,8 @@ service cloud.firestore {
     match /crmEnvios/{id} { allow read, write: if crmEquipe(); }
     match /crmAvaliacoes/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     match /crmAlertas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO']); }
+    // respostas rápidas pessoais de cada atendente do CRM
+    match /crmMinhas/{uid} { allow read, write: if signed() && request.auth.uid == uid && staff(); }
     // contrato assinado do empréstimo (gravado só pelo servidor)
     match /empContratos/{id} { allow get: if hasRole(['DONO', 'FINANCEIRO']); allow list, write: if false; }
     // ouvidoria: o cliente abre pelo servidor; a equipe lê e responde pelo servidor
