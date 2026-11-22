@@ -1538,7 +1538,7 @@ async function enviarAnalise(btn){
     }
     const w=S.w, d=w.dados, numero=await DB.nextNum(), id='v'+numero+'_'+token(5), agora=Date.now();
     const cli={cpf:d.cpf,nome:d.nome,nasc:d.nasc,rg:d.rg,orgao:d.orgao,mae:d.mae,pai:d.pai||'',naturalidade:d.naturalidade||'',nacionalidade:d.nacionalidade||'',sexo:d.sexo||'',docEmissao:d.emissao||'',docValidade:d.validadeDoc||'',docTipo:w.docTipo||'',docDigital:!!w.digital,...(d.cnh?{cnh:d.cnh,categoriaCnh:d.categoriaCnh||''}:{}),docDuvidas:w.duvidas||[],tel:fmtFone(t1),telefones:proprios,referencias:[{tel:t2,nome:c.ref1Nome,parentesco:c.ref1Par},...(t3?[{tel:t3,nome:c.ref2Nome,parentesco:c.ref2Par}]:[])],refNome:c.ref1Nome,refTel:fmtFone(t2),email:c.email,cep:c.cep,endereco:c.endereco,bairro:c.bairro,cidade:c.cidade,uf:c.uf,profissao:c.profissao,renda:c.renda,...(c.indicacao?{indicacao:c.indicacao}:{})};
-    const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),vendedorUid:S.me.uid,dispositivoId:nbVenda(),vendedorNome:S.me.nome,
+    const venda={numero,status:'ANALISE',criadoEm:agora,lojaId:S.me.lojaId||S.lojas[0]?.id||'',lojaNome:lojaNome(S.me.lojaId||S.lojas[0]?.id),...vendaDe(),dispositivoId:nbVenda(),
       cliente:cli,clienteCpf:d.cpf,clienteNome:d.nome,aparelho:null,valor:0,entrada:0,...(w.libera2?{liberacao2oAparelho:w.libera2}:{}),
       verificacao:{geo,vida:w.vida||null,comprovantes:Object.fromEntries(Object.entries(w.compr||{}).map(([k,x])=>[k,{ok:!!x.ok,alerta:!!x.alerta,msg:x.msg||'',nome:x.nome||'',valor:x.valor||0,endereco:x.endereco||''}])),docTipo:w.docTipo,docDigital:!!w.digital,iaLeitura:!w.ia?.manual,simulado:!!w.ia?.simulado,documentoOriginal:w.ia?.documento_original!==false,editados:w.editados,face:w.face},
       confirmacaoDados:{status:'PENDENTE',prazo:agora+3*86400000}};
@@ -1599,7 +1599,7 @@ async function passoAparelho(){
   const doMarca=cat.filter(x=>x.marca===w.sel.marca);
   const modelos=[...new Set(doMarca.map(x=>x.modelo))];
   const item=cat.find(x=>x.id===w.sel.itemId);
-  const lim=v.analise?.limite||0, pct=entradaMinPct(v); S.w._contra=v.analise?.contraproposta||null; S.w._cb=await cashbackDe(v.clienteCpf);
+  const lim=v.analise?.limite||0, pct=entradaMinPct(v); S.w._contra=v.analise?.contraproposta||null; S.w._recompra=v.analise?.recompra||null; S.w._cb=await cashbackDe(v.clienteCpf);
   const cfg=S.cfg, freq=quinzenalAtivo()?(w.sel.freq||'MENSAL'):'MENSAL', ops=opsFreq(freq);
   $('#wz').innerHTML=`<div class="card"><h2><span class="step">5</span>Escolha o aparelho</h2>
     <div class="chips">${marcas.map(m=>`<button class="chip ${w.sel.marca===m?'on':''}" data-act="selMarca" data-v="${esc(m)}">${esc(m)}</button>`).join('')||(exigeEst?'<div class="empty" style="width:100%"><b>Nenhum aparelho no estoque desta loja</b>O gerente precisa cadastrar os aparelhos (com IMEI) em “Estoque por IMEI”.</div>':'<div class="empty" style="width:100%"><b>Nenhum aparelho liberado para venda</b>Peça ao dono para liberar os aparelhos da loja em “Aparelhos à venda”.</div>')}</div>
@@ -2308,7 +2308,7 @@ async function montarUpgrade(pedidoId){
     $('#upOk').disabled=true;
     try{
       const numero=await DB.nextNum(), id='v'+numero+'_'+token(5), lojaId=(vOld&&vOld.lojaId)||S.me.lojaId||(S.lojas[0]&&S.lojas[0].id)||'';
-      const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),vendedorUid:S.me.uid,dispositivoId:nbVenda(),vendedorNome:S.me.nome,
+      const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),...vendaDe(),dispositivoId:nbVenda(),
         cliente:cli,clienteCpf:(vOld&&vOld.clienteCpf)||'',clienteNome:x.clienteNome||'Cliente',
         aparelho:{marca:'',modelo:novo},valor,entrada,
         upgrade:{dePedido:pedidoId,deVenda:x.vendaId||'',deToken:x.token||'',deModelo:((x.marca||'')+' '+(x.modelo||'')).trim(),abatimento:abat},
@@ -4152,7 +4152,7 @@ async function corrigirQuiz(){
   await DB.set('users',S.me.uid,{treinamento:t}).catch(()=>{}); S.me.treinamento=t; await log('Prova do treinamento',S.me.uid,`${nota}%`);
   toast(aprovado?`Aprovado(a) com ${nota}%! Já pode vender.`:`Você acertou ${nota}%. Releia as lições e tente de novo.`,aprovado?'ok':'err'); render();
 }
-const precisaTreino=()=>S.me?.role==='VENDEDOR'&&S.cfg.treinamentoObrigatorio!=='nao'&&!S.me.treinamento?.aprovado;
+const precisaTreino=()=>['VENDEDOR','GERENTE'].includes(S.me?.role)&&obrigPendentes().length>0;
 
 /* ======================= MEDALHAS E DESAFIO DA SEMANA ======================= */
 function medalhasDe(vendas,avals,uid){
@@ -5675,7 +5675,7 @@ async function aprovarVendedor(id,btn){
   if(!confirm(`Aprovar ${c.nome} como vendedor da ${lojaNome(c.lojaId)} e enviar o ID e a senha para ${c.email}?`)) return;
   btn.disabled=true;
   try{
-    const a=await criarAcesso({nome:c.nome,email:c.email,tel:c.telefone,senha:SENHA_PADRAO,role:'VENDEDOR',lojaId:c.lojaId,extra:{cpf:c.cpf,cadastradoPor:c.gerenteNome||''}});
+    const a=await criarAcesso({nome:c.nome,email:c.email,tel:c.telefone,senha:SENHA_PADRAO,role:'VENDEDOR',lojaId:c.lojaId,extra:{cpf:c.cpf,cadastradoPor:c.gerenteNome||'',nascimento:c.nascimento||'',cargo:c.cargo||'Vendedor(a)'}});
     await DB.set('cadastrosVendedor',id,{status:'APROVADO',uid:a.uid,codigo:a.codigo,aprovadoEm:Date.now(),aprovadoPor:S.me.nome});
     modalAcessoCriado(a); render();
   }catch(e){ toast(e.code==='auth/email-already-in-use'?'Esse e-mail já tem acesso':e.message,'err'); btn.disabled=false; }
@@ -7266,7 +7266,7 @@ async function vendaRemota(btn){
   btn&&(btn.disabled=true);
   try{
     const numero=await DB.nextNum(), id='v'+numero+'_'+token(5), lojaId=S.me.lojaId||S.lojas[0]?.id||'';
-    const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),vendedorUid:S.me.uid,dispositivoId:nbVenda(),vendedorNome:S.me.nome,
+    const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),...vendaDe(),dispositivoId:nbVenda(),
       cliente:{telefones:tel?[tel]:[]},clienteCpf:'',clienteNome:tel?'Cliente '+fmtFone(tel):'Cliente a distância',aparelho:null,valor:0,entrada:0,
       remota:{token:token(24),criadoEm:Date.now(),tel}};
     await DB.set('vendas',id,v); await log('Venda a distância: link enviado ao cliente',id,`nº ${numero}`);
@@ -7524,7 +7524,7 @@ async function fimCurso(){
 }
 async function concluirCurso(c,nota){
   const tr={...(S.me.treinamento||{})}; tr.cursos={...(tr.cursos||{}),[c.id]:Date.now()}; S.me.treinamento=tr;
-  const apto=c.obrig&&!obrigPendentes().length&&!tr.aprovado;
+  const apto=c.obrig&&!obrigPendentes().length;
   if(apto) Object.assign(tr,{aprovado:true,nota:nota||100,em:Date.now(),via:'trilha'});
   const dados={treinamento:tr};
   await DB.set('users',S.me.uid,dados).catch(()=>{}); await log('Treinamento concluído',S.me.uid,c.titulo+(nota?` (${nota}%)`:''));
@@ -7539,7 +7539,7 @@ async function concluirCurso(c,nota){
 }
 
 /* ---------- trilha obrigatória: o vendedor só vende depois de concluir ---------- */
-const precisaTrilha=()=>['VENDEDOR','GERENTE'].includes(S.me?.role)&&S.cfg.treinamentoObrigatorio!=='nao'&&!S.me.treinamento?.aprovado&&obrigPendentes().length>0;
+const precisaTrilha=()=>['VENDEDOR','GERENTE'].includes(S.me?.role)&&obrigPendentes().length>0;
 function cardsCursos(lista){
   return lista.map((c,i)=>{ const ok=cursoFeito(c.id), bloq=!ok&&lista.slice(0,i).some(x=>x.obrig&&!cursoFeito(x.id))&&c.obrig;
     return `<div class="tv-card ${ok?'feito':''}"><div class="tv-thumb" style="background-image:url(${TREINO_BASE}${(c.cenas.find(s=>s.img)||{}).img||'v_inicio'}.webp)"><span>${ok?'✓':'▶'}</span></div>
@@ -7591,7 +7591,7 @@ Object.assign(ACT,{ abrirCurso:d=>abrirCurso(d.id),
 /* ---------- negativação automática: exceção por contrato ---------- */
 Object.assign(ACT,{ naoNegativar:async d=>{ const v=await DB.get('vendas',d.id); const nv=!v.naoNegativar; await DB.set('vendas',d.id,{naoNegativar:nv}); await log(nv?'Contrato fora da negativação automática':'Negativação automática liberada',d.id,''); toast(nv?'Este contrato não será negativado automaticamente':'Negativação automática liberada','ok'); render(); } });
 /* ======================= VENDAS: CONTRAPROPOSTA, RETOMAR, PROPOSTA EM IMAGEM, MEU LINK, SUGESTÃO DE COMPRA, CASHBACK ======================= */
-function entradaMinPct(v){ const base=Number(S.cfg.entradaPct)||30, c=v?v.analise?.contraproposta:S.w?._contra; return Math.max(base,+(c?.entradaPct)||0); }
+function entradaMinPct(v){ const b0=Number(S.cfg.entradaPct)||30, c=v?v.analise?.contraproposta:S.w?._contra, rc=v?v.analise?.recompra:S.w?._recompra, base=(!c&&rc&&rc.entradaPct!=null)?Math.min(b0,+rc.entradaPct):b0; return Math.max(base,+(c?.entradaPct)||0); }
 const abateEntrada=v=>r2((v.usado?.valor||0)+(+v.cashbackUsado||0));
 async function cashbackDe(cpf){ if(S.cfg.cashbackAtivo!=='sim'||!cpf) return null; try{ const c=(await DB.get('clientes',onlyDig(cpf)))?.cashback; return c&&c.saldo>0?c:null; }catch(e){ return null; } }
 document.addEventListener('change',e=>{ if(e.target.id==='nCashback'){ if(S.w?.sel) S.w.sel.usarCashback=e.target.checked; } });
@@ -9642,6 +9642,695 @@ function saTexto(m){
   const conv=(t.split(/Conversa com a assistente:\s*/)[1]||'').split('\n').map(x=>x.trim()).filter(Boolean);
   return `<div style="font-size:12px;font-weight:700;letter-spacing:.3px;color:#1D4ED8;margin-bottom:4px">TRANSFERIDO PELA ASSISTENTE VIRTUAL</div>${ped?`<div><b>Pedido do cliente:</b> ${esc(ped)}</div>`:''}${conv.length?`<details style="margin-top:6px"><summary style="cursor:pointer;color:#475569">Ver a conversa com a assistente (${conv.length})</summary>${conv.map(l=>`<div style="margin-top:4px;color:#334155">${esc(l)}</div>`).join('')}</details>`:''}`;
 }
+
+
+/* ===================== GERENTE ENXUTO (nov/2026): telas fora, treinamento obrigatório, venda do gerente p/ vendedor,
+   códigos de erro, equipe com aprovação automática, comissões no Minhas Metas, estoque, fila, recompra, trocas,
+   ficha da venda e venda a distância com entrega ===================== */
+document.head.insertAdjacentHTML('beforeend',`<style id="gxCss">
+.gx-h{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 14px}
+.gx-h h2{margin:0;font-size:19px}.gx-h p{margin:4px 0 0;color:var(--muted,#5B6478);font-size:13.5px;max-width:720px}
+.gx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0 0 14px}
+.gx-kpi{background:#fff;border:1px solid var(--line,#E2E6F0);border-radius:12px;padding:12px 14px}
+.gx-kpi small{display:block;color:#5B6478;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.gx-kpi b{display:block;font-size:22px;margin-top:4px;color:#0A1733}.gx-kpi span{display:block;font-size:12px;color:#5B6478;margin-top:2px}
+.gx-kpi.ok b{color:#0E9F6E}.gx-kpi.bad b{color:#C0392B}.gx-kpi.warn b{color:#B7791F}
+.gx-tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.gx-tb input,.gx-tb select{min-height:38px}
+.gx-seg{display:inline-flex;background:#EEF1F7;border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.gx-seg button{border:0;background:transparent;padding:7px 12px;border-radius:8px;font:inherit;font-size:13px;font-weight:600;color:#3B4660;cursor:pointer}
+.gx-seg button.on{background:#fff;color:#0A1733;box-shadow:0 1px 3px rgba(10,23,51,.12)}
+.gx-seg button i{font-style:normal;color:#8590A6;font-weight:500;margin-left:4px}
+.gx-t{width:100%;border-collapse:collapse}.gx-t th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:#5B6478;text-align:left;padding:10px 12px;border-bottom:1px solid #E2E6F0;background:#F8FAFD}
+.gx-t td{padding:10px 12px;border-bottom:1px solid #EEF1F7;vertical-align:middle;font-size:14px}.gx-t tr:last-child td{border-bottom:0}
+.gx-t td.r,.gx-t th.r{text-align:right}.gx-t tr.cl{cursor:pointer}.gx-t tr.cl:hover td{background:#F8FAFD}
+.gx-bar{height:8px;background:#EEF1F7;border-radius:6px;overflow:hidden;min-width:70px}.gx-bar i{display:block;height:100%;background:#1D5BFF;border-radius:6px}
+.gx-note{background:#F5F8FF;border:1px solid #DCE6FF;border-radius:10px;padding:10px 12px;font-size:13.5px;color:#22325A}
+.gx-cod{display:inline-block;margin-left:6px;background:#FDECEC;color:#C0392B;border-radius:6px;padding:1px 7px;font-weight:700;font-size:12px;white-space:nowrap}
+.gx-lock{display:inline-flex;align-items:center;gap:6px;background:#F1F3F8;color:#5B6478;border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:600}
+.gx-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
+.gx-pick button{display:flex;align-items:center;gap:10px;text-align:left;background:#fff;border:1.5px solid #E2E6F0;border-radius:12px;padding:12px;font:inherit;cursor:pointer}
+.gx-pick button:hover{border-color:#1D5BFF;background:#F5F8FF}
+.gx-av{width:38px;height:38px;border-radius:50%;background:#0A1733;color:#F3D98B;display:grid;place-items:center;font-weight:700;flex:none}
+.gx-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#0A1733;color:#fff;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:14px}
+.gx-banner b{color:#F3D98B}.gx-banner button{margin-left:auto}
+.gx-tabs{display:flex;gap:4px;border-bottom:1px solid #E2E6F0;margin:14px 0 12px;overflow:auto}
+.gx-tabs button{border:0;background:none;padding:9px 12px;font:inherit;font-size:14px;font-weight:600;color:#5B6478;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.gx-tabs button.on{color:#0A1733;border-bottom-color:#C9A227}
+.gx-vh{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid #E2E6F0}
+.gx-vh h2{margin:0;font-size:21px}.gx-vh .s{color:#5B6478;font-size:13px;margin-top:3px}
+.gx-vk{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:12px 0 0}
+.gx-vk div{background:#F8FAFD;border:1px solid #EEF1F7;border-radius:10px;padding:9px 11px}.gx-vk small{display:block;font-size:11.5px;color:#5B6478;font-weight:600;text-transform:uppercase;letter-spacing:.03em}.gx-vk b{font-size:16px;color:#0A1733}
+.gx-acts{position:sticky;bottom:-1px;background:#fff;border-top:1px solid #E2E6F0;padding:10px 0 2px;margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.gx-tl{list-style:none;margin:0;padding:0}.gx-tl li{position:relative;padding:0 0 12px 20px;font-size:13.5px}.gx-tl li:before{content:'';position:absolute;left:4px;top:5px;width:8px;height:8px;border-radius:50%;background:#1D5BFF}
+.gx-tl li:after{content:'';position:absolute;left:7.5px;top:15px;bottom:0;width:1px;background:#DCE1EC}.gx-tl li:last-child:after{display:none}.gx-tl small{color:#5B6478;display:block}
+.gx-step{display:flex;gap:6px;margin:4px 0 14px;flex-wrap:wrap}.gx-step span{font-size:12.5px;font-weight:600;color:#8590A6;background:#F1F3F8;border-radius:999px;padding:5px 11px}.gx-step span.on{background:#0A1733;color:#fff}.gx-step span.ok{background:#E7F7F0;color:#0E9F6E}
+.gx-opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.gx-opt label{display:flex;flex-direction:row;gap:10px;align-items:flex-start;border:1.5px solid #E2E6F0;border-radius:12px;padding:12px;cursor:pointer;font-weight:500}
+.gx-opt label:has(input:checked){border-color:#1D5BFF;background:#F5F8FF}.gx-opt input{width:auto!important;min-height:0!important;height:18px;margin:2px 0 0;flex:none}.gx-opt label b{display:block}.gx-opt label span{font-size:12.5px;color:#5B6478}
+@media (max-width:700px){ .gx-t.resp thead{display:none} .gx-t.resp tr{display:block;border-bottom:1px solid #E2E6F0;padding:8px 0} .gx-t.resp td{display:flex;justify-content:space-between;gap:10px;border:0;padding:5px 12px} .gx-t.resp td:before{content:attr(data-l);font-size:12px;color:#5B6478;font-weight:600} .gx-t.resp td.r{text-align:right} }
+</style>`);
+const gxIni=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+const gxDias=ms=>Math.max(0,Math.floor((Date.now()-(+ms||Date.now()))/86400000));
+const gxHoras=ms=>{ const m=Math.max(0,Math.round(ms/60000)); return m>=60?`${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`:`${m} min`; };
+
+/* ---------- 1. telas que saem: TV, fechamento de caixa, despesas da loja, simulador de balcão; escala e recompra fora do gerente ---------- */
+const GX_FORA=['tv','caixa','despesas','simulador'];
+Object.values(PORTAIS).forEach(p=>{ p.tabs=p.tabs.filter(t=>!GX_FORA.includes(t)); });
+NAV_GRUPOS.forEach(g=>{ g[1]=g[1].filter(t=>!GX_FORA.includes(t)); });
+PORTAIS.gerente.tabs=PORTAIS.gerente.tabs.filter(t=>!['escala','recompra'].includes(t));
+GX_FORA.forEach(id=>{ const t=TABS.find(x=>x.id===id); if(t) t.roles=[]; });
+{ const t=TABS.find(x=>x.id==='escala'); if(t) t.roles=['DONO']; }
+{ const t=TABS.find(x=>x.id==='recompra'); if(t){ t.roles=['DONO','FINANCEIRO','SUPORTE']; t.label='Recompra'; } }
+if(!PORTAIS.suporte.tabs.includes('recompra')) PORTAIS.suporte.tabs.push('recompra');
+{ const t=TABS.find(x=>x.id==='fila'); if(t&&!t.roles.includes('VENDEDOR')) t.roles.push('VENDEDOR'); }
+if(!PORTAIS.vendedor.tabs.includes('fila')) PORTAIS.vendedor.tabs.splice(PORTAIS.vendedor.tabs.indexOf('vendas')+1,0,'fila');
+TABS.push({id:'distancia',label:'Venda a distância e entrega',roles:['DONO','GERENTE','VENDEDOR']});
+['vendedor','gerente','dono'].forEach(k=>{ const t=PORTAIS[k].tabs; if(!t.includes('distancia')){ const i=t.indexOf('nova'); t.splice(i>=0?i+1:t.length,0,'distancia'); } });
+{ const g=NAV_GRUPOS.find(x=>x[0]==='Vendas'); if(g&&!g[1].includes('distancia')) g[1].splice(1,0,'distancia'); }
+IC.distancia='<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>';
+{ const t=TABS.find(x=>x.id==='relatorios'); if(t) t.label='Relatórios'; }
+{ const _rn=render; render=async(...a)=>{ if(GX_FORA.includes(S.tab)||(PORTAL==='gerente'&&['escala','recompra'].includes(S.tab))) S.tab=P.tabs[0]; return _rn(...a); }; }
+
+/* ---------- 2. treinamento: tirar a aula de caixa/despesas e renomear as que mudaram ---------- */
+{ const i=CURSOS.findIndex(c=>c.id==='g-caixa'); if(i>=0) CURSOS.splice(i,1);
+  const ren={'g-equipe':'Gerente: equipe da loja','g-resultados':'Gerente: relatórios, metas e comissões','v-dia':'Vendas e comissões do dia a dia'};
+  CURSOS.forEach(c=>{ if(ren[c.id]) c.titulo=ren[c.id]; }); }
+
+/* ---------- 3. gerente vendendo: a venda conta para um vendedor da loja ---------- */
+function vendaDe(){
+  const p=S._vendaPara;
+  if(can('GERENTE')&&PORTAL!=='dono'&&p&&p.uid&&p.uid!==S.me.uid) return {vendedorUid:p.uid,vendedorNome:p.nome,feitaPorUid:S.me.uid,feitaPorNome:S.me.nome};
+  return {vendedorUid:S.me.uid,vendedorNome:S.me.nome};
+}
+async function vendedoresDaLoja(){ return (await DB.list('users',[['lojaId','==',S.me.lojaId]]).catch(()=>[])).filter(u=>u.role==='VENDEDOR'&&u.ativo!==false).sort((a,b)=>String(a.nome).localeCompare(String(b.nome))); }
+function telaVendaPara(vs){
+  $('#view').innerHTML=`<div class="card" style="max-width:780px"><div class="gx-h"><div><h2>Para qual vendedor é esta venda?</h2>
+    <p>Você está vendendo no seu login de gerente. A venda vai para a <b>meta e a comissão do vendedor escolhido</b>; no contrato fica registrado que foi você quem atendeu.</p></div></div>
+    <div class="gx-pick">${vs.map(u=>`<button data-act="gxVendaPara" data-id="${u.id}" data-n="${esc(u.nome)}"><span class="gx-av">${esc(gxIni(u.nome))}</span><span><b>${esc(u.nome)}</b><br><span class="small muted">${esc(u.codigo||'')}${u.cargo?' · '+esc(u.cargo):''}</span></span></button>`).join('')}</div>
+    <p class="small muted mt">Não achou o vendedor? Cadastre em <a href="#" data-act="go" data-tab="equipe">Equipe</a>.</p></div>`;
+}
+Object.assign(ACT,{ gxVendaPara:d=>{ S._vendaPara={uid:d.id,nome:d.n}; S._vendaParaOk=true; render(); },
+  gxTrocarVendaPara:()=>{ S._vendaParaOk=false; S._vendaPara=null; render(); } });
+{ const _nv=PAGES.nova; PAGES.nova=async(...a)=>{
+  if(!can('GERENTE')||PORTAL==='dono') return _nv(...a);
+  if(S.w?.vendaId){ S._vendaParaOk=false; return _nv(...a); }   // proposta já criada: segue do jeito que está
+  if(!S._vendaParaOk){ const vs=await vendedoresDaLoja(); if(vs.length) return telaVendaPara(vs); S._vendaPara=null; }
+  await _nv(...a);
+  if(S._vendaPara&&$('#view')&&!S.w?.vendaId) $('#view').insertAdjacentHTML('afterbegin',`<div class="gx-banner">${svg(IC.equipe||IC.nova)}<span>Esta venda conta para <b>${esc(S._vendaPara.nome)}</b> (meta e comissão)</span><button class="btn sm" data-act="gxTrocarVendaPara">Trocar vendedor</button></div>`);
+}; }
+
+/* ---------- 4. códigos de erro: a lista fica com o suporte e o dono; o vendedor e o gerente veem o número na tela ---------- */
+const GX_ERROS=(typeof ERROS!=='undefined')?ERROS:{
+  314:{t:'Vendedor/gerente suspenso',g:'acesso',x:'Acesso desativado pela loja ou pela Nexum.',chat:'Confirme quem desativou. Se foi a Nexum, oriente o gerente a falar pelo chat da tela de bloqueio; se foi a loja, com o gerente dela.'},
+  315:{t:'Treinamento obrigatório pendente',g:'acesso',x:'A pessoa não concluiu os módulos obrigatórios.',chat:'Oriente a concluir o Treinamento (aba Treinamento). As vendas liberam ao terminar.'},
+  316:{t:'Sessão encerrada',g:'acesso',x:'Sessão expirada ou aberta em outro aparelho.',chat:'Peça para entrar de novo. Se persistir, confira a internet.'},
+  403:{t:'Venda fora da loja',g:'venda',x:'A localização não bate com a loja.',chat:'Oriente a fazer a venda dentro da loja, com GPS ligado.'},
+  409:{t:'1 aparelho por CPF',g:'venda',x:'O CPF já tem um aparelho financiado em aberto.',chat:'Explique a regra. Só com o anterior quitado, ou liberação do dono para bom pagador.',cliente:'Olá! No momento não é possível um novo financiamento porque já existe um aparelho em aberto neste CPF. Assim que ele for quitado, você pode financiar outro. Qualquer dúvida, estamos à disposição.'},
+  410:{t:'Cliente na lista negra',g:'venda',x:'CPF ou telefone na lista negra.',chat:'Não prometa venda. Encaminhe ao dono/financeiro se o cliente contestar.'},
+  411:{t:'Cliente menor de 18 anos',g:'venda',x:'Não é possível contratar crédito para menor de idade.',chat:'Explique com educação que o crédito exige maioridade.',cliente:'Olá! Para o financiamento é necessário ter 18 anos ou mais. Assim que possível, teremos prazer em atender você.'},
+  412:{t:'Proposta já em andamento',g:'venda',x:'Já existe proposta em análise/aprovada para o CPF.',chat:'Oriente a continuar a proposta que já existe, pelo número informado.'},
+  413:{t:'Telefone da equipe no cadastro',g:'venda',x:'O telefone informado é de alguém da equipe.',chat:'Peça dois telefones do próprio cliente. Isso é tratado como fraude.'},
+  420:{t:'Aparelho fora do estoque',g:'venda',x:'O IMEI não está no estoque da loja.',chat:'Oriente o gerente a cadastrar o aparelho no estoque antes de vender.'},
+  421:{t:'Fora da área atendida',g:'venda',x:'A cidade do cliente está fora da área configurada.',chat:'A proposta vai para análise manual da Nexum; aguarde o parecer.'},
+  515:{t:'Parcela em atraso — aparelho bloqueado',g:'pagamento',x:'Há parcela vencida além da tolerância.',chat:'Confirme a parcela em atraso. Oriente a pagar pelo PIX no app; ao registrar, o aparelho libera sozinho. Se já pagou, peça para abrir o app com internet e tocar em “Já paguei”.',cliente:'Olá! Seu aparelho foi bloqueado porque há uma parcela em atraso. Assim que o pagamento for registrado, ele é liberado automaticamente. Você pode pagar pelo PIX direto no app NexumCell. Precisando, estamos aqui para ajudar.'},
+  516:{t:'Aparelho offline há muitos dias',g:'pagamento',x:'O aparelho ficou dias sem internet e bloqueou por proteção.',chat:'Peça para ligar o Wi-Fi ou os dados e abrir o app uma vez. Se não liberar, gere um código de liberação temporária.',cliente:'Olá! Seu aparelho ficou muitos dias sem conexão e foi bloqueado por segurança. É só ligar o Wi-Fi ou os dados móveis e abrir o app NexumCell uma vez: ele desbloqueia sozinho.'},
+  517:{t:'Promessa de pagamento quebrada',g:'pagamento',x:'A data prometida passou sem pagamento.',chat:'Oriente a pagar. Não há segunda promessa no mesmo contrato sem autorização.',cliente:'Olá! A data de pagamento que combinamos passou e o aparelho foi bloqueado novamente. Assim que a parcela for paga, ele é liberado na hora.'},
+  600:{t:'Crédito reprovado',g:'credito',x:'O motor reprovou pelas regras.',chat:'Explique com educação que pode tentar de novo depois de 30 dias.',cliente:'Olá! Infelizmente não foi possível aprovar o financiamento desta vez. Você pode tentar novamente após 30 dias. Agradecemos o interesse!'},
+  601:{t:'Renda insuficiente para a parcela',g:'credito',x:'A parcela passa do limite de comprometimento de renda.',chat:'Sugira aumentar a entrada, mais parcelas ou um aparelho mais barato.'},
+  602:{t:'Documento irregular',g:'credito',x:'Documento ilegível, editado ou vencido.',chat:'Peça novas fotos do documento original; a proposta vai para análise manual.'},
+  900:{t:'Pessoa bloqueada pela Nexum',g:'acesso',x:'O dono bloqueou este acesso.',chat:'Oriente a falar com a Nexum pelo chat da tela de bloqueio.'},
+  1001:{t:'Loja bloqueada',g:'loja',x:'A Nexum bloqueou a loja.',chat:'O gerente fala com a Nexum pelo chat da tela de bloqueio. Os contratos dos clientes continuam normalmente.'},
+  1002:{t:'Loja bloqueada por mensalidade',g:'loja',x:'Mensalidade da loja atrasada.',chat:'Oriente o pagamento da mensalidade; a loja desbloqueia na hora.'},
+  1003:{t:'Loja acima do limite de carteira',g:'loja',x:'A loja passou do teto de carteira em aberto.',chat:'Novas vendas vão para análise manual até reduzir a carteira.'},
+  1004:{t:'Loja acima da inadimplência',g:'loja',x:'A inadimplência da loja passou do teto.',chat:'Novas vendas vão para análise manual; oriente a loja a cobrar os atrasos.'},
+  1010:{t:'Trava não subiu',g:'trava',x:'A instalação da trava não concluiu.',chat:'Oriente a refazer pelo QR ou instalar pelo computador (USB). Nunca entregar o aparelho sem a trava.'},
+  1011:{t:'IMEI irregular',g:'trava',x:'O IMEI lido não é o do contrato.',chat:'O aparelho foi bloqueado. Oriente a conferir se pegou o aparelho certo do estoque.'},
+  1012:{t:'Trava não confirmou',g:'trava',x:'O aparelho não confirmou a trava a tempo.',chat:'Peça para conferir o Wi-Fi e abrir o app uma vez; a tela da venda fica verde ao confirmar.'},
+  1013:{t:'Sem resposta do servidor',g:'trava',x:'O servidor não respondeu durante a operação.',chat:'Peça para tentar de novo em alguns minutos; confira o Status do sistema na Ajuda.'},
+};
+const GX_ERROS_GRP=(typeof ERROS_GRP!=='undefined')?ERROS_GRP:{acesso:'Acesso e equipe',venda:'Venda e cadastro',credito:'Crédito',pagamento:'Pagamento e bloqueio do aparelho',loja:'Loja parceira',trava:'Trava e instalação'};
+Object.assign(GX_ERROS,{
+  414:{t:'Dados do cliente incompletos',g:'venda',x:'Faltou telefone, endereço, renda ou referência.',chat:'Peça para conferir os campos em vermelho do cadastro e enviar de novo.'},
+  415:{t:'Telefone já usado por outro cliente',g:'venda',x:'O WhatsApp informado já está em outro cadastro.',chat:'Peça um telefone do próprio cliente. Número repetido entre clientes é sinal de fraude.'},
+  430:{t:'Notebook não autorizado',g:'venda',x:'O notebook usado para vender não está cadastrado ou ainda não foi aprovado.',chat:'Peça para cadastrar o notebook em Meu notebook, dentro da loja. O suporte confere a localização e aprova.'},
+  999:{t:'Erro inesperado',g:'acesso',x:'Algo falhou sem um motivo conhecido.',chat:'Peça um print da tela e o que a pessoa estava fazendo. Tente de novo; se continuar, abra um chamado técnico.'}});
+// portais sem a lista (suporte): a mesma tabela de códigos na Ajuda, só para suporte e dono
+if(typeof cardCodigos==='undefined'&&PAGES.ajuda){ const _aj=PAGES.ajuda; PAGES.ajuda=async(...a)=>{ await _aj(...a); if(!can('DONO','SUPORTE')||!$('#view')) return;
+  const grp={}; Object.keys(GX_ERROS).forEach(c=>{ const e=GX_ERROS[c]; (grp[e.g]=grp[e.g]||[]).push([c,e]); });
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>Códigos do sistema</h2><p class="small muted" style="margin-top:-6px">O vendedor e o gerente veem só o número na tela de erro e informam no chat. Aqui está o que cada código significa e o que responder.</p>
+    ${Object.keys(GX_ERROS_GRP).filter(g=>grp[g]).map(g=>`<div class="small" style="font-weight:700;margin:10px 0 4px">${esc(GX_ERROS_GRP[g])}</div>`+grp[g].map(([c,e])=>`<div style="border-top:1px solid #EEF1F7;padding:8px 0"><div><span class="gx-cod" style="margin:0">${c}</span> <b>${esc(e.t)}</b></div><div class="small muted" style="margin-top:2px">${esc(e.x)}</div><div class="small" style="margin-top:3px"><b>No chat:</b> ${esc(e.chat)}</div>${e.cliente?`<div class="small" style="margin-top:3px;background:#F5F7FB;border-radius:8px;padding:6px 8px"><b>Mensagem pro cliente:</b> ${esc(e.cliente)}</div>`:''}</div>`).join('')).join('')}</div>`); }; }
+const COD_RX=[[/notebook/i,430],[/lista negra|ineleg[ií]vel/i,410],[/fora da loja|localiza[çc][ãa]o|GPS/i,403],[/menor de (18|idade)|maioridade/i,411],[/algu[eé]m da equipe|telefone.*equipe/i,413],
+  [/j[aá] est[aá] cadastrado para outro cliente/i,415],[/1 aparelho por CPF|aparelho financiado em aberto|j[aá] tem (um )?aparelho/i,409],[/proposta (j[aá]|em andamento)|em an[aá]lise para (este|o) CPF/i,412],
+  [/estoque/i,420],[/treinamento/i,315],[/preencha|informe o|confira o telefone|referência/i,414],[/IMEI/i,1011],[/trava/i,1010],
+  [/servidor|failed to fetch|networkerror|network|internet|timeout/i,1013],[/permission|permiss[ãa]o|sess[ãa]o/i,316]];
+function codigoErro(t){ t=String(t||''); for(const [re,c] of COD_RX) if(re.test(t)) return c; return 999; }
+const mostraCodigo=()=>['VENDEDOR','GERENTE'].includes(S.me?.role);
+{ const _t=toast; toast=function(msg,type=''){ if(type==='err'&&mostraCodigo()&&!/Código \d/.test(String(msg))) msg=`${msg} · Código ${codigoErro(msg)} (informe no chat do suporte)`; return _t(msg,type); }; }
+new MutationObserver(()=>{ if(!mostraCodigo()) return;
+  document.querySelectorAll('[id$="Erro"],[id$="Err"],.err-box,.erro,.resultado.bad').forEach(el=>{
+    const txt=(el.textContent||'').trim(); if(!txt||el.querySelector('.gx-cod')||/Código \d/.test(txt)) return;
+    el.insertAdjacentHTML('beforeend',` <span class="gx-cod" title="Informe este código no chat do suporte">Código ${codigoErro(txt)}</span>`); });
+}).observe(document.body,{childList:true,subtree:true,characterData:true});
+
+/* ---------- 5. equipe: o gerente cadastra o funcionário; a NexumCell aprova ou o sistema aprova sozinho em 2 h ---------- */
+const CARGOS_LOJA=['Vendedor(a)','Vendedor(a) externo(a)','Atendente','Subgerente','Caixa'];
+const AUTO_APROVA_MS=2*3600e3;
+{ const _nu=novoUsuario; novoUsuario=function(){
+  if(can('DONO')) return _nu();
+  openModal(`<h2>Adicionar funcionário</h2><p class="muted" style="margin-top:-6px">Preencha os dados. A ${MARCA} aprova o acesso; se ninguém responder em <b>2 horas</b>, o sistema aprova sozinho e manda o <b>ID de acesso e a senha</b> para o e-mail do funcionário.</p>
+    <div class="grid g2"><label>Nome completo<input id="cvNome" autocomplete="off"></label><label>E-mail (recebe o acesso)<input id="cvEmail" type="email" autocomplete="off"></label>
+      <label>Data de nascimento<input id="cvNasc" type="date" max="${addDays(hoje(),-16*365)}"></label><label>CPF<input id="cvCpf" inputmode="numeric" maxlength="14"></label>
+      <label>Telefone / WhatsApp<input id="cvTel" inputmode="tel"></label><label>Cargo<select id="cvCargo">${CARGOS_LOJA.map(c=>`<option>${c}</option>`).join('')}</select></label></div>
+    <div class="gx-note mt">O funcionário entra no <b>Portal do Vendedor</b> e só consegue vender depois de concluir o treinamento da ${MARCA}.</div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" data-act="salvarCadastroVendedor">Enviar cadastro</button></div>`);
+}; }
+salvarCadastroVendedor=async function(btn){
+  const nome=$('#cvNome').value.trim().replace(/\s+/g,' '), cpf=onlyDig($('#cvCpf').value), email=$('#cvEmail').value.trim().toLowerCase(), tel=fone($('#cvTel').value), nasc=$('#cvNasc').value, cargo=$('#cvCargo').value;
+  if(nome.split(' ').length<2) return toast('Informe o nome completo','err');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('E-mail inválido','err');
+  if(!nasc) return toast('Informe a data de nascimento','err');
+  const idade=Math.floor((Date.now()-new Date(nasc+'T12:00').getTime())/31557600000); if(idade<16||idade>90) return toast('Confira a data de nascimento','err');
+  if(!cpfOk(cpf)) return toast('CPF inválido','err');
+  if(!/^\d{10,11}$/.test(tel)) return toast('Telefone com DDD','err');
+  btn.disabled=true;
+  try{
+    const ja=await DB.list('cadastrosVendedor',[['lojaId','==',S.me.lojaId]]);
+    if(ja.some(c=>c.status==='PENDENTE'&&(c.cpf===cpf||c.email===email))){ btn.disabled=false; return toast('Este funcionário já está aguardando aprovação','err'); }
+    await DB.add('cadastrosVendedor',{nome,cpf,email,telefone:tel,nascimento:nasc,cargo,lojaId:S.me.lojaId,lojaNome:lojaNome(S.me.lojaId),gerenteUid:S.me.uid,gerenteNome:S.me.nome,status:'PENDENTE',criadoEm:Date.now(),autoAprovarEm:Date.now()+AUTO_APROVA_MS});
+    await log('Funcionário cadastrado (aguardando aprovação)',cpf,`${nome} · ${cargo}`);
+    closeModal(); toast(`Cadastro enviado. Se a ${MARCA} não responder em 2 horas, o acesso é liberado sozinho.`,'ok'); render();
+  }catch(e){ toast('Erro: '+e.message,'err'); btn.disabled=false; }
+};
+async function gxAutoAprovar(){ if(DEMO||!fb||!servLigado()||S._gxAuto>Date.now()-10*60000) return; S._gxAuto=Date.now(); try{ const r=await apiServ('equipe',{acao:'autoAprovar'}); if(r.aprovados&&S.tab==='equipe') render(); }catch(e){ console.warn('autoAprovar',e.message); } }
+{ const _pe=PAGES.equipe; PAGES.equipe=async(...a)=>{ await _pe(...a); if(!$('#view')) return;
+  if(can('GERENTE')&&PORTAL!=='dono'){
+    $('#topActions').innerHTML=(fb?'':'<span class="demo-flag">Modo demonstração</span>')+'<button class="btn gold" data-act="novoUsuario">Adicionar funcionário</button>';
+    const cad=(await DB.list('cadastrosVendedor',[['lojaId','==',S.me.lojaId]]).catch(()=>[])).sort((a,b)=>b.criadoEm-a.criadoEm);
+    const tb=[...$('#view').querySelectorAll('.card.mt.tablewrap')].find(c=>/Cadastros enviados/.test(c.textContent)); if(tb) tb.remove();
+    $('#view').querySelector('.msg.mb.small')?.remove();
+    const st=c=>c.status==='APROVADO'?badge(c.automatico?'Aprovado automaticamente':'Aprovado','green')+(c.codigo?`<div class="small muted">ID ${esc(c.codigo)}${c.emailEnviado===false?' · e-mail não saiu: passe o ID para ele':' · acesso enviado por e-mail'}</div>`:'')
+      :c.status==='RECUSADO'?badge('Recusado','red')+(c.motivo?`<div class="small muted">${esc(c.motivo)}</div>`:'')
+      :badge('Aguardando a '+MARCA,'amber')+`<div class="small muted">${(c.criadoEm+AUTO_APROVA_MS)>Date.now()?'aprova sozinho em '+gxHoras(c.criadoEm+AUTO_APROVA_MS-Date.now()):'sendo aprovado agora'}</div>`;
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="gx-h"><div><h2>Equipe da loja</h2><p>Cadastre o funcionário com nome, e-mail, nascimento, CPF, telefone e cargo. O acesso chega no e-mail dele: aprovado pela ${MARCA} ou, sem resposta, <b>automaticamente em até 2 horas</b>.</p></div></div>`);
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt tablewrap"><h2 style="padding:16px 16px 0">Cadastros enviados</h2><table class="gx-t resp"><thead><tr><th>Funcionário</th><th>Cargo</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Enviado</th><th>Situação</th></tr></thead><tbody>
+      ${cad.map(c=>`<tr><td data-l="Funcionário"><b>${esc(c.nome)}</b></td><td data-l="Cargo">${esc(c.cargo||'Vendedor(a)')}</td><td data-l="CPF" class="mono">${esc(fmtCpf(c.cpf))}</td><td data-l="Nascimento">${c.nascimento?fmtD(c.nascimento):'—'}</td>
+        <td data-l="Contato">${esc(c.email)}<div class="small muted">${esc(fmtFone(c.telefone))}</div></td><td data-l="Enviado">${fmtDT(c.criadoEm)}</td><td data-l="Situação">${st(c)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum cadastro enviado ainda</td></tr>'}</tbody></table></div>`);
+    if(cad.some(c=>c.status==='PENDENTE'&&c.criadoEm+AUTO_APROVA_MS<=Date.now())) gxAutoAprovar();
+  } }; }
+{ const _pl=PAGES.lojas; if(_pl) PAGES.lojas=async(...a)=>{ await _pl(...a); if(!can('DONO')||!$('#view')) return; gxAutoAprovar();
+  const cad=(await DB.list('cadastrosVendedor').catch(()=>[])).filter(c=>c.status==='PENDENTE');
+  if(cad.length) $('#view').insertAdjacentHTML('afterbegin',`<div class="gx-note mb"><b>${cad.length} funcionário(s) das lojas aguardando aprovação.</b> Se você não aprovar nem recusar, o sistema libera sozinho 2 horas depois do envio e manda o acesso para o e-mail da pessoa. ${cad.slice(0,4).map(c=>`<br>· ${esc(c.nome)} (${esc(c.cargo||'Vendedor(a)')}, ${esc(c.lojaNome||'')}) — ${c.criadoEm+AUTO_APROVA_MS>Date.now()?'libera em '+gxHoras(c.criadoEm+AUTO_APROVA_MS-Date.now()):'liberando agora'}`).join('')}</div>`);
+  const lojas=await listarLojas().catch(()=>S.lojas||[]);
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>App Minhas Metas por loja</h2><p class="small muted" style="margin-top:-6px">Desligue nas lojas que optaram por não usar o app. Os vendedores e o gerente dessas lojas deixam de ver o app e as comissões nele.</p>
+    <table class="gx-t"><tbody>${lojas.map(l=>`<tr><td><b>${esc(l.nome)}</b><div class="small muted">${esc(l.cidade||'')}</div></td><td class="r"><label class="check" style="justify-content:flex-end"><input type="checkbox" data-gxmetas="${l.id}" ${l.appMetas===false?'':'checked'}> <span>${l.appMetas===false?'Não usa':'Usa o app'}</span></label></td></tr>`).join('')}</tbody></table></div>`);
+}; }
+document.addEventListener('change',async e=>{ const id=e.target?.dataset?.gxmetas; if(!id) return;
+  const on=e.target.checked; try{ await DB.set('lojas',id,{appMetas:on}); await log(on?'App Minhas Metas ligado na loja':'Loja optou por não usar o app Minhas Metas',id,''); const l=(S.lojas||[]).find(x=>x.id===id); if(l) l.appMetas=on; e.target.nextElementSibling.textContent=on?'Usa o app':'Não usa'; toast('Salvo','ok'); }
+  catch(err){ e.target.checked=!on; toast('Não foi possível salvar: '+err.message,'err'); } });
+{ const _ip=PAGES.painel; PAGES.painel=async(...a)=>{ await _ip(...a); if(can('GERENTE','DONO')) gxAutoAprovar(); }; }
+
+/* ---------- 6. comissões: o gerente define os valores; aparecem no app Minhas Metas ---------- */
+const COM_CAMPOS=[['pctParcelas','% sobre as parcelas pagas no mês','%'],['porAparelho','Por aparelho vendido','R$'],['porPelicula','Por película','R$'],['porCapinha','Por capinha','R$'],['porAcessorio','Por outro acessório','R$'],['porSeguro','Por proteção / seguro','R$']];
+S._regCom=S._regCom||{};
+async function carregarRegrasCom(lojaIds){ for(const id of [...new Set(lojaIds.filter(Boolean))]){ if(S._regCom[id]===undefined){ try{ S._regCom[id]=await DB.get('regrasComissao',id); }catch(e){ S._regCom[id]=null; } } } }
+function comissaoDetalhe(vendas,uid,mes,u){
+  const r=S._regCom[u?.lojaId||'']||null, pct=r&&r.pctParcelas!=null&&r.pctParcelas!==''?+r.pctParcelas:pctDe(u);
+  let pago=0; vendas.filter(v=>v.vendedorUid===uid).forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&String(p.pagoEm||'').startsWith(mes)&&p.forma!=='Entrada do acordo') pago+=Number(p.valorPago||p.valor); }));
+  const f=calcMetas(uid,mes,vendas), L=[{k:'pctParcelas',t:`${pct}% das parcelas pagas (${brl(pago)})`,v:r2(pago*pct/100)}];
+  if(r){ [['porAparelho','aparelhos','aparelho(s)'],['porPelicula','pelicula','película(s)'],['porCapinha','capinha','capinha(s)'],['porAcessorio','acessorios','acessório(s)'],['porSeguro','seguros','proteção(ões)']].forEach(([k,fk,t])=>{ const val=+r[k]||0, q=+f[fk]||0; if(val>0) L.push({k,t:`${q} ${t} × ${brl(val)}`,v:r2(q*val)}); }); }
+  return {linhas:L,total:r2(L.reduce((s,x)=>s+x.v,0)),regra:r};
+}
+{ const _cv=comissaoVend; comissaoVend=function(vendas,uid,mes,u){ if(typeof calcMetas!=='function'||!S._regCom[u?.lojaId||'']) return _cv(vendas,uid,mes,u); return comissaoDetalhe(vendas,uid,mes,u).total; }; }
+async function editarRegrasCom(){
+  const id=S.me.lojaId, r=(await DB.get('regrasComissao',id).catch(()=>null))||{};
+  openModal(`<h2>Regras de comissão da loja</h2><p class="muted" style="margin-top:-6px">Valem para todos os vendedores da ${esc(lojaNome(id))}. Cada vendedor vê o cálculo dele no app <b>Minhas Metas</b> e em Comissões.</p>
+    <div class="grid g2">${COM_CAMPOS.map(([k,l,u])=>`<label>${l} (${u})<input type="number" min="0" step="${u==='%'?'0.1':'1'}" data-gxcom="${k}" value="${r[k]??(k==='pctParcelas'?pctDe(null):'')}" placeholder="0"></label>`).join('')}</div>
+    <p class="hint">Exemplo: 3% das parcelas pagas + R$ 20 por aparelho + R$ 5 por película. Deixe em branco o que a loja não paga.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" id="gxComOk">Salvar regras</button></div>`);
+  $('#gxComOk').onclick=async()=>{ const d={lojaId:id,atualizadoEm:Date.now(),por:S.me.nome}; document.querySelectorAll('[data-gxcom]').forEach(i=>{ d[i.dataset.gxcom]=i.value===''?null:Math.max(0,+i.value); });
+    try{ await DB.set('regrasComissao',id,d); S._regCom[id]=d; await log('Regras de comissão da loja alteradas',id,COM_CAMPOS.map(([k,l])=>d[k]!=null?`${l}: ${d[k]}`:'').filter(Boolean).join(' · ')); closeModal(); toast('Regras salvas. Os vendedores já veem no Minhas Metas.','ok'); render(); }
+    catch(e){ toast('Não foi possível salvar: '+e.message,'err'); } };
+}
+Object.assign(ACT,{ gxRegrasCom:()=>editarRegrasCom() });
+function htmlRegrasCom(r){ if(!r) return '<span class="muted">Ainda não definidas: vale o padrão de '+pctDe(null)+'% sobre as parcelas pagas.</span>';
+  return COM_CAMPOS.filter(([k])=>r[k]!=null&&+r[k]>0).map(([k,l,u])=>`<span class="badge b-navy" style="margin:2px">${esc(l)}: ${u==='%'?r[k]+'%':brl(r[k])}</span>`).join(' ')||'<span class="muted">Sem comissão definida</span>'; }
+{ const _pc=PAGES.comissoes; PAGES.comissoes=async(...a)=>{
+  if(can('GERENTE','VENDEDOR')) await carregarRegrasCom([S.me.lojaId]);
+  else { const rs=await DB.list('regrasComissao').catch(()=>[]); rs.forEach(r=>S._regCom[r.id]=r); }
+  await _pc(...a); if(!$('#view')) return;
+  if(can('GERENTE')){
+    $('#view').insertAdjacentHTML('afterbegin',`<div class="card mb"><div class="gx-h" style="margin:0"><div><h2>Regras de comissão da loja</h2><p>${htmlRegrasCom(S._regCom[S.me.lojaId])}</p></div><button class="btn gold" data-act="gxRegrasCom">Definir valores</button></div>
+      <p class="small muted" style="margin:8px 0 0">${(S.lojas||[]).find(l=>l.id===S.me.lojaId)?.appMetas===false?'Sua loja não usa o app Minhas Metas: o vendedor vê a comissão aqui, em Comissões.':'O vendedor acompanha a comissão dele no app <b>Minhas Metas</b>, atualizada a cada venda.'}</p></div>`);
+    $('#view').querySelectorAll('th').forEach(th=>{ if(/padrão\)/.test(th.textContent)) th.textContent='Comissão do mês'; });
+  }
+  if(can('VENDEDOR')){ const vendas=await loadVendas(), d=comissaoDetalhe(vendas,S.me.uid,S.filtro.cmMes||mesHoje(),S.me);
+    $('#view').insertAdjacentHTML('beforeend',`<div class="card mt"><h2>Como sua comissão foi calculada</h2><table class="gx-t"><tbody>${d.linhas.map(l=>`<tr><td>${esc(l.t)}</td><td class="r"><b>${brl(l.v)}</b></td></tr>`).join('')}<tr><td><b>Total</b></td><td class="r"><b style="color:var(--ok)">${brl(d.total)}</b></td></tr></tbody></table>
+      <p class="small muted mt">Regras definidas pelo gerente da loja.</p></div>`); }
+}; }
+
+/* ---------- 7. relatórios do gerente: só o essencial, fácil de ler ---------- */
+{ const _rel=PAGES.relatorios; PAGES.relatorios=async(...a)=>{
+  if(!can('GERENTE')) return _rel(...a);
+  const mes=S.filtro.relMes||hoje().slice(0,7), [vendas,us]=await Promise.all([loadVendas(),DB.list('users',[['lojaId','==',S.me.lojaId]]).catch(()=>[])]);
+  await carregarRegrasCom([S.me.lojaId]);
+  const ok=v=>['ATIVA','QUITADA','RETOMADA','INSTALANDO'].includes(v.status)&&v.entradaPaga, doMes=vendas.filter(v=>ok(v)&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes));
+  const fat=r2(doMes.reduce((s,v)=>s+(+v.valor||0),0)), rec=r2(vendas.reduce((s,v)=>s+(v.parcelas||[]).filter(p=>p.pago&&String(p.pagoEm||'').startsWith(mes)&&p.forma!=='Entrada do acordo').reduce((a,p)=>a+Number(p.valorPago||p.valor),0),0));
+  const inad=inadimplencia(vendas), vend=us.filter(u=>u.role==='VENDEDOR');
+  const lin=vend.map(u=>{ const vs=doMes.filter(v=>v.vendedorUid===u.id), f=calcMetas(u.id,mes,vendas), c=comissaoDetalhe(vendas,u.id,mes,u), i=inadimplencia(vendas.filter(v=>v.vendedorUid===u.id));
+    return {u,n:vs.length,fat:r2(vs.reduce((s,v)=>s+(+v.valor||0),0)),acess:(f.pelicula||0)+(f.capinha||0)+(f.acessorios||0),seg:f.seguros||0,com:c.total,inad:i.pct,pelo:vs.filter(v=>v.feitaPorUid).length}; }).sort((a,b)=>b.fat-a.fat||b.n-a.n);
+  const maxF=Math.max(1,...lin.map(l=>l.fat)), totCom=r2(lin.reduce((s,l)=>s+l.com,0));
+  const mesN=new Date(mes+'-15T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  $('#view').innerHTML=`<div class="gx-h"><div><h2>Resultado da loja · ${esc(mesN)}</h2><p>Vendas concluídas (entrada paga), o que entrou de parcelas, a comissão de cada vendedor e quem está vendendo para cliente que não paga.</p></div>
+    <label style="flex-direction:row;align-items:center;gap:8px;font-weight:600">Mês <input type="month" id="relMes" value="${mes}" max="${hoje().slice(0,7)}" style="width:170px"></label></div>
+  <div class="gx-kpis"><div class="gx-kpi"><small>Vendas no mês</small><b>${doMes.length}</b><span>${brl(fat)} vendidos</span></div>
+    <div class="gx-kpi"><small>Ticket médio</small><b>${brl(doMes.length?fat/doMes.length:0)}</b><span>por venda</span></div>
+    <div class="gx-kpi ok"><small>Parcelas recebidas</small><b>${brl(rec)}</b><span>pagas pelos clientes no mês</span></div>
+    <div class="gx-kpi ${inad.pct>15?'bad':inad.pct>7?'warn':'ok'}"><small>Inadimplência</small><b>${inad.pct.toFixed(1)}%</b><span>${brl(inad.aberto)} em atraso</span></div>
+    <div class="gx-kpi"><small>Comissões do mês</small><b>${brl(totCom)}</b><span><a href="#" data-act="go" data-tab="comissoes">pagar e ver recibos</a></span></div></div>
+  <div class="card tablewrap"><div class="gx-h" style="padding:16px 16px 0;margin:0"><h2>Desempenho por vendedor</h2><button class="btn sm" data-act="gxRegrasCom">Regras de comissão</button></div>
+    <table class="gx-t resp"><thead><tr><th>Vendedor</th><th>Vendas</th><th style="min-width:160px">Faturamento</th><th class="r">Acessórios</th><th class="r">Proteções</th><th class="r">Comissão</th><th class="r">Inadimplência</th></tr></thead><tbody>
+    ${lin.map(l=>`<tr><td data-l="Vendedor"><b>${esc(l.u.nome)}</b>${l.u.ativo===false?' '+badge('inativo','gray'):''}${l.pelo?`<div class="small muted">${l.pelo} feita(s) pelo gerente</div>`:''}</td><td data-l="Vendas">${l.n}</td>
+      <td data-l="Faturamento"><div style="display:flex;align-items:center;gap:8px"><div class="gx-bar" style="flex:1"><i style="width:${Math.round(l.fat/maxF*100)}%"></i></div><b>${brl(l.fat)}</b></div></td>
+      <td data-l="Acessórios" class="r">${l.acess}</td><td data-l="Proteções" class="r">${l.seg}</td><td data-l="Comissão" class="r"><b style="color:var(--ok)">${brl(l.com)}</b></td>
+      <td data-l="Inadimplência" class="r">${badge(l.inad.toFixed(1)+'%',l.inad>15?'red':l.inad>7?'amber':'green')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum vendedor na loja</td></tr>'}</tbody></table></div>
+  <p class="hint">Inadimplência alta num vendedor = vendas para clientes que não pagam. Converse com ele e acompanhe na Fila de cobrança.</p>
+  ${await blocoMetas(vendas,mes,us).catch(()=>'')}
+  <div class="row mt"><button class="btn" data-act="relatorioMes">Baixar relatório do mês (PDF)</button></div>`;
+  $('#relMes').addEventListener('change',e=>{ S.filtro.relMes=e.target.value; render(); });
+}; }
+
+/* ---------- 8. estoque por IMEI (nível profissional) ---------- */
+const EST_PARADO=45;
+async function gxEstoque(){
+  const lojaF=can('DONO','FINANCEIRO')?(S.filtro.estLoja||''):S.me.lojaId;
+  const [l,cat]=await Promise.all([DB.list('estoque',lojaF?[['lojaId','==',lojaF]]:[]),DB.list('catalogo').catch(()=>[])]);
+  const aReceber=can('GERENTE')?await DB.list('estoque',[['lojaDestino','==',S.me.lojaId]]).then(x=>x.filter(e=>e.status==='EM_TRANSITO')).catch(()=>[]):l.filter(e=>e.status==='EM_TRANSITO');
+  const catM={}; cat.forEach(c=>catM[c.id]=c);
+  const st=S.filtro.estSt||'DISPONIVEL', q=String(S.filtro.estq||'').trim().toLowerCase(), qd=onlyDig(q), vis=S.filtro.estVis||'modelo';
+  const nomeE=e=>`${e.marca||''} ${e.modelo||''} ${e.capacidade||''}`.replace(/\s+/g,' ').trim();
+  const casa=e=>!q||(qd.length>=4&&(String(e.imei||'').includes(qd)||String(e.imei2||'').includes(qd)))||nomeE(e).toLowerCase().includes(q)||String(e.cor||'').toLowerCase().includes(q)||String(e.notaFiscal||'').toLowerCase().includes(q);
+  const disp=l.filter(e=>e.status==='DISPONIVEL'), mes=hoje().slice(0,7);
+  const custoT=r2(disp.reduce((s,e)=>s+(+e.custo||0),0)), vendaT=r2(disp.reduce((s,e)=>s+(+catM[e.catalogoId]?.preco||0),0));
+  const parados=disp.filter(e=>gxDias(e.criadoEm)>EST_PARADO), vendMes=l.filter(e=>e.status==='VENDIDO'&&isoDate(new Date(e.vendidoEm||e.atualizadoEm||0)).startsWith(mes)).length;
+  const cont={}; ['DISPONIVEL','EM_TRANSITO','VENDIDO','RETOMADO','BAIXADO'].forEach(k=>cont[k]=l.filter(e=>e.status===k).length); cont.todos=l.length;
+  const min=can('GERENTE')?(await DB.get('estoqueMin',S.me.lojaId).catch(()=>null))?.itens||{}:{};
+  const grupos={}; l.forEach(e=>{ const k=e.catalogoId||nomeE(e); const g=grupos[k]=grupos[k]||{k,nome:nomeE(e),disp:[],v30:0,x:catM[e.catalogoId]};
+    if(e.status==='DISPONIVEL') g.disp.push(e); if(e.status==='VENDIDO'&&Date.now()-(+e.vendidoEm||+e.atualizadoEm||0)<30*86400000) g.v30++; });
+  const gl=Object.values(grupos).filter(g=>(g.disp.length||g.v30)&&(!q||g.nome.toLowerCase().includes(q))).sort((a,b)=>b.disp.length-a.disp.length||a.nome.localeCompare(b.nome));
+  const lista=l.filter(e=>(st==='todos'||e.status===st)&&casa(e)).sort((a,b)=>(b.criadoEm||0)-(a.criadoEm||0));
+  const repor=can('GERENTE')?await abaixoMinimo(S.me.lojaId).catch(()=>[]):[];
+  S._est=l;
+  $('#topActions').innerHTML=can('DONO','GERENTE')?`<button class="btn" data-act="gxEstCsv">Exportar planilha</button>${can('GERENTE')?'<button class="btn" data-act="editarMinimo">Estoque mínimo</button>':''}<button class="btn" data-act="contagemEstoque">Contagem</button><button class="btn gold" data-act="cadEstoque">Cadastrar aparelhos</button>`:'';
+  $('#view').innerHTML=`<div class="gx-kpis">
+    <div class="gx-kpi"><small>Disponíveis</small><b>${disp.length}</b><span>${gl.filter(g=>g.disp.length).length} modelo(s) prontos para vender</span></div>
+    <div class="gx-kpi"><small>Valor em estoque</small><b>${can('DONO','GERENTE','FINANCEIRO')?brl(custoT):'—'}</b><span>pelo custo · ${brl(vendaT)} pelo preço de venda</span></div>
+    <div class="gx-kpi ${parados.length?'warn':'ok'}"><small>Parados há +${EST_PARADO} dias</small><b>${parados.length}</b><span>${parados.length?'faça uma ação de venda':'estoque girando bem'}</span></div>
+    <div class="gx-kpi ok"><small>Vendidos no mês</small><b>${vendMes}</b><span>trava instalada</span></div>
+    <div class="gx-kpi ${cont.EM_TRANSITO?'warn':''}"><small>Em transferência</small><b>${cont.EM_TRANSITO}</b><span>${aReceber.length?aReceber.length+' para você receber':'entre lojas'}</span></div></div>
+  ${repor.length?`<div class="ln-alerta">${svg(IC.estoque)}<div><b>Repor estoque</b>${repor.map(o=>`${esc(o.x.marca+' '+o.x.modelo+' '+o.x.capacidade)}: tem ${o.tem}, mínimo ${o.m}`).join(' · ')}</div></div>`:''}
+  ${aReceber.length&&can('GERENTE','DONO')?`<div class="card mb"><h2>Transferências a receber</h2>${aReceber.map(e=>`<div class="pend"><div class="t2"><b>${esc(nomeE(e))}</b><span>IMEI <span class="mono">${esc(e.imei)}</span> · vindo de ${esc(e.lojaNome||'')}</span></div><button class="btn sm gold" data-act="receberEstoque" data-id="${e.id}">Confirmar recebimento</button></div>`).join('')}</div>`:''}
+  <div class="gx-tb">${can('DONO','FINANCEIRO')?`<select id="estLoja" style="width:200px"><option value="">Todas as lojas</option>${S.lojas.map(x=>`<option value="${x.id}" ${lojaF===x.id?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>`:''}
+    <input id="estq" placeholder="Buscar IMEI, modelo, cor ou nota fiscal" style="flex:1;min-width:220px" value="${esc(S.filtro.estq||'')}">
+    <div class="gx-seg"><button data-act="filtro" data-k="estVis" data-v="modelo" class="${vis==='modelo'?'on':''}">Por modelo</button><button data-act="filtro" data-k="estVis" data-v="imei" class="${vis==='imei'?'on':''}">Por IMEI</button></div></div>
+  ${vis==='modelo'?`<div class="card tablewrap"><table class="gx-t resp"><thead><tr><th>Modelo</th><th class="r">Disponíveis</th>${can('GERENTE')?'<th class="r">Mínimo</th>':''}<th class="r">Custo médio</th><th class="r">Preço de venda</th><th class="r">Margem</th><th class="r">Mais antigo</th><th class="r">Vendidos 30 dias</th><th class="r">Dá para</th></tr></thead><tbody>
+    ${gl.map(g=>{ const cm=g.disp.length?r2(g.disp.reduce((s,e)=>s+(+e.custo||0),0)/g.disp.length):0, pv=+g.x?.preco||0, mg=cm&&pv?Math.round((pv-cm)/pv*100):null, ant=g.disp.length?Math.max(...g.disp.map(e=>gxDias(e.criadoEm))):0, cob=g.v30?Math.round(g.disp.length/(g.v30/30)):null, m=+min[g.k]||0;
+      return `<tr class="cl" data-act="gxEstModelo" data-k="${esc(g.k)}"><td data-l="Modelo"><b>${esc(g.nome)}</b></td><td data-l="Disponíveis" class="r"><b>${g.disp.length}</b>${m&&g.disp.length<m?' '+badge('repor','red'):''}</td>${can('GERENTE')?`<td data-l="Mínimo" class="r">${m||'—'}</td>`:''}
+        <td data-l="Custo médio" class="r">${cm?brl(cm):'—'}</td><td data-l="Preço" class="r">${pv?brl(pv):'—'}</td><td data-l="Margem" class="r">${mg==null?'—':badge(mg+'%',mg<15?'red':mg<25?'amber':'green')}</td>
+        <td data-l="Mais antigo" class="r">${g.disp.length?(ant>EST_PARADO?badge(ant+' dias','amber'):ant+' dias'):'—'}</td><td data-l="Vendidos 30d" class="r">${g.v30}</td><td data-l="Dá para" class="r">${cob==null?'—':cob+' dias'}</td></tr>`; }).join('')||'<tr><td colspan="9" class="empty">Nenhum aparelho no estoque. Toque em “Cadastrar aparelhos”.</td></tr>'}</tbody></table></div>
+    <p class="hint">“Dá para” = em quantos dias o estoque do modelo acaba no ritmo dos últimos 30 dias. Toque num modelo para ver os IMEIs.</p>`
+  :`<div class="gx-seg mb">${[['DISPONIVEL','Disponíveis'],['EM_TRANSITO','Em transferência'],['VENDIDO','Vendidos'],['RETOMADO','Retomados'],['BAIXADO','Baixados'],['todos','Todos']].map(([k,t])=>`<button data-act="filtro" data-k="estSt" data-v="${k}" class="${st===k?'on':''}">${t}<i>${cont[k]||0}</i></button>`).join('')}</div>
+    <div class="card tablewrap"><table class="gx-t resp"><thead><tr><th>Aparelho</th><th>IMEI</th><th>Loja</th><th>Entrada</th>${can('DONO','GERENTE','FINANCEIRO')?'<th class="r">Custo</th>':''}<th>Situação</th><th></th></tr></thead><tbody>
+    ${lista.slice(0,300).map(e=>{ const d=gxDias(e.criadoEm); return `<tr><td data-l="Aparelho"><b>${esc(e.marca+' '+e.modelo)}</b> ${esc(e.capacidade||'')}<div class="small muted">${esc(e.cor||'')}${e.notaFiscal?' · NF '+esc(e.notaFiscal):''}</div></td>
+      <td data-l="IMEI" class="mono small">${esc(e.imei)}${e.imei2?'<br>'+esc(e.imei2):''}</td><td data-l="Loja">${esc(e.lojaNome||lojaNome(e.lojaId))}</td>
+      <td data-l="Entrada">${e.criadoEm?fmtD(isoDate(new Date(e.criadoEm))):'—'}${e.status==='DISPONIVEL'?`<div class="small ${d>EST_PARADO?'':'muted'}" ${d>EST_PARADO?'style="color:#B7791F;font-weight:600"':''}>${d} dia(s) parado</div>`:''}</td>
+      ${can('DONO','GERENTE','FINANCEIRO')?`<td data-l="Custo" class="r">${e.custo?brl(e.custo):'—'}</td>`:''}<td data-l="Situação">${badge(...(EST_ST[e.status]||[e.status,'gray']))}${e.motivoBaixa?`<div class="small muted">${esc(e.motivoBaixa)}</div>`:''}</td>
+      <td class="r" style="white-space:nowrap"><button class="btn sm" data-act="gxEstFicha" data-id="${e.id}">Ficha</button>${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?` <button class="btn sm" data-act="transferirEstoque" data-id="${e.id}">Transferir</button> <button class="btn sm" data-act="baixarEstoque" data-id="${e.id}">Baixa</button>`:''}</td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nada encontrado</td></tr>'}</tbody></table></div>
+    ${lista.length>300?`<p class="small muted">Mostrando 300 de ${lista.length}. Use a busca para achar um IMEI.</p>`:''}`}
+  <p class="hint">O vendedor só vende um aparelho que esteja aqui como <b>disponível</b> na loja dele. Quando a trava sobe, ele passa a <b>vendido</b> sozinho; venda cancelada volta para disponível.</p>`;
+  $('#estLoja')?.addEventListener('change',e=>{ S.filtro.estLoja=e.target.value; render(); });
+  $('#estq').addEventListener('input',e=>{ S.filtro.estq=e.target.value; clearTimeout(S._esT); S._esT=setTimeout(()=>{ if(onlyDig(e.target.value).length>=4&&S.filtro.estVis!=='imei') S.filtro.estVis='imei'; PAGES.estoque().then(()=>{ const el=$('#estq'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }); },300); });
+}
+{ const _pe=PAGES.estoque; PAGES.estoque=async()=>{ const n=await devolverCancelados(); await gxEstoque(); if(n) toast(n+' aparelho(s) de venda cancelada voltaram ao estoque','ok'); }; }
+function gxEstFicha(id){
+  const e=(S._est||[]).find(x=>x.id===id); if(!e) return;
+  const ev=[[e.criadoEm,'Entrada no estoque',`${e.lojaNome||lojaNome(e.lojaId)}${e.criadoPor?' · '+e.criadoPor:''}${e.notaFiscal?' · NF '+e.notaFiscal:''}`],
+    ...(e.historico||[]).map(h=>[h.recebidoEm||h.enviadoEm||h.em,'Transferência',`${h.de||''} → ${h.para||''}${h.por?' · '+h.por:''}`]),
+    ...(e.vendidoEm?[[e.vendidoEm,'Vendido',e.vendaId?'contrato ligado':'']]:[]),...(e.status==='BAIXADO'?[[e.baixadoEm||e.atualizadoEm,'Baixa',e.motivoBaixa||e.obs||'']]:[]),
+    ...(e.obs&&e.status!=='BAIXADO'?[[e.atualizadoEm,'Observação',e.obs]]:[])].filter(x=>x[0]).sort((a,b)=>a[0]-b[0]);
+  openModal(`<div class="gx-vh"><div><h2>${esc(e.marca+' '+e.modelo)} ${esc(e.capacidade||'')}</h2><div class="s">${esc(e.cor||'')} · ${esc(e.lojaNome||lojaNome(e.lojaId))}</div></div>${badge(...(EST_ST[e.status]||[e.status,'gray']))}</div>
+    <div class="gx-vk"><div><small>IMEI 1</small><b class="mono" style="font-size:14px">${esc(e.imei)}</b></div>${e.imei2?`<div><small>IMEI 2</small><b class="mono" style="font-size:14px">${esc(e.imei2)}</b></div>`:''}
+      ${can('DONO','GERENTE','FINANCEIRO')?`<div><small>Custo</small><b>${e.custo?brl(e.custo):'—'}</b></div>`:''}<div><small>No estoque há</small><b>${gxDias(e.criadoEm)} dias</b></div></div>
+    <h3 class="mt">Movimentações</h3><ul class="gx-tl">${ev.map(x=>`<li><b>${esc(x[1])}</b><small>${fmtDT(x[0])}${x[2]?' · '+esc(x[2]):''}</small></li>`).join('')||'<li>Sem movimentações</li>'}</ul>
+    <div class="gx-acts">${e.vendaId?`<button class="btn" data-act="verVenda" data-id="${e.vendaId}">Ver a venda</button>`:''}<button class="btn" data-act="gxEtiqueta" data-id="${e.id}">Imprimir etiqueta</button>
+      ${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?`<button class="btn" data-act="transferirEstoque" data-id="${e.id}">Transferir</button><button class="btn red" data-act="baixarEstoque" data-id="${e.id}">Dar baixa</button>`:''}</div>`,true);
+}
+function gxEtiqueta(id){ const e=(S._est||[]).find(x=>x.id===id); if(!e) return;
+  let qr=''; try{ const q=qrcode(0,'M'); q.addData(e.imei); q.make(); qr=q.createSvgTag({cellSize:3,margin:0}); }catch(err){}
+  const w=window.open('','_blank'); if(!w) return toast('Libere as janelas para imprimir','err');
+  w.document.write(`<html><head><title>Etiqueta ${esc(e.imei)}</title><style>body{font-family:Arial,sans-serif;margin:0}.e{width:62mm;height:29mm;border:1px dashed #999;padding:2mm 3mm;box-sizing:border-box;display:flex;gap:3mm;align-items:center}.e b{font-size:11pt}.e div{font-size:8.5pt;line-height:1.3}@media print{.e{border:0}}</style></head><body onload="print()">
+    <div class="e">${qr}<div><b>${esc(e.marca+' '+e.modelo)}</b><br>${esc(e.capacidade||'')} ${esc(e.cor||'')}<br>IMEI ${esc(e.imei)}${e.imei2?'<br>IMEI2 '+esc(e.imei2):''}<br>${esc(S.cfg.empresa||MARCA)}</div></div></body></html>`); w.document.close(); }
+function gxEstCsv(){ const l=S._est||[]; const linhas=[['Loja','Marca','Modelo','Memória','Cor','IMEI','IMEI 2','Situação','Entrada','Dias parado','Custo','Nota fiscal']]
+  .concat(l.map(e=>[e.lojaNome||lojaNome(e.lojaId),e.marca,e.modelo,e.capacidade,e.cor||'',e.imei,e.imei2||'',(EST_ST[e.status]||[e.status])[0],e.criadoEm?fmtD(isoDate(new Date(e.criadoEm))):'',e.status==='DISPONIVEL'?gxDias(e.criadoEm):'',String(e.custo||'').replace('.',','),e.notaFiscal||'']));
+  const csv='﻿'+linhas.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(';')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`estoque-${hoje()}.csv`; a.click(); }
+Object.assign(ACT,{ gxEstFicha:d=>gxEstFicha(d.id), gxEtiqueta:d=>gxEtiqueta(d.id), gxEstCsv:()=>gxEstCsv(),
+  gxEstModelo:d=>{ const g=(S._est||[]).find(e=>(e.catalogoId||'')===d.k||`${e.marca} ${e.modelo} ${e.capacidade}`.trim()===d.k); S.filtro.estVis='imei'; S.filtro.estSt='DISPONIVEL'; S.filtro.estq=g?`${g.modelo} ${g.capacidade||''}`.trim():''; render(); } });
+
+/* ---------- 9. fila de cobrança: quem mandou mensagem trava o cliente por 24 h; os vendedores também cobram ---------- */
+const TRAVA_MSG_MS=24*3600e3;
+const travaAtiva=fd=>fd?.travaMsg&&+fd.travaMsg.ate>Date.now();
+async function filaDocs(){ try{ return await DB.list('filaCobranca',can('DONO','FINANCEIRO','SUPORTE')?[['ativo','==',true]]:[['lojaId','==',S.me.lojaId]]); }catch(e){ console.warn('filaCobranca',e.message); return []; } }
+async function sincronizarFila(itens,docs){
+  if(Date.now()-(S._filaSync||0)<5*60000) return; S._filaSync=Date.now();
+  const ops=[], vivos=new Set();
+  itens.forEach(i=>{ const v=i.v; if(!v.lojaId) return; vivos.add(v.id); const p=(i.atr[0]||i.lembrete[0]||{});
+    ops.push({c:'filaCobranca',id:v.id,data:{vendaId:v.id,lojaId:v.lojaId,numero:v.numero||0,clienteNome:v.clienteNome||'',tel:(v.cliente?.telefones||[])[0]||v.cliente?.tel||'',aparelho:apNome(v),dias:i.dias||0,valor:r2(i.valor||p.valor||0),venc:p.venc||'',lembrete:!i.atr.length,ativo:true,atualizadoEm:Date.now()}}); });
+  docs.filter(d=>d.ativo&&!vivos.has(d.id)&&(can('DONO','FINANCEIRO','SUPORTE')||d.lojaId===S.me.lojaId)).forEach(d=>ops.push({c:'filaCobranca',id:d.id,data:{ativo:false,atualizadoEm:Date.now()}}));
+  for(let k=0;k<ops.length;k+=400) await DB.batch(ops.slice(k,k+400)).catch(e=>console.warn('sync fila',e.message));
+}
+async function marcarMensagem(id,canal){
+  const fd=(S._filaDocs||[]).find(x=>x.id===id)||{}, agora=Date.now();
+  if(travaAtiva(fd)&&fd.travaMsg.porUid!==S.me.uid) return false;
+  const c={em:agora,por:S.me.nome,porUid:S.me.uid,canal,resultado:'Mensagem enviada'};
+  await DB.set('filaCobranca',id,{travaMsg:{ate:agora+TRAVA_MSG_MS,por:S.me.nome,porUid:S.me.uid,canal,em:agora},contatos:[...(fd.contatos||[]).slice(-9),c],atualizadoEm:agora}).catch(e=>console.warn('trava msg',e.message));
+  if(can('DONO','FINANCEIRO','SUPORTE','GERENTE')){ const it=(S._fila||[]).find(i=>i.v.id===id); if(it){ const co=it.c||{}; await DB.set('cobrancas',id,{vendaId:id,numero:it.v.numero,clienteNome:it.v.clienteNome,lojaId:it.v.lojaId,contatos:[...(co.contatos||[]),{em:agora,por:S.me.nome,canal,resultado:'Mensagem enviada',obs:''}],promessas:co.promessas||[],atualizadoEm:agora}).catch(()=>{}); } }
+  await log('Cobrança: mensagem enviada',id,canal); return true;
+}
+const lockHtml=fd=>`<span class="gx-lock">🔒 ${esc(primeiroNome(fd.travaMsg.por))} ${fd.travaMsg.canal==='Ligação'?'ligou':'mandou mensagem'} ${relT(fd.travaMsg.em)} · libera em ${gxHoras(fd.travaMsg.ate-Date.now())}</span>`;
+function msgFilaVend(fd){ const n=primeiroNome(fd.clienteNome), loja=lojaNome(S.me.lojaId)||S.cfg.empresa||MARCA;
+  return fd.lembrete?`Olá, ${n}! Aqui é ${primeiroNome(S.me.nome)}, da ${loja}. Passando para lembrar que a parcela do seu ${fd.aparelho||'celular'} (contrato nº ${fd.numero}) vence ${fd.venc===hoje()?'hoje':'amanhã'}: ${brl(fd.valor)}. Pagando até o vencimento você ganha desconto. É só abrir o app NexumCell no celular, aba Parcelas. Qualquer dúvida, estou aqui!`
+    :`Olá, ${n}! Aqui é ${primeiroNome(S.me.nome)}, da ${loja}. Consta em aberto a parcela do seu ${fd.aparelho||'celular'} (contrato nº ${fd.numero}), com ${fd.dias} dia(s) de atraso: ${brl(fd.valor)} (fora multa e juros). Para não ter o aparelho bloqueado, pague pelo app NexumCell, aba Parcelas → PIX. Se já pagou, desconsidere. Posso ajudar em algo?`; }
+async function filaVendedor(){
+  const docs=(await filaDocs()).filter(d=>d.ativo!==false); S._filaDocs=docs;
+  const f=S.filtro.filaV||'cobrar', grp={cobrar:docs.filter(d=>!d.lembrete&&!travaAtiva(d)),lembrar:docs.filter(d=>d.lembrete&&!travaAtiva(d)),feitos:docs.filter(travaAtiva)};
+  const l=(grp[f]||[]).sort((a,b)=>(b.dias||0)-(a.dias||0)||(b.valor||0)-(a.valor||0));
+  $('#view').innerHTML=`<div class="gx-h"><div><h2>Fila de cobrança da loja</h2><p>Mande a mensagem para os clientes da loja que estão com parcela em aberto. Quando alguém da equipe manda, o cliente fica <b>travado por 24 horas</b> para ninguém mandar de novo.</p></div></div>
+    <div class="gx-kpis"><div class="gx-kpi bad"><small>Para cobrar</small><b>${grp.cobrar.length}</b><span>${brl(grp.cobrar.reduce((s,d)=>s+(+d.valor||0),0))} em atraso</span></div><div class="gx-kpi"><small>Lembretes</small><b>${grp.lembrar.length}</b><span>vencem hoje ou amanhã</span></div><div class="gx-kpi ok"><small>Já contatados</small><b>${grp.feitos.length}</b><span>nas últimas 24 horas</span></div></div>
+    <div class="gx-seg mb">${[['cobrar','Para cobrar'],['lembrar','Lembretes'],['feitos','Já contatados']].map(([k,t])=>`<button data-act="filtro" data-k="filaV" data-v="${k}" class="${f===k?'on':''}">${t}<i>${grp[k].length}</i></button>`).join('')}</div>
+    <div class="card" style="padding:0">${l.map((d,n)=>`<div class="fila-item"><div><div><span class="prio">${f==='cobrar'?n+1:'•'}</span><b>${esc(d.clienteNome)}</b> <span class="small muted">nº ${d.numero} · ${esc(d.aparelho||'')}</span></div>
+      <div class="meta">${d.lembrete?`Vence ${d.venc===hoje()?'hoje':'amanhã'} · ${brl(d.valor)}`:`<b style="color:var(--bad)">${d.dias} dia(s) de atraso · ${brl(d.valor)}</b>`}</div>
+      <div class="meta">${(d.contatos||[]).length?`Último contato: ${esc((d.contatos.slice(-1)[0]).por)} ${relT(d.contatos.slice(-1)[0].em)} (${esc(d.contatos.slice(-1)[0].canal)})`:'Ninguém falou com este cliente ainda'}</div></div>
+      <div class="row" style="gap:6px;justify-content:flex-end">${travaAtiva(d)&&d.travaMsg.porUid!==S.me.uid?lockHtml(d):`${travaAtiva(d)?lockHtml(d):''}<a class="btn sm green" target="_blank" rel="noopener" data-gxmsg="${d.id}" data-canal="WhatsApp" href="https://wa.me/${telWa(d.tel)}?text=${encodeURIComponent(msgFilaVend(d))}">WhatsApp</a><a class="btn sm" data-gxmsg="${d.id}" data-canal="Ligação" href="tel:${onlyDig(d.tel)}">Ligar</a>`}</div></div>`).join('')||'<p class="empty" style="padding:24px">Nenhum cliente nesta lista agora. 👏</p>'}</div>
+    <p class="hint">A lista é atualizada pela ${MARCA} ao longo do dia. Se o cliente disser que já pagou, avise o gerente.</p>`;
+}
+document.addEventListener('click',e=>{ const a=e.target.closest('[data-gxmsg]'); if(!a) return; const id=a.dataset.gxmsg, canal=a.dataset.canal||'WhatsApp';
+  marcarMensagem(id,canal).then(ok=>{ if(ok===false){ e.preventDefault?.(); toast('Outra pessoa da equipe já falou com este cliente. Aguarde as 24 horas.','err'); } setTimeout(()=>{ if(S.tab==='fila') render(); },1500); }); });
+{ const _pf=PAGES.fila; PAGES.fila=async(...a)=>{
+  if(can('VENDEDOR')) return filaVendedor();
+  await _pf(...a); if(!$('#view')) return;
+  const docs=await filaDocs(); S._filaDocs=docs; const m={}; docs.forEach(d=>m[d.id]=d);
+  sincronizarFila(S._fila||[],docs).catch(()=>{});
+  $('#view').querySelectorAll('.fila-item').forEach(it=>{ const id=it.querySelector('[data-act="registrarContato"]')?.dataset.id; if(!id) return; const fd=m[id];
+    const wa=it.querySelector('a.btn.green[href*="wa.me"]'), tel=it.querySelector('a[href^="tel:"]');
+    if(travaAtiva(fd)&&fd.travaMsg.porUid!==S.me.uid){ if(wa) wa.outerHTML=lockHtml(fd); if(tel) tel.remove(); }
+    else { if(wa){ wa.dataset.gxmsg=id; wa.dataset.canal='WhatsApp'; } if(tel){ tel.dataset.gxmsg=id; tel.dataset.canal='Ligação'; } if(travaAtiva(fd)) it.querySelector('.row')?.insertAdjacentHTML('afterbegin',lockHtml(fd)); } });
+  $('#view').querySelector('.hint')?.insertAdjacentHTML('beforeend',' Quem manda mensagem ou liga trava o cliente por 24 horas para o resto da equipe (gerente e vendedores), para o cliente não receber cobrança repetida.');
+}; }
+
+/* ---------- 10. recompra: proposta da NexumCell (dono, financeiro e suporte) + limite automático no app ---------- */
+const rcCond=()=>({entradaPct:+(S.cfg.recompraEntradaPct??20),descontoPct:+(S.cfg.recompraDescontoPct??5)});
+const emDiaV=v=>(v.parcelas||[]).filter(p=>p.pago).every(p=>atrasoParcela(p,hoje())<=3)&&!(v.acordos||[]).length&&!(v.parcelas||[]).some(p=>!p.pago&&p.venc<hoje());
+PAGES.recompra=async()=>{
+  const [vendas,pedidos]=await Promise.all([loadVendas(),DB.list('recompras').catch(()=>[])]), h=hoje(), porCpf={}, ped={};
+  pedidos.forEach(p=>ped[p.cpf||p.id]=p);
+  vendas.forEach(v=>{ if(v.clienteCpf) (porCpf[v.clienteCpf]=porCpf[v.clienteCpf]||[]).push(v); });
+  const cands=[];
+  for(const [cpf,vs] of Object.entries(porCpf)){
+    if(vs.some(v=>['ANALISE','APROVADA','INSTALANDO','AGUARDANDO_ENTRADA','RETOMADA'].includes(v.status))) continue;
+    const at=vs.filter(v=>v.status==='ATIVA'), qt=vs.filter(v=>v.status==='QUITADA');
+    let fase='', base=null;
+    if(at.length===1&&!qt.some(()=>false)){ const v=at[0], ps=v.parcelas||[], falta=ps.filter(p=>!p.pago).length; if(ps.length>=2&&falta===1&&emDiaV(v)){ fase='ULTIMA'; base=v; } }
+    if(!fase&&!at.length&&qt.length){ fase='QUITOU'; base=qt.sort((a,b)=>(b.quitadoEm||0)-(a.quitadoEm||0))[0]; }
+    if(!fase) continue;
+    const todas=[...qt,...(fase==='ULTIMA'?[base]:[])], atr=todas.flatMap(v=>(v.parcelas||[]).filter(p=>p.pago).map(p=>atrasoParcela(p,h))), maior=Math.max(0,...atr);
+    if(maior>30) continue;
+    const nivel=maior<=3?['Excelente','green',1.5]:maior<=10?['Bom','blue',1.25]:['Regular','amber',1];
+    const credito=Math.round(Math.max(+base.financiado||0,+base.analise?.limite||0)*nivel[2]/50)*50;
+    cands.push({cpf,v:base,fase,nome:base.clienteNome,tel:(base.cliente?.telefones||[])[0]||base.cliente?.tel||'',loja:base.lojaNome,lojaId:base.lojaId,qt:qt.length,maior,nivel,credito,ped:ped[cpf]||null});
+  }
+  Object.values(ped).filter(p=>p.status==='INTERESSE'&&!cands.some(c=>c.cpf===(p.cpf||p.id))).forEach(p=>cands.push({cpf:p.cpf||p.id,v:null,fase:'APP',nome:p.clienteNome,tel:p.tel,loja:p.lojaNome,lojaId:p.lojaId,qt:0,maior:0,nivel:['Pediu pelo app','blue',1],credito:+p.valor||0,ped:p}));
+  S._rc=cands;
+  const f=S.filtro.rcF||'todos', ord={APP:0,ULTIMA:1,QUITOU:2};
+  const grp={todos:cands,pediram:cands.filter(c=>c.ped?.status==='INTERESSE'),ultima:cands.filter(c=>c.fase==='ULTIMA'),quitou:cands.filter(c=>c.fase==='QUITOU'),semProposta:cands.filter(c=>!c.ped||!['PROPOSTA_ENVIADA','COMPROU'].includes(c.ped.status))};
+  const lista=(grp[f]||cands).sort((a,b)=>(a.ped?.status==='INTERESSE'?-1:0)-(b.ped?.status==='INTERESSE'?-1:0)||ord[a.fase]-ord[b.fase]||a.maior-b.maior);
+  const cd=rcCond(), ST={INTERESSE:['Pediu pelo app','blue'],PROPOSTA_ENVIADA:['Proposta enviada','amber'],COMPROU:['Comprou de novo','green'],NAO_QUER:['Não quer agora','gray'],NUMERO_ERRADO:['Número errado','red']};
+  $('#topActions').innerHTML=can('DONO')?'<button class="btn" data-act="gxRcConfig">Condições da recompra</button>':'';
+  $('#view').innerHTML=`<div class="gx-h"><div><h2>Recompra: clientes que pagam em dia</h2><p>Quem paga em dia ganha <b>limite automático no app</b> quando falta só a última parcela, antes de a trava sair do aparelho. Aqui a ${MARCA} manda a proposta de celular novo com <b>entrada a partir de ${cd.entradaPct}%</b> e <b>${cd.descontoPct} ponto(s) a menos de juros</b>.</p></div></div>
+    <div class="gx-kpis"><div class="gx-kpi"><small>Pediram pelo app</small><b>${grp.pediram.length}</b><span>querem um celular novo</span></div><div class="gx-kpi ok"><small>Falta a última parcela</small><b>${grp.ultima.length}</b><span>limite já aparece no app</span></div>
+      <div class="gx-kpi"><small>Quitaram</small><b>${grp.quitou.length}</b><span>sem contrato ativo</span></div><div class="gx-kpi warn"><small>Sem proposta</small><b>${grp.semProposta.length}</b><span>oportunidade parada</span></div></div>
+    <div class="gx-seg mb">${[['todos','Todos'],['pediram','Pediram pelo app'],['ultima','Última parcela'],['quitou','Quitaram'],['semProposta','Sem proposta']].map(([k,t])=>`<button data-act="rcFiltro" data-f="${k}" class="${f===k?'on':''}">${t}<i>${grp[k].length}</i></button>`).join('')}</div>
+    <div class="card tablewrap"><table class="gx-t resp"><thead><tr><th>Cliente</th><th>Momento</th><th>Histórico</th><th class="r">Limite</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${lista.map(c=>`<tr><td data-l="Cliente"><b>${esc(c.nome)}</b><div class="small muted">${fmtCpf(c.cpf)} · ${esc(c.loja||'')}</div></td>
+      <td data-l="Momento">${c.fase==='ULTIMA'?badge('Falta a última parcela','green'):c.fase==='QUITOU'?badge('Quitou','navy'):badge('Pediu pelo app','blue')}${c.v&&c.fase==='ULTIMA'?`<div class="small muted">última vence ${fmtD((c.v.parcelas||[]).find(p=>!p.pago)?.venc)}</div>`:''}</td>
+      <td data-l="Histórico">${c.fase==='APP'?'—':badge(c.nivel[0],c.nivel[1])}<div class="small muted">${c.qt?c.qt+' quitado(s) · ':''}maior atraso ${c.maior} dia(s)</div></td>
+      <td data-l="Limite" class="r"><b>${c.credito?brl(c.credito):'—'}</b></td>
+      <td data-l="Situação">${c.ped?badge(...(ST[c.ped.status]||[c.ped.status,'gray']))+`<div class="small muted">${esc(c.ped.por||(c.ped.via==='APP'?'pelo app':''))} ${relT(c.ped.atualizadoEm||c.ped.em)}</div>`:'<span class="muted small">—</span>'}</td>
+      <td class="r" style="white-space:nowrap">${c.tel?`<button class="btn sm gold" data-act="gxRcProposta" data-cpf="${c.cpf}">Enviar proposta</button> `:''}<button class="btn sm" data-act="rcMarcar" data-cpf="${c.cpf}">Resultado</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum cliente nesta lista</td></tr>'}</tbody></table></div>
+    <p class="hint">O limite sai do histórico (último valor financiado × 1,5 para excelente, × 1,25 para bom). A compra nova passa pela análise; aprovada, o sistema aplica sozinho a entrada menor e o desconto nos juros.</p>`;
+};
+function gxRcProposta(cpf){
+  const c=S._rc?.find(x=>x.cpf===cpf); if(!c) return; const cd=rcCond(), ate=addDays(hoje(),30);
+  openModal(`<h2>Proposta de celular novo — ${esc(primeiroNome(c.nome))}</h2><p class="muted" style="margin-top:-6px">${esc(c.nome)} · ${c.fase==='ULTIMA'?'falta só a última parcela':c.fase==='QUITOU'?'quitou o contrato':'pediu pelo app'}</p>
+    <div class="grid g2"><label>Limite pré-aprovado (R$)<input id="rcV" type="number" step="50" min="0" value="${c.credito||''}"></label><label>Válida até<input id="rcAte" type="date" min="${hoje()}" value="${ate}"></label>
+      <label>Entrada a partir de (%)<input id="rcE" type="number" min="0" max="90" value="${cd.entradaPct}"></label><label>Desconto nos juros (pontos %)<input id="rcD" type="number" min="0" max="50" value="${cd.descontoPct}"></label></div>
+    <label class="mt">Mensagem<textarea id="rcMsgT" rows="6"></textarea></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn green" id="rcEnv">Enviar no WhatsApp</button></div>`);
+  const msg=()=>`Olá, ${primeiroNome(c.nome)}! Aqui é da ${MARCA}. ${c.fase==='ULTIMA'?'Você está quase quitando o seu celular e pagou tudo em dia':c.fase==='QUITOU'?'Você quitou o seu celular com a gente':'Recebemos o seu pedido de celular novo'} — obrigado pela confiança! 🎉\n\nPor isso preparamos uma condição especial para você trocar de aparelho:\n• Crédito pré-aprovado de até ${brl(+$('#rcV').value||0)}\n• Entrada a partir de ${+$('#rcE').value||0}%\n• Juros menores (${+$('#rcD').value||0} ponto(s) de desconto)\n\nVálido até ${fmtD($('#rcAte').value)}. Quer ver os modelos? É só responder aqui.`;
+  const upd=()=>{ $('#rcMsgT').value=msg(); }; upd(); ['rcV','rcE','rcD','rcAte'].forEach(i=>$('#'+i).addEventListener('input',upd));
+  $('#rcEnv').onclick=async()=>{ const valor=+$('#rcV').value||0, entradaPct=+$('#rcE').value||0, descontoPct=+$('#rcD').value||0, ate=$('#rcAte').value;
+    window.open(`https://wa.me/${telWa(c.tel)}?text=${encodeURIComponent($('#rcMsgT').value)}`,'_blank','noopener');
+    const pre={valor,ate,em:Date.now(),loja:c.loja||'',entradaPct,descontoPct,motivo:'proposta de recompra',por:S.me.nome};
+    await DB.set('recompras',cpf,{cpf,status:'PROPOSTA_ENVIADA',clienteNome:c.nome,tel:c.tel,lojaId:c.lojaId||'',lojaNome:c.loja||'',vendaId:c.v?.id||'',valor,entradaPct,descontoPct,ate,por:S.me.nome,atualizadoEm:Date.now(),em:c.ped?.em||Date.now()});
+    if(can('DONO','FINANCEIRO')){ await DB.set('clientes',cpf,{preAprovado:pre}).catch(()=>{}); if(c.v?.aparelhoToken&&c.v.status==='ATIVA') await DB.set('aparelhos',c.v.aparelhoToken,{preAprovado:pre}).catch(()=>{}); }
+    await log('Recompra: proposta enviada',cpf,`${c.nome} · ${brl(valor)} · entrada ${entradaPct}% · −${descontoPct} juros`); closeModal(); toast('Proposta registrada','ok'); render(); };
+}
+rcMarcar=async function(cpf,res){ const c=S._rc?.find(x=>x.cpf===cpf); if(!c) return;
+  const R=[['PROPOSTA_ENVIADA','Chamado, aguardando'],['COMPROU','Comprou de novo'],['NAO_QUER','Não quer agora'],['NUMERO_ERRADO','Número errado']];
+  if(!res){ openModal(`<h2>Resultado — ${esc(c.nome)}</h2><div class="grid g2">${R.map(([k,t])=>`<button class="btn" data-act="rcRes" data-cpf="${cpf}" data-r="${k}">${t}</button>`).join('')}</div>`); return; }
+  await DB.set('recompras',cpf,{cpf,status:res,clienteNome:c.nome,tel:c.tel,lojaId:c.lojaId||'',lojaNome:c.loja||'',por:S.me.nome,atualizadoEm:Date.now()});
+  await log('Recompra: resultado',cpf,`${c.nome} · ${(R.find(x=>x[0]===res)||[])[1]||res}`); closeModal(); toast('Registrado','ok'); render(); };
+function gxRcConfig(){ const cd=rcCond();
+  openModal(`<h2>Condições da recompra</h2><p class="muted" style="margin-top:-6px">Valem para o limite automático (falta a última parcela ou quitou, tudo em dia) e para as propostas.</p>
+    <div class="grid g2"><label>Entrada mínima na recompra (%)<input id="rcCE" type="number" min="0" max="90" value="${cd.entradaPct}"></label><label>Desconto nos juros (pontos %)<input id="rcCD" type="number" min="0" max="50" value="${cd.descontoPct}"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn gold" id="rcCOk">Salvar</button></div>`);
+  $('#rcCOk').onclick=async()=>{ const d={recompraEntradaPct:Math.max(0,+$('#rcCE').value||0),recompraDescontoPct:Math.max(0,+$('#rcCD').value||0)}; await DB.set('config','sistema',d); Object.assign(S.cfg,d); await log('Condições da recompra alteradas','config',JSON.stringify(d)); closeModal(); toast('Salvo','ok'); render(); }; }
+Object.assign(ACT,{ gxRcProposta:d=>gxRcProposta(d.cpf), gxRcConfig:()=>gxRcConfig(), rcMarcar:d=>rcMarcar(d.cpf), rcRes:d=>rcMarcar(d.cpf,d.r), rcFiltro:d=>{ S.filtro.rcF=d.f; render(); } });
+// aprovação manual pelo dono/financeiro: cliente pré-aprovado ganha as condições da recompra
+{ const _dc=decidir; decidir=async function(id,r,...x){ const out=await _dc.call(this,id,r,...x);
+  try{ if(r==='APROVADA'){ const v=await DB.get('vendas',id), pre=(await DB.get('clientes',v.clienteCpf).catch(()=>null))?.preAprovado;
+    if(v?.status==='APROVADA'&&pre&&pre.valor>0&&pre.ate>=hoje()&&!v.analise?.contraproposta&&!v.analise?.recompra){ const rc={entradaPct:+(pre.entradaPct??rcCond().entradaPct),descontoJuros:+(pre.descontoPct??rcCond().descontoPct)};
+      await DB.set('vendas',id,{analise:{...v.analise,recompra:rc},...(rc.descontoJuros>0&&!(+v.vip?.descontoJuros>=rc.descontoJuros)?{vip:{nivel:'Recompra',descontoJuros:rc.descontoJuros}}:{})}); await log('Recompra: condições aplicadas',id,`entrada ${rc.entradaPct}% · −${rc.descontoJuros} juros`); } } }catch(e){ console.warn('recompra aprovação',e.message); }
+  return out; }; }
+
+/* ---------- 11. trocas e devoluções ---------- */
+const TROCA_T={DEVOLUCAO:['Devolução','red'],TROCA_DEFEITO:['Troca por defeito','blue']}, TROCA_S={PENDENTE:['Aguardando a '+MARCA,'amber'],CONCLUIDA:['Concluída','green'],RECUSADA:['Recusada','gray']};
+PAGES.trocas=async()=>{
+  let l=await DB.list('trocas').catch(()=>[]); if(can('GERENTE')) l=l.filter(x=>x.lojaId===S.me.lojaId);
+  const mes=hoje().slice(0,7), f=S.filtro.trF||'PENDENTE', q=String(S.filtro.trq||'').toLowerCase();
+  const doMes=l.filter(x=>isoDate(new Date(x.criadoEm)).startsWith(mes)), dev=doMes.filter(x=>x.tipo==='DEVOLUCAO'&&x.status==='CONCLUIDA');
+  const vendasMes=(await loadVendas().catch(()=>[])).filter(v=>v.entradaPaga&&isoDate(new Date(v.entradaPaga.em)).startsWith(mes)&&(!can('GERENTE')||v.lojaId===S.me.lojaId)).length;
+  const lista=l.filter(x=>(f==='todos'||x.status===f)&&(!q||`${x.clienteNome} ${x.numero} ${x.imeiAntigo} ${x.novoImei}`.toLowerCase().includes(q))).sort((a,b)=>b.criadoEm-a.criadoEm);
+  $('#topActions').innerHTML=can('DONO','FINANCEIRO','GERENTE')?'<button class="btn gold" data-act="gxTrocaNova">Registrar troca ou devolução</button>':'';
+  $('#view').innerHTML=`<div class="gx-h"><div><h2>Trocas e devoluções</h2><p>Garantia de troca ou devolução em até <b>${diasTroca()} dias</b> da compra. A loja confere o aparelho e registra; a ${MARCA} aprova e executa (troca de IMEI na trava, cancelamento e estorno).</p></div></div>
+    <div class="gx-kpis"><div class="gx-kpi ${l.filter(x=>x.status==='PENDENTE').length?'warn':''}"><small>Aguardando aprovação</small><b>${l.filter(x=>x.status==='PENDENTE').length}</b><span>pedidos em aberto</span></div>
+      <div class="gx-kpi"><small>Trocas no mês</small><b>${doMes.filter(x=>x.tipo==='TROCA_DEFEITO').length}</b><span>por defeito</span></div>
+      <div class="gx-kpi bad"><small>Devoluções no mês</small><b>${dev.length}</b><span>${brl(dev.reduce((s,x)=>s+(+x.valorDevolver||0),0))} devolvidos</span></div>
+      <div class="gx-kpi"><small>Taxa de troca</small><b>${vendasMes?Math.round(doMes.length/vendasMes*100):0}%</b><span>das ${vendasMes} vendas do mês</span></div></div>
+    <div class="gx-tb"><div class="gx-seg">${[['PENDENTE','Aguardando'],['CONCLUIDA','Concluídas'],['RECUSADA','Recusadas'],['todos','Todas']].map(([k,t])=>`<button data-act="filtro" data-k="trF" data-v="${k}" class="${f===k?'on':''}">${t}<i>${k==='todos'?l.length:l.filter(x=>x.status===k).length}</i></button>`).join('')}</div>
+      <input id="trq" placeholder="Buscar cliente, contrato ou IMEI" value="${esc(S.filtro.trq||'')}" style="flex:1;min-width:200px"></div>
+    <div class="card tablewrap"><table class="gx-t resp"><thead><tr><th>Protocolo</th><th>Cliente / contrato</th><th>Tipo</th><th>Motivo</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${lista.map(x=>`<tr class="cl" data-act="gxTrocaVer" data-id="${x.id}"><td data-l="Protocolo"><b class="mono">TD-${String(x.id).slice(0,6).toUpperCase()}</b><div class="small muted">${fmtDT(x.criadoEm)}</div></td>
+      <td data-l="Cliente"><b>${esc(x.clienteNome)}</b><div class="small muted">nº ${x.numero} · ${esc(x.lojaNome||'')}</div></td><td data-l="Tipo">${badge(...(TROCA_T[x.tipo]||[x.tipo,'gray']))}</td>
+      <td data-l="Motivo" class="small">${esc(String(x.motivo||'').slice(0,80))}<div class="muted">${esc(x.estado||'')}</div></td><td data-l="Situação">${badge(...(TROCA_S[x.status]||[x.status,'gray']))}</td>
+      <td class="r" style="white-space:nowrap">${x.status==='PENDENTE'&&can('DONO','FINANCEIRO')?`<button class="btn sm gold" data-act="executarTroca" data-id="${x.id}">Aprovar e executar</button> <button class="btn sm" data-act="recusarTroca" data-id="${x.id}">Recusar</button>`:'<button class="btn sm">Abrir</button>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nada por aqui</td></tr>'}</tbody></table></div>
+    <p class="hint">Depois do prazo de ${diasTroca()} dias, defeito segue a garantia legal (90 dias, CDC art. 26): a loja tem até 30 dias para consertar (art. 18).</p>`;
+  $('#trq').addEventListener('input',e=>{ S.filtro.trq=e.target.value; clearTimeout(S._trT); S._trT=setTimeout(()=>PAGES.trocas().then(()=>{ const el=$('#trq'); el.focus(); el.setSelectionRange(el.value.length,el.value.length); }),300); });
+  S._trocas=l;
+};
+async function gxTrocaNova(){
+  openModal(`<h2>Registrar troca ou devolução</h2><p class="muted" style="margin-top:-6px">Procure a venda pelo número do contrato, CPF, nome ou IMEI. Só aparecem as vendas dentro do prazo de ${diasTroca()} dias.</p>
+    <input id="tnq" placeholder="Ex.: 1234, CPF, nome ou IMEI" style="width:100%" autocomplete="off"><div id="tnRes" class="mt"></div>`);
+  const vs=(await loadVendas()).filter(v=>dentroTroca(v)&&(!can('GERENTE')||v.lojaId===S.me.lojaId));
+  const des=()=>{ const q=String($('#tnq')?.value||'').trim().toLowerCase(), qd=onlyDig(q);
+    const l=vs.filter(v=>!q||String(v.numero)===q||(qd.length>=4&&(String(v.clienteCpf).includes(qd)||String(v.aparelho?.imei||'').includes(qd)))||String(v.clienteNome||'').toLowerCase().includes(q)).slice(0,12);
+    $('#tnRes').innerHTML=l.map(v=>`<div class="pend"><div class="t2"><b>${esc(v.clienteNome)}</b><span>nº ${v.numero} · ${esc(apNome(v))} · comprado ${fmtD(isoDate(new Date(inicioContrato(v))))} · resta(m) ${Math.max(0,diasTroca()-gxDias(inicioContrato(v)))} dia(s)</span></div><button class="btn sm gold" data-act="abrirTroca" data-id="${v.id}">Selecionar</button></div>`).join('')||`<p class="empty">${vs.length?'Nenhuma venda encontrada':'Nenhuma venda dentro do prazo de troca'}</p>`; };
+  des(); $('#tnq').addEventListener('input',des); $('#tnq').focus();
+}
+function gxTrocaVer(id){ const x=(S._trocas||[]).find(t=>t.id===id); if(!x) return;
+  const ck={caixa:'Caixa e acessórios',conta:'Conta Google removida',imei:'IMEI confere',dano:'Sem dano por mau uso'};
+  const ev=[[x.criadoEm,'Registrado',x.por],[x.executadoEm,'Executado',x.executadoPor],[x.recusadoEm,'Recusado',`${x.recusadoPor||''}${x.motivoRecusa?' · '+x.motivoRecusa:''}`]].filter(e=>e[0]);
+  openModal(`<div class="gx-vh"><div><h2>Protocolo TD-${String(x.id).slice(0,6).toUpperCase()}</h2><div class="s">${esc(x.clienteNome)} · contrato nº ${x.numero} · ${esc(x.lojaNome||'')}</div></div><div>${badge(...(TROCA_T[x.tipo]||[x.tipo,'gray']))} ${badge(...(TROCA_S[x.status]||[x.status,'gray']))}</div></div>
+    <div class="gx-vk"><div><small>Aparelho devolvido</small><b class="mono" style="font-size:13px">${esc(x.imeiAntigo||'—')}</b></div>${x.tipo==='TROCA_DEFEITO'?`<div><small>Aparelho novo</small><b class="mono" style="font-size:13px">${esc(x.novoImei||'—')}</b></div>`:`<div><small>Valor a devolver</small><b>${brl(x.valorDevolver)}</b></div><div><small>Forma</small><b>${esc(x.formaDevolucao||'—')}</b></div>`}<div><small>Estado</small><b style="font-size:13px">${esc(x.estado||'—')}</b></div></div>
+    <h3 class="mt">Relato do cliente</h3><div class="msg">${esc(x.motivo||'')}</div>
+    <h3>Conferência da loja</h3><div class="row" style="gap:6px;flex-wrap:wrap">${Object.entries(ck).map(([k,t])=>badge((x.checklist?.[k]?'✓ ':'✕ ')+t,x.checklist?.[k]?'green':'gray')).join(' ')}</div>
+    <h3 class="mt">Andamento</h3><ul class="gx-tl">${ev.map(e=>`<li><b>${e[1]}</b><small>${fmtDT(e[0])}${e[2]?' · '+esc(e[2]):''}</small></li>`).join('')}</ul>
+    <div class="gx-acts"><button class="btn" data-act="gxTrocaTermo" data-id="${x.id}">Imprimir termo</button><button class="btn" data-act="verVenda" data-id="${x.vendaId}">Ver a venda</button>
+      ${x.status==='PENDENTE'&&can('DONO','FINANCEIRO')?`<button class="btn" data-act="recusarTroca" data-id="${x.id}">Recusar</button><button class="btn gold" data-act="executarTroca" data-id="${x.id}">Aprovar e executar</button>`:''}</div>`,true); }
+function gxTrocaTermo(id){ const x=(S._trocas||[]).find(t=>t.id===id); if(!x) return;
+  janelaImpressao(`Termo de ${x.tipo==='DEVOLUCAO'?'devolução':'troca'} TD-${String(x.id).slice(0,6).toUpperCase()}`,`<h1>TERMO DE ${x.tipo==='DEVOLUCAO'?'DEVOLUÇÃO':'TROCA EM GARANTIA'} — PROTOCOLO TD-${String(x.id).slice(0,6).toUpperCase()}</h1>
+    <div class="cab">${esc(S.cfg.empresa||MARCA)}${S.cfg.cnpj?' · CNPJ '+esc(S.cfg.cnpj):''} · ${esc(x.lojaNome||'')}</div>
+    <table><tr><td>Cliente</td><td>${esc(x.clienteNome)}</td></tr><tr><td>Contrato</td><td>nº ${x.numero}</td></tr><tr><td>Data do pedido</td><td>${fmtDT(x.criadoEm)}</td></tr>
+    <tr><td>Aparelho devolvido (IMEI)</td><td>${esc(x.imeiAntigo||'')}</td></tr>${x.tipo==='TROCA_DEFEITO'?`<tr><td>Aparelho entregue (IMEI)</td><td>${esc(x.novoImei||'')}</td></tr>`:`<tr><td>Valor devolvido</td><td>${brl(x.valorDevolver)} · ${esc(x.formaDevolucao||'')}</td></tr>`}
+    <tr><td>Estado do aparelho</td><td>${esc(x.estado||'')}</td></tr><tr><td>Relato</td><td>${esc(x.motivo||'')}</td></tr><tr><td>Situação</td><td>${esc((TROCA_S[x.status]||[x.status])[0])}</td></tr></table>
+    <p>${x.tipo==='DEVOLUCAO'?'O cliente devolve o aparelho acima e a compra é cancelada, com a devolução do valor informado. A trava do aparelho é removida.':'O cliente recebe outro aparelho do mesmo modelo em substituição ao aparelho com defeito. O contrato continua o mesmo, com o novo IMEI.'}</p>
+    <div style="display:flex;gap:40px;margin-top:60px"><div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">Cliente</div><div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">${esc(x.por||'Loja')}</div></div>`); }
+recusarTroca=async function(tid){ const x=(S._trocas||[]).find(t=>t.id===tid)||await DB.get('trocas',tid);
+  openModal(`<h2>Recusar ${x?.tipo==='DEVOLUCAO'?'devolução':'troca'}</h2><p class="muted" style="margin-top:-6px">${esc(x?.clienteNome||'')} · contrato nº ${x?.numero||''}. A loja vê o motivo.</p>
+    <label>Motivo<select id="rtM"><option>Fora do prazo de ${diasTroca()} dias</option><option>Aparelho com dano por mau uso</option><option>Conta Google não removida</option><option>IMEI não confere com o contrato</option><option>Faltam caixa ou acessórios</option><option value="">Outro motivo…</option></select></label>
+    <label class="mt">Detalhes (opcional)<textarea id="rtX" rows="2"></textarea></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Voltar</button><button class="btn red" id="rtOk">Recusar</button></div>`);
+  $('#rtOk').onclick=async()=>{ const m=[$('#rtM').value,$('#rtX').value.trim()].filter(Boolean).join(' — '); if(!m) return toast('Informe o motivo','err');
+    await DB.set('trocas',tid,{status:'RECUSADA',recusadoEm:Date.now(),recusadoPor:S.me.nome,motivoRecusa:m}); await log('Troca/devolução recusada',tid,m); closeModal(); toast('Recusado','ok'); render(); }; };
+Object.assign(ACT,{ gxTrocaNova:()=>gxTrocaNova(), gxTrocaVer:d=>gxTrocaVer(d.id), gxTrocaTermo:d=>gxTrocaTermo(d.id), recusarTroca:d=>recusarTroca(d.id) });
+{ const _at=abrirTroca; abrirTroca=async(id,...r)=>{ await _at(id,...r); const b=$('#mbody'); if(!b||!$('#tcTipo')) return;
+  b.querySelector('h2')?.insertAdjacentHTML('afterend','<div class="gx-step"><span class="on">1. O que o cliente quer</span><span>2. Conferência</span><span>3. Resolução</span></div>');
+  $('#tcTipo').closest('.grid')?.insertAdjacentHTML('beforebegin',`<div class="gx-opt mb"><label><input type="radio" name="gxTt" value="TROCA_DEFEITO" checked><div><b>Trocar por outro igual</b><span>Defeito: mesmo modelo, contrato continua</span></div></label><label><input type="radio" name="gxTt" value="DEVOLUCAO"><div><b>Devolver e cancelar</b><span>Desistência: estorno do que foi pago</span></div></label></div>`);
+  $('#tcTipo').closest('label').style.display='none';
+  b.querySelectorAll('[name=gxTt]').forEach(r=>r.addEventListener('change',()=>{ $('#tcTipo').value=r.value; $('#tcTipo').dispatchEvent(new Event('change')); b.querySelectorAll('.gx-step span').forEach((s,i)=>s.className=i===0?'ok':''); }));
+  b.querySelector('#tcMotivo')?.addEventListener('input',()=>{ const s=b.querySelectorAll('.gx-step span'); if(s[1]) s[1].className='on'; });
+  b.querySelectorAll('[data-tck]').forEach(c=>c.addEventListener('change',()=>{ const s=b.querySelectorAll('.gx-step span'); if([...b.querySelectorAll('[data-tck]')].every(x=>x.checked)&&s[2]){ s[1].className='ok'; s[2].className='on'; } })); }; }
+
+/* ---------- 12. ficha da venda: cabeçalho, resumo, abas e ações organizadas ---------- */
+{ const _vv=verVenda; verVenda=async function(id,...r){ const x=await _vv.call(this,id,...r);
+  try{ const b=$('#mbody'); if(!b||b.querySelector('.gx-vh')) return x; const v=await DB.get('vendas',id); if(!v) return x;
+    const top=b.firstElementChild, sub=top?.nextElementSibling; const ps=v.parcelas||[], pagas=ps.filter(p=>p.pago), abertas=ps.filter(p=>!p.pago).sort((a,c)=>a.venc.localeCompare(c.venc)), atr=abertas.filter(p=>p.venc<hoje());
+    const pago=r2(pagas.reduce((s,p)=>s+(+p.valorPago||+p.valor||0),0)), aberto=r2(abertas.reduce((s,p)=>s+(+p.valor||0),0));
+    const head=`<div class="gx-vh"><div><h2>Venda nº ${v.numero}</h2><div class="s">${esc(v.clienteNome||'')}${v.clienteCpf?' · '+fmtCpf(v.clienteCpf):''}</div><div class="s">${esc(v.lojaNome||'')} · vendedor ${esc(v.vendedorNome||'')}${v.feitaPorNome?' (atendido por '+esc(v.feitaPorNome)+')':''} · ${fmtDT(v.criadoEm)}${v.remota?' · '+badge(v.remota.modalidade==='ENTREGA'?'a distância com entrega':'a distância','navy'):''}</div></div><div>${vBadge(v.status)}</div></div>
+      <div class="gx-vk"><div><small>Aparelho</small><b style="font-size:14px">${esc(apNome(v)||'—')}</b></div><div><small>Valor</small><b>${brl(v.valor)}</b></div><div><small>Entrada</small><b>${brl(v.entradaPaga?.valor??v.entrada)}</b></div>
+        ${ps.length?`<div><small>Plano</small><b>${v.nParcelas||ps.length}x ${brl(v.valorParcela)}</b></div><div><small>Pagas</small><b>${pagas.length} de ${ps.length}</b></div><div><small>${atr.length?'Em atraso':'Próximo vencimento'}</small><b style="${atr.length?'color:#C0392B':''}">${atr.length?brl(atr.reduce((s,p)=>s+(+p.valor||0),0)):abertas[0]?fmtD(abertas[0].venc):'quitado'}</b></div>`:''}</div>`;
+    if(top&&top.tagName==='DIV'&&/Venda nº/.test(top.textContent)){ top.remove(); if(sub&&sub.tagName==='P') sub.remove(); }
+    // separa o conteúdo em abas pelos títulos <h3>
+    const btns=[...b.children].filter(n=>n.matches('.row.mt')&&/flex-end/.test(n.getAttribute('style')||'')).pop(); if(btns) btns.remove();
+    const secoes=[], resto=[]; let atual=null;
+    [...b.childNodes].forEach(n=>{ if(n.nodeType===1&&n.classList.contains('aj-seg')){ resto.push(n); return; } if(n.nodeType===1&&n.tagName==='H3'){ atual={t:n.textContent.trim(),nodes:[n]}; secoes.push(atual); } else if(atual) atual.nodes.push(n); else resto.push(n); });
+    const ABA=t=>/Parcela|Renegocia/i.test(t)?'parcelas':/Nota fiscal|Provas|Documento|Selfie|Entrega/i.test(t)?'docs':/Devolu|Retomada|Quita/i.test(t)?'hist':'resumo';
+    const box={resumo:document.createElement('div'),parcelas:document.createElement('div'),docs:document.createElement('div'),hist:document.createElement('div')};
+    resto.forEach(n=>box.resumo.appendChild(n)); secoes.forEach(s=>s.nodes.forEach(n=>box[ABA(s.t)].appendChild(n)));
+    box.hist.insertAdjacentHTML('beforeend','<h3>Linha do tempo</h3><div id="gxVlog" class="small muted">Carregando…</div>');
+    const abas=[['resumo','Resumo'],['parcelas','Parcelas'+(ps.length?` (${pagas.length}/${ps.length})`:'')],['docs','Documentos e provas'],['hist','Histórico']].filter(([k])=>k==='hist'||box[k].textContent.trim());
+    b.innerHTML=''; b.insertAdjacentHTML('beforeend',head+`<div class="gx-tabs">${abas.map(([k,t],i)=>`<button data-gxaba="${k}" class="${i?'':'on'}">${t}</button>`).join('')}</div>`);
+    abas.forEach(([k],i)=>{ box[k].dataset.gxpane=k; if(i) box[k].hidden=true; b.appendChild(box[k]); });
+    if(btns){ const acts=document.createElement('div'); acts.className='gx-acts'; [...btns.children].forEach(c=>acts.appendChild(c)); b.appendChild(acts); }
+    b.querySelectorAll('[data-gxaba]').forEach(t=>t.onclick=()=>{ b.querySelectorAll('[data-gxaba]').forEach(z=>z.classList.toggle('on',z===t)); b.querySelectorAll('[data-gxpane]').forEach(p=>p.hidden=p.dataset.gxpane!==t.dataset.gxaba); });
+    DB.list('logs',[['alvo','==',id]]).then(l=>{ const el=$('#gxVlog'); if(!el) return; l.sort((a,c)=>(c.em||0)-(a.em||0));
+      el.outerHTML=`<ul class="gx-tl">${l.slice(0,40).map(g=>`<li><b>${esc(g.acao||'')}</b><small>${fmtDT(g.em)} · ${esc(g.nome||g.por||'')}${g.detalhe||g.det?' · '+esc(String(g.detalhe||g.det).slice(0,120)):''}</small></li>`).join('')||'<li>Sem registros</li>'}</ul>`; }).catch(()=>{ const el=$('#gxVlog'); if(el) el.textContent='Não foi possível carregar o histórico.'; });
+    if(v.remota&&['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status)&&can('DONO','GERENTE','VENDEDOR')) b.querySelector('.gx-acts')?.insertAdjacentHTML('afterbegin',`<button class="btn navy" data-act="gxEntrega" data-id="${v.id}">${svg(IC.distancia)}Entrega</button>`);
+  }catch(e){ console.warn('ficha',e); }
+  return x; }; }
+
+/* ---------- 13. venda a distância (com retirada na loja ou entrega) ---------- */
+const ENT_ST={AGENDADA:['Entrega agendada','blue'],SAIU:['Saiu para entrega','amber'],ENTREGUE:['Entregue','green'],NAO_ENTREGUE:['Não entregue','red'],CANCELADA:['Cancelada','gray']};
+vendaRemota=async function(btn,modalidade){
+  if(!(await nbGate())) return;
+  openModal(`<h2>Venda a distância</h2><p class="muted" style="margin-top:-6px">O cliente faz tudo pelo celular dele: documento, selfie e dados. A proposta cai sozinha na análise e você acompanha em <b>Venda a distância e entrega</b>.</p>
+    <div class="gx-opt"><label><input type="radio" name="gxMod" value="RETIRADA" ${modalidade==='ENTREGA'?'':'checked'}><div><b>Cliente retira na loja</b><span>Análise a distância; assina, paga e instala a trava na loja</span></div></label>
+      <label><input type="radio" name="gxMod" value="ENTREGA" ${modalidade==='ENTREGA'?'checked':''}><div><b>Entregar no endereço</b><span>Aprovou, o aparelho vai até o cliente e a trava é instalada na entrega</span></div></label></div>
+    <div class="grid g2 mt"><label>WhatsApp do cliente (com DDD)<input id="vrTel" inputmode="tel" placeholder="(45) 99999-0000"></label><label>Nome do cliente (opcional)<input id="vrNome" autocomplete="off"></label></div>
+    <div class="gx-note mt small">${S._vendaPara&&can('GERENTE')?`Esta venda conta para <b>${esc(S._vendaPara.nome)}</b>. `:''}O link vale por 7 dias. Na entrega, nunca deixe o aparelho com o cliente sem a trava instalada.</div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn green" id="vrOk">Criar link e enviar no WhatsApp</button></div>`);
+  $('#vrOk').onclick=async()=>{ const tel=fone($('#vrTel').value), nome=$('#vrNome').value.trim(), mod=document.querySelector('[name=gxMod]:checked')?.value||'RETIRADA';
+    if(tel&&!/^\d{10,11}$/.test(tel)) return toast('WhatsApp com DDD','err');
+    $('#vrOk').disabled=true;
+    try{ const numero=await DB.nextNum(), id='v'+numero+'_'+token(5), lojaId=S.me.lojaId||S.lojas[0]?.id||'';
+      const v={numero,status:'REMOTA',criadoEm:Date.now(),lojaId,lojaNome:lojaNome(lojaId),...vendaDe(),dispositivoId:nbVenda(),
+        cliente:{telefones:tel?[tel]:[]},clienteCpf:'',clienteNome:nome||(tel?'Cliente '+fmtFone(tel):'Cliente a distância'),aparelho:null,valor:0,entrada:0,
+        remota:{token:token(24),criadoEm:Date.now(),tel,modalidade:mod,enviadoEm:Date.now(),envios:1}};
+      await DB.set('vendas',id,v); await log('Venda a distância: link enviado ao cliente',id,`nº ${numero} · ${mod==='ENTREGA'?'com entrega':'retira na loja'}`);
+      enviarLinkRemoto(v,tel); closeModal(); toast('Link enviado. Quando o cliente mandar os documentos, a proposta vai sozinha para a análise.','ok');
+      S._vendaParaOk=false; S.tab='distancia'; render();
+    }catch(e){ toast('Não foi possível criar o link: '+e.message,'err'); $('#vrOk').disabled=false; } };
+};
+function etapaRemota(v,ent){
+  if(v.status==='REMOTA') return ['link','Aguardando o cliente enviar os documentos','amber'];
+  if(v.status==='ANALISE') return ['analise','Documentos recebidos: em análise','amber'];
+  if(['REPROVADA','CANCELADA'].includes(v.status)) return ['fim',v.status==='REPROVADA'?'Crédito reprovado':'Cancelada','gray'];
+  if(v.status==='APROVADA') return ['aprovada','Aprovada: escolher o aparelho e mandar o contrato','blue'];
+  if(['AGUARDANDO_ENTRADA','INSTALANDO'].includes(v.status)) return ent&&ent.status!=='CANCELADA'?['entrega',(ENT_ST[ent.status]||[ent.status])[0]+(ent.data?' · '+fmtD(ent.data)+' '+(ent.periodo||''):''),'blue']:['aprovada',v.remota?.modalidade==='ENTREGA'?'Falta agendar a entrega':'Aguardando o cliente vir à loja','amber'];
+  if(v.status==='ATIVA') return ent&&ent.status!=='ENTREGUE'&&ent.status!=='CANCELADA'?['entrega','Trava instalada · confirmar a entrega','amber']:['fim','Concluída','green'];
+  return ['fim',(VENDA_ST[v.status]||[v.status])[0],'gray'];
+}
+PAGES.distancia=async()=>{
+  const [vs,ents]=await Promise.all([loadVendas(),DB.list('entregas',can('DONO','FINANCEIRO','SUPORTE')?[]:[['lojaId','==',S.me.lojaId]]).catch(()=>[])]);
+  const em={}; ents.forEach(e=>em[e.id]=e);
+  const minha=v=>can('VENDEDOR')?v.vendedorUid===S.me.uid:can('GERENTE')?v.lojaId===S.me.lojaId:true;
+  const l=vs.filter(v=>v.remota&&minha(v)&&Date.now()-(v.criadoEm||0)<45*86400000).map(v=>({v,ent:em[v.id]||null,et:etapaRemota(v,em[v.id])})).sort((a,b)=>(b.v.criadoEm||0)-(a.v.criadoEm||0));
+  const f=S.filtro.dsF||'andamento', grp={andamento:l.filter(x=>!['fim','entrega'].includes(x.et[0])),entregas:l.filter(x=>x.et[0]==='entrega'||(x.ent&&['AGENDADA','SAIU','NAO_ENTREGUE'].includes(x.ent.status))),fim:l.filter(x=>x.et[0]==='fim')};
+  const hojeE=ents.filter(e=>e.data===hoje()&&['AGENDADA','SAIU'].includes(e.status));
+  $('#topActions').innerHTML='<button class="btn" data-act="gxRemota" data-m="RETIRADA">📲 Venda a distância</button><button class="btn gold" data-act="gxRemota" data-m="ENTREGA">🛵 Venda com entrega</button>';
+  $('#view').innerHTML=`<div class="gx-h"><div><h2>Venda a distância e entrega</h2><p>Mande o link pelo WhatsApp: o cliente envia documento e selfie pelo celular e a proposta vai sozinha para a análise. Aprovou, você escolhe o aparelho, manda o contrato e <b>agenda a entrega</b> (ou o cliente retira na loja).</p></div></div>
+    <div class="gx-kpis"><div class="gx-kpi warn"><small>Aguardando o cliente</small><b>${l.filter(x=>x.et[0]==='link').length}</b><span>link enviado</span></div><div class="gx-kpi"><small>Em análise</small><b>${l.filter(x=>x.et[0]==='analise').length}</b><span>documentos recebidos</span></div>
+      <div class="gx-kpi"><small>Aprovadas</small><b>${l.filter(x=>x.et[0]==='aprovada').length}</b><span>escolher aparelho / agendar</span></div><div class="gx-kpi ${hojeE.length?'warn':''}"><small>Entregas hoje</small><b>${hojeE.length}</b><span>${ents.filter(e=>e.status==='AGENDADA'&&e.data>hoje()).length} agendada(s) para os próximos dias</span></div></div>
+    <div class="gx-seg mb">${[['andamento','Em andamento'],['entregas','Entregas'],['fim','Concluídas']].map(([k,t])=>`<button data-act="filtro" data-k="dsF" data-v="${k}" class="${f===k?'on':''}">${t}<i>${grp[k].length}</i></button>`).join('')}</div>
+    <div class="card tablewrap"><table class="gx-t resp"><thead><tr><th>Cliente</th><th>Modalidade</th><th>Etapa</th><th>Criada</th><th></th></tr></thead><tbody>
+    ${(grp[f]||[]).map(({v,ent,et})=>`<tr><td data-l="Cliente"><b>${esc(v.clienteNome)}</b><div class="small muted">nº ${v.numero}${(v.cliente?.telefones||[])[0]?' · '+esc(fmtFone(v.cliente.telefones[0])):''}${can('GERENTE','DONO')?' · '+esc(v.vendedorNome||''):''}</div></td>
+      <td data-l="Modalidade">${v.remota?.modalidade==='ENTREGA'||ent?badge('🛵 Entrega','navy'):badge('Retira na loja','gray')}${ent?.endereco?`<div class="small muted">${esc([ent.endereco,ent.bairro].filter(Boolean).join(', '))}</div>`:''}</td>
+      <td data-l="Etapa">${badge(et[1],et[2])}${ent?.entregadorNome&&et[0]==='entrega'?`<div class="small muted">entregador: ${esc(ent.entregadorNome)}</div>`:''}</td><td data-l="Criada">${relT(v.criadoEm)}</td>
+      <td class="r" style="white-space:nowrap">${v.status==='REMOTA'?`<button class="btn sm green" data-act="gxReenviar" data-id="${v.id}">Reenviar link</button> <button class="btn sm" data-act="copiarTexto" data-t="${esc(linkRemoto(v))}">Copiar link</button>`:''}
+        ${['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO'].includes(v.status)?`<button class="btn sm gold" data-act="continuar" data-id="${v.id}">Continuar venda</button> `:''}
+        ${['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA'].includes(v.status)&&(v.remota?.modalidade==='ENTREGA'||ent)?`<button class="btn sm ${ent?'':'navy'}" data-act="gxEntrega" data-id="${v.id}">${ent?'Entrega':'Agendar entrega'}</button> `:''}
+        <button class="btn sm" data-act="verVenda" data-id="${v.id}">Ficha</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nada por aqui. Toque em “Venda a distância” ou “Venda com entrega”.</td></tr>'}</tbody></table></div>
+    <p class="hint">Entrega segura: confira o documento original do cliente, instale a trava na frente dele (aba Continuar venda → trava) e só então entregue o aparelho. Tire a foto da entrega no fim.</p>`;
+};
+async function gxReenviar(id){ const v=await DB.get('vendas',id); if(!v) return; enviarLinkRemoto(v,v.remota?.tel||(v.cliente?.telefones||[])[0]||''); await DB.set('vendas',id,{remota:{...v.remota,enviadoEm:Date.now(),envios:(+v.remota?.envios||1)+1}}).catch(()=>{}); await log('Venda a distância: link reenviado',id,''); }
+async function gxEntrega(id){
+  const v=await DB.get('vendas',id); if(!v) return; const e=await DB.get('entregas',id).catch(()=>null), c=v.cliente||{};
+  const us=(await DB.list('users',[['lojaId','==',v.lojaId]]).catch(()=>[])).filter(u=>['VENDEDOR','GERENTE'].includes(u.role)&&u.ativo!==false);
+  if(e&&['SAIU','AGENDADA','NAO_ENTREGUE','ENTREGUE'].includes(e.status)&&!S._entEditar) return gxEntregaVer(v,e);
+  S._entEditar=false;
+  openModal(`<h2>${e?'Reagendar':'Agendar'} entrega — nº ${v.numero}</h2><p class="muted" style="margin-top:-6px">${esc(v.clienteNome)} · ${esc(apNome(v)||'aparelho a escolher')}</p>
+    <div class="grid g2"><label style="grid-column:1/-1">Endereço (rua e número)<input id="enEnd" value="${esc(e?.endereco||c.endereco||'')}"></label><label>Bairro<input id="enBai" value="${esc(e?.bairro||c.bairro||'')}"></label><label>Cidade<input id="enCid" value="${esc(e?.cidade||c.cidade||'')}"></label>
+      <label style="grid-column:1/-1">Ponto de referência<input id="enRef" value="${esc(e?.referencia||'')}" placeholder="perto de…, casa azul…"></label>
+      <label>Data<input id="enData" type="date" min="${hoje()}" value="${esc(e?.data||addDays(hoje(),1))}"></label><label>Período<select id="enPer">${['Manhã (8h–12h)','Tarde (13h–18h)','Noite (18h–21h)'].map(p=>`<option ${e?.periodo===p?'selected':''}>${p}</option>`).join('')}</select></label>
+      <label>Quem entrega<select id="enQuem">${us.map(u=>`<option value="${u.id}" ${(e?.entregadorUid||S.me.uid)===u.id?'selected':''}>${esc(u.nome)} (${esc(ROLES[u.role]||u.role)})</option>`).join('')}<option value="_out" ${e?.entregadorUid==='_out'?'selected':''}>Motoboy / outra pessoa</option></select></label><label id="enOutL" ${e?.entregadorUid==='_out'?'':'hidden'}>Nome do entregador<input id="enOut" value="${esc(e?.entregadorUid==='_out'?e.entregadorNome:'')}"></label>
+      <label>Taxa de entrega (R$)<input id="enTaxa" type="number" min="0" step="0.5" value="${e?.taxa??0}"></label><label>Entrada<select id="enPag">${['PIX antes de sair','Na entrega (dinheiro)','Na entrega (cartão)','Já paga'].map(p=>`<option ${e?.formaEntrada===p?'selected':''}>${p}</option>`).join('')}</select></label>
+      <label style="grid-column:1/-1">Observações<input id="enObs" value="${esc(e?.obs||'')}"></label></div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" id="enOk">${e?'Salvar':'Agendar entrega'}</button></div>`);
+  $('#enQuem').onchange=ev=>{ $('#enOutL').hidden=ev.target.value!=='_out'; };
+  $('#enOk').onclick=async()=>{ const q=$('#enQuem').value, quem=q==='_out'?$('#enOut').value.trim():(us.find(u=>u.id===q)?.nome||'');
+    if(!$('#enEnd').value.trim()||!$('#enBai').value.trim()) return toast('Informe o endereço e o bairro','err'); if(!quem) return toast('Informe quem vai entregar','err');
+    const d={vendaId:id,lojaId:v.lojaId,numero:v.numero,clienteNome:v.clienteNome,tel:(c.telefones||[])[0]||'',endereco:$('#enEnd').value.trim(),bairro:$('#enBai').value.trim(),cidade:$('#enCid').value.trim(),referencia:$('#enRef').value.trim(),
+      data:$('#enData').value,periodo:$('#enPer').value,entregadorUid:q,entregadorNome:quem,taxa:r2(+$('#enTaxa').value||0),formaEntrada:$('#enPag').value,obs:$('#enObs').value.trim(),status:'AGENDADA',
+      historico:[...(e?.historico||[]),{em:Date.now(),por:S.me.nome,acao:e?'Reagendada':'Agendada',det:`${fmtD($('#enData').value)} ${$('#enPer').value} · ${quem}`}],atualizadoEm:Date.now(),...(e?{}:{criadoEm:Date.now(),criadoPor:S.me.nome})};
+    try{ await DB.set('entregas',id,d); await log(e?'Entrega reagendada':'Entrega agendada',id,`${fmtD(d.data)} ${d.periodo} · ${quem}`);
+      const msg=`Olá, ${primeiroNome(v.clienteNome)}! Aqui é ${primeiroNome(S.me.nome)}, da ${lojaNome(v.lojaId)||MARCA}. Sua entrega está agendada para ${fmtD(d.data)}, no período da ${d.periodo.split(' ')[0].toLowerCase()}, em ${d.endereco} - ${d.bairro}. Tenha em mãos o seu documento original com foto. ${d.formaEntrada==='PIX antes de sair'?'A entrada é paga por PIX antes de o aparelho sair da loja.':d.formaEntrada.startsWith('Na entrega')?'A entrada é paga na entrega ('+d.formaEntrada.replace('Na entrega (','').replace(')','')+').':''}${d.taxa>0?' Taxa de entrega: '+brl(d.taxa)+'.':''}`;
+      closeModal(); openModal(`<h2>Entrega agendada</h2><p>Avise o cliente pelo WhatsApp:</p><div class="msg" style="white-space:pre-wrap">${esc(msg)}</div><div class="row mt" style="justify-content:flex-end"><a class="btn green" target="_blank" rel="noopener" href="https://wa.me/${telWa(d.tel)}?text=${encodeURIComponent(msg)}">Enviar no WhatsApp</a><button class="btn" data-act="closeModal">Fechar</button></div>`);
+      if(S.tab==='distancia') render(); }catch(err){ toast('Não foi possível salvar: '+err.message,'err'); } };
+}
+function gxEntregaVer(v,e){
+  const ativa=v.status==='ATIVA';
+  openModal(`<div class="gx-vh"><div><h2>Entrega — nº ${v.numero}</h2><div class="s">${esc(v.clienteNome)} · ${esc(apNome(v)||'')}</div></div>${badge(...(ENT_ST[e.status]||[e.status,'gray']))}</div>
+    <div class="gx-vk"><div><small>Quando</small><b style="font-size:14px">${fmtD(e.data)} · ${esc(e.periodo||'')}</b></div><div><small>Entregador</small><b style="font-size:14px">${esc(e.entregadorNome||'')}</b></div><div><small>Entrada</small><b style="font-size:14px">${esc(e.formaEntrada||'')}</b></div>${e.taxa>0?`<div><small>Taxa</small><b>${brl(e.taxa)}</b></div>`:''}</div>
+    <h3 class="mt">Endereço</h3><p style="margin:0">${esc([e.endereco,e.bairro,e.cidade].filter(Boolean).join(', '))}${e.referencia?`<br><span class="small muted">${esc(e.referencia)}</span>`:''}</p>
+    <div class="row mt" style="gap:8px"><a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.endereco,e.bairro,e.cidade].filter(Boolean).join(', '))}">Abrir no mapa</a>${e.tel?`<a class="btn sm green" target="_blank" rel="noopener" href="https://wa.me/${telWa(e.tel)}">WhatsApp do cliente</a>`:''}</div>
+    ${e.status==='ENTREGUE'?`<h3 class="mt">Comprovante</h3><div class="msg small">Recebido por <b>${esc(e.recebidoPor||'')}</b>${e.docConferido?' · documento original conferido':''} · ${fmtDT(e.entregueEm)}</div>${e.foto?`<div class="docs-grid"><figure><img src="${e.foto}"><figcaption>Foto da entrega</figcaption></figure></div>`:''}`:''}
+    ${!ativa&&e.status!=='ENTREGUE'?`<div class="warn mt"><b>A trava ainda não está instalada.</b> Na casa do cliente, abra “Continuar venda” e instale a trava antes de entregar o aparelho.</div>`:''}
+    <h3 class="mt">Andamento</h3><ul class="gx-tl">${(e.historico||[]).map(h=>`<li><b>${esc(h.acao)}</b><small>${fmtDT(h.em)} · ${esc(h.por||'')}${h.det?' · '+esc(h.det):''}</small></li>`).join('')}</ul>
+    <div class="gx-acts">${e.status!=='ENTREGUE'?`<button class="btn" data-act="gxEntEditar" data-id="${v.id}">Reagendar</button><button class="btn" data-act="gxEntStatus" data-id="${v.id}" data-s="NAO_ENTREGUE">Não entregue</button>${e.status==='AGENDADA'?`<button class="btn" data-act="gxEntStatus" data-id="${v.id}" data-s="SAIU">Saiu para entrega</button>`:''}${['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO'].includes(v.status)?`<button class="btn navy" data-act="continuar" data-id="${v.id}">Continuar venda (trava)</button>`:''}<button class="btn gold" data-act="gxEntConfirmar" data-id="${v.id}" ${ativa?'':'disabled title="Instale a trava primeiro"'}>Confirmar entrega</button>`:`<button class="btn" data-act="gxEntComprov" data-id="${v.id}">Imprimir comprovante</button>`}</div>`,true);
+}
+async function gxEntStatus(id,s){ const e=await DB.get('entregas',id); if(!e) return; let det='';
+  if(s==='NAO_ENTREGUE'){ det=(prompt('O que aconteceu? (ex.: cliente não estava, endereço errado)')||'').trim(); if(!det) return; }
+  await DB.set('entregas',id,{status:s,atualizadoEm:Date.now(),historico:[...(e.historico||[]),{em:Date.now(),por:S.me.nome,acao:(ENT_ST[s]||[s])[0],det}]}); await log('Entrega: '+(ENT_ST[s]||[s])[0],id,det); closeModal(); toast('Atualizado','ok'); if(S.tab==='distancia') render(); }
+async function gxEntConfirmar(id){ const v=await DB.get('vendas',id); if(v?.status!=='ATIVA') return toast('Instale a trava antes de entregar o aparelho','err');
+  openModal(`<h2>Confirmar entrega — nº ${v.numero}</h2><div class="grid g2"><label>Quem recebeu (nome)<input id="ecNome" value="${esc(v.clienteNome)}"></label><label>Foto da entrega (cliente com o aparelho)<input id="ecFoto" type="file" accept="image/*" capture="environment"></label></div>
+    <label class="check mt"><input type="checkbox" id="ecDoc"> <span>Conferi o documento original com foto do cliente</span></label><label class="check"><input type="checkbox" id="ecTrava"> <span>A trava está instalada e o app abriu no aparelho</span></label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Voltar</button><button class="btn gold" id="ecOk">Confirmar entrega</button></div>`);
+  $('#ecOk').onclick=async()=>{ if(!$('#ecDoc').checked||!$('#ecTrava').checked) return toast('Confirme o documento e a trava','err'); const n=$('#ecNome').value.trim(); if(!n) return toast('Quem recebeu?','err');
+    $('#ecOk').disabled=true; let foto=''; try{ const f=$('#ecFoto').files[0]; if(f) foto=redimensionar(await carregarImg(await lerArquivo(f)),1000,0.7); }catch(err){ toast(err.message,'err'); }
+    const e=await DB.get('entregas',id);
+    await DB.set('entregas',id,{status:'ENTREGUE',entregueEm:Date.now(),recebidoPor:n,docConferido:true,foto,atualizadoEm:Date.now(),historico:[...(e?.historico||[]),{em:Date.now(),por:S.me.nome,acao:'Entregue',det:'recebido por '+n}]});
+    await log('Entrega confirmada',id,'recebido por '+n); closeModal(); toast('Entrega confirmada','ok'); if(S.tab==='distancia') render(); }; }
+async function gxEntComprov(id){ const [v,e]=await Promise.all([DB.get('vendas',id),DB.get('entregas',id)]); if(!v||!e) return;
+  janelaImpressao('Comprovante de entrega nº '+v.numero,`<h1>COMPROVANTE DE ENTREGA — CONTRATO Nº ${v.numero}</h1><div class="cab">${esc(S.cfg.empresa||MARCA)} · ${esc(v.lojaNome||'')}</div>
+    <table><tr><td>Cliente</td><td>${esc(v.clienteNome)} · CPF ${fmtCpf(v.clienteCpf)}</td></tr><tr><td>Aparelho</td><td>${esc(apNome(v))} · IMEI ${esc(v.aparelho?.imei||'')}</td></tr><tr><td>Endereço da entrega</td><td>${esc([e.endereco,e.bairro,e.cidade].filter(Boolean).join(', '))}</td></tr>
+    <tr><td>Entregue em</td><td>${fmtDT(e.entregueEm)}</td></tr><tr><td>Entregador</td><td>${esc(e.entregadorNome||'')}</td></tr><tr><td>Recebido por</td><td>${esc(e.recebidoPor||'')}</td></tr></table>
+    <p>Declaro que recebi o aparelho acima em perfeito estado, com a trava NexumCell instalada, conforme o contrato nº ${v.numero}.</p>${e.foto?`<p><img src="${e.foto}" style="max-height:220px"></p>`:''}
+    <div style="display:flex;gap:40px;margin-top:60px"><div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">Cliente</div><div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">Entregador</div></div>`); }
+Object.assign(ACT,{ gxRemota:(d,b)=>vendaRemota(b,d.m), vendaRemota:(d,b)=>vendaRemota(b), gxReenviar:d=>gxReenviar(d.id), gxEntrega:d=>gxEntrega(d.id), gxEntEditar:d=>{ S._entEditar=true; gxEntrega(d.id); },
+  gxEntStatus:d=>gxEntStatus(d.id,d.s), gxEntConfirmar:d=>gxEntConfirmar(d.id), gxEntComprov:d=>gxEntComprov(d.id) });
+// no fim da venda a distância com entrega, lembra de agendar
+{ const _nv2=PAGES.nova; PAGES.nova=async(...a)=>{ const r=await _nv2(...a); try{ if(!S.w?.vendaId||!$('#wz')||$('#gxEntAviso')) return r; const v=await DB.get('vendas',S.w.vendaId);
+  if(v?.remota?.modalidade==='ENTREGA'&&['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO'].includes(v.status)){ const e=await DB.get('entregas',v.id).catch(()=>null);
+    $('#wz')?.insertAdjacentHTML('afterbegin',`<div id="gxEntAviso" class="gx-banner">${svg(IC.distancia)}<span>Venda com entrega${e?` · ${esc((ENT_ST[e.status]||[e.status])[0])} ${fmtD(e.data)}`:' · ainda sem data'}</span><button class="btn sm" data-act="gxEntrega" data-id="${v.id}">${e?'Ver entrega':'Agendar entrega'}</button></div>`); } }catch(e){} return r; }; }
 
 </script>
 </body>

@@ -15,6 +15,7 @@ import { relatorioSemanal } from './relatorio-semanal.js';
 import { nota } from './motor.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 import { iosRotina } from './_ios.js';
+import { autoAprovarEquipe } from './equipe.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
 const brl = (n) => 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -84,6 +85,30 @@ export async function scoreRotina() {
 }
 
 // ---------- Limite pré-aprovado para recompra (bom pagador) ----------
+// condições especiais de recompra (Painel do Dono → Recompra): entrada menor e desconto no aparelho novo
+export const condRecompra = (cfg) => ({ entradaPct: Math.max(0, Math.min(90, Number(cfg.recompraEntradaPct ?? 20))), descontoPct: Math.max(0, Math.min(50, Number(cfg.recompraDescontoPct ?? 5))) });
+
+// ---------- Fila de cobrança compartilhada com os vendedores (filaCobranca/{vendaId}) ----------
+// O vendedor não lê os contratos da loja; ele vê só esta lista enxuta para mandar a mensagem de cobrança.
+export async function filaRotina(vendas) {
+  vendas = vendas || await vendasAtivas();
+  const h = hoje(), amanha = new Date(Date.now() + 86400e3).toISOString().slice(0, 10);
+  const vivos = new Set(); let n = 0;
+  for (const v of vendas) {
+    if (!v.lojaId) continue;
+    const abertas = (v.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)); if (!abertas.length) continue;
+    const atr = abertas.filter((p) => p.venc < h), lem = !atr.length && [h, amanha].includes(abertas[0].venc);
+    if (!atr.length && !lem) continue;
+    vivos.add(v.id);
+    const d = { vendaId: v.id, lojaId: v.lojaId, numero: v.numero || 0, clienteNome: v.clienteNome || '', tel: (v.cliente?.telefones || [])[0] || '',
+      aparelho: [v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(' '), dias: atr.length ? dias(atr[0].venc, h) : 0,
+      valor: r2((atr.length ? atr : [abertas[0]]).reduce((s, p) => s + (+p.valor || 0), 0)), venc: (atr[0] || abertas[0]).venc, lembrete: !atr.length, ativo: true, atualizadoEm: Date.now() };
+    await db.collection('filaCobranca').doc(v.id).set(d, { merge: true }); n++;
+  }
+  const antigos = (await db.collection('filaCobranca').where('ativo', '==', true).get()).docs.filter((d) => !vivos.has(d.id));
+  for (const d of antigos) await d.ref.set({ ativo: false, atualizadoEm: Date.now() }, { merge: true });
+  return n;
+}
 // Pagou 60%+ do contrato (ou quitou), nunca atrasou mais de 3 dias, sem acordo, sem atraso aberto → ganha limite por 90 dias.
 export async function preAprovados(cfg) {
   const todas = (await db.collection('vendas').where('status', 'in', ['ATIVA', 'QUITADA']).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -92,15 +117,18 @@ export async function preAprovados(cfg) {
   for (const [cpf, vs] of Object.entries(porCpf)) {
     if (n >= max) break;
     const ok = vs.every((v) => { const ps = v.parcelas || [], pagas = ps.filter((p) => p.pago); const atrasoMax = Math.max(0, ...pagas.map((p) => (p.pagoEm ? dias(p.venc, String(p.pagoEm).slice(0, 10)) : 0)));
-      const aberto = ps.some((p) => !p.pago && p.venc < hoje()); return !aberto && atrasoMax <= 3 && !(v.acordos || []).length && (v.status === 'QUITADA' || pagas.length / (ps.length || 1) >= 0.6); });
+      // libera quando falta só a última parcela (ou já quitou): o crédito aparece no app ANTES de a trava sair do aparelho
+      const aberto = ps.some((p) => !p.pago && p.venc < hoje()), faltam = ps.length - pagas.length;
+      return !aberto && atrasoMax <= 3 && !(v.acordos || []).length && (v.status === 'QUITADA' || (ps.length >= 2 && faltam <= 1)); });
     if (!ok) continue;
     const ult = vs.sort((a, b) => b.criadoEm - a.criadoEm)[0]; const renda = ult.cliente?.renda || 0;
     const quitados = vs.filter((v) => v.status === 'QUITADA').length, mult = Number(cfg.preAprovadoMult) || (quitados ? 2.5 : 1.8);
     const valor = Math.round(Math.min(renda * mult, Number(cfg.preAprovadoMax) || 6000) / 50) * 50; if (!(valor > 0)) continue;
     const ate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10), atual = (await db.collection('clientes').doc(cpf).get()).data()?.preAprovado;
     if (atual && atual.valor === valor && atual.ate >= hoje()) continue;
-    await db.collection('clientes').doc(cpf).set({ preAprovado: { valor, ate, em: Date.now(), vendaId: ult.id, loja: ult.lojaNome || '' } }, { merge: true });
-    if (ult.aparelhoToken && ult.status === 'ATIVA') await db.collection('aparelhos').doc(ult.aparelhoToken).set({ preAprovado: { valor, ate, em: Date.now(), loja: ult.lojaNome || '' } }, { merge: true });
+    const cond = condRecompra(cfg);
+    await db.collection('clientes').doc(cpf).set({ preAprovado: { valor, ate, em: Date.now(), vendaId: ult.id, loja: ult.lojaNome || '', ...cond } }, { merge: true });
+    if (ult.aparelhoToken && ult.status === 'ATIVA') await db.collection('aparelhos').doc(ult.aparelhoToken).set({ preAprovado: { valor, ate, em: Date.now(), loja: ult.lojaNome || '', ...cond } }, { merge: true });
     n++;
   }
   return n;
@@ -253,9 +281,12 @@ export async function statsIndicacao(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
+  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } return r; }
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
   if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();
+  try { await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); }
+  try { await filaRotina(vendas); } catch (e) { console.error('fila', e.message); }
   let aniv = {}; try { aniv = await aniversarioRotina(cfg); } catch (e) { console.error('aniversario', e.message); }
   try { Object.assign(aniv, await relatorioSemanal(cfg)); } catch (e) { console.error('relsemanal', e.message); }
   try { Object.assign(aniv, await posVendaRotina(cfg)); } catch (e) { console.error('posvenda', e.message); }
@@ -265,6 +296,6 @@ export async function rotinas(qual) {
 export default async function handler(req, res) {
   const seg = process.env.CRON_SECRET;
   if (!seg || req.headers.authorization !== 'Bearer ' + seg) return res.status(401).json({ erro: 'não autorizado' });
-  try { return res.status(200).json(await rotinas(req.query?.r === 'noite' ? 'noite' : 'manha')); }
+  try { return res.status(200).json(await rotinas(['noite', 'hora'].includes(req.query?.r) ? req.query.r : 'manha')); }
   catch (e) { console.error(e); return res.status(500).json({ erro: e.message }); }
 }

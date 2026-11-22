@@ -177,6 +177,16 @@ async function updateUser(uid, dados) {
   return { uid };
 }
 
+// criar login (mesma assinatura do firebase-admin: auth.createUser({ email, password, displayName }) → { uid })
+async function createUser(dados) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${projeto()}/accounts`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + (await tokenAcesso()), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: dados.email, password: dados.password, displayName: dados.displayName || undefined }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error('Não foi possível criar o login: ' + (j.error?.message || r.status)), { code: /EMAIL_EXISTS/.test(j.error?.message || '') ? 'auth/email-already-exists' : '' });
+  return { uid: j.localId };
+}
+
 // ---------- Firebase Cloud Messaging (aviso instantâneo para o app da trava) ----------
 async function enviarFcm(msg) {
   const m = { ...msg };
@@ -193,7 +203,7 @@ const admin = {
   initializeApp() { admin.apps.push({}); return {}; },
   credential: { cert: (x) => x },
   firestore: () => firestore,
-  auth: () => ({ verifyIdToken, updateUser }),
+  auth: () => ({ verifyIdToken, updateUser, createUser }),
   messaging: () => ({ send: enviarFcm }),
 };
 export default admin;

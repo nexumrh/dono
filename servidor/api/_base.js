@@ -97,11 +97,16 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
   if (v?.aparelhoToken) await pushAparelho(v.aparelhoToken);
   // Bom Pagador: quitou → pré-aprovação na hora (não espera a rotina da noite)
   if (acabouDeQuitar && v) { v.id = vendaId; await preAprovarAoQuitar(v); }
+  // falta só a última parcela e pagou tudo em dia → o limite da recompra já aparece no app (antes de a trava sair)
+  else if (v && (v.parcelas || []).length >= 2 && (v.parcelas || []).filter((p) => !p.pago).length === 1) {
+    const emDia = (v.parcelas || []).filter((p) => p.pago).every((p) => !p.pagoEm || (new Date(String(p.pagoEm).slice(0, 10)) - new Date(p.venc)) / 86400e3 <= 3);
+    if (emDia && !(v.acordos || []).length) { v.id = vendaId; await preAprovarAoQuitar(v, 'falta só a última parcela, tudo pago em dia'); }
+  }
 }
 
 // Concede a pré-aprovação do Bom Pagador assim que o cliente quita um contrato.
 // Mesma regra da rotina preAprovados (cron.js), aplicada na hora.
-export async function preAprovarAoQuitar(v) {
+export async function preAprovarAoQuitar(v, motivo = 'quitou um contrato') {
   try {
     const cpf = v.clienteCpf; const renda = Number(v.cliente?.renda) || 0;
     if (!cpf || !(renda > 0)) return;
@@ -116,10 +121,11 @@ export async function preAprovarAoQuitar(v) {
     const ate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
     const atual = (await db.collection('clientes').doc(cpf).get()).data()?.preAprovado;
     if (atual && atual.ate >= h && Number(atual.valor) >= valor) return; // já tem uma igual ou maior válida
-    const pre = { valor, ate, em: Date.now(), vendaId: v.id, loja: v.lojaNome || '', motivo: 'quitou um contrato' };
+    const cond = { entradaPct: Math.max(0, Math.min(90, Number(cfg.recompraEntradaPct ?? 20))), descontoPct: Math.max(0, Math.min(50, Number(cfg.recompraDescontoPct ?? 5))) };
+    const pre = { valor, ate, em: Date.now(), vendaId: v.id, loja: v.lojaNome || '', motivo, ...cond };
     await db.collection('clientes').doc(cpf).set({ preAprovado: pre }, { merge: true });
-    if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ preAprovado: { valor, ate, em: pre.em, loja: pre.loja } }, { merge: true });
-    await db.collection('logs').add({ em: Date.now(), acao: 'Pré-aprovação do Bom Pagador (quitação)', alvo: cpf, det: `R$ ${valor} até ${ate}`, por: 'Sistema' });
+    if (v.aparelhoToken) await db.collection('aparelhos').doc(v.aparelhoToken).set({ preAprovado: { valor, ate, em: pre.em, loja: pre.loja, ...cond } }, { merge: true });
+    await db.collection('logs').add({ em: Date.now(), acao: 'Pré-aprovação do Bom Pagador (' + motivo + ')', alvo: cpf, det: `R$ ${valor} até ${ate}`, por: 'Sistema' });
   } catch (e) { console.warn('preAprovarAoQuitar', e.message); }
 }
 

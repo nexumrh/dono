@@ -24,8 +24,9 @@ import { rotinas } from '../api/cron.js';
 import ios from '../api/ios.js';
 import removerCodigo from '../api/remover-codigo.js';
 import lead from '../api/lead.js';
+import equipe from '../api/equipe.js';
 
-const ROTAS = { ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
+const ROTAS = { equipe, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };
@@ -63,7 +64,8 @@ export default {
   },
   async scheduled(event, env, ctx) {
     carregarEnv(env);
-    const qual = event.cron === (env.CRON_NOITE || '0 22 * * *') ? 'noite' : 'manha';
+    // "0 * * * *" (de hora em hora): aprovação automática da equipe em 2 h e fila de cobrança dos vendedores
+    const qual = event.cron === (env.CRON_NOITE || '0 22 * * *') ? 'noite' : event.cron === (env.CRON_HORA || '0 * * * *') ? 'hora' : 'manha';
     ctx.waitUntil(rotinas(qual).then((r) => console.log('rotina', qual, JSON.stringify(r))).catch((e) => console.error('rotina', qual, e)));
   },
 };
