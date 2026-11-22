@@ -11053,6 +11053,29 @@ Object.assign(ACT,{
   empLimBloq:async d=>{ await DB.set('limitesCliente',d.id,{bloqueado:!!d.b,atualizadoEm:Date.now(),por:S.me.nome}); toast(d.b?'Limite bloqueado':'Limite desbloqueado','ok'); render(); },
 });
 
+
+/* ===================== CRM DIRETO NO PORTAL (nov/2026): o atendimento e a busca de clientes, lojas, gerentes e
+   vendedores ficam só no CRM, aberto dentro do portal com o mesmo login. Sem duas telas para procurar. ===================== */
+{ const VELHAS={atendimentos:'portal',suporteApp:'app',liberacoes:'liberacao',chamados:'chamado',pedidos:'pedido'};
+  if(!TABS.some(t=>t.id==='localizar')) TABS.push({id:'localizar',label:'Localizar cliente, loja ou vendedor',roles:['DONO','SUPORTE','FINANCEIRO']});
+  const tc=TABS.find(t=>t.id==='crm'); if(tc){ tc.label='CRM de atendimento'; tc.roles=['DONO','SUPORTE','FINANCEIRO']; }
+  IC.localizar='<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>';
+  P.tabs=P.tabs.filter(t=>!VELHAS[t]&&t!=='localizar'&&t!=='crm');
+  const k=['suporte','financeiro'].includes(PORTAL)?0:Math.min(2,P.tabs.length); P.tabs.splice(k,0,'crm','localizar');
+  NAV_GRUPOS.forEach(g=>{ g[1]=g[1].filter(t=>!VELHAS[t]&&t!=='crm'&&t!=='localizar'); });
+  const ga=NAV_GRUPOS.find(g=>g[0]==='Atendimento'); if(ga) ga[1]=['crm','localizar']; else NAV_GRUPOS.splice(1,0,['Atendimento',['crm','localizar']]);
+  if(['suporte','financeiro'].includes(PORTAL)){ const i=NAV_GRUPOS.findIndex(g=>g[0]==='Atendimento'); const [g]=NAV_GRUPOS.splice(i,1); NAV_GRUPOS.splice(NAV_GRUPOS[0][0]===''?1:0,0,g); }
+  const crmSrc=h=>{ const u=new URL(typeof urlCrm==='function'?urlCrm():new URL('../dono/crm/',location.href).href); u.searchParams.set('embed','1'); u.searchParams.set('app','nexumcell-'+PORTAL); u.hash=h||''; return u.href; };
+  const crmTela=h=>{
+    $('#topActions').innerHTML=`<a class="btn" href="${esc(crmSrc(h).replace(/[?&]embed=1/,''))}" target="_blank" rel="noopener">Abrir em tela cheia</a>`;
+    $('#view').innerHTML=`<iframe id="crmFrame" title="CRM NexumCell" src="${esc(crmSrc(h))}" allow="camera; microphone; clipboard-write" style="width:100%;border:1px solid #E3E7F0;border-radius:18px;background:#fff;display:block;box-shadow:0 10px 30px rgba(10,23,51,.07)"></iframe>`;
+    const ajusta=()=>{ const f=$('#crmFrame'); if(!f) return; f.style.height=Math.max(560,innerHeight-(f.getBoundingClientRect().top+scrollY)-16)+'px'; }; ajusta(); setTimeout(ajusta,300); addEventListener('resize',ajusta);
+  };
+  PAGES.crm=()=>crmTela(S._crmHash||''); PAGES.localizar=()=>crmTela('localizar');
+  Object.keys(VELHAS).forEach(t=>{ PAGES[t]=()=>{ S._crmHash='canal='+VELHAS[t]; S.tab='crm'; render(); S._crmHash=''; }; });
+  const _rn=render; render=async(...a)=>{ if(VELHAS[S.tab]){ S._crmHash='canal='+VELHAS[S.tab]; S.tab='crm'; const r=await _rn(...a); S._crmHash=''; return r; } return _rn(...a); };
+}
+
 </script>
 </body>
 </html>
