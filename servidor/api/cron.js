@@ -16,6 +16,7 @@ import { nota } from './motor.js';
 import { brevoLigado, enviarEmail, avisarCliente, enviarWhatsapp, enviarSms, MODELOS, moldura } from './_brevo.js';
 import { iosRotina } from './_ios.js';
 import { autoAprovarEquipe } from './equipe.js';
+import { iaAutonomaRotina } from './ia-autonoma.js';
 
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400e3);
 const brl = (n) => 'R$ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -281,7 +282,7 @@ export async function statsIndicacao(cfg) {
 
 export async function rotinas(qual) {
   const cfg = await config();
-  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } return r; }
+  if (qual === 'hora') { const r = {}; try { r.equipe = await autoAprovarEquipe(); } catch (e) { console.error('equipe', e.message); } try { r.fila = await filaRotina(); } catch (e) { console.error('fila', e.message); } try { r.ia = await iaAutonomaRotina(); } catch (e) { console.error('ia', e.message); } return r; }
   let ios = {}; try { ios = await iosRotina(db); } catch (e) { console.error('ios', e.message); }
   if (qual === 'noite') { const r = await resumoDoDia(cfg); try { r.saas = await saasRotina(); } catch (e) { console.error('saas', e.message); } try { r.preAprovados = await preAprovados(cfg); } catch (e) { console.error('pre', e.message); } try { r.scores = await scoreRotina(); } catch (e) { console.error('score', e.message); } try { r.repasses = await repasseRotina(cfg); } catch (e) { console.error('repasse', e.message); } try { r.backup = await backupRotina(cfg); } catch (e) { console.error('backup', e.message); } try { r.instalacoes = await instalacoesRotina(); } catch (e) { console.error('instalacoes', e.message); } try { r.negativacao = await negativacaoRotina(cfg); } catch (e) { console.error('negativacao', e.message); } try { r.cashback = await cashbackRotina(cfg); } catch (e) { console.error('cashback', e.message); } try { r.limites = await limitesDinamicos(); } catch (e) { console.error('limites', e.message); } try { r.indicacoes = await statsIndicacao(cfg); } catch (e) { console.error('indicacoes', e.message); } return { ...r, ...ios }; }
   const vendas = await vendasAtivas();

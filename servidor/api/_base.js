@@ -70,7 +70,7 @@ export function encargos(p, ap, data = hoje()) {
 }
 
 // Dá baixa numa parcela e sincroniza venda + aparelho (igual salvarParcelas do portal)
-export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
+export async function baixarParcela(vendaId, n, valorPago, forma, obs, por = 'Asaas (automático)') {
   const ref = db.collection('vendas').doc(vendaId);
   let acabouDeQuitar = false;
   await db.runTransaction(async (t) => {
@@ -78,7 +78,7 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
     if (!s.exists) throw new Error('venda não encontrada');
     const v = s.data();
     const parcelas = (v.parcelas || []).map((p) =>
-      p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por: 'Asaas (automático)', baixadoEm: Date.now() } : p
+      p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por, baixadoEm: Date.now() } : p
     );
     const quitado = parcelas.every((p) => p.pago);
     acabouDeQuitar = quitado && !v.quitadoEm; // só na primeira vez que quita
@@ -90,7 +90,7 @@ export async function baixarParcela(vendaId, n, valorPago, forma, obs) {
         status: quitado ? 'QUITADO' : 'ATIVO',
       });
     }
-    t.set(db.collection('logs').doc(), { em: Date.now(), acao: 'Pagamento automático (Asaas)', alvo: vendaId, det: `parcela ${n} · R$ ${valorPago} · ${forma}`, por: 'Asaas' });
+    t.set(db.collection('logs').doc(), { em: Date.now(), acao: por.startsWith('Asaas') ? 'Pagamento automático (Asaas)' : 'Baixa de parcela', alvo: vendaId, det: `parcela ${n} · R$ ${valorPago} · ${forma}`, por });
   });
   // libera o aparelho na hora (se estava travado por atraso)
   const v = (await ref.get()).data();

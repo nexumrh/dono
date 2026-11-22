@@ -25,8 +25,9 @@ import ios from '../api/ios.js';
 import removerCodigo from '../api/remover-codigo.js';
 import lead from '../api/lead.js';
 import equipe from '../api/equipe.js';
+import ia from '../api/ia-autonoma.js';
 
-const ROTAS = { equipe, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
+const ROTAS = { equipe, ia, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };
@@ -64,8 +65,9 @@ export default {
   },
   async scheduled(event, env, ctx) {
     carregarEnv(env);
-    // "0 * * * *" (de hora em hora): aprovação automática da equipe em 2 h e fila de cobrança dos vendedores
-    const qual = event.cron === (env.CRON_NOITE || '0 22 * * *') ? 'noite' : event.cron === (env.CRON_HORA || '0 * * * *') ? 'hora' : 'manha';
+    // "*/15 * * * *" (a cada 15 min): IA autônoma (aprovações, pré-análises, lista negra, aviso do atendimento),
+    // aprovação automática da equipe em 2 h e fila de cobrança dos vendedores. ("0 * * * *" antigo também vale.)
+    const qual = event.cron === (env.CRON_NOITE || '0 22 * * *') ? 'noite' : ['*/15 * * * *', '0 * * * *', env.CRON_HORA].includes(event.cron) ? 'hora' : 'manha';
     ctx.waitUntil(rotinas(qual).then((r) => console.log('rotina', qual, JSON.stringify(r))).catch((e) => console.error('rotina', qual, e)));
   },
 };
