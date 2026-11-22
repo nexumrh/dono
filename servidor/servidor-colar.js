@@ -318,10 +318,10 @@ function avaliarIos(d, agora = Date.now()) {
   let maior = 0, atrasadas = 0;
   for (const p of d.parcelas || []) {
     if (p.pago || !p.venc) continue;
-    const dias3 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
-    if (dias3 > 0) {
+    const dias4 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
+    if (dias4 > 0) {
       atrasadas++;
-      maior = Math.max(maior, dias3);
+      maior = Math.max(maior, dias4);
     }
   }
   if (maior >= etapaTotal(d)) return { travar: true, motivo: atrasadas === 1 ? "1 parcela em atraso" : `${atrasadas} parcelas em atraso` };
@@ -423,12 +423,12 @@ function cors(req, res) {
 var r2 = (n) => Math.round(n * 100) / 100;
 var hoje = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 function encargos(p, ap, data = hoje()) {
-  const dias3 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
-  if (dias3 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
-  if (dias3 === 0) return p.valor;
-  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias3));
+  const dias4 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
+  if (dias4 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
+  if (dias4 === 0) return p.valor;
+  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias4));
 }
-async function baixarParcela(vendaId, n, valorPago, forma, obs) {
+async function baixarParcela(vendaId, n, valorPago, forma, obs, por = "Asaas (autom\xE1tico)") {
   const ref = db.collection("vendas").doc(vendaId);
   let acabouDeQuitar = false;
   await db.runTransaction(async (t) => {
@@ -436,7 +436,7 @@ async function baixarParcela(vendaId, n, valorPago, forma, obs) {
     if (!s.exists) throw new Error("venda n\xE3o encontrada");
     const v2 = s.data();
     const parcelas = (v2.parcelas || []).map(
-      (p) => p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por: "Asaas (autom\xE1tico)", baixadoEm: Date.now() } : p
+      (p) => p.n === n && !p.pago ? { ...p, pago: true, pagoEm: hoje(), valorPago: r2(valorPago), forma, obs, por, baixadoEm: Date.now() } : p
     );
     const quitado = parcelas.every((p) => p.pago);
     acabouDeQuitar = quitado && !v2.quitadoEm;
@@ -448,7 +448,7 @@ async function baixarParcela(vendaId, n, valorPago, forma, obs) {
         status: quitado ? "QUITADO" : "ATIVO"
       });
     }
-    t.set(db.collection("logs").doc(), { em: Date.now(), acao: "Pagamento autom\xE1tico (Asaas)", alvo: vendaId, det: `parcela ${n} \xB7 R$ ${valorPago} \xB7 ${forma}`, por: "Asaas" });
+    t.set(db.collection("logs").doc(), { em: Date.now(), acao: por.startsWith("Asaas") ? "Pagamento autom\xE1tico (Asaas)" : "Baixa de parcela", alvo: vendaId, det: `parcela ${n} \xB7 R$ ${valorPago} \xB7 ${forma}`, por });
   });
   const v = (await ref.get()).data();
   if (v?.aparelhoToken) await pushAparelho(v.aparelhoToken);
@@ -1055,7 +1055,7 @@ async function saldoLicencas(lojaId) {
     const e = (await db.collection("empresas").doc(l.empresaId).get()).data();
     cortesia = !!e?.cortesia;
   }
-  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: cfg.licencaObrigatoria === "sim" && !cortesia, cortesia };
+  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: !cortesia, cortesia };
 }
 async function comprarLicencas(lojaId, q, eu) {
   q = Math.floor(Number(q) || 0);
@@ -1112,9 +1112,9 @@ async function saasPagamento(event, payment) {
   }
 }
 async function saasRotina() {
-  const cfg = await config(), dias3 = Number(cfg.saasDiasBloqueio ?? 5);
-  if (!(dias3 > 0)) return { bloqueadas: 0 };
-  const limite = addDias(hoje(), -dias3);
+  const cfg = await config(), dias4 = Number(cfg.saasDiasBloqueio ?? 5);
+  if (!(dias4 > 0)) return { bloqueadas: 0 };
+  const limite = addDias(hoje(), -dias4);
   const atras = (await db.collection("empresas").where("situacao", "==", "ATRASADA").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.atrasadaDesde && e.atrasadaDesde <= limite && !e.bloqueadaPorAtraso);
   for (const e of atras) {
     await mudarBloqueio(e.id, true, `Mensalidade do sistema em atraso desde ${e.atrasadaDesde.split("-").reverse().join("/")}. Pague pelo link enviado por e-mail para liberar na hora.`);
@@ -1539,9 +1539,9 @@ async function negativacaoRotina(cfg) {
     }
   }
   if (cfg.negativarAuto !== "sim") return r;
-  const dias3 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
+  const dias4 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
   const ativas = (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
-  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias3 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
+  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias4 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
   for (const { v, p } of alvo) {
     try {
       let parc = p;
@@ -1676,8 +1676,8 @@ async function relatorioSemanal(cfg, forcar = false) {
   for (const v of vendas) {
     const atr = (v.parcelas || []).filter((p) => !p.pago && p.venc < h);
     if (!atr.length) continue;
-    const dias3 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
-    (lojas[v.lojaId] ||= []).push({ v, dias: dias3, devido, n: atr.length });
+    const dias4 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
+    (lojas[v.lojaId] ||= []).push({ v, dias: dias4, devido, n: atr.length });
   }
   const gerentes = (await db.collection("users").where("role", "==", "GERENTE").get()).docs.map((d) => d.data()).filter((u) => u.ativo !== false && u.email);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
@@ -2088,9 +2088,356 @@ async function handler10(req, res) {
   }
 }
 
-// api/cron.js
-var dias2 = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
+// api/preanalise.js
+var dig = (s) => String(s || "").replace(/\D/g, "");
+function cpfOk(c) {
+  c = dig(c);
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (const t of [9, 10]) {
+    let s = 0;
+    for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i);
+    if (s * 10 % 11 % 10 !== +c[t]) return false;
+  }
+  return true;
+}
+var txt = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
 var brl2 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+var diasAtraso = (venc) => Math.floor((new Date(hoje()) - new Date(venc)) / 864e5);
+async function decidir(p, vit, cfg) {
+  const pct = Number(cfg.preRendaPct) || 30, minLim = Number(cfg.preLimiteMin) || 300, maxLim = Number(cfg.preLimiteMax) || 0;
+  const entPct = Number(vit.entradaPct ?? cfg.entradaPct) || 30;
+  const n = Math.max(...String(vit.parcelasOpcoes || cfg.parcelasOpcoes || "12").split(",").map(Number).filter((x) => x > 0), 1);
+  const ln = await Promise.all([db.collection("listanegra").doc("cpf_" + p.cpf).get(), db.collection("listanegra").doc("tel_" + p.telefone).get()]);
+  if (ln.some((d) => d.exists && d.data()?.ativo !== false)) return { status: "CONTATADO", resposta: "Recebemos seus dados. A loja vai analisar e falar com voc\xEA pelo WhatsApp.", auto: { motivo: "lista negra" } };
+  const hist = (await db.collection("vendas").where("clienteCpf", "==", p.cpf).get()).docs.map((d) => d.data());
+  const atrasoAberto = Math.max(0, ...hist.filter((v) => v.status === "ATIVA").flatMap((v) => (v.parcelas || []).filter((x) => !x.pago).map((x) => diasAtraso(x.venc))));
+  if (hist.some((v) => v.status === "RETOMADA") || atrasoAberto > 30) return { status: "RECUSADA", resposta: "No momento n\xE3o conseguimos aprovar uma nova compra. Regularize o contrato em aberto e tente de novo.", auto: { motivo: "hist\xF3rico" } };
+  if (hist.some((v) => v.status === "ATIVA")) return { status: "CONTATADO", resposta: "Voc\xEA j\xE1 tem um contrato com a gente. A loja vai falar com voc\xEA pelo WhatsApp sobre a nova compra.", auto: { motivo: "contrato ativo" } };
+  if (!(p.renda > 0)) return { status: "CONTATADO", resposta: "Recebemos seus dados. A loja vai falar com voc\xEA pelo WhatsApp.", auto: { motivo: "sem renda" } };
+  const parcelaMax = r2(p.renda * pct / 100);
+  const ap = (vit.aparelhos || []).find((a) => `${a.marca} ${a.modelo} ${a.capacidade}` === p.aparelho);
+  const juros = Number(ap?.juros ?? vit.jurosPadrao ?? cfg.jurosFinanciamentoPct ?? 25);
+  let limite = r2(parcelaMax * n / (1 + juros / 100 - entPct / 100));
+  if (maxLim > 0) limite = Math.min(limite, maxLim);
+  const quitou = hist.some((v) => v.status === "QUITADA");
+  if (ap) {
+    const entMin = r2(ap.preco * entPct / 100), ent = Math.max(p.entrada || 0, entMin);
+    const parcela = r2((ap.preco * (1 + juros / 100) - ent) / n);
+    if (parcela <= parcelaMax && (!maxLim || ap.preco <= maxLim))
+      return { status: "PRE_APROVADO", resposta: `Pr\xE9-aprovado! ${p.aparelho}: entrada de ${brl2(ent)} + ${n}x de ${brl2(parcela)}.${(p.entrada || 0) < entMin ? ` (A entrada m\xEDnima \xE9 ${brl2(entMin)}.)` : ""}${quitou ? " Obrigado por voltar!" : ""} Agende abaixo e traga RG ou CNH.`, auto: { parcela, entrada: ent, n, limite, parcelaMax } };
+  }
+  const maisBarato = Math.min(...(vit.aparelhos || []).map((a) => +a.preco).filter((x) => x > 0), Infinity);
+  if (limite >= minLim && limite >= (isFinite(maisBarato) ? maisBarato : 0)) return { status: "PRE_APROVADO", resposta: `Pr\xE9-aprovado para celulares de at\xE9 ${brl2(limite)}${ap ? ` (o ${p.aparelho} passou do seu limite)` : ""}, com entrada a partir de ${entPct}% e parcelas de at\xE9 ${brl2(parcelaMax)}. Agende abaixo e escolha o aparelho na loja.`, auto: { limite, parcelaMax, n } };
+  return { status: "RECUSADA", resposta: "Com a renda informada n\xE3o conseguimos aprovar online agora. Se tiver uma entrada maior, passe na loja para conversar.", auto: { limite, parcelaMax } };
+}
+var erro3 = (msg, status = 400) => Object.assign(new Error(msg), { status });
+async function handler11(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    const b = req.body || {};
+    if (b.acao === "enviar") {
+      const cpf = dig(b.cpf), tel = dig(b.telefone), nasc = String(b.nasc || "");
+      if (!cpfOk(cpf)) throw erro3("CPF inv\xE1lido.");
+      if (tel.length < 10 || tel.length > 13) throw erro3("WhatsApp com DDD.");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nasc)) throw erro3("Data de nascimento inv\xE1lida.");
+      const idade = Math.floor((Date.now() - new Date(nasc)) / 315576e5);
+      if (idade < 18 || idade > 110) throw erro3("\xC9 preciso ter 18 anos ou mais.");
+      if (b.aceiteLgpd !== true) throw erro3("Marque a autoriza\xE7\xE3o para continuar.");
+      const nome = txt(b.nome, 120);
+      if (nome.length < 3) throw erro3("Nome completo.");
+      const ini = (/* @__PURE__ */ new Date(hoje() + "T00:00:00-03:00")).getTime();
+      const doDia = (await db.collection("preanalises").where("cpf", "==", cpf).get()).docs.filter((d) => (d.data().criadoEm || 0) >= ini).length;
+      if (doDia >= 3) throw erro3("Voc\xEA j\xE1 enviou pr\xE9-an\xE1lises hoje. Aguarde o contato da loja.", 429);
+      const vit = (await db.collection("publico").doc("vitrine").get()).data() || {};
+      const loja = (vit.lojas || []).find((l) => l.id === b.lojaId) || {};
+      const dados = {
+        nome,
+        cpf,
+        nasc,
+        telefone: tel,
+        cidade: txt(b.cidade, 60),
+        renda: Math.max(0, Number(b.renda) || 0),
+        profissao: txt(b.profissao, 60),
+        aparelho: txt(b.aparelho, 120),
+        entrada: Math.max(0, Number(b.entrada) || 0),
+        lojaId: loja.id || "",
+        lojaNome: loja.nome || "",
+        aceiteLgpd: true,
+        status: "NOVA",
+        criadoEm: Date.now(),
+        via: b.vendedorUid ? "link do vendedor" : "servidor",
+        ...b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {}
+      };
+      const cfg = await config();
+      if (cfg.preAutomatica !== "nao") {
+        try {
+          const d = await decidir(dados, vit, cfg);
+          Object.assign(dados, { status: d.status, resposta: d.resposta, respondidoEm: Date.now(), respondidoPor: "An\xE1lise autom\xE1tica", auto: d.auto, limite: d.status === "PRE_APROVADO" ? d.auto?.limite || 0 : 0 });
+        } catch (e) {
+          console.error("decidir", e);
+        }
+      }
+      const ref = await db.collection("preanalises").add(dados);
+      return res.status(200).json({ id: ref.id, status: dados.status, resposta: dados.resposta || "", lojaNome: loja.nome || "", lojaTelefone: loja.telefone || "" });
+    }
+    if (b.acao === "ver" || b.acao === "agendar") {
+      const id = String(b.id || "");
+      if (!/^[A-Za-z0-9_-]{6,40}$/.test(id)) throw erro3("Pr\xE9-an\xE1lise n\xE3o encontrada.", 404);
+      const ref = db.collection("preanalises").doc(id), s = await ref.get();
+      if (!s.exists) throw erro3("Pr\xE9-an\xE1lise n\xE3o encontrada.", 404);
+      const x = s.data();
+      if (b.acao === "agendar") {
+        if (x.status !== "PRE_APROVADO") throw erro3("S\xF3 d\xE1 para agendar depois da pr\xE9-aprova\xE7\xE3o.");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.data)) || b.data < hoje() || !/^\d{2}:\d{2}$/.test(String(b.hora))) throw erro3("Escolha o dia e o hor\xE1rio.");
+        x.agendamento = { data: b.data, hora: b.hora, em: Date.now() };
+        await ref.set({ agendamento: x.agendamento }, { merge: true });
+      }
+      return res.status(200).json({ id, nome: String(x.nome || "").split(" ")[0], aparelho: x.aparelho || "", lojaNome: x.lojaNome || "", status: x.status, resposta: x.resposta || "", criadoEm: x.criadoEm, agendamento: x.agendamento || null });
+    }
+    return res.status(400).json({ erro: "a\xE7\xE3o desconhecida" });
+  } catch (e) {
+    console.error(e);
+    return res.status(e.status || 500).json({ erro: e.status ? e.message : "N\xE3o foi poss\xEDvel enviar agora. Tente de novo." });
+  }
+}
+
+// api/ia-autonoma.js
+var MODELO2 = process.env.GROQ_MODELO_AUTONOMA || "llama-3.3-70b-versatile";
+var dias2 = (a, b) => Math.round((/* @__PURE__ */ new Date(String(b).slice(0, 10) + "T12:00:00") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00")) / 864e5);
+var POR = "IA NexumCell";
+var _chave = null;
+async function chaveIA() {
+  if (_chave && _chave.em > Date.now() - 3e5) return _chave.v;
+  let v = process.env.GROQ_API_KEY_2 || "";
+  if (!v) {
+    try {
+      v = (await db.collection("segredos").doc("ia").get()).data()?.chave || "";
+    } catch (e) {
+      v = "";
+    }
+  }
+  if (!v) v = process.env.GROQ_API_KEY || (await config()).iaChave || "";
+  _chave = { em: Date.now(), v };
+  return v;
+}
+async function parecerIA(tarefa, dados) {
+  const chave = await chaveIA();
+  if (!chave) return null;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODELO2, temperature: 0.1, max_tokens: 300, response_format: { type: "json_object" }, messages: [
+        { role: "system", content: 'Voc\xEA \xE9 o analista de risco da NexumCell, financeira de celulares com trava para clientes negativados. Responda SOMENTE em JSON {"parecer":"at\xE9 2 frases em portugu\xEAs do Brasil, objetivas","risco":"baixo|medio|alto"}. Use s\xF3 os dados recebidos; n\xE3o invente.' },
+        { role: "user", content: tarefa + "\nDADOS: " + JSON.stringify(dados).slice(0, 6e3) }
+      ] })
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return JSON.parse(j.choices?.[0]?.message?.content || "{}");
+  } catch (e) {
+    return null;
+  }
+}
+function historico(v) {
+  const ps = v.parcelas || [], pagas = ps.filter((p) => p.pago), h = hoje();
+  const emDia = pagas.filter((p) => !p.pagoEm || dias2(p.venc, p.pagoEm) <= 3).length;
+  const atr = ps.filter((p) => !p.pago && p.venc < h), diasAtr = atr.length ? dias2(atr.sort((a, b) => a.venc.localeCompare(b.venc))[0].venc, h) : 0;
+  return { total: ps.length, pagas: pagas.length, emDiaPct: pagas.length ? Math.round(emDia / pagas.length * 100) : 0, diasAtraso: diasAtr, parcelasAtraso: atr.length, acordos: (v.acordos || []).length };
+}
+async function regraAprovacao(x) {
+  const d = x.dados || {};
+  if (x.tipo === "LIB24H") {
+    const ap = (await db.collection("aparelhos").doc(String(x.alvo)).get()).data();
+    if (!ap) return ["DUVIDA", "aparelho n\xE3o encontrado"];
+    const v = ap.vendaId ? (await db.collection("vendas").doc(ap.vendaId).get()).data() : null;
+    if (!v) return ["DUVIDA", "contrato n\xE3o encontrado"];
+    const h = historico(v), ult = Number(ap.ultimaLib24h) || 0;
+    if (ap.roubo && !ap.roubo.liberadoEm) return ["RECUSADA", "aparelho com roubo/perda comunicado"];
+    if (Date.now() - ult < 30 * 864e5) return ["RECUSADA", "j\xE1 teve uma libera\xE7\xE3o de 24 h nos \xFAltimos 30 dias"];
+    if (h.diasAtraso > 20) return ["RECUSADA", `atraso de ${h.diasAtraso} dias: acima do limite para liberar`];
+    if (h.pagas >= 1 && h.emDiaPct >= 60 && h.diasAtraso <= 10) return ["APROVADA", `bom pagador (${h.emDiaPct}% em dia), atraso de ${h.diasAtraso} dia(s)`, { v, h }];
+    return ["DUVIDA", `hist\xF3rico curto ou irregular (${h.pagas} paga(s), ${h.emDiaPct}% em dia)`, { v, h }];
+  }
+  if (x.tipo === "LIBERAR_APARELHO") {
+    const ap = (await db.collection("aparelhos").doc(String(x.alvo)).get()).data();
+    if (!ap) return ["DUVIDA", "aparelho n\xE3o encontrado"];
+    const v = ap.vendaId ? (await db.collection("vendas").doc(ap.vendaId).get()).data() : null;
+    if (v && ["QUITADA", "CANCELADA"].includes(v.status)) return ["APROVADA", `contrato ${v.status === "QUITADA" ? "quitado" : "cancelado"}: pode liberar`];
+    if (v && (v.parcelas || []).every((p) => p.pago)) return ["APROVADA", "todas as parcelas pagas"];
+    return ["DUVIDA", "libera\xE7\xE3o definitiva com parcelas em aberto: decis\xE3o do dono", { v: v ? { numero: v.numero, status: v.status } : null }];
+  }
+  if (x.tipo === "DESCONTO_BAIXA") {
+    const v = (await db.collection("vendas").doc(String(x.alvo)).get()).data();
+    if (!v) return ["DUVIDA", "contrato n\xE3o encontrado"];
+    const p = (v.parcelas || [])[Number(d.i)];
+    if (!p) return ["DUVIDA", "parcela n\xE3o encontrada"];
+    if (p.pago) return ["RECUSADA", "a parcela j\xE1 est\xE1 paga"];
+    const desc = p.valor > 0 ? Math.round((1 - Number(d.valor || 0) / p.valor) * 100) : 100, h = historico(v);
+    if (desc <= 10 && h.diasAtraso <= 30) return ["APROVADA", `desconto de ${desc}% dentro do limite de 10%`, { desc, h }];
+    if (desc > 25) return ["RECUSADA", `desconto de ${desc}% acima do m\xE1ximo de 25%`, { desc, h }];
+    return ["DUVIDA", `desconto de ${desc}%: entre 10% e 25%, decis\xE3o do dono`, { desc, h }];
+  }
+  return ["DUVIDA", "tipo de pedido sem regra autom\xE1tica"];
+}
+async function executarAprovacao(x) {
+  const d = x.dados || {}, quem = `${x.solicitanteNome || ""} (aprovado pela ${POR})`;
+  if (x.tipo === "LIBERAR_APARELHO") {
+    await db.collection("aparelhos").doc(String(x.alvo)).set({ modo: "LIBERAR", modoPor: quem, modoEm: Date.now(), modoMotivo: d.motivo || "" }, { merge: true });
+    await pushAparelho(String(x.alvo)).catch(() => {
+    });
+  }
+  if (x.tipo === "LIB24H") {
+    await db.collection("aparelhos").doc(String(x.alvo)).set({ modo: "AUTO", liberadoAte: Date.now() + 864e5, ultimaLib24h: Date.now(), modoPor: quem, modoMotivo: d.motivo || "" }, { merge: true });
+    await pushAparelho(String(x.alvo)).catch(() => {
+    });
+  }
+  if (x.tipo === "DESCONTO_BAIXA") {
+    const v = (await db.collection("vendas").doc(String(x.alvo)).get()).data() || {}, p = (v.parcelas || [])[Number(d.i)] || {};
+    await baixarParcela(String(x.alvo), p.n ?? Number(d.i) + 1, Number(d.valor), d.forma || "Desconto aprovado", `${d.obs ? d.obs + " \xB7 " : ""}desconto aprovado pela ${POR}`, x.solicitanteNome || POR);
+  }
+}
+async function aprovacoesIA(max = 15) {
+  const cfg = await config();
+  if (cfg.iaAutonoma === "nao") return { aprovacoes: 0 };
+  const pend = (await db.collection("aprovacoes").where("status", "==", "PENDENTE").get()).docs.filter((s) => !s.data().iaAnalisadaEm).slice(0, max);
+  let n = 0;
+  for (const s of pend) {
+    const x = { id: s.id, ...s.data() };
+    try {
+      const [dec, motivo, extra] = await regraAprovacao(x);
+      const ia = await parecerIA(`Pedido "${x.tipo}" feito por ${x.solicitanteNome}: ${x.resumo}. Regra aplicada: ${dec} \u2014 ${motivo}. Explique a decis\xE3o e o risco.`, { pedido: x.dados, extra });
+      const base2 = { iaAnalisadaEm: Date.now(), iaDecisao: dec, iaMotivo: motivo, iaParecer: ia?.parecer || motivo, iaRisco: ia?.risco || "" };
+      if (dec === "DUVIDA") {
+        await s.ref.set({ ...base2, aguardandoDono: true }, { merge: true });
+        continue;
+      }
+      if (dec === "APROVADA") await executarAprovacao(x);
+      await s.ref.set({ ...base2, status: dec, decididoPor: POR, decididoEm: Date.now() }, { merge: true });
+      await db.collection("logs").add({ em: Date.now(), acao: dec === "APROVADA" ? "Aprova\xE7\xE3o concedida pela IA" : "Aprova\xE7\xE3o recusada pela IA", alvo: x.alvo || "", detalhe: `${x.resumo} \xB7 ${motivo}`, nome: POR });
+      n++;
+    } catch (e) {
+      await s.ref.set({ iaAnalisadaEm: Date.now(), iaDecisao: "DUVIDA", iaMotivo: "erro: " + e.message, aguardandoDono: true }, { merge: true });
+    }
+  }
+  return { aprovacoes: n };
+}
+async function preanalisesIA(max = 20) {
+  const cfg = await config();
+  if (cfg.iaAutonoma === "nao") return { preanalises: 0 };
+  const vit = (await db.collection("publico").doc("vitrine").get()).data() || {};
+  const l = (await db.collection("preanalises").where("status", "in", ["NOVA", "CONTATADO"]).get()).docs.filter((s) => {
+    const p = s.data();
+    return !p.iaAnalisadaEm && !p.respondidoPorHumano && (p.status === "NOVA" || p.respondidoPor === "An\xE1lise autom\xE1tica");
+  }).slice(0, max);
+  let n = 0;
+  for (const s of l) {
+    const p = s.data();
+    try {
+      const d = await decidir(p, vit, cfg);
+      const ia = await parecerIA(`Pr\xE9-an\xE1lise online de ${p.nome} (${p.cidade || ""}), renda ${p.renda}, profiss\xE3o ${p.profissao || "\u2014"}, quer ${p.aparelho || "\u2014"} com entrada ${p.entrada || 0}. Resultado das regras: ${d.status}. D\xEA o parecer.`, { regras: d.auto, status: d.status });
+      if (d.status === "CONTATADO") {
+        await s.ref.set({ status: "CONTATADO", resposta: d.resposta, respondidoEm: Date.now(), respondidoPor: POR, auto: d.auto || null, iaAnalisadaEm: Date.now(), aguardandoDono: true, iaParecer: ia?.parecer || `Ficou para o dono: ${d.auto?.motivo || "caso fora das regras"}.`, iaRisco: ia?.risco || "" }, { merge: true });
+      } else {
+        await s.ref.set({ status: d.status, resposta: d.resposta, respondidoEm: Date.now(), respondidoPor: POR, auto: d.auto || null, iaAnalisadaEm: Date.now(), aguardandoDono: false, iaParecer: ia?.parecer || "", iaRisco: ia?.risco || "" }, { merge: true });
+        n++;
+      }
+    } catch (e) {
+      console.warn("preanalise IA", s.id, e.message);
+    }
+  }
+  return { preanalises: n };
+}
+async function incluirLN(v, motivo, tipoOrigem) {
+  const cpf = String(v.clienteCpf || "").replace(/\D/g, "");
+  if (!cpf) return false;
+  const ref = db.collection("listanegra").doc("cpf_" + cpf);
+  if ((await ref.get()).exists) return false;
+  const base2 = { nome: v.clienteNome || "", cpf, motivo, vendaId: v.id, vendaNumero: v.numero || 0, em: Date.now(), por: POR, ativo: true, origem: "IA", regra: tipoOrigem };
+  await ref.set({ ...base2, tipo: "CPF", valor: cpf });
+  for (const t of (v.cliente?.telefones || []).filter(Boolean)) await db.collection("listanegra").doc("tel_" + String(t).replace(/\D/g, "")).set({ ...base2, tipo: "TELEFONE", valor: String(t).replace(/\D/g, "") }, { merge: true });
+  await db.collection("logs").add({ em: Date.now(), acao: "Lista negra: inclu\xEDdo pela IA", alvo: v.id, detalhe: `${v.clienteNome} \xB7 ${motivo}`, nome: POR });
+  return true;
+}
+async function listaNegraIA() {
+  const cfg = await config();
+  if (cfg.iaAutonoma === "nao" || cfg.listaNegraAuto === "nao") return { listaNegra: 0 };
+  const vs = (await db.collection("vendas").where("status", "in", ["ATIVA", "RETOMADA"]).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  let n = 0;
+  const h = hoje();
+  for (const v of vs) {
+    const hi = historico(v);
+    if (v.status === "RETOMADA" && (v.parcelas || []).some((p) => !p.pago)) {
+      if (await incluirLN(v, "Aparelho retomado com parcelas em aberto", "retomada")) n++;
+      continue;
+    }
+    if (v.status === "ATIVA" && hi.diasAtraso >= 90 && v.aparelhoToken) {
+      const ap = (await db.collection("aparelhos").doc(v.aparelhoToken).get()).data() || {};
+      const sinal = Number(ap.checkin?.em) || 0;
+      if (!sinal || Date.now() - sinal > 30 * 864e5) {
+        if (await incluirLN(v, `${hi.diasAtraso} dias de atraso e o aparelho sem sinal h\xE1 mais de 30 dias`, "sumiu")) n++;
+        continue;
+      }
+    }
+    if (v.status === "ATIVA" && hi.pagas === 0 && hi.diasAtraso >= 60) {
+      if (await incluirLN(v, "N\xE3o pagou nenhuma parcela (60+ dias de atraso)", "nunca pagou")) n++;
+      continue;
+    }
+    if ((v.alertasFraude || []).some((a) => /outro CPF/.test(a.motivo || "")) && hi.diasAtraso >= 15) {
+      if (await incluirLN(v, "Telefone usado por outro CPF e parcela em atraso", "fraude")) n++;
+    }
+  }
+  return { listaNegra: n, h };
+}
+var MSG_ACK = (nome, prot) => `Ol\xE1${nome ? ", " + String(nome).split(" ")[0] : ""}! Recebemos o seu atendimento${prot ? " (protocolo " + prot + ")" : ""}. Um especialista da NexumCell j\xE1 foi avisado e responde por aqui em instantes. Enquanto isso, se puder, descreva com detalhes o que aconteceu.`;
+async function atendimentoIA() {
+  let n = 0;
+  const ats = (await db.collection("atendimentos").where("status", "==", "HUMANO").get()).docs.filter((s) => !s.data().autoAckEm);
+  for (const s of ats) {
+    const a = s.data(), msgs = [...a.msgs || []];
+    if (msgs.some((m) => m.de === "atendente")) {
+      await s.ref.set({ autoAckEm: Date.now() }, { merge: true });
+      continue;
+    }
+    msgs.push({ de: "atendente", t: MSG_ACK(a.nome || a.abertoPorNome, a.protocolo), em: Date.now(), por: "Suporte NexumCell", auto: true });
+    await s.ref.set({ msgs, autoAckEm: Date.now(), naoLidoUser: true, atualizadoEm: Date.now() }, { merge: true });
+    n++;
+  }
+  const sa = (await db.collection("suporteApp").where("naoLidoSuporte", "==", true).get()).docs.filter((s) => !s.data().autoAckEm);
+  for (const s of sa) {
+    const c = s.data();
+    await s.ref.collection("msgs").add({ de: "suporte", texto: MSG_ACK(c.clienteNome, ""), em: Date.now(), porNome: "Suporte", auto: true });
+    await s.ref.set({ autoAckEm: Date.now(), naoLidoCliente: true, atualizadoEm: Date.now() }, { merge: true });
+    n++;
+  }
+  return { atendimento: n };
+}
+async function iaAutonomaRotina() {
+  const r = {};
+  for (const [k, f] of [["aprovacoes", aprovacoesIA], ["preanalises", preanalisesIA], ["listaNegra", listaNegraIA], ["atendimento", atendimentoIA]]) {
+    try {
+      Object.assign(r, await f());
+    } catch (e) {
+      console.error("ia", k, e.message);
+      r[k + "Erro"] = e.message;
+    }
+  }
+  return r;
+}
+async function handler12(req, res) {
+  if (cors(req, res)) return;
+  try {
+    await exigirEquipe(req, ["DONO", "FINANCEIRO", "SUPORTE"]);
+    res.json({ ok: true, ...await iaAutonomaRotina() });
+  } catch (e) {
+    res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
+// api/cron.js
+var dias3 = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
+var brl3 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 var dataBR = (d) => String(d || "").split("-").reverse().join("/");
 var primeiroNome2 = (n) => String(n || "").trim().split(/\s+/)[0] || "";
 var urlCliente = () => process.env.PORTAL_CLIENTE_URL || (process.env.PORTAL_ORIGEM || "https://nexumrh.github.io") + "/cliente/";
@@ -2099,9 +2446,9 @@ function dadosAviso(v, cfg, tipo) {
   const atrasadas = abertas.filter((p2) => p2.venc < hoje()), p = (tipo === "atraso" ? atrasadas[0] : abertas[0]) || abertas[0] || {};
   const ap = { descontoPct: cfg.descontoAntecipadoPct, multaPct: cfg.multaPct, moraDiaPct: cfg.moraDiaPct };
   const valor = tipo === "atraso" ? r2(atrasadas.reduce((s, x) => s + encargos(x, ap), 0)) : p.valor ? encargos(p, ap) : 0;
-  const nome = primeiroNome2(v.clienteNome), loja = cfg.empresa || "NexumCell", d = p.venc ? Math.max(0, dias2(p.venc, hoje())) : 0;
-  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl2(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl2(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
-  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl2(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
+  const nome = primeiroNome2(v.clienteNome), loja = cfg.empresa || "NexumCell", d = p.venc ? Math.max(0, dias3(p.venc, hoje())) : 0;
+  const texto = tipo === "atraso" ? `${loja}: ${nome}, sua parcela esta atrasada ha ${d} dia(s). Valor hoje ${brl3(valor)}. Pague pelo portal ${urlCliente()} e evite o bloqueio do aparelho.` : `${loja}: ${nome}, sua parcela de ${brl3(valor)} vence ${p.venc === hoje() ? "HOJE" : "em " + dataBR(p.venc)}. Pagando antes voce ganha desconto: ${urlCliente()}`;
+  return { tel: (v.cliente?.telefones || [])[0] || v.clienteTel1 || "", modelo: tipo, texto, params: { NOME: nome, VALOR: brl3(valor), VENCIMENTO: dataBR(p.venc), DIAS: String(d), LINK: urlCliente(), LOJA: loja } };
 }
 async function vendasAtivas() {
   return (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -2115,7 +2462,7 @@ async function regua(cfg, vendas) {
     if (v.pixAutomatico?.status === "ATIVO") continue;
     const abertas = (v.parcelas || []).filter((p2) => !p2.pago).sort((a, b) => a.venc.localeCompare(b.venc));
     if (!abertas.length) continue;
-    const atrasada = abertas.find((p2) => p2.venc < hoje()), p = atrasada || abertas[0], d = dias2(p.venc, hoje());
+    const atrasada = abertas.find((p2) => p2.venc < hoje()), p = atrasada || abertas[0], d = dias3(p.venc, hoje());
     const passo = passos.find((x) => +x.dia === d);
     if (!passo) continue;
     const chave = `${p.n}:R${d}`;
@@ -2192,7 +2539,7 @@ async function filaRotina(vendas) {
       clienteNome: v.clienteNome || "",
       tel: (v.cliente?.telefones || [])[0] || "",
       aparelho: [v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(" "),
-      dias: atr.length ? dias2(atr[0].venc, h) : 0,
+      dias: atr.length ? dias3(atr[0].venc, h) : 0,
       valor: r2((atr.length ? atr : [abertas[0]]).reduce((s, p) => s + (+p.valor || 0), 0)),
       venc: (atr[0] || abertas[0]).venc,
       lembrete: !atr.length,
@@ -2216,7 +2563,7 @@ async function preAprovados(cfg) {
     if (n >= max) break;
     const ok = vs.every((v) => {
       const ps = v.parcelas || [], pagas = ps.filter((p) => p.pago);
-      const atrasoMax = Math.max(0, ...pagas.map((p) => p.pagoEm ? dias2(p.venc, String(p.pagoEm).slice(0, 10)) : 0));
+      const atrasoMax = Math.max(0, ...pagas.map((p) => p.pagoEm ? dias3(p.venc, String(p.pagoEm).slice(0, 10)) : 0));
       const aberto = ps.some((p) => !p.pago && p.venc < hoje()), faltam = ps.length - pagas.length;
       return !aberto && atrasoMax <= 3 && !(v.acordos || []).length && (v.status === "QUITADA" || ps.length >= 2 && faltam <= 1);
     });
@@ -2246,7 +2593,7 @@ async function lembretes(cfg, vendas) {
     if (v.pixAutomatico?.status === "ATIVO") continue;
     const abertas = (v.parcelas || []).filter((p2) => !p2.pago).sort((a, b) => a.venc.localeCompare(b.venc));
     if (!abertas.length) continue;
-    const p = abertas[0], d = dias2(hoje(), p.venc);
+    const p = abertas[0], d = dias3(hoje(), p.venc);
     let tipo = null, chave = "";
     if (d === antes || d === 0) {
       tipo = "lembrete";
@@ -2277,7 +2624,7 @@ async function roboVoz(cfg, vendas) {
     if (ligados + desligados + erros >= max) break;
     const cust = v.asaas?.customer;
     if (!cust) continue;
-    const atraso = Math.max(0, ...(v.parcelas || []).filter((p) => !p.pago).map((p) => dias2(p.venc, hoje())));
+    const atraso = Math.max(0, ...(v.parcelas || []).filter((p) => !p.pago).map((p) => dias3(p.venc, hoje())));
     const querLigado = atraso >= limite;
     if (querLigado === !!v.roboVoz?.ligado) continue;
     try {
@@ -2328,9 +2675,9 @@ async function resumoDoDia(cfg) {
   });
   const linhas = [
     `Vendas hoje: ${ativadas.length} ativada(s)${novas.length > ativadas.length ? ` + ${novas.length - ativadas.length} em andamento` : ""}${Object.keys(porLoja).length ? " (" + Object.entries(porLoja).map(([l, n]) => `${l}: ${n}`).join(", ") + ")" : ""}`,
-    `Entradas recebidas: ${brl2(entradas)}`,
-    `Parcelas recebidas: ${nParc} \xB7 ${brl2(recebido)}`,
-    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl2(atrasoValor)}`,
+    `Entradas recebidas: ${brl3(entradas)}`,
+    `Parcelas recebidas: ${nParc} \xB7 ${brl3(recebido)}`,
+    `Em atraso: ${atrasados.size} contrato(s) \xB7 ${brl3(atrasoValor)}`,
     `Vencem amanh\xE3: ${amanha.length} contrato(s)`,
     analise ? `Propostas esperando an\xE1lise: ${analise}` : "",
     semSinal.length ? `\u26A0\uFE0F Aparelhos sem sinal h\xE1 mais de ${semSinalDias} dias: ${semSinal.length} (${semSinal.slice(0, 5).map((a) => "n\xBA " + a.vendaNumero).join(", ")}${semSinal.length > 5 ? "\u2026" : ""})` : ""
@@ -2433,6 +2780,11 @@ async function rotinas(qual) {
     } catch (e) {
       console.error("fila", e.message);
     }
+    try {
+      r.ia = await iaAutonomaRotina();
+    } catch (e) {
+      console.error("ia", e.message);
+    }
     return r;
   }
   let ios = {};
@@ -2526,7 +2878,7 @@ async function rotinas(qual) {
 }
 
 // api/avisos.js
-async function handler11(req, res) {
+async function handler13(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -2698,7 +3050,7 @@ var resumo = (j) => ({
   qrcode: j.qrcode_url || "",
   em: Date.now()
 });
-async function handler12(req, res) {
+async function handler14(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -2759,7 +3111,7 @@ function htmlParaMarkdown(html) {
   return String(html || "").replace(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gis, "\n## $1\n").replace(/<h4[^>]*>(.*?)<\/h4>/gis, "\n### $1\n").replace(/<(b|strong)>(.*?)<\/\1>/gis, "**$2**").replace(/<li[^>]*>/gi, "\n- ").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 var ipDo = (req) => String(req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || "").trim();
-async function handler13(req, res) {
+async function handler15(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -2833,7 +3185,7 @@ async function handler13(req, res) {
 }
 
 // api/zapsign-webhook.js
-async function handler14(req, res) {
+async function handler16(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   if (process.env.ZAPSIGN_WEBHOOK_TOKEN && req.headers["x-nexum-token"] !== process.env.ZAPSIGN_WEBHOOK_TOKEN) return res.status(401).json({ erro: "token inv\xE1lido" });
   try {
@@ -2866,120 +3218,6 @@ async function handler14(req, res) {
   } catch (e) {
     console.error(e);
     return res.status(500).json({ erro: e.message });
-  }
-}
-
-// api/preanalise.js
-var dig = (s) => String(s || "").replace(/\D/g, "");
-function cpfOk(c) {
-  c = dig(c);
-  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
-  for (const t of [9, 10]) {
-    let s = 0;
-    for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i);
-    if (s * 10 % 11 % 10 !== +c[t]) return false;
-  }
-  return true;
-}
-var txt = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
-var brl3 = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-var diasAtraso = (venc) => Math.floor((new Date(hoje()) - new Date(venc)) / 864e5);
-async function decidir(p, vit, cfg) {
-  const pct = Number(cfg.preRendaPct) || 30, minLim = Number(cfg.preLimiteMin) || 300, maxLim = Number(cfg.preLimiteMax) || 0;
-  const entPct = Number(vit.entradaPct ?? cfg.entradaPct) || 30;
-  const n = Math.max(...String(vit.parcelasOpcoes || cfg.parcelasOpcoes || "12").split(",").map(Number).filter((x) => x > 0), 1);
-  const ln = await Promise.all([db.collection("listanegra").doc("cpf_" + p.cpf).get(), db.collection("listanegra").doc("tel_" + p.telefone).get()]);
-  if (ln.some((d) => d.exists && d.data()?.ativo !== false)) return { status: "CONTATADO", resposta: "Recebemos seus dados. A loja vai analisar e falar com voc\xEA pelo WhatsApp.", auto: { motivo: "lista negra" } };
-  const hist = (await db.collection("vendas").where("clienteCpf", "==", p.cpf).get()).docs.map((d) => d.data());
-  const atrasoAberto = Math.max(0, ...hist.filter((v) => v.status === "ATIVA").flatMap((v) => (v.parcelas || []).filter((x) => !x.pago).map((x) => diasAtraso(x.venc))));
-  if (hist.some((v) => v.status === "RETOMADA") || atrasoAberto > 30) return { status: "RECUSADA", resposta: "No momento n\xE3o conseguimos aprovar uma nova compra. Regularize o contrato em aberto e tente de novo.", auto: { motivo: "hist\xF3rico" } };
-  if (hist.some((v) => v.status === "ATIVA")) return { status: "CONTATADO", resposta: "Voc\xEA j\xE1 tem um contrato com a gente. A loja vai falar com voc\xEA pelo WhatsApp sobre a nova compra.", auto: { motivo: "contrato ativo" } };
-  if (!(p.renda > 0)) return { status: "CONTATADO", resposta: "Recebemos seus dados. A loja vai falar com voc\xEA pelo WhatsApp.", auto: { motivo: "sem renda" } };
-  const parcelaMax = r2(p.renda * pct / 100);
-  const ap = (vit.aparelhos || []).find((a) => `${a.marca} ${a.modelo} ${a.capacidade}` === p.aparelho);
-  const juros = Number(ap?.juros ?? vit.jurosPadrao ?? cfg.jurosFinanciamentoPct ?? 25);
-  let limite = r2(parcelaMax * n / (1 + juros / 100 - entPct / 100));
-  if (maxLim > 0) limite = Math.min(limite, maxLim);
-  const quitou = hist.some((v) => v.status === "QUITADA");
-  if (ap) {
-    const entMin = r2(ap.preco * entPct / 100), ent = Math.max(p.entrada || 0, entMin);
-    const parcela = r2((ap.preco * (1 + juros / 100) - ent) / n);
-    if (parcela <= parcelaMax && (!maxLim || ap.preco <= maxLim))
-      return { status: "PRE_APROVADO", resposta: `Pr\xE9-aprovado! ${p.aparelho}: entrada de ${brl3(ent)} + ${n}x de ${brl3(parcela)}.${(p.entrada || 0) < entMin ? ` (A entrada m\xEDnima \xE9 ${brl3(entMin)}.)` : ""}${quitou ? " Obrigado por voltar!" : ""} Agende abaixo e traga RG ou CNH.`, auto: { parcela, entrada: ent, n, limite, parcelaMax } };
-  }
-  const maisBarato = Math.min(...(vit.aparelhos || []).map((a) => +a.preco).filter((x) => x > 0), Infinity);
-  if (limite >= minLim && limite >= (isFinite(maisBarato) ? maisBarato : 0)) return { status: "PRE_APROVADO", resposta: `Pr\xE9-aprovado para celulares de at\xE9 ${brl3(limite)}${ap ? ` (o ${p.aparelho} passou do seu limite)` : ""}, com entrada a partir de ${entPct}% e parcelas de at\xE9 ${brl3(parcelaMax)}. Agende abaixo e escolha o aparelho na loja.`, auto: { limite, parcelaMax, n } };
-  return { status: "RECUSADA", resposta: "Com a renda informada n\xE3o conseguimos aprovar online agora. Se tiver uma entrada maior, passe na loja para conversar.", auto: { limite, parcelaMax } };
-}
-var erro3 = (msg, status = 400) => Object.assign(new Error(msg), { status });
-async function handler15(req, res) {
-  if (cors(req, res)) return;
-  if (req.method !== "POST") return res.status(405).end();
-  try {
-    const b = req.body || {};
-    if (b.acao === "enviar") {
-      const cpf = dig(b.cpf), tel = dig(b.telefone), nasc = String(b.nasc || "");
-      if (!cpfOk(cpf)) throw erro3("CPF inv\xE1lido.");
-      if (tel.length < 10 || tel.length > 13) throw erro3("WhatsApp com DDD.");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(nasc)) throw erro3("Data de nascimento inv\xE1lida.");
-      const idade = Math.floor((Date.now() - new Date(nasc)) / 315576e5);
-      if (idade < 18 || idade > 110) throw erro3("\xC9 preciso ter 18 anos ou mais.");
-      if (b.aceiteLgpd !== true) throw erro3("Marque a autoriza\xE7\xE3o para continuar.");
-      const nome = txt(b.nome, 120);
-      if (nome.length < 3) throw erro3("Nome completo.");
-      const ini = (/* @__PURE__ */ new Date(hoje() + "T00:00:00-03:00")).getTime();
-      const doDia = (await db.collection("preanalises").where("cpf", "==", cpf).get()).docs.filter((d) => (d.data().criadoEm || 0) >= ini).length;
-      if (doDia >= 3) throw erro3("Voc\xEA j\xE1 enviou pr\xE9-an\xE1lises hoje. Aguarde o contato da loja.", 429);
-      const vit = (await db.collection("publico").doc("vitrine").get()).data() || {};
-      const loja = (vit.lojas || []).find((l) => l.id === b.lojaId) || {};
-      const dados = {
-        nome,
-        cpf,
-        nasc,
-        telefone: tel,
-        cidade: txt(b.cidade, 60),
-        renda: Math.max(0, Number(b.renda) || 0),
-        profissao: txt(b.profissao, 60),
-        aparelho: txt(b.aparelho, 120),
-        entrada: Math.max(0, Number(b.entrada) || 0),
-        lojaId: loja.id || "",
-        lojaNome: loja.nome || "",
-        aceiteLgpd: true,
-        status: "NOVA",
-        criadoEm: Date.now(),
-        via: b.vendedorUid ? "link do vendedor" : "servidor",
-        ...b.vendedorUid ? { vendedorUid: txt(b.vendedorUid, 64), vendedorNome: txt(b.vendedorNome, 80) } : {}
-      };
-      const cfg = await config();
-      if (cfg.preAutomatica !== "nao") {
-        try {
-          const d = await decidir(dados, vit, cfg);
-          Object.assign(dados, { status: d.status, resposta: d.resposta, respondidoEm: Date.now(), respondidoPor: "An\xE1lise autom\xE1tica", auto: d.auto, limite: d.status === "PRE_APROVADO" ? d.auto?.limite || 0 : 0 });
-        } catch (e) {
-          console.error("decidir", e);
-        }
-      }
-      const ref = await db.collection("preanalises").add(dados);
-      return res.status(200).json({ id: ref.id, status: dados.status, resposta: dados.resposta || "", lojaNome: loja.nome || "", lojaTelefone: loja.telefone || "" });
-    }
-    if (b.acao === "ver" || b.acao === "agendar") {
-      const id = String(b.id || "");
-      if (!/^[A-Za-z0-9_-]{6,40}$/.test(id)) throw erro3("Pr\xE9-an\xE1lise n\xE3o encontrada.", 404);
-      const ref = db.collection("preanalises").doc(id), s = await ref.get();
-      if (!s.exists) throw erro3("Pr\xE9-an\xE1lise n\xE3o encontrada.", 404);
-      const x = s.data();
-      if (b.acao === "agendar") {
-        if (x.status !== "PRE_APROVADO") throw erro3("S\xF3 d\xE1 para agendar depois da pr\xE9-aprova\xE7\xE3o.");
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.data)) || b.data < hoje() || !/^\d{2}:\d{2}$/.test(String(b.hora))) throw erro3("Escolha o dia e o hor\xE1rio.");
-        x.agendamento = { data: b.data, hora: b.hora, em: Date.now() };
-        await ref.set({ agendamento: x.agendamento }, { merge: true });
-      }
-      return res.status(200).json({ id, nome: String(x.nome || "").split(" ")[0], aparelho: x.aparelho || "", lojaNome: x.lojaNome || "", status: x.status, resposta: x.resposta || "", criadoEm: x.criadoEm, agendamento: x.agendamento || null });
-    }
-    return res.status(400).json({ erro: "a\xE7\xE3o desconhecida" });
-  } catch (e) {
-    console.error(e);
-    return res.status(e.status || 500).json({ erro: e.status ? e.message : "N\xE3o foi poss\xEDvel enviar agora. Tente de novo." });
   }
 }
 
@@ -3130,7 +3368,7 @@ async function avisarDono(assunto, texto) {
     console.error("aviso dono", e.message);
   }
 }
-async function handler16(req, res) {
+async function handler17(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3286,7 +3524,7 @@ Aprove no Painel do Dono \u2192 Lojas parceiras.`);
 }
 
 // api/push.js
-async function handler17(req, res) {
+async function handler18(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3328,7 +3566,7 @@ async function acharVenda(token) {
   if (Date.now() - (v.remota?.criadoEm || 0) > 7 * 864e5) throw erro5("Este link venceu. Pe\xE7a um novo ao vendedor.", 410);
   return { id: d.id, v };
 }
-async function handler18(req, res) {
+async function handler19(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3611,7 +3849,7 @@ async function liberarBot(token, pedido) {
   await registrarBot(ap, v, `Pediu libera\xE7\xE3o pelo app; a assistente n\xE3o liberou (${motivoBot}). Pedido enviado ao suporte.`, agora);
   return { ok: false, pendente: true, sugestao };
 }
-async function handler19(req, res) {
+async function handler20(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3630,7 +3868,7 @@ async function handler19(req, res) {
 
 // api/ios.js
 var erro7 = (m, s = 400) => Object.assign(new Error(m), { status: s });
-async function handler20(req, res) {
+async function handler21(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3721,7 +3959,7 @@ ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
 <p class="muted">C\xF3digo v\xE1lido s\xF3 hoje. D\xFAvidas: fale com o Dono/Suporte Nexum.</p>`}</div></body></html>`;
 }
-async function handler21(req, res) {
+async function handler22(req, res) {
   if (cors(req, res)) return;
   if (!SEG()) return res.status(500).json({ erro: "MESTRE_REMOCAO n\xE3o configurado no servidor." });
   if (req.method === "GET") {
@@ -3742,7 +3980,7 @@ async function handler21(req, res) {
 // api/lead.js
 var txt4 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n || 120);
 var dig4 = (s) => String(s || "").replace(/\D/g, "");
-async function handler22(req, res) {
+async function handler23(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ erro: "M\xE9todo n\xE3o permitido" });
   try {
@@ -3770,7 +4008,7 @@ async function handler22(req, res) {
 }
 
 // worker/index.js
-var ROTAS = { equipe: handler10, ios: handler20, codigo, acordo, instalacao: handler8, "cliente-app": handler19, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler11, nf: handler12, assinatura: handler13, "zapsign-webhook": handler14, preanalise: handler15, credenciamento: handler16, push: handler17, saas: handler4, motor: handler9, repasse: handler7, remota: handler18, "remover-codigo": handler21, lead: handler22 };
+var ROTAS = { equipe: handler10, ia: handler12, ios: handler21, codigo, acordo, instalacao: handler8, "cliente-app": handler20, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler5, assistente: handler6, avisos: handler13, nf: handler14, assinatura: handler15, "zapsign-webhook": handler16, preanalise: handler11, credenciamento: handler17, push: handler18, saas: handler4, motor: handler9, repasse: handler7, remota: handler19, "remover-codigo": handler22, lead: handler23 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
@@ -3839,7 +4077,7 @@ var index_default = {
   },
   async scheduled(event, env2, ctx) {
     carregarEnv(env2);
-    const qual = event.cron === (env2.CRON_NOITE || "0 22 * * *") ? "noite" : event.cron === (env2.CRON_HORA || "0 * * * *") ? "hora" : "manha";
+    const qual = event.cron === (env2.CRON_NOITE || "0 22 * * *") ? "noite" : ["*/15 * * * *", "0 * * * *", env2.CRON_HORA].includes(event.cron) ? "hora" : "manha";
     ctx.waitUntil(rotinas(qual).then((r) => console.log("rotina", qual, JSON.stringify(r))).catch((e) => console.error("rotina", qual, e)));
   }
 };

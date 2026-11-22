@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CRM NexumCell</title>
+<meta name="theme-color" content="#0A1733">
+<link rel="icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="../nexumcell-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+:root{--ink:#0A1733;--ink2:#13244D;--ink3:#22386B;--gold:#C9A227;--gold2:#F3D98B;--bg:#F3F5FA;--card:#fff;--line:#E3E7F0;--line2:#EEF1F7;--txt:#0F1B33;--mut:#5B6478;
+  --pri:#1D5BFF;--pri-s:#E9F0FF;--ok:#0E9F6E;--ok-s:#E4F6EE;--warn:#B7791F;--warn-s:#FDF3E1;--bad:#C0392B;--bad-s:#FCE9E7;--r:14px;--f:'Onest',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--sh:0 1px 2px rgba(10,23,51,.06),0 6px 22px rgba(10,23,51,.06)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}body{font-family:var(--f);font-size:14.5px;color:var(--txt);background:var(--bg);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}[hidden]{display:none!important}a{color:var(--pri)}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;min-height:40px}input:focus,select:focus,textarea:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-s)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;font-weight:600;min-height:38px;white-space:nowrap}
+.btn:hover{background:var(--bg)}.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}.btn.gold{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+.btn.sm{min-height:32px;padding:5px 10px;font-size:13px}.btn.ghost{border-color:transparent;background:transparent}.btn:disabled{opacity:.5;cursor:not-allowed}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.bdg{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.b-blue{background:var(--pri-s);color:#1546C9}.b-green{background:var(--ok-s);color:#0B7A55}.b-amber{background:var(--warn-s);color:#8A5A12}.b-red{background:var(--bad-s);color:#A12F23}.b-gray{background:#EEF1F7;color:#4B556B}.b-navy{background:var(--ink);color:#fff}.b-gold{background:#FBF3D8;color:#7A5D0B}
+.muted{color:var(--mut)}.small{font-size:12.5px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* login */
+.lg{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr;background:var(--ink)}
+.lg-a{padding:56px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(1200px 600px at 10% 10%,#1B3F8C 0%,transparent 60%),linear-gradient(160deg,#0A1733,#0D1F47)}
+.lg-a h1{font-size:40px;line-height:1.1;margin:0 0 14px;letter-spacing:-.02em}.lg-a h1 b{color:var(--gold2)}.lg-a p{color:#C9D4EE;max-width:460px;font-size:16px}
+.lg-f{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:480px}.lg-f div{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:13px;color:#DCE4F7;display:flex;gap:10px;align-items:center}
+.lg-b{background:#fff;display:flex;align-items:center;justify-content:center;padding:32px}.lg-c{width:min(380px,100%)}.lg-c h2{font-size:24px;margin:0 0 6px}.lg-c label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:14px 0 6px}
+.marca{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em;font-size:15px}.marca i{width:36px;height:36px;border-radius:10px;background:var(--gold);color:var(--ink);display:grid;place-items:center;font-style:normal;font-weight:800}
+@media(max-width:860px){.lg{grid-template-columns:1fr}.lg-a{display:none}}
+/* app */
+.app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+.nav{background:var(--ink);color:#C9D4EE;display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow:auto}
+.nav .marca{color:#fff;padding:4px 8px 16px}.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#C9D4EE;border-radius:10px;padding:10px 12px;font-weight:600}
+.nav button:hover{background:rgba(255,255,255,.06);color:#fff}.nav button.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 3px 0 0 var(--gold)}.nav .cnt{margin-left:auto;background:var(--gold);color:var(--ink);border-radius:999px;padding:0 7px;font-size:11.5px;font-weight:800}
+.nav .sep{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#7F8DB0;padding:14px 12px 4px}.nav .eu{margin-top:auto;border-top:1px solid rgba(255,255,255,.1);padding:12px 8px 0;font-size:13px}.nav .eu b{color:#fff;display:block}
+.wa-st{display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.main{min-width:0;display:flex;flex-direction:column;height:100vh}
+.top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:#fff}.top h1{font-size:18px;margin:0}.top .sp{flex:1}
+.body{flex:1;min-height:0;overflow:auto;padding:18px 20px}
+/* inbox */
+.ibx{display:grid;grid-template-columns:340px minmax(0,1fr) 330px;height:100%;min-height:0}
+.ibx>div{min-height:0;display:flex;flex-direction:column}
+.lst{border-right:1px solid var(--line);background:#fff}.lst-h{padding:12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;gap:3px;background:#EEF1F7;border-radius:10px;padding:3px;overflow:auto}.seg button{flex:1;border:0;background:none;border-radius:8px;padding:6px 8px;font-size:12.5px;font-weight:700;color:#4B556B;white-space:nowrap}.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(10,23,51,.12)}
+.itens{overflow:auto;flex:1}.it{display:flex;gap:10px;padding:12px;border-bottom:1px solid var(--line2);cursor:pointer;position:relative}.it:hover{background:#F8FAFD}.it.on{background:var(--pri-s)}.it.nl:after{content:'';position:absolute;right:12px;top:16px;width:9px;height:9px;border-radius:50%;background:var(--pri)}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none;position:relative}.av .cn{position:absolute;right:-3px;bottom:-3px;width:17px;height:17px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;font-size:9px;font-weight:800}
+.it .t{flex:1;min-width:0}.it .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}.it .t span{display:block;font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.it .q{font-size:11.5px;color:var(--mut);white-space:nowrap}
+.chat{background:#F7F8FC}.ch-h{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line)}.ch-h .t{flex:1;min-width:0}.ch-h .t b{font-size:15px}
+.msgs{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:8px}
+.bb{max-width:72%;padding:9px 13px;border-radius:14px;background:#fff;border:1px solid var(--line);white-space:pre-wrap;word-wrap:break-word;line-height:1.45}.bb small{display:block;font-size:11px;color:var(--mut);margin-top:4px}
+.bb.nos{align-self:flex-end;background:var(--ink);color:#fff;border-color:var(--ink)}.bb.nos small{color:#AEBBDA}.bb.bot{align-self:flex-start;background:#F1ECFF;border-color:#E2D8FF}.bb.nota{align-self:center;background:#FFF8E1;border-color:#F3E3A6;font-size:13px;max-width:86%}.bb.sis{align-self:center;background:transparent;border:0;color:var(--mut);font-size:12px}
+.bb a{color:inherit;text-decoration:underline}
+.cp{background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}.cp-r{display:flex;gap:8px;align-items:flex-end}.cp textarea{min-height:44px;max-height:160px;resize:none}
+.cp .tools{display:flex;gap:6px;flex-wrap:wrap}
+.semsel{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mut);gap:8px;text-align:center;padding:30px}.semsel .ic{width:64px;height:64px;border-radius:18px;background:var(--pri-s);color:var(--pri);display:grid;place-items:center}
+.fc{background:#fff;border-left:1px solid var(--line);overflow:auto;padding:14px}.fc h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:16px 0 8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:13px}.kv dt{color:var(--mut)}.kv dd{margin:0;font-weight:600;text-align:right}
+.cartao{background:linear-gradient(135deg,#0A1733,#1B3F8C);color:#fff;border-radius:16px;padding:16px;position:relative;overflow:hidden}.cartao:after{content:'';position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(201,162,39,.18)}
+.cartao .tag{font-family:ui-monospace,monospace;font-size:20px;letter-spacing:.14em;color:var(--gold2);font-weight:700}.cartao small{color:#AEBBDA}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}.kpi small{display:block;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.kpi b{display:block;font-size:26px;margin-top:4px}.kpi span{font-size:12.5px;color:var(--mut)}
+table.t{width:100%;border-collapse:collapse}table.t th{text-align:left;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);background:#F8FAFD;padding:10px 12px;border-bottom:1px solid var(--line)}table.t td{padding:10px 12px;border-bottom:1px solid var(--line2);font-size:13.5px}
+.kb{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:12px;height:100%;min-height:0}.kb-c{background:#EEF1F7;border-radius:14px;display:flex;flex-direction:column;min-height:0}.kb-c h4{margin:0;padding:12px 14px;font-size:13px;display:flex;gap:8px;align-items:center}.kb-c .l{overflow:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
+.kb-i{background:#fff;border-radius:12px;padding:10px 12px;border:1px solid var(--line);cursor:pointer}.kb-i:hover{border-color:var(--pri)}
+.ov{position:fixed;inset:0;background:rgba(10,23,51,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.md{background:#fff;border-radius:16px;width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(10,23,51,.3)}
+.md-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}.md-h h3{margin:0;font-size:17px}.md-b{padding:18px;overflow:auto}.md-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:90}#toast div{background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;box-shadow:var(--sh);font-weight:600}#toast div.e{background:var(--bad)}
+.rlist{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}.rlist button{text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px}.rlist button:hover{border-color:var(--pri);background:var(--pri-s)}
+.vazio{padding:30px;text-align:center;color:var(--mut)}
+@media(max-width:1200px){.ibx{grid-template-columns:300px minmax(0,1fr)}.fc{display:none}.ibx.ficha .fc{display:block;position:fixed;right:0;top:0;bottom:0;width:340px;z-index:30;box-shadow:-10px 0 40px rgba(10,23,51,.2)}}
+@media(max-width:760px){.app{grid-template-columns:1fr}.nav{display:none}.ibx{grid-template-columns:1fr}.ibx .chat{display:none}.ibx.sel .lst{display:none}.ibx.sel .chat{display:flex}}
+</style>
+</head>
+<body>
+<div id="root"></div><div id="mr"></div><div id="toast"></div>
+<script type="module">
+/* =====================================================================
+   CRM NexumCell — atendimento unificado da equipe NexumCell (comercial, suporte e financeiro):
+   chat dos portais (vendedores e gerentes), chamados, app do cliente, pedidos, liberações,
+   pré-análises em dúvida, leads e WhatsApp (QR code). Divide os atendimentos por igual entre
+   a equipe de cada fila, manda mensagens automáticas e acha o cliente pela Device Tag.
+   ===================================================================== */
+const CFG = window.NEXUMCELL_FIREBASE || {}, URLS = window.NEXUMCELL_URLS || {}, DONO_EMAIL = String(window.NEXUMCELL_DONO || '').toLowerCase();
+const FBV = '10.12.2';
+const FILAS = { suporte: ['Suporte', '#1D5BFF'], financeiro: ['Financeiro', '#0E9F6E'], comercial: ['Comercial', '#C9A227'] };
+const PAPEL = { DONO: 'dono', SUPORTE: 'suporte', FINANCEIRO: 'financeiro', COMERCIAL: 'comercial' };
+const CANAIS = { portal: ['Chat dos portais', '#7C3AED', 'P'], app: ['App do cliente', '#0891B2', 'A'], chamado: ['Chamado', '#4F46E5', 'C'], pedido: ['Pedido do cliente', '#B45309', 'D'],
+  liberacao: ['Pedido de liberação', '#DC2626', 'L'], preanalise: ['Pré-análise', '#0E9F6E', 'R'], lead: ['Lead', '#C9A227', '$'], wa: ['WhatsApp', '#25D366', 'W'] };
+const ETAPAS = [['novo', 'Novos', '#64748B'], ['atendendo', 'Em atendimento', '#1D5BFF'], ['aguardando', 'Aguardando cliente', '#B7791F'], ['fim', 'Finalizados', '#0E9F6E']];
+const RESP_PADRAO = [
+  ['Atendimento', [['Saudação', 'Olá, {nome}! Aqui é {atendente}, da NexumCell. Já estou com o seu atendimento.'], ['Pedir print', 'Pode me mandar um print da tela com a mensagem que aparece? Assim vejo exatamente o que está acontecendo.'], ['Aguarde', 'Estou verificando para você. Em instantes eu retorno por aqui.']]],
+  ['Pagamento', [['Como pagar', 'Para pagar: abra o app NexumCell no celular → aba Parcelas → Pagar com PIX. O aparelho libera sozinho alguns minutos depois que o pagamento cai.'], ['Pagamento confirmado', 'Pagamento confirmado, {nome}! O aparelho libera sozinho em instantes. Se não liberar, toque em Atualizar no app.'], ['Desconto', 'Pagando até o vencimento você ganha desconto na parcela.']]],
+  ['Trava', [['Liberou', 'Pronto, {nome}! O aparelho foi liberado. Conecte na internet e toque em Atualizar no app.'], ['Instalação', 'Para instalar a trava: restaure o aparelho de fábrica, pule a conta Google, conecte no Wi-Fi e toque 6 vezes na tela inicial para ler o QR code da venda.']]],
+  ['Vendas', [['Pré-análise', 'Faça sua pré-análise grátis em 2 minutos e veja na hora quanto pode comprar: {linkPre}'], ['Ser loja parceira', 'Que ótimo! Para ser loja parceira NexumCell é só se cadastrar aqui: {linkSite}']]],
+  ['Encerramento', [['Resolvido?', 'Consegui resolver para você? Se estiver tudo certo, vou concluir este atendimento.'], ['Encerramento', 'Obrigado pelo contato, {nome}! Vou concluir este atendimento (protocolo {protocolo}). Se precisar, é só chamar.']]]];
+const LINKS_PADRAO = [['Portal do cliente', '{portalCliente}'], ['Contrato assinado', '{linkContrato}'], ['Pré-análise online', '{linkPre}'], ['Seja loja parceira', '{linkSite}']];
+const MSG_ACK = 'Olá, {nome}! Recebemos o seu atendimento (protocolo {protocolo}). {atendente}, da equipe {fila} da NexumCell, já foi avisado(a) e responde por aqui em instantes.';
+
+/* ---------- utilidades ---------- */
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const soD = v => String(v || '').replace(/\D/g, '');
+const brl = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtTel = t => { const d = soD(t).replace(/^55(?=\d{10,11}$)/, ''); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : d; };
+const fmtCpf = c => { c = soD(c); return c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c; };
+const fd = s => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—';
+const fdt = ms => ms ? new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const quando = ms => { if (!ms) return ''; const d = new Date(ms), h = new Date(); if (d.toDateString() === h.toDateString()) return d.toLocaleTimeString('pt-BR').slice(0, 5); return d.toLocaleDateString('pt-BR').slice(0, 5); };
+const minFmt = m => m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${Math.floor(m / 1440)}d`;
+const cor = s => { let h = 0; for (const c of String(s || '?')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ['#1D5BFF', '#0E9F6E', '#7C3AED', '#B45309', '#DC2645', '#0891B2', '#4F46E5', '#BE185D'][h % 8]; };
+const ini = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase() || '?';
+const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 86400e3);
+const ICN = { inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
+  kanban: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/>', busca: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>', painel: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+  wa: '<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/>', cfg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  equipe: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>', sair: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  envia: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>', clip: '<path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7L9.4 17.5a2 2 0 0 1-2.8-2.8l8.5-8.5"/>', raio: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>', link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', nota: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', cel: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>', qr: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4"/>' };
+const I = n => `<svg class="i" viewBox="0 0 24 24">${ICN[n] || ''}</svg>`;
+function toast(t, erro) { const d = document.createElement('div'); d.textContent = t; if (erro) d.className = 'e'; $('#toast').appendChild(d); setTimeout(() => d.remove(), erro ? 6000 : 3200); }
+function modal(titulo, corpo, foot = '', largo) {
+  $('#mr').innerHTML = `<div class="ov"><div class="md" ${largo ? 'style="width:min(760px,100%)"' : ''}><div class="md-h"><h3>${esc(titulo)}</h3><button class="btn ghost sm" data-x>${I('x')}</button></div><div class="md-b">${corpo}</div>${foot ? `<div class="md-f">${foot}</div>` : ''}</div></div>`;
+  $('#mr [data-x]').onclick = fechar; $('#mr .ov').onclick = e => { if (e.target.classList.contains('ov')) fechar(); }; return $('#mr .md');
+}
+const fechar = () => { $('#mr').innerHTML = ''; };
+function beep() { try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; g.gain.value = .05; o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + .15); } catch (e) { } }
+// Device Tag: igual à do app da trava (N + 7 letras do nº do contrato embaralhado); aceita também o formato antigo N + letras dos dígitos
+function deviceTag(n) { let x = (Math.max(0, Math.floor(+n || 0)) * 1103515245 + 12345) % 8031810176; let s = ''; for (let i = 0; i < 7; i++) { s = String.fromCharCode(65 + (x % 26)) + s; x = Math.floor(x / 26); } return 'N' + s; }
+const tagAntiga = n => 'N' + String(Math.max(0, Math.floor(+n || 0))).split('').map(d => 'ABCDEFGHIJ'[+d]).join('');
+
+/* ---------- Firebase ---------- */
+let F = null;
+async function fbInit() {
+  const b = `https://www.gstatic.com/firebasejs/${FBV}/`;
+  const [a, au, m] = await Promise.all([import(b + 'firebase-app.js'), import(b + 'firebase-auth.js'), import(b + 'firebase-firestore.js')]);
+  const app = a.initializeApp(CFG, 'crm'); F = { a, au, m, app, auth: au.getAuth(app), db: m.getFirestore(app) };
+}
+const DB = {
+  doc: (c, id) => F.m.doc(F.db, c, id),
+  async get(c, id) { const s = await F.m.getDoc(DB.doc(c, id)); return s.exists() ? { id: s.id, ...s.data() } : null; },
+  set: (c, id, d) => F.m.setDoc(DB.doc(c, id), d, { merge: true }),
+  async add(c, d) { const r = await F.m.addDoc(F.m.collection(F.db, c), d); return r.id; },
+  async list(c, w = []) { const q = w.length ? F.m.query(F.m.collection(F.db, c), ...w.map(([f, o, v]) => F.m.where(f, o, v))) : F.m.collection(F.db, c); const s = await F.m.getDocs(q); return s.docs.map(d => ({ id: d.id, ...d.data() })); },
+  watch(c, w, cb, erro) { const q = w.length ? F.m.query(F.m.collection(F.db, c), ...w.map(([f, o, v]) => F.m.where(f, o, v))) : F.m.collection(F.db, c); return F.m.onSnapshot(q, s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => { console.warn('watch', c, e.code || e.message); erro && erro(e); }); },
+  watchDoc(c, id, cb) { return F.m.onSnapshot(DB.doc(c, id), s => cb(s.exists() ? { id: s.id, ...s.data() } : null), () => cb(null)); },
+};
+
+/* ---------- estado ---------- */
+const C = { me: null, papel: '', fonte: {}, itens: [], atrib: {}, equipe: [], cfg: {}, wa: {}, waQr: {}, sel: '', view: 'inbox', f: { fila: 'minhas', canal: 'todos', etapa: 'abertos', q: '' }, un: [], msgUn: null, vistos: new Set(), primeira: true, ficha: null };
+try { Object.assign(C.f, JSON.parse(localStorage.getItem('crmnc:f') || '{}')); } catch (e) { }
+const dono = () => C.papel === 'dono';
+const filasMinhas = () => dono() ? Object.keys(FILAS) : [C.papel];
+const salvarF = () => { try { localStorage.setItem('crmnc:f', JSON.stringify(C.f)); } catch (e) { } };
+const resp = () => [...(C.cfg.respostas || RESP_PADRAO)];
+const links = () => [...(C.cfg.links || LINKS_PADRAO)];
+
+/* ---------- itens unificados (cada fonte vira o mesmo formato) ---------- */
+const PED_FILA = { VENCIMENTO: 'financeiro', ACORDO: 'financeiro', DADOS: 'suporte', LGPD_COPIA: 'suporte', LGPD_EXCLUSAO: 'suporte', ASSISTENCIA: 'suporte', PROTECAO: 'suporte', UPGRADE: 'comercial' };
+const PED_NOME = { VENCIMENTO: 'Mudar vencimento', ACORDO: 'Acordo do atraso', DADOS: 'Atualizar dados', LGPD_COPIA: 'Cópia dos dados (LGPD)', LGPD_EXCLUSAO: 'Exclusão dos dados (LGPD)', ASSISTENCIA: 'Assistência técnica', PROTECAO: 'Acionar a proteção', UPGRADE: 'Trocar de aparelho' };
+const conv = {
+  portal: a => { const ms = a.msgs || [], u = ms[ms.length - 1] || {}; const etapa = a.status === 'CONCLUIDO' ? 'fim' : !ms.some(m => m.de === 'atendente' && !m.auto) ? 'novo' : u.de === 'user' ? 'atendendo' : 'aguardando';
+    return { canal: 'portal', id: a.id, nome: a.nome || a.abertoPorNome || 'Equipe da loja', sub: `${a.perfil || a.role || 'Portal'}${a.lojaNome ? ' · ' + a.lojaNome : ''}${a.categoria ? ' · ' + a.categoria : ''}`, fila: 'suporte', etapa, ultima: u.t || '', ultimaDe: u.de === 'user' ? 'cli' : 'nos', em: a.atualizadoEm || a.criadoEm || 0, nl: !!a.naoLidoSuporte, protocolo: a.protocolo || a.id.slice(0, 8).toUpperCase(), raw: a }; },
+  app: x => { const fila = x.bloqueado ? 'financeiro' : 'suporte'; return { canal: 'app', id: x.id, nome: x.clienteNome || 'Cliente', sub: `Contrato nº ${x.vendaNumero || '—'} · ${[x.marca, x.modelo].filter(Boolean).join(' ')}${x.bloqueado ? ' · bloqueado' : ''}`, fila, etapa: x.concluidoEm && (x.concluidoEm >= (x.atualizadoEm || 0)) ? 'fim' : x.naoLidoSuporte ? (x.atendidoEm ? 'atendendo' : 'novo') : 'aguardando', ultima: x.ultimaMsg || 'Mensagem pelo app', ultimaDe: x.naoLidoSuporte ? 'cli' : 'nos', em: x.atualizadoEm || 0, nl: !!x.naoLidoSuporte, protocolo: 'APP-' + String(x.vendaNumero || x.id.slice(0, 6)), token: x.id, raw: x }; },
+  chamado: c => { const rs = c.respostas || [], u = rs[rs.length - 1]; return { canal: 'chamado', id: c.id, nome: c.abertoPorNome || 'Equipe', sub: `${c.assunto || 'Chamado'}${c.cliente ? ' · ' + c.cliente : ''}`, fila: c.setor === 'FINANCEIRO' ? 'financeiro' : 'suporte', etapa: c.status === 'RESOLVIDO' ? 'fim' : !rs.length ? 'novo' : u?.uid === c.abertoPor ? 'atendendo' : 'aguardando', ultima: u?.texto || c.descricao || '', ultimaDe: !u || u.uid === c.abertoPor ? 'cli' : 'nos', em: u?.em || c.criadoEm || 0, nl: !rs.length || u?.uid === c.abertoPor, protocolo: 'CH-' + c.id.slice(0, 6).toUpperCase(), raw: c }; },
+  pedido: p => ({ canal: 'pedido', id: p.id, nome: p.clienteNome || 'Cliente', sub: `${PED_NOME[p.tipo] || p.tipo} · nº ${p.vendaNumero || '—'}`, fila: PED_FILA[p.tipo] || 'suporte', etapa: ['ENTREGUE', 'RECUSADO', 'ATENDIDO'].includes(p.status) ? 'fim' : p.resposta ? 'aguardando' : 'novo', ultima: p.resposta || p.descricao || '', ultimaDe: p.resposta ? 'nos' : 'cli', em: p.respondidoEm || p.criadoEm || 0, nl: !p.resposta && p.status === 'ABERTO', protocolo: 'PD-' + p.id.slice(0, 6).toUpperCase(), token: p.token, raw: p }),
+  liberacao: l => ({ canal: 'liberacao', id: l.id, nome: l.clienteNome || 'Cliente', sub: `Parcela ${l.parcela} · ${l.diasAtraso} dia(s) de atraso · sugere ${l.sugestaoHoras} h`, fila: 'financeiro', etapa: l.status === 'PENDENTE' ? 'novo' : 'fim', ultima: l.pedidoCliente || l.motivoBot || 'Pedido de liberação pelo app', ultimaDe: 'cli', em: l.decididoEm || l.em || 0, nl: l.status === 'PENDENTE', protocolo: 'LB-' + l.id.slice(-6).toUpperCase(), token: l.token, raw: l }),
+  preanalise: p => ({ canal: 'preanalise', id: p.id, nome: p.nome || 'Cliente', sub: `${p.aparelho || 'Pré-análise'} · renda ${brl(p.renda)} · ${p.cidade || ''}`, fila: 'comercial', etapa: p.aguardandoDono && p.status === 'CONTATADO' && !p.respondidoPorHumano ? 'novo' : 'fim', ultima: p.iaParecer || p.resposta || '', ultimaDe: 'cli', em: p.respondidoEm || p.criadoEm || 0, nl: !!(p.aguardandoDono && !p.respondidoPorHumano), protocolo: 'PA-' + p.id.slice(0, 6).toUpperCase(), tel: p.telefone, raw: p }),
+  lead: l => ({ canal: 'lead', id: l.id, nome: l.loja || l.nome || 'Lead', sub: `${l.nome || ''}${l.cidade ? ' · ' + l.cidade : ''} · ${l.origem || 'site'}`, fila: 'comercial', etapa: ['FECHADO', 'PERDIDO'].includes(l.status) ? 'fim' : (l.historico || []).some(h => h.por && h.por !== 'site') ? 'aguardando' : 'novo', ultima: l.mensagem || (l.historico || []).slice(-1)[0]?.obs || '', ultimaDe: 'cli', em: l.atualizadoEm || l.criadoEm || 0, nl: !l.status || l.status === 'NOVO', protocolo: 'LD-' + l.id.slice(0, 6).toUpperCase(), tel: l.whatsapp, raw: l }),
+  wa: w => ({ canal: 'wa', id: w.id, nome: w.nome || fmtTel(w.numero || w.id), sub: fmtTel(w.numero || w.id), fila: FILAS[w.fila] ? w.fila : 'suporte', etapa: w.fim ? 'fim' : !w.respondidoEm ? 'novo' : w.ultimaDe === 'cliente' ? 'atendendo' : 'aguardando', ultima: w.ultimaMsg || '', ultimaDe: w.ultimaDe === 'cliente' ? 'cli' : 'nos', em: w.atualizadoEm || 0, nl: !!w.naoLido, protocolo: 'WA-' + String(w.numero || w.id).slice(-6), tel: w.numero || w.id, raw: w }),
+};
+function montarItens() {
+  const l = [];
+  for (const [canal, arr] of Object.entries(C.fonte)) for (const x of arr || []) { try { const it = conv[canal](x); it.key = canal + ':' + it.id; const at = C.atrib[it.key]; it.resp = at || null; if (at?.fila && FILAS[at.fila]) it.fila = at.fila; l.push(it); } catch (e) { console.warn(canal, e); } }
+  C.itens = l.sort((a, b) => (b.nl - a.nl) || (b.em - a.em));
+  // avisa itens novos para mim
+  if (!C.primeira) l.filter(i => i.nl && !C.vistos.has(i.key + i.em) && (dono() || i.fila === C.papel)).forEach(() => beep());
+  l.forEach(i => C.vistos.add(i.key + i.em)); C.primeira = false;
+  distribuir(); autoAck();
+}
+function visiveis() {
+  const f = C.f, q = f.q.toLowerCase();
+  return C.itens.filter(i => (dono() || i.fila === C.papel)
+    && (f.fila === 'todas' || (f.fila === 'minhas' ? (i.resp?.uid === C.me.uid || (!i.resp && (dono() || i.fila === C.papel))) : i.fila === f.fila))
+    && (f.canal === 'todos' || i.canal === f.canal)
+    && (f.etapa === 'todos' || (f.etapa === 'abertos' ? i.etapa !== 'fim' : i.etapa === f.etapa))
+    && (!q || `${i.nome} ${i.sub} ${i.protocolo} ${i.ultima}`.toLowerCase().includes(q)));
+}
+
+/* ---------- distribuição por igual entre a equipe da fila ---------- */
+let _distT = 0;
+async function distribuir() {
+  if (Date.now() - _distT < 4000) return; _distT = Date.now();
+  const sem = C.itens.filter(i => i.etapa !== 'fim' && !i.resp && (dono() || i.fila === C.papel)).slice(0, 25);
+  for (const i of sem) {
+    const time = C.equipe.filter(u => u.fila === i.fila && u.ativo !== false && u.crmAtivo !== false); if (!time.length) continue;
+    const carga = u => C.itens.filter(x => x.etapa !== 'fim' && x.resp?.uid === u.id).length;
+    const alvo = time.sort((a, b) => carga(a) - carga(b) || String(a.nome).localeCompare(b.nome))[0];
+    try { await F.m.runTransaction(F.db, async tx => { const r = DB.doc('crmAtrib', i.key.replace(/[/:]/g, '_')), s = await tx.get(r); if (s.exists()) return; tx.set(r, { key: i.key, uid: alvo.id, nome: alvo.nome, fila: i.fila, em: Date.now(), por: 'distribuição automática' }); }); }
+    catch (e) { console.warn('distribuir', e.code || e.message); }
+  }
+}
+// aviso automático quando a assistente passa o atendimento para a equipe
+async function autoAck() {
+  for (const i of C.itens.filter(x => x.canal === 'portal' && x.raw.status === 'HUMANO' && !x.raw.autoAckEm && !(x.raw.msgs || []).some(m => m.de === 'atendente')).slice(0, 5)) {
+    if (!(dono() || i.fila === C.papel)) continue;
+    const t = preencher(C.cfg.msgAck || MSG_ACK, i, i.resp?.nome || C.me.nome);
+    try { await DB.set('atendimentos', i.id, { msgs: [...(i.raw.msgs || []), { de: 'atendente', t, em: Date.now(), por: 'Suporte NexumCell', auto: true }], autoAckEm: Date.now(), naoLidoUser: true, atualizadoEm: Date.now() }); } catch (e) { }
+  }
+}
+function preencher(t, i, atendente) {
+  const tk = i?.token || i?.raw?.token || '', pc = URLS.cliente || new URL('../../cliente/', location.href).href;
+  return String(t).replace(/\{nome\}/g, String(i?.nome || '').split(' ')[0]).replace(/\{atendente\}/g, String(atendente || C.me.nome).split(' ')[0]).replace(/\{protocolo\}/g, i?.protocolo || '')
+    .replace(/\{fila\}/g, FILAS[i?.fila]?.[0] || '').replace(/\{portalCliente\}/g, pc).replace(/\{linkContrato\}/g, tk ? pc + '?contrato=' + encodeURIComponent(tk) : pc)
+    .replace(/\{linkPre\}/g, pc + '?pre').replace(/\{linkSite\}/g, new URL('site.html', URLS.gerente || 'https://nexumrh.github.io/gerente/').href);
+}
+
+/* ---------- carregar dados ---------- */
+function ouvir() {
+  C.un.forEach(u => { try { u(); } catch (e) { } }); C.un = [];
+  const desde = Date.now() - 30 * 86400e3, fonte = (k, c, w) => C.un.push(DB.watch(c, w, l => { C.fonte[k] = l; montarItens(); desenhar(); }, () => { C.fonte[k] = []; }));
+  const pode = f => dono() || C.papel === f;
+  if (pode('suporte') || pode('financeiro')) { fonte('portal', 'atendimentos', [['atualizadoEm', '>=', desde]]); fonte('app', 'suporteApp', [['atualizadoEm', '>=', desde]]); fonte('chamado', 'chamados', [['criadoEm', '>=', desde]]); fonte('pedido', 'pedidos', [['criadoEm', '>=', desde]]); }
+  if (pode('financeiro')) fonte('liberacao', 'liberacoes', [['em', '>=', desde]]);
+  if (pode('comercial') || pode('financeiro')) { fonte('preanalise', 'preanalises', [['criadoEm', '>=', desde]]); }
+  if (pode('comercial')) fonte('lead', 'leads', [['criadoEm', '>=', desde]]);
+  fonte('wa', 'waConversas', [['atualizadoEm', '>=', desde]]);
+  C.un.push(DB.watch('crmAtrib', [['em', '>=', desde]], l => { C.atrib = Object.fromEntries(l.map(a => [a.key, a])); montarItens(); desenhar(); }));
+  C.un.push(DB.watch('users', [['role', 'in', ['SUPORTE', 'FINANCEIRO', 'COMERCIAL']]], l => { C.equipe = l.map(u => ({ ...u, fila: u.crmFila || PAPEL[u.role] })); desenhar(); }));
+  C.un.push(DB.watchDoc('config', 'crm', d => { C.cfg = d || {}; }));
+  C.un.push(DB.watchDoc('plataforma', 'waWebStatus', d => { C.wa = d || {}; desenharNav(); if ($('#qrBox')) pintarQr(); }));
+  if (dono()) C.un.push(DB.watchDoc('plataforma', 'waWebQr', d => { C.waQr = d || {}; if ($('#qrBox')) pintarQr(); }));
+}
+
+/* ---------- login ---------- */
+const senhaFb = s => { s = String(s); return s.length < 6 ? 'nx-' + s : s; };
+function telaLogin(msg = '') {
+  $('#root').innerHTML = `<div class="lg"><div class="lg-a"><div class="marca"><i>N</i>NEXUMCELL <span style="color:var(--gold2);font-weight:600;letter-spacing:.02em">CRM</span></div>
+    <div><h1>Atendimento <b>unificado</b> da NexumCell</h1><p>Chat dos vendedores e gerentes, app do cliente, chamados, WhatsApp, leads e pedidos num só lugar, divididos por igual entre a equipe.</p></div>
+    <div class="lg-f"><div>${I('inbox')}Caixa de entrada única</div><div>${I('wa')}WhatsApp pelo QR code</div><div>${I('busca')}Cliente pela Device Tag</div><div>${I('raio')}Mensagens automáticas</div></div></div>
+    <div class="lg-b"><form class="lg-c" id="fLg"><div class="marca" style="margin-bottom:22px"><i>N</i>CRM NEXUMCELL</div><h2>Entrar</h2><p class="muted" style="margin:0 0 6px">Equipe NexumCell: comercial, suporte e financeiro.</p>
+      <label>ID ou e-mail</label><input id="lgU" autocomplete="username" placeholder="SUP-1234 ou e-mail"><label>Senha</label><input id="lgS" type="password" autocomplete="current-password">
+      <p id="lgM" class="small" style="color:var(--bad);min-height:18px">${esc(msg)}</p><button class="btn pri" style="width:100%;min-height:46px" id="lgB">Entrar</button>
+      <p class="small muted" style="margin-top:14px">Esqueceu a senha? Use “Esqueci a senha” no portal do seu perfil.</p></form></div></div>`;
+  $('#fLg').onsubmit = async e => { e.preventDefault(); const u = $('#lgU').value.trim(), s = $('#lgS').value, b = $('#lgB'); if (!u || !s) return $('#lgM').textContent = 'Informe o ID e a senha.';
+    b.disabled = true; b.textContent = 'Entrando…';
+    try { let email = u.toLowerCase(); if (!u.includes('@')) { const l = await DB.get('logins', u.toUpperCase().replace(/\s+/g, '')); if (!l?.email) throw Object.assign(new Error('ID não encontrado.'), { code: 'nx' }); email = l.email; }
+      await F.au.signInWithEmailAndPassword(F.auth, email, senhaFb(s)); }
+    catch (er) { $('#lgM').textContent = er.code === 'nx' ? er.message : 'ID ou senha incorretos.'; b.disabled = false; b.textContent = 'Entrar'; } };
+}
+async function entrou(user) {
+  const email = String(user.email || '').toLowerCase(); let u = await DB.get('users', user.uid).catch(() => null);
+  const papel = email === DONO_EMAIL ? 'dono' : u && u.ativo !== false ? (u.crmFila && PAPEL[u.role] ? u.crmFila : PAPEL[u.role]) : '';
+  if (!papel) { await F.au.signOut(F.auth); return telaLogin('Seu perfil não tem acesso ao CRM. O CRM é da equipe NexumCell (comercial, suporte e financeiro).'); }
+  C.me = { uid: user.uid, email, nome: u?.nome || (papel === 'dono' ? 'Dono' : email), role: u?.role || 'DONO' }; C.papel = papel;
+  if (!dono() && C.f.fila !== 'minhas' && C.f.fila !== C.papel) C.f.fila = 'minhas';
+  $('#root').innerHTML = `<div class="app"><nav class="nav" id="nav"></nav><div class="main"><div class="top" id="top"></div><div class="body" id="body"></div></div></div>`;
+  ouvir(); desenhar();
+  DB.set('plataforma', 'presencaCrm', { [user.uid]: { nome: C.me.nome, em: Date.now(), fila: C.papel } }).catch(() => { });
+}
+
+/* ---------- desenho ---------- */
+function desenharNav() {
+  const n = $('#nav'); if (!n) return;
+  const abertos = C.itens.filter(i => i.etapa !== 'fim' && (dono() || i.fila === C.papel)), meus = abertos.filter(i => i.resp?.uid === C.me.uid && i.nl).length;
+  const w = C.wa, vivo = w.vivoEm && Date.now() - w.vivoEm < 3 * 60e3, waSt = w.status === 'conectado' && vivo ? ['#2BD576', 'WhatsApp conectado'] : w.status === 'qr' && vivo ? ['#F5B700', 'Ler o QR code'] : ['#8E8BA8', 'WhatsApp desconectado'];
+  const b = (v, ic, t, c) => `<button class="${C.view === v ? 'on' : ''}" data-v="${v}">${I(ic)}<span>${t}</span>${c ? `<span class="cnt">${c}</span>` : ''}</button>`;
+  n.innerHTML = `<div class="marca"><i>N</i>CRM <span style="color:var(--gold2)">NEXUMCELL</span></div>
+    ${b('inbox', 'inbox', 'Caixa de entrada', meus || abertos.filter(i => i.nl).length)}${b('kanban', 'kanban', 'Kanban')}${b('clientes', 'busca', 'Clientes (Device Tag)')}${b('painel', 'painel', 'Painel')}
+    <div class="sep">WhatsApp</div><button data-v="wa" class="${C.view === 'wa' ? 'on' : ''}"><span class="wa-st"><span class="dot" style="background:${waSt[0]}"></span>${waSt[1]}</span></button>
+    ${dono() ? `<div class="sep">Gestão</div>${b('equipe', 'equipe', 'Equipe e filas')}${b('config', 'cfg', 'Respostas e automações')}` : `<div class="sep">Configurar</div>${b('config', 'cfg', 'Respostas rápidas')}`}
+    <div class="eu"><b>${esc(C.me.nome)}</b><span>${dono() ? 'Dono · todas as filas' : 'Fila ' + esc(FILAS[C.papel]?.[0] || C.papel)}</span><button style="margin-top:8px;padding:8px 0" id="sair">${I('sair')}Sair</button></div>`;
+  $$('[data-v]', n).forEach(x => x.onclick = () => { C.view = x.dataset.v; desenhar(); });
+  $('#sair').onclick = async () => { C.un.forEach(u => { try { u(); } catch (e) { } }); await F.au.signOut(F.auth); };
+}
+function desenhar() {
+  if (!C.me || !$('#body')) return; desenharNav();
+  const tit = { inbox: 'Caixa de entrada', kanban: 'Kanban de atendimentos', clientes: 'Clientes', painel: 'Painel do atendimento', wa: 'WhatsApp', equipe: 'Equipe e filas', config: 'Respostas e automações' }[C.view];
+  $('#top').innerHTML = `<h1>${tit}</h1><span class="sp"></span>${C.view === 'inbox' || C.view === 'kanban' ? `<input id="q" placeholder="Buscar nome, protocolo, mensagem…" value="${esc(C.f.q)}" style="max-width:320px">` : ''}<button class="btn sm" id="novaConv">${I('wa')}Nova conversa</button>`;
+  const q = $('#q'); if (q) q.oninput = () => { C.f.q = q.value; salvarF(); clearTimeout(C._qT); C._qT = setTimeout(() => { const p = q.selectionStart; desenhar(); const n = $('#q'); n.focus(); n.setSelectionRange(p, p); }, 250); };
+  $('#novaConv').onclick = novaConversa;
+  const body = $('#body'); body.style.padding = C.view === 'inbox' ? '0' : '18px 20px';
+  ({ inbox: vInbox, kanban: vKanban, clientes: vClientes, painel: vPainel, wa: vWa, equipe: vEquipe, config: vConfig }[C.view] || vInbox)(body);
+}
+const avatar = i => `<div class="av" style="background:${cor(i.nome)}">${esc(ini(i.nome))}<span class="cn" style="background:${CANAIS[i.canal][1]};color:#fff">${CANAIS[i.canal][2]}</span></div>`;
+function vInbox(el) {
+  if (!el.querySelector('.ibx')) el.innerHTML = `<div class="ibx" id="ibx"><div class="lst" id="lst"></div><div class="chat" id="chat"></div><div class="fc" id="fc"></div></div>`;
+  desenharLista(); if (C.sel !== C._chatSel) desenharChat(); else atualizarChatTopo();
+}
+function desenharLista() {
+  const el = $('#lst'); if (!el) return; const f = C.f, l = visiveis();
+  const filas = dono() ? [['minhas', 'Minhas'], ['todas', 'Todas'], ...Object.entries(FILAS).map(([k, v]) => [k, v[0]])] : [['minhas', 'Minhas'], [C.papel, 'Fila ' + FILAS[C.papel][0]]];
+  el.innerHTML = `<div class="lst-h"><div class="seg">${filas.map(([k, t]) => `<button data-ff="${k}" class="${f.fila === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <div class="seg">${[['abertos', 'Abertos'], ['novo', 'Novos'], ['aguardando', 'Aguardando'], ['fim', 'Finalizados']].map(([k, t]) => `<button data-fe="${k}" class="${f.etapa === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <select id="fCanal"><option value="todos">Todos os canais</option>${Object.entries(CANAIS).map(([k, v]) => `<option value="${k}" ${f.canal === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></div>
+    <div class="itens">${l.map(i => `<div class="it ${C.sel === i.key ? 'on' : ''} ${i.nl ? 'nl' : ''}" data-k="${esc(i.key)}">${avatar(i)}<div class="t"><b>${esc(i.nome)}</b><span>${esc(i.sub)}</span><span>${i.ultimaDe === 'nos' ? '<b style="display:inline;font-size:12px">Você: </b>' : ''}${esc(String(i.ultima).slice(0, 90))}</span>
+      <span style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap"><span class="bdg" style="background:${FILAS[i.fila][1]}1A;color:${FILAS[i.fila][1]}">${FILAS[i.fila][0]}</span>${i.resp ? `<span class="bdg b-gray">${esc(String(i.resp.nome).split(' ')[0])}</span>` : '<span class="bdg b-amber">sem responsável</span>'}</span></div><div class="q">${quando(i.em)}</div></div>`).join('') || '<div class="vazio">Nenhum atendimento aqui. 🎉</div>'}</div>`;
+  $$('[data-ff]', el).forEach(b => b.onclick = () => { C.f.fila = b.dataset.ff; salvarF(); desenharLista(); });
+  $$('[data-fe]', el).forEach(b => b.onclick = () => { C.f.etapa = b.dataset.fe; salvarF(); desenharLista(); });
+  $('#fCanal').onchange = e => { C.f.canal = e.target.value; salvarF(); desenharLista(); };
+  $$('.it', el).forEach(x => x.onclick = () => abrir(x.dataset.k));
+}
+function abrir(k) { C.sel = k; C.view = 'inbox'; if (!$('#ibx')) return desenhar(); $('#ibx').classList.add('sel'); desenharLista(); desenharChat(); }
+const itemSel = () => C.itens.find(i => i.key === C.sel);
+
+/* ---------- conversa ---------- */
+function atualizarChatTopo() { const i = itemSel(), h = $('#chHead'); if (!i || !h) return; h.querySelector('.bdgs').innerHTML = bdgs(i);
+  const sel = $('#chResp'); if (sel && document.activeElement !== sel) sel.innerHTML = C.equipe.filter(u => u.fila === i.fila).map(u => `<option value="${u.id}" ${i.resp?.uid === u.id ? 'selected' : ''}>${esc(u.nome)}</option>`).join('') + (!i.resp ? '<option selected value="">Sem responsável</option>' : '');
+  if (!['app', 'wa'].includes(i.canal)) carregarMsgs(i); }
+const bdgs = i => `<span class="bdg" style="background:${CANAIS[i.canal][1]}1A;color:${CANAIS[i.canal][1]}">${CANAIS[i.canal][0]}</span> <span class="bdg b-gray">${esc(i.protocolo)}</span> <span class="bdg" style="background:${ETAPAS.find(e => e[0] === i.etapa)[2]}1A;color:${ETAPAS.find(e => e[0] === i.etapa)[2]}">${ETAPAS.find(e => e[0] === i.etapa)[1]}</span>`;
+async function desenharChat() {
+  const el = $('#chat'); if (!el) return; C._chatSel = C.sel; if (C.msgUn) { try { C.msgUn(); } catch (e) { } C.msgUn = null; }
+  const i = itemSel();
+  if (!i) { el.innerHTML = `<div class="semsel"><div class="ic">${I('inbox')}</div><b style="color:var(--txt);font-size:17px">Selecione um atendimento</b><span>Chat dos portais, app do cliente, chamados, pedidos, liberações, pré-análises, leads e WhatsApp.</span></div>`; $('#fc').innerHTML = ''; return; }
+  el.innerHTML = `<div class="ch-h" id="chHead"><button class="btn ghost sm" id="voltar" style="display:none">←</button>${avatar(i)}<div class="t"><b>${esc(i.nome)}</b><div class="small muted">${esc(i.sub)}</div><div class="bdgs" style="margin-top:4px">${bdgs(i)}</div></div>
+    <select id="chResp" style="width:auto;min-height:34px;font-size:13px">${C.equipe.filter(u => u.fila === i.fila).map(u => `<option value="${u.id}" ${i.resp?.uid === u.id ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}${!i.resp ? '<option selected value="">Sem responsável</option>' : ''}</select>
+    ${dono() ? `<select id="chFila" style="width:auto;min-height:34px;font-size:13px">${Object.entries(FILAS).map(([k, v]) => `<option value="${k}" ${i.fila === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>` : ''}
+    <button class="btn sm" id="fichaBt">${I('user')}Ficha</button></div><div class="msgs" id="msgs"><div class="vazio">Carregando…</div></div><div class="cp" id="cp"></div>`;
+  if (innerWidth < 760) $('#voltar').style.display = ''; $('#voltar').onclick = () => { $('#ibx').classList.remove('sel'); C.sel = ''; desenharLista(); };
+  $('#chResp').onchange = e => atribuir(i, e.target.value); if ($('#chFila')) $('#chFila').onchange = e => DB.set('crmAtrib', i.key.replace(/[/:]/g, '_'), { key: i.key, fila: e.target.value, uid: '', nome: '', em: Date.now(), por: C.me.nome }).then(() => toast('Fila alterada'));
+  $('#fichaBt').onclick = () => $('#ibx').classList.toggle('ficha');
+  carregarMsgs(i); compositor(i); ficha(i); marcarLido(i);
+}
+async function atribuir(i, uid) { const u = C.equipe.find(x => x.id === uid); await DB.set('crmAtrib', i.key.replace(/[/:]/g, '_'), { key: i.key, uid: uid || '', nome: u?.nome || '', fila: i.fila, em: Date.now(), por: C.me.nome }); toast(u ? 'Atendimento passado para ' + u.nome.split(' ')[0] : 'Sem responsável'); }
+function bolha(m) {
+  const t = esc(m.t || '').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  const cls = m.tipo === 'nota' ? 'nota' : m.tipo === 'sis' ? 'sis' : m.de === 'bot' ? 'bot' : m.nos ? 'nos' : '';
+  return `<div class="bb ${cls}">${m.tipo === 'nota' ? '<b>Nota interna · </b>' : ''}${t}${m.arquivo ? `<br><a href="${esc(m.arquivo.url)}" target="_blank" rel="noopener">📎 ${esc(m.arquivo.nome)}</a>` : ''}<small>${esc(m.quem || '')}${m.quem ? ' · ' : ''}${fdt(m.em)}${m.auto ? ' · automática' : ''}</small></div>`;
+}
+function pintarMsgs(ms) { const el = $('#msgs'); if (!el) return; el.innerHTML = ms.map(bolha).join('') || '<div class="vazio">Sem mensagens ainda.</div>'; el.scrollTop = el.scrollHeight; }
+async function carregarMsgs(i) {
+  const r = i.raw;
+  if (i.canal === 'portal') return pintarMsgs((r.msgs || []).map(m => ({ t: m.t, em: m.em, nos: m.de === 'atendente', de: m.de, quem: m.de === 'user' ? (m.por || i.nome) : m.de === 'bot' ? 'Assistente' : (m.por || 'NexumCell'), auto: m.auto })));
+  if (i.canal === 'app') { C.msgUn = F.m.onSnapshot(F.m.query(F.m.collection(F.db, 'suporteApp', i.id, 'msgs')), s => pintarMsgs(s.docs.map(d => d.data()).sort((a, b) => a.em - b.em).map(m => ({ t: m.texto, em: m.em, nos: m.de !== 'cliente', quem: m.de === 'cliente' ? i.nome : (m.porNome || 'Suporte'), auto: m.auto })))); return; }
+  if (i.canal === 'wa') { C.msgUn = F.m.onSnapshot(F.m.query(F.m.collection(F.db, 'waConversas', i.id, 'msgs')), s => pintarMsgs(s.docs.map(d => d.data()).sort((a, b) => a.em - b.em).map(m => ({ t: m.t, em: m.em, nos: m.de !== 'cliente', de: m.de === 'robo' ? 'bot' : m.de, quem: m.de === 'cliente' ? i.nome : m.de === 'robo' ? 'Robô de triagem' : (m.por || 'NexumCell'), arquivo: m.arquivo, tipo: m.tipo })))); return; }
+  if (i.canal === 'chamado') return pintarMsgs([{ t: `${r.assunto}\n\n${r.descricao || ''}`, em: r.criadoEm, quem: r.abertoPorNome }, ...(r.respostas || []).map(x => ({ t: x.texto, em: x.em, nos: x.uid !== r.abertoPor, quem: x.nome }))]);
+  if (i.canal === 'pedido') return pintarMsgs([{ t: `${PED_NOME[r.tipo] || r.tipo}\n${r.descricao || ''}${r.dados ? '\nNovos dados: ' + Object.entries(r.dados).map(([k, v]) => k + ': ' + v).join(', ') : ''}`, em: r.criadoEm, quem: r.clienteNome }, ...(r.resposta ? [{ t: r.resposta, em: r.respondidoEm, nos: true, quem: r.respondidoPor || 'NexumCell' }] : [])]);
+  if (i.canal === 'liberacao') return pintarMsgs([{ t: `Pediu para liberar o aparelho.${r.pedidoCliente ? '\nCliente: “' + r.pedidoCliente + '”' : ''}\nParcela ${r.parcela} em atraso há ${r.diasAtraso} dia(s) · ${r.pagas || 0} paga(s), ${r.pagasEmDia || 0} em dia.\nA assistente não liberou: ${r.motivoBot || '—'}`, em: r.em, quem: r.clienteNome }, ...(r.status !== 'PENDENTE' ? [{ t: r.status === 'APROVADA' ? `Liberado por ${r.horas} h.` : 'Pedido recusado' + (r.motivoRecusa ? ': ' + r.motivoRecusa : ''), em: r.decididoEm, nos: true, quem: r.porNome }] : [])]);
+  if (i.canal === 'preanalise') return pintarMsgs([{ t: `Pré-análise: ${r.aparelho || '—'}\nRenda ${brl(r.renda)} · ${r.profissao || ''} · entrada ${brl(r.entrada)}\n${r.cidade || ''} · ${fmtTel(r.telefone)}`, em: r.criadoEm, quem: r.nome }, ...(r.iaParecer ? [{ t: 'Parecer da IA: ' + r.iaParecer, em: r.respondidoEm, tipo: 'nota', quem: 'IA NexumCell' }] : []), ...(r.resposta ? [{ t: r.resposta, em: r.respondidoEm, nos: true, quem: r.respondidoPor }] : [])]);
+  if (i.canal === 'lead') return pintarMsgs([{ t: r.mensagem || 'Interesse em ser loja parceira', em: r.criadoEm, quem: r.nome }, ...(r.historico || []).map(h => ({ t: h.obs || h.status, em: h.em, nos: true, tipo: 'nota', quem: h.por }))]);
+}
+function compositor(i) {
+  const el = $('#cp'), fim = i.etapa === 'fim';
+  const acoes = {
+    liberacao: i.raw.status === 'PENDENTE' ? `<button class="btn ok sm" data-lib="24">Liberar 24 h</button><button class="btn ok sm" data-lib="48">Liberar 48 h</button><button class="btn bad sm" data-lib="0">Recusar</button>` : '',
+    preanalise: i.etapa !== 'fim' ? `<button class="btn ok sm" data-pre="PRE_APROVADO">Pré-aprovar</button><button class="btn bad sm" data-pre="RECUSADA">Recusar</button>` : '',
+    lead: `<select id="ldSt" style="width:auto;min-height:32px;font-size:13px">${['NOVO', 'CONTATADO', 'NEGOCIANDO', 'FECHADO', 'PERDIDO'].map(s => `<option ${i.raw.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>`,
+    pedido: `<select id="pdSt" style="width:auto;min-height:32px;font-size:13px">${['ABERTO', 'RECEBIDO', 'EM_REPARO', 'PRONTO', 'ATENDIDO', 'ENTREGUE', 'RECUSADO'].map(s => `<option ${i.raw.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` };
+  el.innerHTML = `<div class="tools"><button class="btn sm" id="tRes">${I('raio')}Respostas</button><button class="btn sm" id="tLnk">${I('link')}Links de resolução</button><label class="btn sm" style="margin:0">${I('clip')}Arquivo<input type="file" id="tArq" hidden accept="image/*,application/pdf"></label>
+      <button class="btn sm" id="tNota">${I('nota')}Nota interna</button>${acoes[i.canal] || ''}<span style="flex:1"></span>${!fim ? `<button class="btn sm" id="tFim">${I('check')}Concluir</button>` : `<span class="bdg b-green">Finalizado</span>`}</div>
+    <div class="cp-r"><textarea id="tTxt" rows="1" placeholder="${i.canal === 'liberacao' || i.canal === 'preanalise' ? 'Mensagem para o cliente pelo WhatsApp (opcional)…' : 'Escreva a resposta… (Enter envia, Shift+Enter quebra a linha)'}"></textarea><button class="btn pri" id="tEnv">${I('envia')}</button></div>`;
+  const tx = $('#tTxt'); tx.oninput = () => { tx.style.height = 'auto'; tx.style.height = Math.min(160, tx.scrollHeight) + 'px'; };
+  tx.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(i); } };
+  $('#tEnv').onclick = () => enviar(i);
+  $('#tRes').onclick = () => escolherResposta(i); $('#tLnk').onclick = () => escolherLink(i);
+  $('#tNota').onclick = () => nota(i); $('#tArq').onchange = e => anexar(i, e.target.files[0]);
+  if ($('#tFim')) $('#tFim').onclick = () => concluir(i);
+  $$('[data-lib]', el).forEach(b => b.onclick = () => liberar(i, +b.dataset.lib));
+  $$('[data-pre]', el).forEach(b => b.onclick = () => decidirPre(i, b.dataset.pre));
+  if ($('#ldSt')) $('#ldSt').onchange = e => DB.set('leads', i.id, { status: e.target.value, atualizadoEm: Date.now(), historico: [...(i.raw.historico || []), { em: Date.now(), por: C.me.nome, status: e.target.value, obs: 'Etapa: ' + e.target.value }] }).then(() => toast('Lead atualizado'));
+  if ($('#pdSt')) $('#pdSt').onchange = e => DB.set('pedidos', i.id, { status: e.target.value, atualizadoEm: Date.now() }).then(() => toast('Pedido atualizado'));
+}
+async function enviar(i, texto, arquivo) {
+  const t = (texto ?? $('#tTxt')?.value ?? '').trim(); if (!t && !arquivo) return;
+  const agora = Date.now(), quem = C.me.nome, linha = arquivo ? `${t ? t + '\n' : ''}📎 ${arquivo.nome}: ${arquivo.url}` : t;
+  try {
+    if (i.canal === 'portal') { const a = await DB.get('atendimentos', i.id); await DB.set('atendimentos', i.id, { msgs: [...(a.msgs || []), { de: 'atendente', t: linha.slice(0, 3000), em: agora, por: quem }], naoLidoUser: true, naoLidoSuporte: false, atendente: quem, atualizadoEm: agora, ...(a.status === 'BOT' ? { status: 'HUMANO' } : {}) }); }
+    else if (i.canal === 'app') { await DB.add(`suporteApp/${i.id}/msgs`, { de: 'suporte', texto: linha.slice(0, 2000), em: agora, porNome: quem.split(' ')[0] }); await DB.set('suporteApp', i.id, { naoLidoCliente: true, atendidoPor: quem, atendidoEm: agora, atualizadoEm: agora, naoLidoSuporte: false, ultimaMsg: t.slice(0, 120) }); }
+    else if (i.canal === 'chamado') { const c = await DB.get('chamados', i.id); await DB.set('chamados', i.id, { respostas: [...(c.respostas || []), { nome: quem, uid: C.me.uid, em: agora, texto: linha }], status: c.status === 'ABERTO' ? 'ANDAMENTO' : c.status }); }
+    else if (i.canal === 'pedido') await DB.set('pedidos', i.id, { resposta: linha, respondidoEm: agora, respondidoPor: quem, status: i.raw.status === 'ABERTO' ? 'RECEBIDO' : i.raw.status });
+    else { // WhatsApp, lead, pré-análise e liberação: pelo WhatsApp conectado no CRM (ou abre o WhatsApp no navegador)
+      const num = soD(i.tel || i.raw.telefone || i.raw.whatsapp || ''); if (num.length < 10) return toast('Sem WhatsApp neste atendimento', true);
+      if (waOn()) { const n55 = num.startsWith('55') ? num : '55' + num; await DB.add('waSaida', { numero: n55, texto: t, arquivo: arquivo || null, status: 'PENDENTE', em: agora, por: quem });
+        await DB.add(`waConversas/${n55}/msgs`, { de: 'equipe', t: linha, em: agora, por: quem, arquivo: arquivo || null });
+        await DB.set('waConversas', n55, { numero: n55, nome: i.nome, ultimaMsg: t.slice(0, 120) || '📎 arquivo', ultimaDe: 'equipe', atualizadoEm: agora, respondidoEm: agora, naoLido: false, fim: false, ...(i.canal !== 'wa' ? { fila: i.fila } : {}) }); }
+      else window.open(`https://wa.me/${num.startsWith('55') ? num : '55' + num}?text=${encodeURIComponent(linha)}`, '_blank', 'noopener');
+      if (i.canal === 'lead') await DB.set('leads', i.id, { status: ['NOVO', undefined, ''].includes(i.raw.status) ? 'CONTATADO' : i.raw.status, atualizadoEm: agora, historico: [...(i.raw.historico || []), { em: agora, por: quem, obs: 'WhatsApp: ' + t.slice(0, 200) }] });
+    }
+    if ($('#tTxt') && texto === undefined) { $('#tTxt').value = ''; $('#tTxt').style.height = 'auto'; }
+    if (!i.resp) atribuir(i, C.equipe.some(u => u.id === C.me.uid) ? C.me.uid : '');
+  } catch (e) { toast('Não foi possível enviar: ' + (e.code || e.message), true); }
+}
+async function marcarLido(i) {
+  try { if (i.canal === 'portal' && i.raw.naoLidoSuporte) await DB.set('atendimentos', i.id, { naoLidoSuporte: false });
+    if (i.canal === 'wa' && i.raw.naoLido) await DB.set('waConversas', i.id, { naoLido: false }); } catch (e) { }
+}
+async function concluir(i) {
+  const agora = Date.now(), msg = preencher(resp().flatMap(g => g[1]).find(r => r[0] === 'Encerramento')?.[1] || 'Atendimento concluído. Protocolo {protocolo}.', i, C.me.nome);
+  try {
+    if (i.canal === 'portal') { const a = await DB.get('atendimentos', i.id); await DB.set('atendimentos', i.id, { msgs: [...(a.msgs || []), { de: 'atendente', t: msg, em: agora, por: C.me.nome, auto: true }], status: 'CONCLUIDO', concluidoEm: agora, concluidoPor: C.me.nome, naoLidoUser: true, atualizadoEm: agora }); }
+    else if (i.canal === 'app') { await DB.add(`suporteApp/${i.id}/msgs`, { de: 'suporte', texto: msg, em: agora, porNome: C.me.nome.split(' ')[0] }); await DB.set('suporteApp', i.id, { concluidoEm: agora + 1, naoLidoSuporte: false, naoLidoCliente: true, atualizadoEm: agora }); }
+    else if (i.canal === 'chamado') await DB.set('chamados', i.id, { status: 'RESOLVIDO', resolvidoEm: agora, resolvidoPor: C.me.nome });
+    else if (i.canal === 'pedido') await DB.set('pedidos', i.id, { status: ['ASSISTENCIA', 'PROTECAO'].includes(i.raw.tipo) ? 'ENTREGUE' : 'ATENDIDO', atualizadoEm: agora });
+    else if (i.canal === 'wa') { if (waOn()) await enviar(i, msg); await DB.set('waConversas', i.id, { fim: true, fimEm: agora }); }
+    else if (i.canal === 'lead') await DB.set('leads', i.id, { status: 'FECHADO', atualizadoEm: agora });
+    else if (i.canal === 'preanalise') await DB.set('preanalises', i.id, { respondidoPorHumano: true, aguardandoDono: false });
+    toast('Atendimento concluído');
+  } catch (e) { toast('Não foi possível concluir: ' + (e.code || e.message), true); }
+}
+async function nota(i) {
+  const m = modal('Nota interna', `<p class="muted" style="margin-top:0">Só a equipe vê. Fica no histórico do atendimento.</p><textarea id="ntT" rows="4"></textarea>`, '<button class="btn" data-x2>Cancelar</button><button class="btn pri" id="ntOk">Salvar nota</button>');
+  $('[data-x2]', m).onclick = fechar;
+  $('#ntOk').onclick = async () => { const t = $('#ntT').value.trim(); if (!t) return;
+    if (i.canal === 'wa') await DB.add(`waConversas/${i.id}/msgs`, { de: 'equipe', tipo: 'nota', t, em: Date.now(), por: C.me.nome });
+    else await DB.add('crmNotas', { key: i.key, t, em: Date.now(), por: C.me.nome, uid: C.me.uid });
+    fechar(); toast('Nota salva'); ficha(i); };
+}
+function escolherResposta(i) {
+  const m = modal('Respostas rápidas', `<input id="rsQ" placeholder="Buscar…" style="margin-bottom:10px"><div class="rlist" id="rsL"></div>`);
+  const des = () => { const q = $('#rsQ').value.toLowerCase(); $('#rsL').innerHTML = resp().flatMap(([g, l]) => l.map(([t, x]) => ({ g, t, x }))).filter(r => !q || (r.t + r.x).toLowerCase().includes(q)).map((r, k) => `<button data-r="${k}"><b>${esc(r.t)}</b> <span class="small muted">· ${esc(r.g)}</span><br><span class="small">${esc(preencher(r.x, i).slice(0, 140))}</span></button>`).join('');
+    const lista = resp().flatMap(([g, l]) => l.map(([t, x]) => ({ g, t, x }))).filter(r => !q || (r.t + r.x).toLowerCase().includes(q));
+    $$('[data-r]', m).forEach(b => b.onclick = () => { const r = lista[+b.dataset.r]; $('#tTxt').value = preencher(r.x, i); $('#tTxt').dispatchEvent(new Event('input')); fechar(); $('#tTxt').focus(); }); };
+  $('#rsQ').oninput = des; des(); $('#rsQ').focus();
+}
+function escolherLink(i) {
+  const m = modal('Links de resolução', `<p class="muted" style="margin-top:0">O link entra na mensagem já com os dados deste cliente.</p><div class="rlist">${links().map(([t, u], k) => `<button data-l="${k}"><b>${esc(t)}</b><br><span class="small muted">${esc(preencher(u, i))}</span></button>`).join('')}</div>`);
+  $$('[data-l]', m).forEach(b => b.onclick = () => { const [t, u] = links()[+b.dataset.l], tx = $('#tTxt'); tx.value = (tx.value ? tx.value + '\n' : '') + `${t}: ${preencher(u, i)}`; tx.dispatchEvent(new Event('input')); fechar(); tx.focus(); });
+}
+async function anexar(i, f) {
+  if (!f) return; if (f.size > 900000) return toast('Arquivo grande demais (máx. 900 KB). Mande uma foto ou um PDF menor.', true);
+  const data = await new Promise((ok, er) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = er; r.readAsDataURL(f); });
+  const id = await DB.add('crmArquivos', { nome: f.name, tipo: f.type, data, em: Date.now(), por: C.me.nome, key: i.key });
+  const url = new URL('arquivo.html?id=' + id, location.href).href;
+  await enviar(i, $('#tTxt').value.trim(), { nome: f.name, url, tipo: f.type }); $('#tTxt').value = ''; toast('Arquivo enviado');
+}
+async function liberar(i, h) {
+  const x = i.raw; let motivo = '';
+  if (!h) { motivo = (prompt('Motivo da recusa (o cliente não vê):', 'Atraso longo, precisa pagar para liberar') || '').trim(); if (!motivo) return; }
+  try { if (h) await DB.set('aparelhos', x.token, { modo: 'AUTO', liberadoAte: Date.now() + h * 3600e3, modoPor: C.me.nome, modoMotivo: `Pedido do cliente pelo app (parcela ${x.parcela})` });
+    await DB.set('liberacoes', i.id, { status: h ? 'APROVADA' : 'RECUSADA', horas: h || 0, porNome: C.me.nome, por: C.me.uid, decididoEm: Date.now(), motivoRecusa: motivo || null });
+    if (h) await DB.add(`suporteApp/${x.token}/msgs`, { de: 'suporte', texto: `Liberamos o seu aparelho por ${h} horas. Regularize a parcela pelo app (aba Parcelas → PIX) para não bloquear de novo.`, em: Date.now(), porNome: C.me.nome.split(' ')[0] }).catch(() => { });
+    toast(h ? `Liberado por ${h} h. O aparelho destrava em instantes.` : 'Pedido recusado'); } catch (e) { toast('Não foi possível: ' + (e.code || e.message), true); }
+}
+async function decidirPre(i, st) {
+  const p = i.raw, txt = st === 'PRE_APROVADO' ? `Boa notícia, ${String(p.nome).split(' ')[0]}! Sua pré-análise foi aprovada. Passe na ${p.lojaNome || 'loja'} com seu documento original com foto para concluir a compra.` : `Olá, ${String(p.nome).split(' ')[0]}. Desta vez não conseguimos aprovar a sua pré-análise. Você pode tentar de novo em 30 dias.`;
+  await DB.set('preanalises', i.id, { status: st, resposta: txt, respondidoEm: Date.now(), respondidoPor: C.me.nome, respondidoPorHumano: true, aguardandoDono: false });
+  if (p.telefone) await enviar(i, txt); toast(st === 'PRE_APROVADO' ? 'Pré-aprovado' : 'Recusado');
+}
+
+/* ---------- ficha do cliente (contratos, parcelas e aparelho) ---------- */
+async function acharCliente({ token, cpf, tel, vendaId, imei, tag, numero }) {
+  let vs = [];
+  try {
+    if (token) { const ap = await DB.get('aparelhos', token); if (ap?.vendaId) vendaId = ap.vendaId; if (ap?.clienteCpf) cpf = ap.clienteCpf; }
+    if (vendaId && !cpf) { const v = await DB.get('vendas', vendaId); if (v) cpf = v.clienteCpf; vs = v ? [v] : []; }
+    if (numero && !cpf) { const l = await DB.list('vendas', [['numero', '==', +numero]]); if (l[0]) cpf = l[0].clienteCpf; vs = l; }
+    if (imei && !cpf) { const l = await DB.list('aparelhos', [['imei', '==', imei]]); if (l[0]?.vendaId) { const v = await DB.get('vendas', l[0].vendaId); if (v) { cpf = v.clienteCpf; vs = [v]; } } }
+    if (tel && !cpf) { const t = soD(tel).replace(/^55(?=\d{10,11}$)/, ''); const l = await DB.list('clientes', [['telefones', 'array-contains', t]]); if (l[0]) cpf = l[0].id; }
+    if (cpf) vs = await DB.list('vendas', [['clienteCpf', '==', soD(cpf)]]);
+  } catch (e) { console.warn('acharCliente', e.code || e.message); }
+  vs = vs.filter(v => !['REPROVADA'].includes(v.status)).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const aps = {}; for (const v of vs.slice(0, 4)) if (v.aparelhoToken) aps[v.id] = await DB.get('aparelhos', v.aparelhoToken).catch(() => null);
+  return { cpf, vs, aps };
+}
+function htmlCliente(r) {
+  if (!r.vs.length) return '<div class="vazio small">Nenhum contrato encontrado para este atendimento.</div>';
+  const v0 = r.vs[0], c = v0.cliente || {}, h = hoje();
+  return `<div class="cartao"><small>CLIENTE NEXUMCELL</small><div style="font-size:17px;font-weight:700;margin:4px 0 10px">${esc(v0.clienteNome)}</div><div class="tag">${deviceTag(v0.numero)}</div><small>Device Tag · CPF ${fmtCpf(v0.clienteCpf)}</small></div>
+    <dl class="kv" style="margin-top:12px"><dt>Telefone</dt><dd>${esc((c.telefones || []).map(fmtTel).join(' · ') || '—')}</dd><dt>Cidade</dt><dd>${esc([c.cidade, c.uf].filter(Boolean).join('/') || '—')}</dd><dt>Contratos</dt><dd>${r.vs.length}</dd></dl>
+    ${r.vs.slice(0, 4).map(v => { const ps = v.parcelas || [], pagas = ps.filter(p => p.pago).length, ab = ps.filter(p => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)), atr = ab.filter(p => p.venc < h), ap = r.aps[v.id];
+      const trava = !ap ? '' : ap.roubo && !ap.roubo.liberadoEm ? ['Roubo/perda', 'b-red'] : ap.quitado ? ['Quitado', 'b-green'] : (ap.liberadoAte || 0) > Date.now() ? ['Liberado temporário', 'b-blue'] : atr.length ? ['Em atraso', 'b-amber'] : ['Em dia', 'b-green'];
+      return `<h3>Contrato nº ${v.numero} · ${esc(v.status)}</h3><dl class="kv"><dt>Aparelho</dt><dd>${esc([v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(' ') || '—')}</dd><dt>IMEI</dt><dd class="mono">${esc(v.aparelho?.imei || '—')}</dd>
+        <dt>Loja</dt><dd>${esc(v.lojaNome || '—')}</dd><dt>Parcelas</dt><dd>${pagas} de ${ps.length} pagas</dd>
+        ${atr.length ? `<dt>Em atraso</dt><dd style="color:var(--bad)">${brl(atr.reduce((s, p) => s + (+p.valor || 0), 0))} · ${diasEntre(atr[0].venc, h)} dia(s)</dd>` : ab[0] ? `<dt>Próxima</dt><dd>${fd(ab[0].venc)} · ${brl(ab[0].valor)}</dd>` : ''}
+        ${ap ? `<dt>Trava</dt><dd><span class="bdg ${trava[1]}">${trava[0]}</span></dd><dt>Último sinal</dt><dd>${ap.checkin?.em ? fdt(ap.checkin.em) : '—'}</dd>${ap.checkin?.bateria != null ? `<dt>Bateria</dt><dd>${ap.checkin.bateria}%</dd>` : ''}` : ''}</dl>`; }).join('')}`;
+}
+async function ficha(i) {
+  const el = $('#fc'); if (!el) return; el.innerHTML = '<div class="vazio small">Procurando o cliente…</div>';
+  const r = i.raw, q = i.canal === 'app' || i.canal === 'liberacao' ? { token: i.token || r.token || i.id } : i.canal === 'pedido' ? { vendaId: r.vendaId, token: r.token } : i.canal === 'chamado' ? (r.imei ? { imei: r.imei } : {}) : i.canal === 'preanalise' ? { cpf: r.cpf } : i.canal === 'wa' ? { tel: i.tel } : {};
+  let corpo = '';
+  if (i.canal === 'portal') corpo = `<h3>Quem chamou</h3><dl class="kv"><dt>Nome</dt><dd>${esc(r.nome || r.abertoPorNome || '')}</dd><dt>Perfil</dt><dd>${esc(r.perfil || r.role || '—')}</dd><dt>Loja</dt><dd>${esc(r.lojaNome || '—')}</dd><dt>Assunto</dt><dd>${esc(r.categoria || '—')}</dd></dl>`;
+  else if (i.canal === 'lead') corpo = `<h3>Lead</h3><dl class="kv"><dt>Contato</dt><dd>${esc(r.nome || '')}</dd><dt>WhatsApp</dt><dd>${esc(fmtTel(r.whatsapp))}</dd><dt>Cidade</dt><dd>${esc(r.cidade || '—')}</dd><dt>Origem</dt><dd>${esc(r.origem || 'site')}</dd><dt>Etapa</dt><dd>${esc(r.status || 'NOVO')}</dd></dl>`;
+  else corpo = htmlCliente(await acharCliente(q));
+  const notas = await DB.list('crmNotas', [['key', '==', i.key]]).catch(() => []);
+  if ($('#fc') && C.sel === i.key) el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b>Ficha</b><button class="btn ghost sm" onclick="document.getElementById('ibx').classList.remove('ficha')">${I('x')}</button></div>${corpo}
+    <h3>Responsável</h3><p class="small" style="margin:0">${i.resp ? esc(i.resp.nome) + ' · ' + esc(i.resp.por || '') : 'Sem responsável'}</p>${notas.length ? `<h3>Notas internas</h3>${notas.sort((a, b) => b.em - a.em).map(n => `<div class="bb nota" style="max-width:100%;margin-bottom:6px">${esc(n.t)}<small>${esc(n.por)} · ${fdt(n.em)}</small></div>`).join('')}` : ''}`;
+}
+
+/* ---------- kanban, clientes, painel ---------- */
+function vKanban(el) {
+  const l = visiveis().filter(() => true), por = e => C.itens.filter(i => (dono() || i.fila === C.papel) && i.etapa === e && (!C.f.q || `${i.nome} ${i.protocolo}`.toLowerCase().includes(C.f.q.toLowerCase()))).slice(0, 60);
+  el.innerHTML = `<div class="kb">${ETAPAS.map(([k, t, c]) => `<div class="kb-c"><h4><span class="dot" style="background:${c}"></span>${t}<span class="muted" style="margin-left:auto">${por(k).length}</span></h4><div class="l">${por(k).map(i => `<div class="kb-i" data-k="${esc(i.key)}"><div style="display:flex;gap:8px;align-items:center">${avatar(i)}<div style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(i.nome)}</b><span class="small muted">${esc(CANAIS[i.canal][0])} · ${quando(i.em)}</span></div></div><div class="small" style="margin-top:6px;color:var(--mut)">${esc(String(i.ultima).slice(0, 80))}</div></div>`).join('') || '<div class="vazio small">—</div>'}</div></div>`).join('')}</div>`;
+  void l; $$('.kb-i', el).forEach(x => x.onclick = () => abrir(x.dataset.k));
+}
+function vClientes(el) {
+  el.innerHTML = `<div class="card" style="max-width:860px"><h2 style="margin:0 0 6px">Encontrar o cliente</h2><p class="muted" style="margin:0 0 14px">Digite a <b>Device Tag</b> que o cliente ou o vendedor informar (está no app NexumCell, aba Contrato), o CPF, o IMEI, o telefone ou o número do contrato.</p>
+    <form id="fBusca" style="display:flex;gap:8px"><input id="bq" placeholder="Ex.: NKQZRBTA, 123.456.789-00, 3569…, (45) 99999-0000 ou 1234" autofocus><button class="btn pri">${I('busca')}Buscar</button></form><div id="bRes" style="margin-top:16px"></div></div>`;
+  $('#fBusca').onsubmit = async e => { e.preventDefault(); const q = $('#bq').value.trim(), d = soD(q), U = q.toUpperCase().replace(/[^A-Z]/g, ''); const box = $('#bRes'); box.innerHTML = '<div class="vazio">Procurando…</div>';
+    let p = {};
+    if (/^N[A-Z]{3,10}$/.test(U) && !d) { // Device Tag: procura o nº do contrato que gera esta tag
+      const vs = await DB.list('vendas', [['criadoEm', '>=', 0]]).catch(() => []), v = vs.find(x => deviceTag(x.numero) === U || tagAntiga(x.numero) === U); p = v ? { vendaId: v.id } : { nada: 1 }; }
+    else if (d.length === 11 && cpfValido(d)) p = { cpf: d }; else if (d.length === 15) p = { imei: d }; else if (d.length >= 10) p = { tel: d }; else if (d) p = { numero: d };
+    if (p.nada) return box.innerHTML = '<div class="vazio">Nenhum contrato com esta Device Tag.</div>';
+    const r = await acharCliente(p); box.innerHTML = r.vs.length ? `<div style="max-width:420px">${htmlCliente(r)}</div>` : '<div class="vazio">Nenhum cliente encontrado.</div>'; };
+}
+function cpfValido(c) { if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false; for (const t of [9, 10]) { let s = 0; for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i); if ((s * 10) % 11 % 10 !== +c[t]) return false; } return true; }
+function vPainel(el) {
+  const l = C.itens.filter(i => dono() || i.fila === C.papel), ab = l.filter(i => i.etapa !== 'fim'), hojeIni = new Date(hoje() + 'T00:00:00-03:00').getTime();
+  const fimHoje = l.filter(i => i.etapa === 'fim' && i.em >= hojeIni).length, semResp = ab.filter(i => !i.resp).length, velho = ab.filter(i => i.nl && Date.now() - i.em > 30 * 60e3).length;
+  const porAt = {}; ab.forEach(i => { const k = i.resp?.nome || 'Sem responsável'; porAt[k] = (porAt[k] || 0) + 1; });
+  const porCanal = {}; ab.forEach(i => porCanal[i.canal] = (porCanal[i.canal] || 0) + 1);
+  el.innerHTML = `<div class="kpis"><div class="card kpi"><small>Em aberto</small><b>${ab.length}</b><span>${ab.filter(i => i.nl).length} esperando resposta</span></div><div class="card kpi"><small>Sem responsável</small><b style="color:${semResp ? 'var(--warn)' : 'var(--ok)'}">${semResp}</b><span>distribuição automática</span></div>
+    <div class="card kpi"><small>Esperando há +30 min</small><b style="color:${velho ? 'var(--bad)' : 'var(--ok)'}">${velho}</b><span>fora do tempo de resposta</span></div><div class="card kpi"><small>Finalizados hoje</small><b>${fimHoje}</b><span>todas as filas</span></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px"><div class="card"><h3 style="margin:0 0 10px">Por atendente</h3><table class="t">${Object.entries(porAt).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<tr><td>${esc(n)}</td><td style="text-align:right"><b>${q}</b></td></tr>`).join('') || '<tr><td class="muted">—</td></tr>'}</table></div>
+      <div class="card"><h3 style="margin:0 0 10px">Por canal</h3><table class="t">${Object.entries(porCanal).sort((a, b) => b[1] - a[1]).map(([k, q]) => `<tr><td><span class="dot" style="display:inline-block;background:${CANAIS[k][1]};margin-right:8px"></span>${CANAIS[k][0]}</td><td style="text-align:right"><b>${q}</b></td></tr>`).join('') || '<tr><td class="muted">—</td></tr>'}</table></div>
+      <div class="card"><h3 style="margin:0 0 10px">Por fila</h3><table class="t">${Object.entries(FILAS).filter(([k]) => dono() || k === C.papel).map(([k, v]) => `<tr><td>${v[0]}</td><td style="text-align:right"><b>${ab.filter(i => i.fila === k).length}</b> abertos · ${C.equipe.filter(u => u.fila === k && u.ativo !== false).length} pessoa(s)</td></tr>`).join('')}</table></div></div>`;
+}
+
+/* ---------- WhatsApp pelo QR code ---------- */
+const waOn = () => C.wa.status === 'conectado' && C.wa.vivoEm && Date.now() - C.wa.vivoEm < 3 * 60e3;
+function vWa(el) { el.innerHTML = `<div class="card" style="max-width:620px;margin:0 auto"><div id="qrBox" style="text-align:center"></div></div>`; pintarQr(); }
+function pintarQr() {
+  const el = $('#qrBox'); if (!el) return; const w = C.wa, vivo = w.vivoEm && Date.now() - w.vivoEm < 3 * 60e3;
+  const robo = `<label style="display:flex;gap:8px;align-items:center;justify-content:center;margin-top:16px;font-weight:600"><input type="checkbox" id="qrRobo" style="width:auto;min-height:0" ${w.robo === false ? '' : 'checked'}> Robô de triagem responde quem chega (Suporte · Financeiro · Comprar)</label>`;
+  if (!w.vivoEm) el.innerHTML = `<h2 style="margin-top:0">Ligar o programa NexumCell WhatsApp</h2><p class="muted" style="text-align:left;line-height:1.7">O QR code é gerado por um programa que fica ligado 24 horas num computador ou numa VPS:<br>1. Instale o <b>Node.js</b> (versão LTS) em nodejs.org.<br>2. Baixe a pasta <b>whatsapp</b> do CRM (no GitHub: dono/crm/whatsapp) e coloque nela o arquivo <b>conta-servico.json</b> (a mesma conta de serviço do servidor).<br>3. No Windows, dê dois cliques em <b>iniciar.bat</b>. Numa VPS: <code>npm install</code> e <code>npm start</code>.<br>4. Volte aqui: o QR code aparece sozinho.</p>`;
+  else if (!vivo) el.innerHTML = `<h2 style="margin-top:0">O programa NexumCell WhatsApp está desligado</h2><p class="muted">Último sinal em ${fdt(w.vivoEm)}. Ligue o computador ou a VPS e abra o <b>iniciar.bat</b> de novo.</p>`;
+  else if (w.status === 'conectado') el.innerHTML = `<div style="width:64px;height:64px;border-radius:18px;background:var(--ok-s);color:var(--ok);display:grid;place-items:center;margin:0 auto 12px">${I('check')}</div><h2 style="margin:0 0 4px">WhatsApp conectado</h2><p style="margin:0;font-weight:700">${esc(fmtTel(w.numero))}${w.nome ? ' · ' + esc(w.nome) : ''}</p><p class="muted">Conectado desde ${fdt(w.conectadoEm)}. As mensagens entram e saem pelo CRM e continuam no celular.</p>${dono() ? robo + '<div style="margin-top:16px"><button class="btn sm" id="qrDesc" style="color:var(--bad)">Desconectar este número</button></div>' : ''}`;
+  else if (dono() && C.waQr.qr) el.innerHTML = `<h2 style="margin:0 0 4px">Leia o QR code com o celular da NexumCell</h2><p class="muted" style="margin:0 0 14px">WhatsApp › <b>Aparelhos conectados</b> › <b>Conectar um aparelho</b></p><img src="${C.waQr.qr}" width="260" height="260" style="border:1px solid var(--line);border-radius:16px;padding:10px;background:#fff"><p class="small muted">O código se renova sozinho a cada 20 segundos.</p>${robo}<p class="small" style="text-align:left;background:var(--warn-s);color:#6E4A0B;border-radius:10px;padding:10px 12px;margin-top:14px">Conexão não oficial: para evitar bloqueio, não mande mensagens em massa nem para quem nunca falou com a NexumCell.</p>`;
+  else el.innerHTML = `<h2 style="margin-top:0">${dono() ? 'Preparando a conexão…' : 'WhatsApp desconectado'}</h2><p class="muted">${dono() ? 'Aguarde o QR code.' : 'Avise o dono para conectar o WhatsApp.'}</p>${dono() ? '<button class="btn sm" id="qrNovo">Gerar um QR code novo</button>' : ''}`;
+  const cmd = c => DB.set('plataforma', 'waWebCmd', { cmd, em: Date.now(), por: C.me.email }).then(() => toast('Comando enviado ao programa'));
+  if ($('#qrDesc')) $('#qrDesc').onclick = () => confirm('Desconectar o WhatsApp do CRM?') && cmd('desconectar');
+  if ($('#qrNovo')) $('#qrNovo').onclick = () => cmd('novoqr');
+  if ($('#qrRobo')) $('#qrRobo').onchange = e => DB.set('plataforma', 'waWebStatus', { robo: e.target.checked }).then(() => toast(e.target.checked ? 'Robô ligado' : 'Robô desligado'));
+}
+function novaConversa() {
+  const m = modal('Nova conversa no WhatsApp', `<label class="small" style="font-weight:600;color:var(--mut)">WhatsApp (com DDD)</label><input id="ncT" inputmode="tel" placeholder="(45) 99999-0000"><label class="small" style="font-weight:600;color:var(--mut);display:block;margin-top:10px">Nome</label><input id="ncN"><label class="small" style="font-weight:600;color:var(--mut);display:block;margin-top:10px">Fila</label><select id="ncF">${filasMinhas().map(k => `<option value="${k}">${FILAS[k][0]}</option>`).join('')}</select><label class="small" style="font-weight:600;color:var(--mut);display:block;margin-top:10px">Mensagem</label><textarea id="ncM" rows="3">Olá! Aqui é ${esc(C.me.nome.split(' ')[0])}, da NexumCell.</textarea>`, '<button class="btn" data-x3>Cancelar</button><button class="btn pri" id="ncOk">Enviar</button>');
+  $('[data-x3]', m).onclick = fechar;
+  $('#ncOk').onclick = async () => { const n = soD($('#ncT').value); if (n.length < 10) return toast('WhatsApp com DDD', true); const n55 = n.startsWith('55') ? n : '55' + n;
+    await DB.set('waConversas', n55, { numero: n55, nome: $('#ncN').value.trim() || fmtTel(n), fila: $('#ncF').value, atualizadoEm: Date.now(), criadoEm: Date.now(), iniciadaPor: C.me.nome });
+    fechar(); const it = { canal: 'wa', id: n55, nome: $('#ncN')?.value || fmtTel(n), tel: n55, fila: $('#ncF')?.value || 'suporte', raw: {}, key: 'wa:' + n55 }; await enviar(it, ($('#ncM')?.value || '').trim() || 'Olá! Aqui é da NexumCell.'); abrir('wa:' + n55); };
+}
+
+/* ---------- equipe e configuração ---------- */
+function vEquipe(el) {
+  el.innerHTML = `<div class="card"><h2 style="margin:0 0 6px">Equipe e filas</h2><p class="muted" style="margin:0 0 14px">Os atendimentos de cada fila são divididos por igual entre as pessoas ativas dela (quem tem menos atendimentos abertos recebe o próximo). Para criar uma pessoa nova (comercial, suporte ou financeiro), use o Painel do Dono → Equipe NexumCell.</p>
+    <table class="t"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Fila no CRM</th><th>Abertos</th><th>Recebe atendimentos</th></tr></thead><tbody>${C.equipe.map(u => `<tr><td><b>${esc(u.nome)}</b><div class="small muted">${esc(u.codigo || u.email || '')}</div></td><td>${esc(u.role)}</td>
+      <td><select data-fila="${u.id}" style="width:auto">${Object.entries(FILAS).map(([k, v]) => `<option value="${k}" ${u.fila === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></td><td>${C.itens.filter(i => i.etapa !== 'fim' && i.resp?.uid === u.id).length}</td>
+      <td><input type="checkbox" data-at="${u.id}" style="width:auto;min-height:0" ${u.crmAtivo === false || u.ativo === false ? '' : 'checked'}></td></tr>`).join('') || '<tr><td colspan="5" class="vazio">Ninguém na equipe ainda</td></tr>'}</tbody></table></div>`;
+  $$('[data-fila]', el).forEach(s => s.onchange = () => DB.set('users', s.dataset.fila, { crmFila: s.value }).then(() => toast('Fila salva')).catch(e => toast(e.code || e.message, true)));
+  $$('[data-at]', el).forEach(c => c.onchange = () => DB.set('users', c.dataset.at, { crmAtivo: c.checked }).then(() => toast('Salvo')).catch(e => toast(e.code || e.message, true)));
+}
+function vConfig(el) {
+  const r = resp(), l = links();
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px">
+    <div class="card"><h2 style="margin:0 0 6px">Respostas rápidas</h2><p class="muted small" style="margin:0 0 10px">Uma por linha: <b>Grupo | Título | Texto</b>. Use {nome}, {atendente}, {protocolo}, {portalCliente}, {linkContrato}, {linkPre}, {linkSite}.</p>
+      <textarea id="cfR" rows="14" ${dono() ? '' : 'readonly'}>${esc(r.flatMap(([g, x]) => x.map(([t, m]) => `${g} | ${t} | ${m.replace(/\n/g, '\\n')}`)).join('\n'))}</textarea></div>
+    <div class="card"><h2 style="margin:0 0 6px">Links de resolução</h2><p class="muted small" style="margin:0 0 10px">Uma por linha: <b>Título | link</b>.</p><textarea id="cfL" rows="6" ${dono() ? '' : 'readonly'}>${esc(l.map(([t, u]) => `${t} | ${u}`).join('\n'))}</textarea>
+      <h2 style="margin:16px 0 6px">Mensagem automática</h2><p class="muted small" style="margin:0 0 10px">Vai sozinha quando a assistente passa o atendimento para a equipe.</p><textarea id="cfA" rows="4" ${dono() ? '' : 'readonly'}>${esc(C.cfg.msgAck || MSG_ACK)}</textarea></div></div>
+    ${dono() ? '<div style="margin-top:14px;text-align:right"><button class="btn pri" id="cfOk">Salvar</button></div>' : ''}`;
+  if ($('#cfOk')) $('#cfOk').onclick = async () => {
+    const g = {}; $('#cfR').value.split('\n').map(x => x.split('|').map(s => s.trim())).filter(x => x.length >= 3 && x[2]).forEach(([gr, t, ...m]) => (g[gr] = g[gr] || []).push([t, m.join(' | ').replace(/\\n/g, '\n')]));
+    const lk = $('#cfL').value.split('\n').map(x => x.split('|').map(s => s.trim())).filter(x => x.length >= 2 && x[1]).map(([t, ...u]) => [t, u.join('|')]);
+    await DB.set('config', 'crm', { respostas: Object.entries(g), links: lk, msgAck: $('#cfA').value.trim() || MSG_ACK, atualizadoEm: Date.now() }); toast('Configuração salva'); };
+}
+
+/* ---------- início ---------- */
+(async () => {
+  if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
+  try { await fbInit(); } catch (e) { $('#root').innerHTML = '<div class="vazio">Sem conexão com o servidor. Confira a internet e recarregue.</div>'; return; }
+  F.au.onAuthStateChanged(F.auth, u => { if (u) entrou(u).catch(e => telaLogin('Erro ao entrar: ' + (e.code || e.message))); else { C.me = null; telaLogin(); } });
+  setInterval(() => { if (C.me) { desenharNav(); } }, 60e3);
+})();
+</script>
+</body>
+</html>

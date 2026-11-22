@@ -35,7 +35,7 @@ service cloud.firestore {
     match /config/{id} {
       allow get: if signed() && !anon();
       allow list: if staff();
-      allow create: if (id == 'sistema' && donoEmail()) || (id in ['contador', 'protocolos'] && staff());
+      allow create: if (id == 'sistema' && donoEmail()) || (id in ['contador', 'protocolos'] && staff()) || (id == 'crm' && hasRole(['DONO']));
       allow update: if hasRole(['DONO']) || (id in ['contador', 'protocolos'] && staff());
     }
 
@@ -75,7 +75,7 @@ service cloud.firestore {
 
     // ---------- Leads do site de vendas (CRM comercial; criados pelo servidor) ----------
     match /leads/{id} {
-      allow read, update: if hasRole(['DONO','FINANCEIRO']);
+      allow read, update: if hasRole(['DONO','FINANCEIRO','COMERCIAL']);
       allow create, delete: if false;
     }
 
@@ -227,7 +227,7 @@ service cloud.firestore {
     }
 
     match /vendas/{id} {
-      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE'])
+      allow read: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'COMERCIAL'])
                   || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId)
                   || (hasRole(['VENDEDOR']) && resource.data.vendedorUid == request.auth.uid);
       // proposta nasce em análise, sem aparelho e sem valores
@@ -338,7 +338,7 @@ service cloud.firestore {
     // O ID do documento é um token secreto de 32 caracteres que só vai no QR code.
     match /aparelhos/{token} {
       allow get: if signed();   // o celular (login anônimo) lê só o próprio documento
-      allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'VENDEDOR'])
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'VENDEDOR', 'COMERCIAL'])
                   || (hasRole(['GERENTE']) && resource.data.lojaId == me().lojaId);
       allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR']);
       // remover a trava de vez (removerRemoto) é só do Dono; quitação/cancelamento removem sozinhos pelo sistema
@@ -369,10 +369,10 @@ service cloud.firestore {
 
     // ---------- Atendimento (chat do vendedor/gerente com o assistente e o suporte) ----------
     match /atendimentos/{id} {
-      allow read: if hasRole(['DONO', 'SUPORTE']) || ((staff() || gerenteBloqueado()) && resource.data.abertoPor == request.auth.uid);
+      allow read: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO']) || ((staff() || gerenteBloqueado()) && resource.data.abertoPor == request.auth.uid);
       allow create: if (hasRole(['VENDEDOR', 'GERENTE']) && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'BOT')
                     || (gerenteBloqueado() && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'HUMANO' && request.resource.data.categoria == 'Acesso bloqueado');
-      allow update: if hasRole(['DONO', 'SUPORTE'])
+      allow update: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO'])
                     || (gerenteBloqueado() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'HUMANO'
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs', 'naoLidoSuporte', 'naoLidoUser', 'atualizadoEm']))
                     // pesquisa de satisfação depois de concluído (uma vez)
@@ -416,7 +416,7 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']);
       allow update: if (anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']))
-                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['naoLidoSuporte','naoLidoCliente','atendidoPor','atendidoEm','atualizadoEm']));
+                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['naoLidoSuporte','naoLidoCliente','atendidoPor','atendidoEm','atualizadoEm','ultimaMsg','concluidoEm','autoAckEm']));
       allow delete: if hasRole(['DONO']);
 
       match /msgs/{mid} {
@@ -509,6 +509,31 @@ service cloud.firestore {
     // recompra: proposta da NexumCell para quem pagou em dia (só dono, financeiro e suporte)
     match /recompras/{id} {
       allow read, write: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE']);
+    }
+
+    // ---------- CRM NexumCell (equipe: dono, suporte, financeiro e comercial) ----------
+    function crmEquipe() { return hasRole(['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']); }
+    match /crmAtrib/{id} { allow read, write: if crmEquipe(); }
+    match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
+    // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista
+    match /crmArquivos/{id} { allow get: if true; allow list: if false; allow create: if crmEquipe() && request.resource.data.data.size() < 1000000; allow update, delete: if hasRole(['DONO']); }
+    match /waConversas/{num} {
+      allow read, write: if crmEquipe();
+      match /msgs/{mid} { allow read, create: if crmEquipe(); }
+    }
+    match /waSaida/{id} { allow read, create: if crmEquipe(); allow update, delete: if false; }
+    match /plataforma/{doc} {
+      allow read: if (doc in ['waWebStatus', 'presencaCrm'] && crmEquipe()) || hasRole(['DONO']);
+      allow write: if (doc == 'presencaCrm' && crmEquipe()) || hasRole(['DONO']);
+    }
+
+    // ---------- Sessão de venda: o vendedor lê o QR do notebook com o celular e confirma o rosto (vale 5 h) ----------
+    match /sessoesVenda/{tk} {
+      allow get: if signed() && !anon() && (resource == null || resource.data.uid == request.auth.uid || hasRole(['DONO', 'SUPORTE']));
+      allow list: if hasRole(['DONO', 'SUPORTE']);
+      allow create: if staff() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'AGUARDANDO';
+      allow update: if staff() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
     }
 
     match /ranking/{id} {
@@ -633,7 +658,9 @@ service cloud.firestore {
     // ---------- Pré-análise online (link público) ----------
     match /preanalises/{id} {
       allow get: if signed();
-      allow list: if hasRole(['DONO', 'FINANCEIRO']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      allow list: if hasRole(['DONO', 'FINANCEIRO', 'COMERCIAL']) || (hasRole(['GERENTE', 'VENDEDOR']) && resource.data.lojaId == me().lojaId);
+      // CRM: comercial e financeiro respondem a pré-análise que a IA deixou em dúvida
+      allow update: if hasRole(['DONO', 'FINANCEIRO', 'COMERCIAL']);
       // cliente pré-aprovado agenda a retirada pelo link
       allow update: if anon() && resource.data.status == 'PRE_APROVADO'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['agendamento'])

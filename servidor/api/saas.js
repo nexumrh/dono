@@ -89,7 +89,7 @@ export async function saldoLicencas(lojaId) {
   const compradas = Number(l.licencasCompradas) || 0;
   let cortesia = false;
   if (l.empresaId) { const e = (await db.collection('empresas').doc(l.empresaId).get()).data(); cortesia = !!e?.cortesia; }
-  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: cfg.licencaObrigatoria === 'sim' && !cortesia, cortesia };
+  return { compradas, usadas, saldo: compradas - usadas, valor: Number(cfg.saasLicencaValor) || 54.99, obrigatoria: !cortesia, cortesia };
 }
 async function comprarLicencas(lojaId, q, eu) {
   q = Math.floor(Number(q) || 0); if (q < 1 || q > 500) throw Object.assign(new Error('Quantidade de licenças inválida (1 a 500).'), { status: 400 });
