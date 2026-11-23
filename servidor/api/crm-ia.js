@@ -8,6 +8,7 @@
 //                  {acao:'baixarComprovante', vendaId, n, valor, data, idTransacao, arquivoId} — dá baixa (Dono e Financeiro)
 import { cors, exigirEquipe, db, baixarParcela, asaas } from './_base.js';
 import { chaveIA } from './ia-autonoma.js';
+import { errosTexto, codigosNoTexto, AJUDA_URL } from './erros.js';
 
 const MODELO = process.env.GROQ_MODELO_CRM || 'llama-3.3-70b-versatile';
 export const REGRAS = 'Você trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece crédito. Responda sempre em português do Brasil, com educação e frases curtas. Nunca prometa aprovação de crédito, desconto ou liberação que a equipe não confirmou. Nunca peça senha, código ou pagamento em conta de terceiros. Pagamento é só pelo app NexumCell (aba Parcelas → Pix) ou pelo Pix enviado pela equipe. Não use emojis.';
@@ -32,7 +33,10 @@ export async function groq(mensagens, { temperatura = 0.3, max = 400, json = fal
 /* base de conhecimento: respostas rápidas da equipe + orientações do dono */
 export async function baseConhecimento() {
   const c = (await db.collection('config').doc('crm').get()).data() || {};
-  const rs = (c.respostas || []).flatMap(([g, l]) => (l || []).map(([t, x]) => `- ${g} / ${t}: ${String(x || '').replace(/\s+/g, ' ').slice(0, 400)}`)).slice(0, 60).join('\n');
+  // respostas da equipe: formato novo (lista de objetos) ou antigo (grupos)
+  const v2 = Array.isArray(c.respostasV2) ? c.respostasV2.map(r => [r.g, r.t, r.x]) : [];
+  const v1 = Array.isArray(c.respostas) ? c.respostas.flatMap(g => Array.isArray(g) ? (g[1] || []).map(r => [g[0], r?.[0] ?? r?.t, r?.[1] ?? r?.x]) : []) : [];
+  const rs = (v2.length ? v2 : v1).filter(r => r[2]).map(([g, t, x]) => `- ${g} / ${t}: ${String(x || '').replace(/\s+/g, ' ').slice(0, 400)}`).slice(0, 80).join('\n');
   return { cfg: c, texto: `${c.iaOrientacoes ? 'Orientações do dono:\n' + String(c.iaOrientacoes).slice(0, 2500) + '\n\n' : ''}Respostas aprovadas pela equipe (use como base, troque {variáveis} pelos dados reais ou deixe de fora):\n${rs}` };
 }
 
@@ -43,6 +47,9 @@ export default async function handler(req, res) {
   try {
     await exigirEquipe(req, ['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']);
     const b = req.body || {}, txt = String(b.texto || '').slice(0, 4000);
+    if (b.acao === 'status') { const chave = await chaveIA().catch(() => ''); if (!chave) return res.json({ chave: false, ok: false, erro: 'Nenhuma chave da IA salva. Cole a chave do Groq (começa com gsk_) em Ajustes do CRM ou no Painel do Dono → Configurações → Inteligência artificial.' });
+      const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4) }); }
+      catch (e) { return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4), erro: e.message }); } }
     if (b.acao === 'reescrever') { if (!txt.trim()) throw Object.assign(new Error('Escreva a mensagem primeiro'), { status: 400 });
       return res.json({ texto: await groq([{ role: 'system', content: REGRAS }, { role: 'user', content: `${ESTILOS[b.estilo] || ESTILOS.corrigir} Devolva só a mensagem pronta, sem aspas e sem comentários.\n\nMensagem:\n${txt}` }], { temperatura: 0.3 }) }); }
     if (b.acao === 'traduzir') { if (!txt.trim()) throw Object.assign(new Error('Nada para traduzir'), { status: 400 });
@@ -71,12 +78,19 @@ export default async function handler(req, res) {
     if (b.acao === 'automatica') { const base = await baseConhecimento();
       const t = await groq([{ role: 'system', content: REGRAS + '\n\n' + base.texto }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nCliente: ${String(b.cliente || '').slice(0, 80)}\n\nFicha do cliente:\n${ficha}\n\nConversa:\n${conversa}\n\n${PEDIDO_AUTO}` }], { temperatura: 0.2, json: true });
       let j = {}; try { j = JSON.parse(t); } catch (e) { j = { resposta: t, humano: true }; } return res.json({ texto: String(j.resposta || ''), humano: !!j.humano }); }
-    const base = b.acao === 'sugestao' ? await baseConhecimento().catch(() => ({ texto: '' })) : { texto: '' };
-    const pedido = b.acao === 'resumo'
-      ? 'Resuma este atendimento em no máximo 3 linhas curtas: o que o cliente quer, o que já foi feito e o que falta fazer. Use tópicos iniciados por "- ".'
-      : `Escreva a próxima mensagem que o atendente ${String(b.atendente || '').slice(0, 30)} deve mandar ao cliente, pronta para enviar, com no máximo 3 frases. Use os dados da ficha quando ajudarem (parcelas, atraso, aparelho) e as respostas aprovadas como base. ${ESTILOS[b.estilo] ? 'Estilo: ' + ESTILOS[b.estilo] : ''} Se o cliente escreveu em espanhol, responda em espanhol.`;
-    const texto = await groq([{ role: 'system', content: REGRAS + (base.texto ? '\n\n' + base.texto : '') },
-      { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nCliente: ${String(b.cliente || '').slice(0, 80)}\n\nFicha do cliente:\n${ficha}\n\nConversa:\n${conversa}\n\n${pedido}` }], { temperatura: b.acao === 'resumo' ? 0.1 : 0.4, max: 300 });
-    return res.json({ texto });
+    if (!conversa.trim()) throw Object.assign(new Error('A conversa ainda está vazia'), { status: 400 });
+    const base = await baseConhecimento().catch(() => ({ texto: '' }));
+    const cods = codigosNoTexto(conversa), equipe = /portais|chamado/i.test(String(b.canal || ''));
+    const quem = equipe ? 'um vendedor ou gerente de loja parceira (equipe da loja, não o cliente final)' : 'o cliente';
+    const conhecimento = `${REGRAS}\n\nCódigos de erro do sistema (use quando aparecerem na conversa; para vendedor/gerente, indique o link ${AJUDA_URL}#erro-CODIGO):\n${errosTexto()}\n\n${base.texto || ''}`;
+    if (b.acao === 'resumo') {
+      const t = await groq([{ role: 'system', content: conhecimento }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nQuem escreve: ${quem} (${String(b.cliente || '').slice(0, 80)})\n\nFicha:\n${ficha}\n\nConversa:\n${conversa}\n\nFaça o resumo para o atendente em JSON: {"pedido":"o que a pessoa quer, em 1 frase","feito":"o que já foi feito, em 1 frase (ou vazio)","falta":"próximo passo do atendente, em 1 frase","humor":"calmo|ansioso|irritado","urgencia":"baixa|media|alta","codigos":["códigos de erro citados"]}` }], { temperatura: 0.1, max: 350, json: true });
+      let j = {}; try { j = JSON.parse(t); } catch (e) { j = { pedido: t }; }
+      const texto = [j.pedido && '- Pedido: ' + j.pedido, j.feito && '- Já feito: ' + j.feito, j.falta && '- Próximo passo: ' + j.falta].filter(Boolean).join('\n');
+      return res.json({ texto, ...j, codigos: [...new Set([...(j.codigos || []).map(String), ...cods])] });
+    }
+    const t = await groq([{ role: 'system', content: conhecimento }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nQuem escreve: ${quem} (${String(b.cliente || '').slice(0, 80)})\nAtendente: ${String(b.atendente || '').slice(0, 30)}\n\nFicha:\n${ficha}\n\nConversa:\n${conversa}\n\nEscreva a PRÓXIMA mensagem que o atendente deve mandar, pronta para enviar: resolva o que foi pedido com passos claros (numerados se for um procedimento), use os dados da ficha quando ajudarem, as respostas aprovadas como base e, se houver código de erro, o passo a passo dele. No máximo 6 linhas, sem saudação repetida se a conversa já começou. ${ESTILOS[b.estilo] ? 'Estilo: ' + ESTILOS[b.estilo] : ''} Se a pessoa escreveu em espanhol, responda em espanhol. Responda em JSON: {"resposta":"mensagem pronta","alternativa":"uma segunda versão mais curta","motivo":"por que essa é a melhor resposta, em 1 frase"}` }], { temperatura: 0.35, max: 600, json: true });
+    let j = {}; try { j = JSON.parse(t); } catch (e) { j = { resposta: t }; }
+    return res.json({ texto: String(j.resposta || '').trim(), alternativa: String(j.alternativa || '').trim(), motivo: String(j.motivo || ''), codigos: cods });
   } catch (e) { return res.status(e.status || 500).json({ erro: e.message }); }
 }
