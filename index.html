@@ -4645,7 +4645,7 @@ PAGES.repasses = async () => {
   const lista=(f.st==='PENDENTE'?pend:f.st==='PAGO'?pago:base).sort((a,b)=>repData(a)-repData(b));
   const porLoja={}; base.forEach(v=>{ const k=v.lojaId||'-'; porLoja[k]=porLoja[k]||{nome:v.lojaNome||'Loja',pend:0,pago:0,n:0}; porLoja[k][repStatus(v)==='PAGO'?'pago':'pend']+=repValor(v); if(repStatus(v)==='PENDENTE') porLoja[k].n++; });
   const dono=can('DONO','FINANCEIRO');
-  $('#view').innerHTML=`<div class="card mb small">💰 <b>Repasse</b> = preço do aparelho (com acessórios) <b>menos a entrada</b> que a loja já recebeu do cliente. Ex.: aparelho de R$ 1.200 com entrada de R$ 300 → a NEXUM repassa <b>R$ 900</b> para a loja. O repasse aparece quando a venda fica ativa.${dono?'':' Os pagamentos são lançados pela NEXUM; você confirma o recebimento aqui.'}</div>
+  $('#view').innerHTML=`<div class="card mb small"><b>Repasse</b> = preço do aparelho (com acessórios) <b>menos a entrada</b> que a loja já recebeu do cliente. Ex.: aparelho de R$ 1.200 com entrada de R$ 300 → a NEXUM repassa <b>R$ 900</b> para a loja. O repasse aparece quando a venda fica ativa.${dono?'':' Os pagamentos são lançados pela NEXUM; você confirma o recebimento aqui.'}</div>
   <div class="kpis"><div class="kpi"><small>A repassar</small><b style="color:var(--bad)">${brl(pend.reduce((s,v)=>s+repValor(v),0))}</b><span>${pend.length} venda(s)</span></div>
     <div class="kpi"><small>Já repassado</small><b style="color:var(--ok)">${brl(pago.reduce((s,v)=>s+repValor(v),0))}</b><span>${pago.length} venda(s)</span></div>
     ${dev.length?`<div class="kpi"><small>Loja deve devolver</small><b style="color:var(--bad)">${brl(dev.reduce((s,v)=>s+(+v.repasse.valor||repValor(v)),0))}</b><span>${dev.length} venda(s) canceladas após o repasse</span></div>`:''}</div>
@@ -11284,7 +11284,7 @@ PAGES.links = async () => {
   const grupos = [
     ['Portais da equipe', 'Cada pessoa entra com o próprio ID e senha.', [
       ['Painel do Dono', base('dono'), 'Você'], ['Gerente', base('gerente'), 'Gerentes das lojas'], ['Vendedor', base('vendedor'), 'Vendedores'],
-      ['Financeiro', base('financeiro'), 'Equipe do financeiro'], ['Suporte', base('suporte'), 'Equipe do suporte'], ['CRM de atendimento', base('dono') + 'crm/', 'Suporte, financeiro e comercial']]],
+      ['Financeiro', base('financeiro'), 'Equipe do financeiro'], ['Suporte', base('suporte'), 'Equipe do suporte'], ['CRM de atendimento', base('dono') + 'crm/', 'Suporte, financeiro e comercial'], ['Minhas Metas (app da equipe)', 'https://nexumrh.github.io/metas/', 'Metas e bônus de cada pessoa, no celular']]],
     ['Clientes', 'Pode mandar para os clientes.', [
       ['App do cliente', base('cliente'), 'Parcelas, Pix, 2ª via, atendimento'], ['Seja cliente', base('cliente') + 'seja-cliente.html', 'Página para quem quer comprar: modelos e pré-análise'],
       ['Ouvidoria', base('cliente') + 'ouvidoria.html', 'Reclamações com protocolo e prazo'], ['Política de privacidade', base('cliente') + 'privacidade.html', ''], ['Termos de uso', base('cliente') + 'termos.html', '']]],
@@ -11369,6 +11369,29 @@ async function cdEnviar() {
 }
 { const _is2 = iniciarSessao; iniciarSessao = async function (p) { await _is2(p); try { cdIniciar(); } catch (e) { console.warn('chatDono', e); } }; }
 { const _s2 = sair; sair = async function () { try { CD.un && CD.un(); clearInterval(CD.timer); } catch (e) { } CD.sel = null; $('#cdP')?.remove(); $('#cdB')?.remove(); return _s2(); }; }
+
+/* ===================== METAS NO MENU (metas e bônus + app Minhas Metas) ===================== */
+const URL_METAS = (window.NEXUMCELL_URLS?.metas) || 'https://nexumrh.github.io/metas/';
+if (['dono', 'gerente', 'vendedor'].includes(PORTAL)) {
+  IC.metas = '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>';
+  const ehVend = PORTAL === 'vendedor';
+  TABS.push({ id: 'metas', label: ehVend ? 'Minhas metas' : 'Metas e bônus', roles: ehVend ? ['VENDEDOR', 'GERENTE', 'DONO'] : ['DONO', 'GERENTE'] });
+  if (!P.tabs.includes('metas')) P.tabs.splice(Math.max(0, P.tabs.indexOf(ehVend ? 'comissoes' : 'equipe')), 0, 'metas');
+  const g = NAV_GRUPOS.find(x => x[0] === (ehVend ? 'Financeiro' : 'Lojas e equipe')) || NAV_GRUPOS.find(x => x[0] === 'Vendas');
+  if (g && !g[1].includes('metas')) { const i = g[1].indexOf(ehVend ? 'comissoes' : 'equipe'); g[1].splice(i < 0 ? g[1].length : i, 0, 'metas'); }
+}
+PAGES.metas = async () => {
+  const ehVend = PORTAL === 'vendedor' && !can('DONO', 'GERENTE'), wa = 'https://wa.me/?text=' + encodeURIComponent('Acompanhe as suas metas e o seu bônus do mês pelo app Minhas Metas da NexumCell (entre com o seu ID e senha do sistema): ' + URL_METAS);
+  $('#topActions').innerHTML = ehVend ? '' : '<button class="btn gold" data-act="configMetas">Definir metas e bônus</button>';
+  $('#view').innerHTML = `<div class="card" style="background:linear-gradient(135deg,#0A1733,#16306B);color:#fff;border:0"><div class="row" style="justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
+      <div style="max-width:620px"><small style="opacity:.75;text-transform:uppercase;letter-spacing:.08em">App Minhas Metas</small><h2 style="margin:4px 0 6px;color:#fff">${ehVend ? 'Suas metas e o seu bônus do mês' : 'Metas e bônus da equipe'}</h2>
+      <p style="margin:0;opacity:.85;font-size:14px">${ehVend ? 'Abra no celular para ver quanto falta para bater cada meta e quanto você já ganhou de bônus. Entre com o mesmo ID e senha do sistema.' : PORTAL === 'dono' ? 'Defina as metas e o bônus da equipe Nexum. Cada pessoa acompanha no app Minhas Metas, no celular, com o próprio login.' : 'Defina quanto cada vendedor da sua loja precisa vender no mês e quanto ganha de bônus. Cada vendedor acompanha no app Minhas Metas, no celular.'}</p></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="${URL_METAS}" target="_blank" rel="noopener">Abrir o app</a>${ehVend ? '' : `<button class="btn" data-act="linkCopiarM">Copiar link</button><a class="btn gold" href="${wa}" target="_blank" rel="noopener">Mandar para a equipe</a>`}</div></div></div>
+    ${ehVend ? '<div id="mtMinha" class="mt"></div>' : `<div class="card mt"><h2 style="margin:0 0 6px">Como funciona</h2><ol style="margin:0;padding-left:20px;line-height:1.8"><li>Clique em <b>Definir metas e bônus</b> e escolha o mês${PORTAL === 'gerente' ? '' : ' e a loja'}.</li><li>Coloque a meta de cada vendedor (aparelhos, faturamento, películas, capinhas, acessórios e seguros) e o bônus de cada faixa.</li><li>Mande o link do app para a equipe. Cada um vê só as próprias metas, com o login do sistema.</li></ol></div>`}`;
+  if (ehVend && typeof PAGES.inicio === 'function') { /* mostra o cartão Minhas Metas que já existe no Início */
+    const v = document.createElement('div'); const vw = $('#view'); const tmp = vw.innerHTML; try { await PAGES.inicio(); const c = [...$('#view').querySelectorAll('.card')].find(x => /Minhas Metas/.test(x.querySelector('h2')?.textContent || '')); const h = c ? c.outerHTML : ''; vw.innerHTML = tmp; $('#mtMinha').innerHTML = h || ''; } catch (e) { vw.innerHTML = tmp; } }
+};
+ACT.linkCopiarM = () => { (navigator.clipboard ? navigator.clipboard.writeText(URL_METAS) : Promise.reject()).then(() => toast('Link copiado', 'ok'), () => prompt('Copie o link:', URL_METAS)); };
 
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
