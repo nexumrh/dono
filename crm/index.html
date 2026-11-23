@@ -2315,6 +2315,29 @@ document.head.insertAdjacentHTML('beforeend', `<style id="crm-v5">
 .sat-t .ok{color:var(--ok)}.sat-t .w{color:var(--warn)}.sat-t .bad{color:var(--bad)}
 </style>`);
 
+const FBX=()=>typeof F!=='undefined'&&F?.db&&C.me?{m:F.m,db:F.db}:null;
+/* ===== REINICIAR O SISTEMA: obedece ao reinício geral pedido pelo dono, e barra de erro (nov/2026) ===== */
+(()=>{ const carregou=Date.now(); let un=null;
+  const limpar=async()=>{ try{ const rs=await navigator.serviceWorker?.getRegistrations?.(); await Promise.all((rs||[]).map(r=>r.unregister())); }catch(e){}
+    try{ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }catch(e){} try{ sessionStorage.clear(); }catch(e){}
+    try{ Object.keys(localStorage).filter(k=>/^(crmnc:f|crmnc:v|nx_nav_)/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    const u=new URL(location.href); u.searchParams.set('r',Date.now().toString(36)); location.replace(u.href); };
+  const tela=t=>{ const d=document.createElement('div'); d.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(10,23,51,.92);color:#fff;display:grid;place-items:center;text-align:center;padding:24px';
+    d.innerHTML='<div><div style="width:46px;height:46px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;margin:0 auto 18px;animation:nxGira 1s linear infinite"></div><b style="font-size:19px">Reiniciando o sistema</b><p style="opacity:.8;margin:8px auto 0;max-width:340px"></p></div><style>@keyframes nxGira{to{transform:rotate(360deg)}}</style>';
+    d.querySelector('p').textContent=t; document.body.appendChild(d); };
+  const ligar=()=>{ const f=FBX(); if(!f||un) return;
+    un=f.m.onSnapshot(f.m.doc(f.db,'plataforma','reinicio'),s=>{ const r=s.exists()?s.data():null; if(!r||!r.em||+r.em<=carregou||window._nxReinFeito) return; window._nxReinFeito=1;
+      tela(`${r.por||'O dono'} reiniciou o sistema${r.motivo?': '+r.motivo:''}. Volta em alguns segundos, sem perder o que já foi salvo.`); setTimeout(limpar,5000); },()=>{}); };
+  setInterval(ligar,3000);
+  let n=0,ult=0; const ign=m=>/ResizeObserver|Script error\.?$|network|Failed to fetch|Load failed|NetworkError|AbortError|offline|quota|permission/i.test(m||'');
+  const erro=m=>{ if(ign(m)) return; n=Date.now()-ult>60e3?1:n+1; ult=Date.now(); if(n<2||document.getElementById('nxErrBar')) return;
+    const b=document.createElement('div'); b.id='nxErrBar'; b.setAttribute('role','alert');
+    b.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;width:min(520px,calc(100% - 24px));background:#0A1733;color:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 20px 40px -10px rgba(10,23,51,.55);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px';
+    b.innerHTML='<div style="flex:1;min-width:200px"><b style="display:block">O sistema encontrou um erro</b><small style="opacity:.75">Recarregue para voltar ao normal. Se continuar, avise o dono para reiniciar o sistema.</small></div><button style="background:#2563EB;color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer">Recarregar</button><button style="background:none;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:9px 12px;cursor:pointer">Fechar</button>';
+    const [ok,x]=b.querySelectorAll('button'); ok.onclick=()=>location.reload(); x.onclick=()=>b.remove(); document.body.appendChild(b); };
+  window.addEventListener('error',e=>erro(e.message)); window.addEventListener('unhandledrejection',e=>erro(e.reason?.message||String(e.reason)));
+})();
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
