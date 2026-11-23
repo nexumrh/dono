@@ -1948,7 +1948,7 @@ function editarMacros() {
 
 /* ---------- 4) pegar o próximo ---------- */
 function proximoDaFila() {
-  return C.itens.filter(i => !i.bot && i.etapa !== 'fim' && semResp(i) && (dono() ? (C.f.fila === 'todas' || i.fila === C.f.fila) : i.fila === C.papel) && (!i.resp?.uid || i.resp.uid === C.me.uid || !online(i.resp.uid)))
+  return C.itens.filter(i => !i.bot && !mesclado(i) && i.etapa !== 'fim' && semResp(i) && (dono() ? (C.f.fila === 'todas' || i.fila === C.f.fila) : i.fila === C.papel) && (!i.resp?.uid || i.resp.uid === C.me.uid || !online(i.resp.uid)))
     .sort((a, b) => (prio(b) - prio(a)) || (a.em - b.em))[0];
 }
 async function pegarProximo() {
@@ -1957,7 +1957,7 @@ async function pegarProximo() {
   C.view = 'inbox'; limparFiltros(true); abrir(i.key); setTimeout(() => $('#tTxt')?.focus(), 300);
 }
 { const _dl = desenharLista; desenharLista = function () { _dl(); const el = $('#lst'); if (!el) return; const h = $('.lst-h h2', el);
-  if (h && !$('#lsProx', el)) { const n = C.itens.filter(i => !i.bot && i.etapa !== 'fim' && semResp(i) && (dono() || i.fila === C.papel) && (!i.resp?.uid || !online(i.resp.uid))).length;
+  if (h && !$('#lsProx', el)) { const n = proximoDaFila ? (() => { try { return C.itens.filter(i => !i.bot && !mesclado(i) && i.etapa !== 'fim' && semResp(i) && (dono() ? (C.f.fila === 'todas' || i.fila === C.f.fila) : i.fila === C.papel) && (!i.resp?.uid || i.resp.uid === C.me.uid || !online(i.resp.uid))).length; } catch (e) { return 0; } })() : 0;
     $('#ls-nova', el)?.insertAdjacentHTML('beforebegin', `<button class="btn sm prox" id="lsProx" title="Pega o atendimento esperando há mais tempo (Alt+P)">${I('proximo')}Próximo${n ? `<i>${n}</i>` : ''}</button>`); $('#lsProx', el).onclick = pegarProximo; }
   // marca de prioridade nos cartões
   $$('[data-it]', el).forEach(d => { const it = C.itens.find(x => x.key === d.dataset.it); if (it && prio(it) && !d.querySelector('.pill.prio')) { d.classList.add('prio'); d.querySelector('.l3')?.insertAdjacentHTML('afterbegin', `<span class="pill prio">${I('fogo')}${esc(MARCAS[it.key]?.prioridadeMotivo || 'Prioridade')}</span>`); } });
@@ -2338,6 +2338,11 @@ const FBX=()=>typeof F!=='undefined'&&F?.db&&C.me?{m:F.m,db:F.db}:null;
   window.addEventListener('error',e=>erro(e.message)); window.addEventListener('unhandledrejection',e=>erro(e.reason?.message||String(e.reason)));
 })();
 
+/* ---------- correção nov/2026: os números do topo contam só o que a lista pode mostrar (sem robô, sem conversa juntada, mesma fila, canal e etiqueta) ---------- */
+{ const _m = metricas; metricas = function () { const sv = C.itens, f = C.f, g = { etapa: f.etapa, q: f.q, meus: f.meus, prio: f.prio }; let base = sv;
+  try { f.q = ''; f.meus = false; f.prio = false; f.etapa = 'abertos'; const a = lista(); f.etapa = 'fim'; base = [...a, ...lista()]; } catch (e) { base = sv; } finally { Object.assign(f, g); }
+  C.itens = base; try { return _m(); } finally { C.itens = sv; } }; }
+document.head.insertAdjacentHTML('beforeend', '<style id="crm-fix-topo">.lst-h h2{flex-wrap:wrap;row-gap:8px}.lst-h h2 .btn.sm{white-space:nowrap}</style>');
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
