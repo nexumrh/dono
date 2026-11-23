@@ -374,7 +374,7 @@ service cloud.firestore {
                     || (gerenteBloqueado() && request.resource.data.abertoPor == request.auth.uid && request.resource.data.status == 'HUMANO' && request.resource.data.categoria == 'Acesso bloqueado');
       allow update: if hasRole(['DONO', 'SUPORTE', 'FINANCEIRO'])
                     || (gerenteBloqueado() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'HUMANO'
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs', 'naoLidoSuporte', 'naoLidoUser', 'atualizadoEm']))
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs', 'naoLidoSuporte', 'naoLidoUser', 'atualizadoEm', 'digitandoUser']))
                     // pesquisa de satisfação depois de concluído (uma vez)
                     || (staff() && resource.data.abertoPor == request.auth.uid && resource.data.status == 'CONCLUIDO' && !('pesquisa' in resource.data)
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pesquisa', 'atualizadoEm', 'naoLidoUser']))
@@ -598,6 +598,11 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    // pausas com motivo (cada atendente registra as próprias), base de conhecimento, incidentes (erro em massa) e nota de qualidade da IA
+    match /crmPausas/{id} { allow read: if crmEquipe(); allow create: if crmEquipe() && request.resource.data.uid == request.auth.uid; allow update: if crmEquipe() && resource.data.uid == request.auth.uid; allow delete: if false; }
+    match /crmArtigos/{id} { allow read: if crmEquipe(); allow create, update: if hasRole(['DONO']); allow delete: if false; }
+    match /crmIncidentes/{id} { allow read, create, update: if crmEquipe(); allow delete: if false; }
+    match /crmQualidade/{id} { allow read: if crmEquipe(); allow write: if false; }
     match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista
     match /crmArquivos/{id} { allow get: if true; allow list: if false; allow create: if crmEquipe() && request.resource.data.data.size() < 1000000; allow update, delete: if hasRole(['DONO']); }

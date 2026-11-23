@@ -1645,7 +1645,8 @@ function limparFiltros(manterFila) { C.f.meus = false; C.f.q = ''; C.f.etq = '';
 /* ---------- 3) presença da equipe e redistribuição ---------- */
 const PRES = { me: (() => { try { return localStorage.getItem('crmnc:st') || 'on'; } catch (e) { return 'on'; } })(), mapa: {}, timer: 0 };
 const ONLINE_MS = 3 * 60e3;
-const online = uid => { const p = PRES.mapa[uid]; return !!p && Date.now() - (+p.em || 0) < ONLINE_MS && !['off', 'pausa'].includes(p.status); };
+let ONLINE_EXTRA = () => true;
+const online = uid => { const p = PRES.mapa[uid]; return !!p && Date.now() - (+p.em || 0) < ONLINE_MS && !/^(off|pausa)/.test(String(p.status || '')) && ONLINE_EXTRA(uid); };
 function presencaPing() { if (!C.me) return; DB.set('plataforma', 'presencaCrm', { [C.me.uid]: { nome: C.me.nome, em: Date.now(), fila: C.papel, status: PRES.me } }).catch(() => { }); }
 { const _ou = ouvir; ouvir = function (...a) { const r = _ou(...a);
   C.un.push(DB.watchDoc('plataforma', 'presencaCrm', d => { PRES.mapa = d || {}; if (C.view === 'equipe' && $('#kb')) desenhar(); pintarPresenca(); _distT = 0; distribuir(); redistribuirOffline(true); }));
@@ -2058,6 +2059,260 @@ document.head.insertAdjacentHTML('beforeend', `<style id="crm-v4">
 .er-g{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.er-g{grid-template-columns:1fr}}
 .er-r{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2);font-size:13px;position:relative}.er-r i{position:absolute;left:0;bottom:-1px;height:2px;background:#F97066;border-radius:2px}.er-t{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .er-r .er-l{grid-column:1/-1;font-size:12.5px}.er-r:has(.er-l){grid-template-columns:auto 1fr auto}
+</style>`);
+
+
+/* ===================== CRM v5 (nov/2026) =====================
+   áudio vira texto · tradução espanhol · conversa compartilhada · digitando e visto · modo TV · escala · pausas com motivo
+   nota de qualidade pela IA · base de conhecimento · erro em massa e retorno ativo · previsão de movimento */
+Object.assign(ICN, {
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/>', tv: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  traduz: '<path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>', juntar: '<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M19 8v6M22 11h-6"/>',
+  livro: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M8 7h8M8 11h6"/>', onda: '<path d="M2 12h3l3-8 4 16 3-8h7"/>', cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+});
+const hojeIni = () => new Date(hoje() + 'T00:00:00-03:00').getTime();
+
+/* ---------- 7) escala e 8) pausas com motivo ---------- */
+const PAUSAS = { almoco: ['Almoço', 60], cafe: ['Café', 15], banheiro: ['Banheiro', 10], treino: ['Treinamento', 60], outra: ['Outra pausa', 30] };
+const escalaDe = uid => (Array.isArray(RQ_RAW.escalaV2) ? RQ_RAW.escalaV2 : []).find(e => e.uid === uid);
+function noTurno(e, agora = Date.now()) { if (!e || !Array.isArray(e.dias)) return true; const br = new Date(agora - 3 * 3600e3), d = br.getUTCDay(), min = br.getUTCHours() * 60 + br.getUTCMinutes(), hm = s => { const [h, m] = String(s || '0:0').split(':').map(Number); return h * 60 + (m || 0); }; return e.dias.includes(d) && min >= hm(e.ini || '00:00') && min < hm(e.fim || '23:59'); }
+ONLINE_EXTRA = uid => noTurno(escalaDe(uid));
+function pausaInfo() { const p = PRES.me.startsWith('pausa') ? PAUSAS[PRES.me.split(':')[1] || 'outra'] || PAUSAS.outra : null; let ini = 0; try { ini = +localStorage.getItem('crmnc:pausaIni') || 0; } catch (e) { } return p ? { nome: p[0], lim: p[1], ini } : null; }
+async function mudarStatus(novo) {
+  const antes = PRES.me; if (novo === antes) return;
+  try { const id = localStorage.getItem('crmnc:pausaId'); if (antes.startsWith('pausa') && id) { await DB.set('crmPausas', id, { fim: Date.now() }).catch(() => { }); localStorage.removeItem('crmnc:pausaId'); localStorage.removeItem('crmnc:pausaIni'); } } catch (e) { }
+  PRES.me = novo; try { localStorage.setItem('crmnc:st', novo); } catch (e) { }
+  if (novo.startsWith('pausa')) { const k = novo.split(':')[1] || 'outra', [nome, lim] = PAUSAS[k] || PAUSAS.outra;
+    try { const id = await DB.add('crmPausas', { uid: C.me.uid, nome: C.me.nome, motivo: k, motivoNome: nome, limiteMin: lim, ini: Date.now(), dia: hoje() }); localStorage.setItem('crmnc:pausaId', id); localStorage.setItem('crmnc:pausaIni', Date.now()); } catch (e) { } }
+  presencaPing(); redistribuirOffline(true); desenharNav();
+  toast(novo === 'on' ? 'Disponível: você recebe novos atendimentos' : novo === 'off' ? 'Offline: os atendimentos esperando passam para quem está disponível' : `Pausa (${(PAUSAS[novo.split(':')[1]] || PAUSAS.outra)[0]}): novos atendimentos vão para outra pessoa`);
+}
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const sel = $('#prSt'); if (!sel || sel.dataset.v5) return; sel.dataset.v5 = 1;
+  sel.innerHTML = `<option value="on">Disponível</option>${Object.entries(PAUSAS).map(([k, [n, l]]) => `<option value="pausa:${k}">Pausa · ${n} (${l} min)</option>`).join('')}<option value="off">Offline</option>`;
+  sel.value = PRES.me === 'pausa' ? 'pausa:outra' : PRES.me; if (!sel.value) sel.value = 'on'; sel.onchange = e => mudarStatus(e.target.value);
+  const dot = sel.parentElement.querySelector('.pr-d'); if (dot) dot.className = 'pr-d ' + (PRES.me.startsWith('pausa') ? 'pausa' : PRES.me);
+  if (!$('#prTm')) sel.parentElement.insertAdjacentHTML('afterend', '<div id="prTm" class="pr-tm" hidden></div>');
+  const tur = escalaDe(C.me.uid); if (tur && !noTurno(tur) && !$('#prTur')) sel.parentElement.insertAdjacentHTML('afterend', `<div id="prTur" class="pr-tm">Fora do seu turno (${esc(tur.ini)} às ${esc(tur.fim)}): não recebe novos atendimentos</div>`); }; }
+setInterval(() => { const el = $('#prTm'), p = pausaInfo(); if (!el) return; if (!p) { el.hidden = true; return; } const min = (Date.now() - (p.ini || Date.now())) / 60e3; el.hidden = false; el.classList.toggle('over', min > p.lim); el.textContent = `${p.nome}: ${Math.floor(min)} de ${p.lim} min${min > p.lim ? ' · passou do limite' : ''}`; }, 5000);
+
+/* ---------- 3) conversa compartilhada ---------- */
+const colabs = i => Array.isArray(i?.resp?.colabs) ? i.resp.colabs : [];
+function chamarColega(i) {
+  const l = C.equipe.filter(u => u.id !== C.me.uid && u.id !== i.resp?.uid && u.ativo !== false).sort((a, b) => online(b.id) - online(a.id) || String(a.nome).localeCompare(b.nome));
+  const m = modal('Chamar um colega para esta conversa', `<p class="hint" style="margin:0 0 10px">O colega vê a conversa em "Atribuídos a mim" e pode responder junto. Você continua responsável.</p>
+    <div class="lk-l">${l.map(u => `<div class="lk-i"><button data-cl="${u.id}"><b><i class="pr-d ${online(u.id) ? 'on' : ''}" style="box-shadow:none"></i>${esc(u.nome)}${colabs(i).includes(u.id) ? ' · já está na conversa' : ''}</b><span>${esc(FILAS[u.fila]?.[0] || '')} · ${online(u.id) ? 'disponível' : 'offline ou em pausa'}</span></button></div>`).join('') || '<p class="hint">Ninguém da equipe para chamar.</p>'}</div>
+    <textarea class="inp" id="clM" rows="2" style="margin-top:10px" placeholder="O que você precisa dele? (vira nota interna)"></textarea>`, '<button class="btn sec" data-x>Cancelar</button>', true);
+  $('[data-x]', m).onclick = fechar;
+  $$('[data-cl]', m).forEach(b => b.onclick = async () => { const u = C.equipe.find(x => x.id === b.dataset.cl), msg = $('#clM', m).value.trim();
+    const ids = [...new Set([...colabs(i), u.id])], nomes = ids.map(id => C.equipe.find(x => x.id === id)?.nome || '');
+    await DB.set('crmAtrib', kSafe(i.key), { key: i.key, colabs: ids, colabsNomes: nomes, colabEm: Date.now(), fila: i.fila });
+    await DB.add('crmNotas', { key: i.key, t: `${C.me.nome.split(' ')[0]} chamou ${u.nome.split(' ')[0]} para ajudar${msg ? ': ' + msg : ''}`, em: Date.now(), por: C.me.nome, uid: C.me.uid }).catch(() => { });
+    fechar(); toast(u.nome.split(' ')[0] + ' foi chamado para a conversa'); });
+}
+{ const _l = lista; lista = function () { if (!C.f.meus) return _l(); C.f.meus = false; try { return _l().filter(i => i.resp?.uid === C.me.uid || colabs(i).includes(C.me.uid)); } finally { C.f.meus = true; } }; }
+const _colAvisos = new Set(); let _colPrim = true;
+{ const _mi = montarItens; montarItens = function (...a) { const r = _mi(...a); try { C.itens.filter(i => colabs(i).includes(C.me?.uid) && i.etapa !== 'fim').forEach(i => { const k = i.key + (i.resp.colabEm || 0); if (_colAvisos.has(k)) return; _colAvisos.add(k); if (!_colPrim) toast(`Você foi chamado para ajudar em ${i.nome}`); }); _colPrim = false; detectarIncidentes(); } catch (e) { } return r; }; }
+{ const _tc = topoChat; topoChat = function (i) { const h = _tc(i), nm = (i.resp?.colabsNomes || []).filter(Boolean);
+  return h.replace('<div class="ch-acoes">', `<div class="ch-acoes">${nm.length ? `<span class="pill col" title="Também na conversa">${I('juntar')}${esc(nm.map(n => n.split(' ')[0]).join(', '))}</span>` : ''}<button class="ib" id="chCol" title="Chamar um colega para esta conversa">${I('juntar')}</button><span class="dig" id="chDig"></span>`); }; }
+{ const _lt = ligarTopo; ligarTopo = function (i) { _lt(i); const b = $('#chCol'); if (b) b.onclick = () => chamarColega(i); }; }
+
+/* ---------- 4) digitando e visto (chat dos portais) ---------- */
+let _digT = 0, _vistoT = {};
+document.addEventListener('input', e => { if (e.target?.id !== 'tTxt') return; const i = itemSel(); if (!i || i.canal !== 'portal' || Date.now() - _digT < 4000) return; _digT = Date.now();
+  DB.set('atendimentos', i.id, { digitando: { nome: C.me.nome.split(' ')[0], em: Date.now() } }).catch(() => { }); });
+function marcarVisto(i) { if (!i || i.canal !== 'portal' || i.etapa === 'fim') return; const ult = [...(i.raw.msgs || [])].reverse().find(m => m.de === 'user'); if (!ult || (+i.raw.vistoSuporteEm || 0) >= +ult.em || _vistoT[i.key] === ult.em) return; _vistoT[i.key] = ult.em;
+  DB.set('atendimentos', i.id, { vistoSuporteEm: Date.now() }).catch(() => { }); }
+setInterval(() => { const i = itemSel(), el = $('#chDig'); if (!el) return; const d = i?.raw?.digitandoUser; el.textContent = d && Date.now() - +d < 7000 ? 'digitando…' : ''; if (i && !document.hidden) marcarVisto(i); }, 2000);
+
+/* ---------- 1) áudio vira texto ---------- */
+const GRAV = { rec: null, partes: [], ini: 0, t: 0 };
+async function gravarAudio(b, i) {
+  if (GRAV.rec) { GRAV.rec.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('Este navegador não grava áudio', true);
+  let st; try { st = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { return toast('Permita o microfone no navegador para gravar', true); }
+  const tipo = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported?.(t)) || '';
+  const rec = new MediaRecorder(st, tipo ? { mimeType: tipo } : undefined); GRAV.rec = rec; GRAV.partes = []; GRAV.ini = Date.now(); b.classList.add('rec');
+  GRAV.t = setInterval(() => { const s = Math.floor((Date.now() - GRAV.ini) / 1000); b.lastChild.textContent = `Parar ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; if (s >= 180) rec.stop(); }, 500);
+  rec.ondataavailable = e => e.data.size && GRAV.partes.push(e.data);
+  rec.onstop = async () => { clearInterval(GRAV.t); st.getTracks().forEach(t => t.stop()); GRAV.rec = null; b.classList.remove('rec'); b.lastChild.textContent = 'Transcrevendo…'; b.disabled = true;
+    try { const blob = new Blob(GRAV.partes, { type: rec.mimeType || 'audio/webm' }), audio = await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); });
+      const es = conversaEspanhol(); const r = await api('crm-ia', { acao: 'transcrever', audio, tipo: blob.type, idioma: es ? 'es' : 'pt' });
+      const tx = $('#tTxt'); if (tx && r.texto) { tx.value = (tx.value ? tx.value.trimEnd() + ' ' : '') + r.texto; tx.dispatchEvent(new Event('input')); tx.focus(); toast('Áudio virou texto: revise e envie'); } else toast('Não deu para entender o áudio', true); }
+    catch (e) { toast('Transcrição: ' + e.message, true); }
+    b.disabled = false; b.lastChild.textContent = 'Áudio'; };
+  rec.start(1000);
+}
+
+/* ---------- 2) tradução espanhol ---------- */
+const RX_ES = /\b(hola|gracias|necesito|quiero|tengo|puedo|ustedes?|cuánto|cuanto|cuál|pero|también|ahora|celular está|está bloqueado|por favor|buenas|buenos|señor|señora|ayuda|pagué|todavía|mañana|qué|dónde|cómo)\b|¿|¡/gi;
+const ehEspanhol = t => { const s = String(t || ''); if (s.length < 8) return false; const m = s.match(RX_ES) || []; return m.length >= 2 || /[¿¡ñ]/.test(s) && m.length >= 1; };
+const conversaEspanhol = () => (C._msgs || []).filter(m => !m.nos && m.de !== 'bot' && m.tipo !== 'nota').slice(-6).some(m => ehEspanhol(m.t));
+const TRAD = {};
+{ const _pm = pintarMsgs; pintarMsgs = function (ms) { _pm(ms); const i = itemSel(); if (!i) return; const bs = $$('#ch-b > .m'), pend = [];
+  (ms || []).forEach((m, k) => { if (m.nos || m.de === 'bot' || m.tipo === 'nota' || !ehEspanhol(m.t)) return; const el = bs[k]; if (!el) return;
+    if (TRAD[m.t]) el.insertAdjacentHTML('beforeend', `<div class="trad">${I('traduz')}${esc(TRAD[m.t])}</div>`); else pend.push(m.t); });
+  marcarVisto(i);
+  if (pend.length && !pintarMsgs._trad) { pintarMsgs._trad = 1; api('crm-ia', { acao: 'traduzir', textos: [...new Set(pend)].slice(0, 12), para: 'pt' }).then(r => { [...new Set(pend)].slice(0, 12).forEach((t, k) => { if (r.textos?.[k]) TRAD[t] = r.textos[k]; }); }).catch(() => { }).finally(() => { pintarMsgs._trad = 0; if (C._msgs && pend.some(t => TRAD[t])) pintarMsgs(C._msgs); }); }
+  const cp = $('#cp'); if (cp && conversaEspanhol() && !$('#esBar')) cp.insertAdjacentHTML('afterbegin', `<div id="esBar" class="es-bar">${I('traduz')}<span>Esta pessoa escreve em espanhol.</span><button class="btn sec sm" id="esTr">Traduzir minha resposta para espanhol</button></div>`);
+  const b = $('#esTr'); if (b) b.onclick = () => traduzirCampo('es', b); }; }
+async function traduzirCampo(para, b) { const tx = $('#tTxt'); if (!tx || !tx.value.trim()) return toast('Escreva a resposta em português primeiro', true); if (b) b.disabled = true;
+  try { const r = await api('crm-ia', { acao: 'traduzir', textos: [tx.value], para }); if (r.textos?.[0]) { tx.value = r.textos[0]; tx.dispatchEvent(new Event('input')); toast(para === 'es' ? 'Traduzido para espanhol: confira e envie' : 'Traduzido para português'); } } catch (e) { toast('Tradução: ' + e.message, true); }
+  if (b) b.disabled = false; }
+
+/* barra: Áudio e Traduzir */
+{ const _cp = compositor; compositor = function (i) { _cp(i); const t = $('#cp .cp-t'); if (!t || $('#tAud')) return;
+  const arq = $('#tArq', t)?.closest('label'); const span = document.createElement('span'); span.innerHTML = `<button class="ferr" id="tAud" title="Gravar áudio e transformar em texto">${I('mic')}<span>Áudio</span></button>`; (arq || t.lastChild).after(span);
+  $('#tAud').onclick = e => gravarAudio(e.currentTarget, i);
+  const mais = $('#cp .cp-mais'); if (mais && !$('#tTrEs', mais)) { mais.insertAdjacentHTML('beforeend', `<button class="ferr" id="tTrEs">${I('traduz')}Traduzir para espanhol</button><button class="ferr" id="tTrPt">${I('traduz')}Traduzir para português</button>`); $('#tTrEs').onclick = e => traduzirCampo('es', e.currentTarget); $('#tTrPt').onclick = e => traduzirCampo('pt', e.currentTarget); }
+}; }
+
+/* ---------- 5) nota de qualidade pela IA e 9) artigo sugerido ---------- */
+{ const _cc = concluir; concluir = async function (i) { const conversa = C.sel === i.key ? conversaTexto(i) : ''; const r = await _cc(i);
+  if (conversa) api('crm-ia', { acao: 'qualidade', key: i.key, canal: CANAIS[i.canal][0], atendenteUid: i.resp?.uid || C.me.uid, atendenteNome: i.resp?.nome || C.me.nome, conversa })
+    .then(q => { if (q?.artigo) toast('A IA sugeriu um artigo novo para a Central de ajuda: aguarda aprovação em "Base de conhecimento".'); }).catch(() => { });
+  return r; }; }
+
+/* ---------- 9) base de conhecimento ---------- */
+let ARTS = [];
+{ const _ou = ouvir; ouvir = function (...a) { const r = _ou(...a);
+  C.un.push(F.m.onSnapshot(F.m.query(F.m.collection(F.db, 'crmArtigos'), F.m.where('status', 'in', ['sugerido', 'aprovado'])), s => { ARTS = s.docs.map(d => ({ id: d.id, ...d.data() })); if (C.view === 'base' && $('#kb')) vBase($('#kb')); desenharNav(); }, () => { }));
+  C.un.push(F.m.onSnapshot(F.m.query(F.m.collection(F.db, 'crmIncidentes'), F.m.where('aberto', '==', true)), s => { INCS = s.docs.map(d => ({ id: d.id, ...d.data() })); desenharLista(); }, () => { }));
+  return r; }; }
+function vBase(el) {
+  const sug = ARTS.filter(a => a.status === 'sugerido'), apr = ARTS.filter(a => a.status === 'aprovado'), q = (C.bsQ || '').toLowerCase();
+  const card = a => `<div class="cd-card"><div class="cd-top">${a.status === 'sugerido' ? '<span class="pill" style="background:#F7F4FF;color:#6D28D9">Sugerido pela IA</span>' : '<span class="pill" style="background:var(--ok-s);color:var(--ok)">Publicado</span>'}<b>${esc(a.titulo)}</b></div>${a.problema ? `<p>${esc(a.problema)}</p>` : ''}<ol class="cd-ol">${(a.passos || []).map(p => `<li>${esc(p)}</li>`).join('')}</ol>
+    ${a.atendente ? `<small class="hint">Veio de um atendimento de ${esc(a.atendente)}${a.sugeridoEm ? ' · ' + fdt(a.sugeridoEm) : ''}</small>` : ''}<div class="cd-ac">${dono() ? `${a.status === 'sugerido' ? `<button class="btn sm" data-bap="${a.id}">${I('ok')}Aprovar e publicar</button>` : ''}<button class="btn sec sm" data-bed="${a.id}">${I('lapis')}Editar</button><button class="btn sec sm" data-bx="${a.id}">${a.status === 'sugerido' ? 'Descartar' : 'Despublicar'}</button>` : ''}${a.status === 'aprovado' ? `<button class="btn sec sm" data-blk="${a.id}">${I('link')}Copiar link</button>` : ''}</div></div>`;
+  const f = l => l.filter(a => !q || (a.titulo + ' ' + a.problema + ' ' + (a.passos || []).join(' ')).toLowerCase().includes(q));
+  el.innerHTML = topoKb('Base de conhecimento', dono() ? `<button class="btn" id="bsNovo">${I('mais')}Novo artigo</button>` : '') + `<div class="cd-pg"><p class="hint" style="margin:0 0 12px">Quando um atendimento ensina uma solução nova, a IA sugere um artigo. O dono aprova e ele entra na Central de ajuda pública e no conhecimento da IA.</p>
+    <div class="busca" style="margin-bottom:14px;max-width:520px">${I('busca')}<input class="inp" id="bsQ" placeholder="Buscar artigo" value="${esc(C.bsQ || '')}"></div>
+    ${sug.length ? `<h3 class="cd-g">Aguardando aprovação (${sug.length})</h3><div class="cd-grid">${f(sug).map(card).join('')}</div>` : ''}<h3 class="cd-g">Publicados (${apr.length})</h3><div class="cd-grid">${f(apr).map(card).join('') || '<p class="hint">Nenhum artigo publicado ainda.</p>'}</div></div>`;
+  ligaMenu(el);
+  $('#bsQ').oninput = e => { C.bsQ = e.target.value; clearTimeout(C._bsT); C._bsT = setTimeout(() => { vBase(el); const n = $('#bsQ'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); };
+  if ($('#bsNovo')) $('#bsNovo').onclick = () => editarArtigo({ titulo: '', problema: '', passos: [] });
+  $$('[data-bap]', el).forEach(b => b.onclick = async () => { await DB.set('crmArtigos', b.dataset.bap, { status: 'aprovado', aprovadoEm: Date.now(), aprovadoPor: C.me.nome }); toast('Publicado na Central de ajuda'); });
+  $$('[data-bx]', el).forEach(b => b.onclick = async () => { const a = ARTS.find(x => x.id === b.dataset.bx); await DB.set('crmArtigos', b.dataset.bx, { status: a.status === 'sugerido' ? 'descartado' : 'arquivado', em: Date.now() }); toast(a.status === 'sugerido' ? 'Sugestão descartada' : 'Artigo despublicado'); });
+  $$('[data-bed]', el).forEach(b => b.onclick = () => editarArtigo(ARTS.find(x => x.id === b.dataset.bed)));
+  $$('[data-blk]', el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(AJUDA_URL + '#art-' + b.dataset.blk).then(() => toast('Link copiado')));
+}
+function editarArtigo(a) {
+  const m = modal(a.id ? 'Editar artigo' : 'Novo artigo', `<label class="small" style="font-weight:600">Título<input class="inp" id="arT" maxlength="90" value="${esc(a.titulo || '')}"></label><label class="small" style="font-weight:600;display:block;margin-top:8px">Problema (quando usar)<input class="inp" id="arP" maxlength="300" value="${esc(a.problema || '')}"></label>
+    <label class="small" style="font-weight:600;display:block;margin-top:8px">Passos (um por linha)<textarea class="inp" id="arS" rows="7">${esc((a.passos || []).join('\n'))}</textarea></label>`, '<button class="btn sec" data-x>Cancelar</button><button class="btn" id="arOk">Salvar e publicar</button>');
+  $('[data-x]', m).onclick = fechar;
+  $('#arOk', m).onclick = async () => { const d = { titulo: $('#arT').value.trim(), problema: $('#arP').value.trim(), passos: $('#arS').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 12), status: 'aprovado', aprovadoEm: Date.now(), aprovadoPor: C.me.nome };
+    if (d.titulo.length < 4 || d.passos.length < 1) return toast('Preencha o título e pelo menos um passo', true);
+    if (a.id) await DB.set('crmArtigos', a.id, d); else await DB.add('crmArtigos', { ...d, sugeridoEm: Date.now(), atendente: C.me.nome }); fechar(); toast('Artigo publicado'); };
+}
+
+/* ---------- 10) erro em massa e 12) retorno ativo ---------- */
+let INCS = [];
+function detectarIncidentes() {
+  if (!C.me) return; const desde = Date.now() - 60 * 60e3, por = {};
+  C.itens.filter(i => i.canal === 'portal' && (+i.raw.criadoEm || 0) >= desde).forEach(i => [...new Set([...(i.codigos || []), ...(i.raw.codigos || [])])].forEach(c => { (por[c] ||= { lojas: new Set(), keys: [] }); por[c].lojas.add(i.raw.lojaNome || i.raw.lojaId || i.raw.abertoPor); por[c].keys.push(i.key); }));
+  for (const [c, v] of Object.entries(por)) { if (v.lojas.size < 3) continue; const id = `inc_${c}_${new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 13)}`, ex = INCS.find(x => x.id === id);
+    if (ex && v.keys.every(k => (ex.keys || []).includes(k))) continue; if (detectarIncidentes._f?.[id + v.keys.length]) continue; (detectarIncidentes._f ||= {})[id + v.keys.length] = 1;
+    DB.set('crmIncidentes', id, { codigo: c, titulo: ERROS_NX[c]?.t || 'Erro ' + c, lojas: [...v.lojas].slice(0, 30), keys: [...new Set([...(ex?.keys || []), ...v.keys])].slice(0, 200), aberto: true, em: ex?.em || Date.now(), origem: 'CRM' }).catch(() => { }); }
+}
+{ const _dl = desenharLista; desenharLista = function () { _dl(); const el = $('#lst'); if (!el || !INCS.length) return; $('#incBar', el)?.remove();
+  const h = $('.lst-h', el); (h || el.firstElementChild)?.insertAdjacentHTML('afterend', `<div id="incBar">${INCS.map(x => `<div class="inc"><div class="inc-t">${I('onda')}<div><b>Possível problema geral · erro ${esc(x.codigo)}</b><span>${esc(x.titulo)} · ${(x.lojas || []).length} lojas · ${(x.keys || []).length} conversa(s) desde ${fdt(x.em)}</span></div></div>
+    <div class="inc-a"><button class="btn sm" data-incr="${x.id}">Responder todos</button><button class="btn sm ok" data-incf="${x.id}">Resolvido: avisar todos</button><button class="btn sec sm" data-incn="${x.id}">Não é geral</button></div></div>`).join('')}</div>`);
+  $$('[data-incr]', el).forEach(b => b.onclick = () => incEnviar(INCS.find(x => x.id === b.dataset.incr), false));
+  $$('[data-incf]', el).forEach(b => b.onclick = () => incEnviar(INCS.find(x => x.id === b.dataset.incf), true));
+  $$('[data-incn]', el).forEach(b => b.onclick = async () => { await DB.set('crmIncidentes', b.dataset.incn, { aberto: false, descartado: true, fechadoEm: Date.now(), fechadoPor: C.me.nome }); toast('Ok: tratado como casos separados'); }); }; }
+function incEnviar(x, resolver) {
+  const alvos = C.itens.filter(i => (x.keys || []).includes(i.key) && (resolver || i.etapa !== 'fim'));
+  const padrao = resolver ? `O problema do erro ${x.codigo} (${x.titulo}) já foi resolvido. Pode tentar de novo agora. Se ainda aparecer, responda aqui que a gente olha na hora. Obrigado pela paciência!` : `Identificamos uma instabilidade geral com o erro ${x.codigo} (${x.titulo}) em várias lojas. A equipe já está resolvendo e avisa por aqui assim que normalizar. Não precisa refazer nada por enquanto.`;
+  const m = modal(resolver ? 'Resolvido: avisar todos' : 'Responder todos de uma vez', `<p class="hint" style="margin:0 0 8px">Vai para ${alvos.length} conversa(s) ligada(s) a este erro.</p><textarea class="inp" id="incM" rows="5">${esc(padrao)}</textarea>`, `<button class="btn sec" data-x>Cancelar</button><button class="btn" id="incOk">Enviar para ${alvos.length}</button>`);
+  $('[data-x]', m).onclick = fechar;
+  $('#incOk', m).onclick = async e => { e.currentTarget.disabled = true; const t = $('#incM').value.trim(); let n = 0; for (const i of alvos) { try { await enviar(i, t); n++; } catch (er) { } }
+    await DB.set('crmIncidentes', x.id, resolver ? { aberto: false, resolvidoEm: Date.now(), resolvidoPor: C.me.nome, avisados: n, msgFim: t } : { respondidoEm: Date.now(), respondidoPor: C.me.nome, msgAviso: t }); fechar(); toast(`Mensagem enviada para ${n} conversa(s)`); };
+}
+
+/* ---------- 6) modo TV ---------- */
+let _tvT = 0, _tvNotas = [];
+function vTv(el) {
+  clearInterval(_tvT); const pinta = async () => { if (C.view !== 'tv' || !$('#kb')) return clearInterval(_tvT);
+    const i0 = hojeIni(); if (!pinta._n || Date.now() - pinta._n > 60e3) { pinta._n = Date.now(); _tvNotas = await DB.list('crmAvaliacoes', [['em', '>=', i0]]).catch(() => []); }
+    const abertos = C.itens.filter(i => !i.bot && i.etapa !== 'fim'), espera = abertos.filter(semResp).sort((a, b) => a.em - b.em), fin = Object.values(C.atrib || {}).filter(a => (a.finalizadoEm || 0) >= i0);
+    const rank = C.equipe.map(u => { const f = fin.filter(a => a.finalizadoUid === u.id).length, ns = _tvNotas.filter(a => a.uid === u.id).map(a => +a.nota || 0); return { u, f, med: ns.length ? ns.reduce((s, x) => s + x, 0) / ns.length : null, n: ns.length, ab: abertos.filter(i => i.resp?.uid === u.id).length, st: PRES.mapa[u.id] }; }).sort((a, b) => b.f - a.f || (b.med || 0) - (a.med || 0));
+    const stTxt = r => online(r.u.id) ? '<i class="tv-d on"></i>Disponível' : String(r.st?.status || '').startsWith('pausa') && Date.now() - (+r.st?.em || 0) < ONLINE_MS ? '<i class="tv-d pa"></i>Em pausa' : '<i class="tv-d"></i>Offline';
+    const notaDia = _tvNotas.length ? (_tvNotas.reduce((s, a) => s + (+a.nota || 0), 0) / _tvNotas.length).toFixed(1).replace('.', ',') : '—';
+    el.innerHTML = `<div class="tv"><div class="tv-h"><div><b>Atendimento NexumCell</b><span>${new Date().toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</span></div><div><button class="btn sec sm" id="tvFs">${I('tv')}Tela cheia</button><button class="btn sec sm" id="tvSai">Sair do modo TV</button></div></div>
+      <div class="tv-k"><div class="${espera.length > 5 ? 'al' : ''}"><b>${espera.length}</b><span>Esperando resposta</span></div><div class="${espera[0] && Date.now() - espera[0].em > 15 * 60e3 ? 'al' : ''}"><b>${espera[0] ? minEsp(Date.now() - espera[0].em) : '—'}</b><span>Maior espera</span></div><div><b>${C.equipe.filter(u => online(u.id)).length}</b><span>Atendentes disponíveis</span></div><div><b>${fin.length}</b><span>Finalizados hoje</span></div><div><b>${notaDia}</b><span>Nota de hoje (${_tvNotas.length})</span></div><div class="${abertos.filter(prio).length ? 'al' : ''}"><b>${abertos.filter(prio).length}</b><span>Prioridade alta</span></div></div>
+      <div class="tv-g"><div class="tv-b"><h3>Ranking de hoje</h3>${rank.map((r, k) => `<div class="tv-r"><span class="tv-p">${k + 1}º</span><div class="tv-n"><b>${esc(r.u.nome)}</b><span>${stTxt(r)} · ${r.ab} aberto(s)</span></div><div class="tv-v"><b>${r.f}</b><span>finalizados</span></div><div class="tv-v"><b>${r.med == null ? '—' : r.med.toFixed(1).replace('.', ',')}</b><span>nota (${r.n})</span></div></div>`).join('') || '<p class="hint">Sem equipe cadastrada.</p>'}</div>
+      <div class="tv-b"><h3>Esperando há mais tempo</h3>${espera.slice(0, 8).map(i => `<div class="tv-r"><div class="tv-n"><b>${prio(i) ? '🔴 ' : ''}${esc(i.nome)}</b><span>${esc(CANAIS[i.canal][0])} · ${esc(i.resp?.nome ? 'com ' + i.resp.nome.split(' ')[0] : 'sem responsável')}</span></div><div class="tv-v ${Date.now() - i.em > 15 * 60e3 ? 'al' : ''}"><b>${minEsp(Date.now() - i.em)}</b><span>esperando</span></div></div>`).join('') || '<p class="hint" style="font-size:18px">Ninguém esperando. Bom trabalho!</p>'}</div></div></div>`;
+    $('#tvFs').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()).catch?.(() => { });
+    $('#tvSai').onclick = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => { }); C.view = 'painel'; desenhar(); }; };
+  pinta(); _tvT = setInterval(pinta, 15e3);
+}
+{ const _ds = desenhar; desenhar = function () { if (C.me && $('#app') && ['tv', 'base'].includes(C.view)) { if (!$('#kb')) $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; desenharNav(); return C.view === 'tv' ? vTv($('#kb')) : vBase($('#kb')); } return _ds(); }; }
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'); if (!el || $('[data-vw="base"]', el)) return; const cd = $('[data-vw="codigos"]', el), ns = ARTS.filter(a => a.status === 'sugerido').length;
+  cd?.insertAdjacentHTML('afterend', `<button data-vw="base" class="${C.view === 'base' ? 'on' : ''}">${I('livro')}<span>Base de conhecimento</span>${ns && dono() ? `<span class="n">${ns}</span>` : ''}</button><button data-vw="tv" class="${C.view === 'tv' ? 'on' : ''}">${I('tv')}<span>Modo TV</span></button>`);
+  $$('[data-vw="base"],[data-vw="tv"]', el).forEach(b => b.onclick = () => { C.view = b.dataset.vw; el.classList.remove('aberto'); desenhar(); }); }; }
+
+/* ---------- Painel: qualidade (IA), pausas e previsão de movimento ---------- */
+{ const _vp = vPainel; vPainel = function (el) { _vp(el); setTimeout(() => { painelQualidade(el); painelPausas(el); painelPrevisao(el); }, 0); }; }
+async function painelQualidade(el) {
+  if (C.view !== 'painel' || $('#qlBox', el)) return; const ref = $('#rlBox', el) || $('#erBox', el) || $('#satBox', el) || el.querySelector('.vc-top'); if (!ref) return;
+  ref.insertAdjacentHTML('afterend', `<div id="qlBox" class="sat"><div class="rs-load">${I('relogio')}Carregando a qualidade…</div></div>`);
+  const l = await DB.list('crmQualidade', [['em', '>=', Date.now() - 30 * 864e5]]).catch(() => []), box = $('#qlBox', el); if (!box) return;
+  const por = {}; l.forEach(q => (por[q.uid || q.nome] ||= { nome: q.nome, uid: q.uid, l: [] }).l.push(q));
+  const med = (a, k) => a.length ? a.reduce((s, x) => s + (+x[k] || 0), 0) / a.length : 0, f1 = n => n.toFixed(1).replace('.', ',');
+  const rows = Object.values(por).map(p => ({ ...p, nota: med(p.l, 'nota'), edu: med(p.l, 'educacao'), agi: med(p.l, 'agilidade'), cla: med(p.l, 'clareza'), res: p.l.filter(q => q.resolveu).length / p.l.length * 100, mel: p.l.flatMap(q => q.melhorar || []).slice(-3) })).sort((a, b) => b.nota - a.nota);
+  box.innerHTML = `<div class="sat-h"><div><h3>${I('raioIa')}Qualidade do atendimento pela IA · 30 dias</h3><p class="hint">Ao concluir, a IA lê a conversa e dá uma nota interna de 0 a 10 (educação, agilidade, clareza e se resolveu). Só a equipe vê; o vendedor não.</p></div></div>
+    <table class="sat-t"><tr><th>Atendente</th><th>Conversas</th><th>Nota</th><th>Educação</th><th>Agilidade</th><th>Clareza</th><th>Resolveu</th><th>Pode melhorar</th></tr>${rows.map(r => `<tr><td><b>${esc(r.nome || '—')}</b></td><td>${r.l.length}</td><td><b class="${r.nota >= 8 ? 'ok' : r.nota >= 6 ? 'w' : 'bad'}">${f1(r.nota)}</b></td><td>${f1(r.edu)}</td><td>${f1(r.agi)}</td><td>${f1(r.cla)}</td><td>${Math.round(r.res)}%</td><td class="small">${r.mel.map(esc).join(' · ') || '—'}</td></tr>`).join('') || '<tr><td colspan="8" class="hint">Ainda sem avaliações da IA: elas aparecem conforme os atendimentos são concluídos.</td></tr>'}</table>`;
+}
+async function painelPausas(el) {
+  if (C.view !== 'painel' || $('#psBox', el)) return; const ref = $('#qlBox', el) || $('#rlBox', el); if (!ref) return;
+  const l = await DB.list('crmPausas', [['dia', '==', hoje()]]).catch(() => []); if ($('#psBox', el)) return; const por = {};
+  l.forEach(p => { const min = ((p.fim || Date.now()) - p.ini) / 60e3; const r = (por[p.uid] ||= { nome: p.nome, uid: p.uid, n: 0, min: 0, est: 0, agora: '' }); r.n++; r.min += min; if (min > (p.limiteMin || 30)) r.est++; if (!p.fim) r.agora = p.motivoNome; });
+  ref.insertAdjacentHTML('afterend', `<div id="psBox" class="sat"><div class="sat-h"><div><h3>${I('relogio')}Pausas de hoje</h3><p class="hint">Cada atendente marca a pausa com o motivo no menu. Em vermelho, pausas que passaram do limite.</p></div></div>
+    <table class="sat-t"><tr><th>Atendente</th><th>Pausas</th><th>Tempo total</th><th>Passaram do limite</th><th>Agora</th></tr>${Object.values(por).sort((a, b) => b.min - a.min).map(r => `<tr><td><b>${esc(r.nome)}</b></td><td>${r.n}</td><td>${minEsp(r.min * 60e3)}</td><td>${r.est ? `<b class="bad">${r.est}</b>` : '0'}</td><td>${r.agora ? esc(r.agora) : '—'}</td></tr>`).join('') || '<tr><td colspan="5" class="hint">Ninguém fez pausa hoje.</td></tr>'}</table></div>`);
+}
+function painelPrevisao(el) {
+  if (C.view !== 'painel' || $('#pvBox', el)) return; const ref = $('#psBox', el) || $('#qlBox', el) || $('#rlBox', el); if (!ref) return;
+  const desde = Date.now() - 28 * 864e5, cont = Array.from({ length: 7 }, () => Array(24).fill(0)), tma = +RQ_RAW.tmaMin || 5;
+  C.itens.filter(i => !i.bot).forEach(i => { const t = +(i.raw.criadoEm || i.raw.encaminhadoEm || i.em) || 0; if (t < desde) return; const d = new Date(t - 3 * 3600e3); cont[d.getUTCDay()][d.getUTCHours()]++; });
+  const hojeD = new Date(Date.now() - 3 * 3600e3).getUTCDay(), DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], hs = Array.from({ length: 14 }, (_, k) => k + 7), max = Math.max(1, ...cont.flat().map(n => n / 4));
+  const linha = cont[hojeD].map(n => n / 4), pico = hs.reduce((a, h) => linha[h] > linha[a] ? h : a, hs[0]);
+  const box = document.createElement('div'); box.id = 'pvBox'; box.className = 'sat';
+  box.innerHTML = `<div class="sat-h"><div><h3>${I('cal')}Movimento e equipe sugerida</h3><p class="hint">Média de atendimentos por hora nas últimas 4 semanas. A equipe sugerida considera ${tma} min por atendimento.${linha[pico] ? ` Pico de hoje: por volta das ${pico}h.` : ''}</p></div></div>
+    <h4 class="sat-c">Hoje (${DIAS[hojeD]})</h4><div class="pv-b">${hs.map(h => { const v = linha[h], pes = v ? Math.max(1, Math.ceil(v * tma / 60)) : 0; return `<div class="pv-c" title="${h}h: ${v.toFixed(1).replace('.', ',')} atendimento(s) por hora · ${pes} pessoa(s)"><i style="height:${Math.max(3, v / max * 100)}%"></i><b>${pes || ''}</b><span>${h}h</span></div>`; }).join('')}</div><p class="hint" style="margin:4px 0 0">O número em cima da barra é quantas pessoas deixar disponíveis naquela hora.</p>
+    <h4 class="sat-c">Semana</h4><div class="pv-hm"><div></div>${hs.map(h => `<span>${h}</span>`).join('')}${DIAS.map((d, k) => `<b>${d}</b>${hs.map(h => { const v = cont[k][h] / 4; return `<i style="background:rgba(31,95,232,${v ? Math.min(1, .12 + v / max * .88) : .04})" title="${d} ${h}h: ${v.toFixed(1).replace('.', ',')} por hora"></i>`; }).join('')}`).join('')}</div>`;
+  ref.after(box);
+}
+
+/* ---------- Equipe: escala de horários (dono) ---------- */
+{ const _ve = vEquipe; vEquipe = function (el) { _ve(el); if (!dono()) return; $$('[data-at]', el).forEach(c => { const row = c.closest('.eq-i'), uid = c.dataset.at; if (!row || row.querySelector('[data-esc]')) return; const e = escalaDe(uid);
+  row.insertAdjacentHTML('beforeend', `<button class="btn sec sm" data-esc="${uid}" title="Escala de horários">${I('cal')}${e ? `${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].filter((_, k) => e.dias.includes(k)).join('')} ${esc(e.ini)}–${esc(e.fim)}` : 'Sem escala'}</button>`); });
+  $$('[data-esc]', el).forEach(b => b.onclick = () => editarEscala(b.dataset.esc)); }; }
+function editarEscala(uid) {
+  const u = C.equipe.find(x => x.id === uid), e = escalaDe(uid) || { dias: [1, 2, 3, 4, 5, 6], ini: '08:00', fim: '18:00' }, DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const m = modal(`Escala de ${esc(u?.nome || '')}`, `<p class="hint" style="margin:0 0 10px">Fora da escala a pessoa não recebe atendimentos novos, mesmo com o CRM aberto. Sem escala, vale o status Disponível.</p>
+    <div class="esc-d">${DIAS.map((d, k) => `<label><input type="checkbox" data-ed="${k}" ${e.dias.includes(k) ? 'checked' : ''}>${d}</label>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px"><label class="small" style="font-weight:600">Entra<input class="inp" type="time" id="esI" value="${esc(e.ini)}"></label><label class="small" style="font-weight:600">Sai<input class="inp" type="time" id="esF" value="${esc(e.fim)}"></label></div>`,
+    `<button class="btn sec" id="esTira">Tirar a escala</button><button class="btn sec" data-x>Cancelar</button><button class="btn" id="esOk">Salvar escala</button>`);
+  const salvar = async nova => { const l = (Array.isArray(RQ_RAW.escalaV2) ? RQ_RAW.escalaV2 : []).filter(x => x.uid !== uid); if (nova) l.push(nova); await DB.set('config', 'crm', { escalaV2: l, atualizadoEm: Date.now() }); RQ_RAW.escalaV2 = l; fechar(); desenhar(); toast('Escala salva'); };
+  $('[data-x]', m).onclick = fechar; $('#esTira', m).onclick = () => salvar(null);
+  $('#esOk', m).onclick = () => { const dias = $$('[data-ed]', m).filter(x => x.checked).map(x => +x.dataset.ed); if (!dias.length) return toast('Marque pelo menos um dia', true); salvar({ uid, nome: u?.nome || '', dias, ini: $('#esI').value || '08:00', fim: $('#esF').value || '18:00' }); };
+}
+
+document.head.insertAdjacentHTML('beforeend', `<style id="crm-v5">
+#tAud.rec{background:#FEE4E2;border-color:#F97066;color:#B42318;animation:iaPul 1.2s infinite}
+.trad{margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,.12);font-size:12.5px;color:#5B21B6;display:flex;gap:5px;align-items:flex-start}.trad .i{width:13px;height:13px;flex:none;margin-top:2px}
+.es-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#F7F4FF;border:1px solid #E4DCFF;border-radius:10px;padding:6px 10px;margin:0 0 8px;font-size:12.5px;color:#5B21B6}.es-bar .i{width:14px;height:14px}.es-bar span{flex:1}
+.pill.col{background:#ECFDF3!important;color:#067647!important}.pill.col .i{width:12px;height:12px}.dig{font-size:12px;color:var(--ok);font-weight:600;white-space:nowrap}
+.pr-tm{margin:4px 12px 0;font-size:11.5px;color:#FCD34D;text-align:center}.pr-tm.over{color:#FCA5A5;font-weight:700}
+.inc{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:8px 12px;padding:10px 12px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA}.inc-t{display:flex;gap:8px;align-items:center}.inc-t .i{color:#B42318}.inc-t b{display:block;font-size:13.5px;color:#B42318}.inc-t span{font-size:12px;color:var(--mut)}.inc-a{display:flex;gap:6px;flex-wrap:wrap}.inc .btn.ok{background:var(--ok);border-color:var(--ok)}
+.tv{background:#0A1733;color:#fff;min-height:100%;padding:22px 26px}.tv-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.tv-h b{font-size:22px;display:block}.tv-h span{color:#9DB2E0;text-transform:capitalize}.tv-h .btn{margin-left:6px}
+.tv-k{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}.tv-k div{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}.tv-k b{font-size:40px;display:block;line-height:1.1}.tv-k span{color:#9DB2E0;font-size:14px}.tv-k .al{background:rgba(232,54,79,.18);border-color:rgba(232,54,79,.4)}
+.tv-g{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}.tv-b{background:rgba(255,255,255,.05);border-radius:16px;padding:16px 18px}.tv-b h3{margin:0 0 10px;font-size:16px;color:#C7D4F2}
+.tv-r{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07)}.tv-p{font-size:20px;font-weight:800;color:#7FA8FF;width:36px}.tv-n{flex:1;min-width:0}.tv-n b{display:block;font-size:18px}.tv-n span{color:#9DB2E0;font-size:13px}.tv-v{text-align:right;min-width:80px}.tv-v b{display:block;font-size:22px}.tv-v span{color:#9DB2E0;font-size:12px}.tv-v.al b{color:#FCA5A5}
+.tv-d{display:inline-block;width:9px;height:9px;border-radius:50%;background:#64748B;margin-right:5px}.tv-d.on{background:#22C55E}.tv-d.pa{background:#F59E0B}
+@media(max-width:1100px){.tv-k{grid-template-columns:repeat(3,1fr)}.tv-g{grid-template-columns:1fr}}
+.pv-b{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;height:120px;align-items:end;margin-top:6px}.pv-c{display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;gap:2px}.pv-c i{width:100%;background:linear-gradient(180deg,#3C7BFF,#1F5FE8);border-radius:6px 6px 2px 2px}.pv-c b{font-size:11px;color:var(--pri-d);order:-1}.pv-c span{font-size:10.5px;color:var(--mut)}
+.pv-hm{display:grid;grid-template-columns:34px repeat(14,1fr);gap:3px;font-size:10.5px;color:var(--mut);margin-top:6px}.pv-hm span{text-align:center}.pv-hm b{font-weight:600;align-self:center}.pv-hm i{height:16px;border-radius:4px}
+.esc-d{display:flex;gap:6px;flex-wrap:wrap}.esc-d label{display:flex;gap:4px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13px;cursor:pointer}
+.sat-t .ok{color:var(--ok)}.sat-t .w{color:var(--warn)}.sat-t .bad{color:var(--bad)}
 </style>`);
 
 /* ---------- início ---------- */

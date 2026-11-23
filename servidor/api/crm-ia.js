@@ -10,6 +10,7 @@ import { cors, exigirEquipe, db, baixarParcela, asaas } from './_base.js';
 import { chaveIA } from './ia-autonoma.js';
 import { errosTexto, codigosNoTexto, AJUDA_URL } from './erros.js';
 import { exemplosBons } from './crm-rotinas.js';
+import { transcrever, traduzir, qualidade, artigosTexto } from './crm-extra.js';
 
 const MODELO = process.env.GROQ_MODELO_CRM || 'llama-3.3-70b-versatile';
 export const REGRAS = 'Você trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece crédito. Responda sempre em português do Brasil, com educação e frases curtas. Nunca prometa aprovação de crédito, desconto ou liberação que a equipe não confirmou. Nunca peça senha, código ou pagamento em conta de terceiros. Pagamento é só pelo app NexumCell (aba Parcelas → Pix) ou pelo Pix enviado pela equipe. Não use emojis.';
@@ -33,12 +34,12 @@ export async function groq(mensagens, { temperatura = 0.3, max = 400, json = fal
 
 /* base de conhecimento: respostas rápidas da equipe + orientações do dono */
 export async function baseConhecimento() {
-  const c = (await db.collection('config').doc('crm').get()).data() || {};
+  const c = (await db.collection('config').doc('crm').get()).data() || {}, artTxt = await artigosTexto().catch(() => '');
   // respostas da equipe: formato novo (lista de objetos) ou antigo (grupos)
   const v2 = Array.isArray(c.respostasV2) ? c.respostasV2.map(r => [r.g, r.t, r.x]) : [];
   const v1 = Array.isArray(c.respostas) ? c.respostas.flatMap(g => Array.isArray(g) ? (g[1] || []).map(r => [g[0], r?.[0] ?? r?.t, r?.[1] ?? r?.x]) : []) : [];
   const rs = (v2.length ? v2 : v1).filter(r => r[2]).map(([g, t, x]) => `- ${g} / ${t}: ${String(x || '').replace(/\s+/g, ' ').slice(0, 400)}`).slice(0, 80).join('\n');
-  return { cfg: c, texto: `${c.iaOrientacoes ? 'Orientações do dono:\n' + String(c.iaOrientacoes).slice(0, 2500) + '\n\n' : ''}Respostas aprovadas pela equipe (use como base, troque {variáveis} pelos dados reais ou deixe de fora):\n${rs}` };
+  return { cfg: c, texto: `${c.iaOrientacoes ? 'Orientações do dono:\n' + String(c.iaOrientacoes).slice(0, 2500) + '\n\n' : ''}Respostas aprovadas pela equipe (use como base, troque {variáveis} pelos dados reais ou deixe de fora):\n${rs}${artTxt ? '\n\n' + artTxt : ''}` };
 }
 
 export const PEDIDO_AUTO = 'Você está respondendo sozinho porque a equipe não está disponível agora. Responda a ÚLTIMA mensagem do cliente usando só as informações da ficha, das orientações e das respostas aprovadas. Se o cliente pedir para falar com uma pessoa, reclamar, pedir desconto, acordo, liberação do aparelho, cancelamento, troca, ou se você não tiver a informação, diga com educação que um atendente vai continuar o atendimento assim que possível e marque humano=true. Responda em JSON: {"resposta":"texto de no máximo 4 frases","humano":true|false}. Se o cliente escreveu em espanhol, responda em espanhol.';
@@ -46,8 +47,9 @@ export const PEDIDO_AUTO = 'Você está respondendo sozinho porque a equipe não
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   try {
-    await exigirEquipe(req, ['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']);
+    const eu = await exigirEquipe(req, ['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']);
     const b = req.body || {}, txt = String(b.texto || '').slice(0, 4000);
+    const EXTRA = { transcrever, traduzir, qualidade }; if (EXTRA[b.acao]) return res.json(await EXTRA[b.acao](b, eu));
     if (b.acao === 'relatorioHoje') { const { relatorioDiarioCrm } = await import('./crm-rotinas.js'); await relatorioDiarioCrm({}, true); return res.json({ ok: true }); }
     if (b.acao === 'status') { const chave = await chaveIA().catch(() => ''); if (!chave) return res.json({ chave: false, ok: false, erro: 'Nenhuma chave da IA salva. Cole a chave do Groq (começa com gsk_) em Ajustes do CRM ou no Painel do Dono → Configurações → Inteligência artificial.' });
       const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4) }); }

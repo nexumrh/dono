@@ -5,6 +5,7 @@
 import { db, cors, exigirEquipe, config } from './_base.js';
 import { groq } from './crm-ia.js';
 import { exemplosBons } from './crm-rotinas.js';
+import { noTurno, artigosTexto } from './crm-extra.js';
 import { ERROS, errosTexto, codigosNoTexto, resolucaoTexto, AJUDA_URL } from './erros.js';
 
 const ONLINE_MS = 3 * 60e3;           // atendente sem sinal do CRM há mais de 3 min = offline
@@ -27,7 +28,7 @@ export function horario(cfg, agora = Date.now()) {
 }
 // quem está com o CRM aberto e disponível
 export function onlineDe(pres, fila, agora = Date.now()) {
-  return Object.entries(pres || {}).filter(([, p]) => p && agora - (+p.em || 0) < ONLINE_MS && !['off', 'pausa'].includes(p.status) && (p.fila === fila || p.fila === 'dono'))
+  return Object.entries(pres || {}).filter(([, p]) => p && agora - (+p.em || 0) < ONLINE_MS && !/^(off|pausa)/.test(String(p.status || '')) && (p.fila === fila || p.fila === 'dono'))
     .map(([uid, p]) => ({ uid, nome: p.nome || '', fila: p.fila }));
 }
 // esperando o primeiro atendente humano (depois que a assistente passou para a equipe)
@@ -46,7 +47,7 @@ async function fila(req, id) {
   const [cfg, crm, pres, atr, lista] = await Promise.all([config(), db.collection('config').doc('crm').get().then(s => s.data() || {}),
     db.collection('plataforma').doc('presencaCrm').get().then(s => s.data() || {}), db.collection('crmAtrib').doc('portal_' + id).get().then(s => s.data() || {}),
     db.collection('atendimentos').where('status', '==', 'HUMANO').get().then(q => q.docs.map(d => ({ id: d.id, ...d.data() })))]);
-  const hr = horario(cfg), filaNome = atr.fila || 'suporte', on = onlineDe(pres, filaNome), tma = Math.max(1, Math.min(60, +crm.tmaMin || TMA_PAD));
+  const escala = Object.fromEntries((crm.escalaV2 || []).map(e => [e.uid, e])), hr = horario(cfg), filaNome = atr.fila || 'suporte', on = onlineDe(pres, filaNome).filter(o => noTurno(escala[o.uid])), tma = Math.max(1, Math.min(60, +crm.tmaMin || TMA_PAD));
   const espera = lista.filter(esperando).sort((x, y) => (+x.encaminhadoEm || +x.atualizadoEm || 0) - (+y.encaminhadoEm || +y.atualizadoEm || 0));
   const pos = espera.findIndex(x => x.id === id);
   const atendido = a.status !== 'HUMANO' || !esperando(a);
@@ -100,8 +101,8 @@ async function ia(req, b) {
   const hist = msgs.map(m => ({ role: m.de === 'user' ? 'user' : 'assistant', content: String(m.t).slice(0, 1500) }));
   let j = {};
   try {
-    const ex = await exemplosBons();
-    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) + (ex ? '\n\n' + ex : '') }, ...hist], { temperatura: 0.2, max: 600, json: true });
+    const ex = await exemplosBons(), art = await artigosTexto().catch(() => '');
+    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) + (art ? '\n\n' + art : '') + (ex ? '\n\n' + ex : '') }, ...hist], { temperatura: 0.2, max: 600, json: true });
     j = JSON.parse(t);
   } catch (e) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join('\n\n'), atendente: false, codigos: cods, fonte: 'catalogo' };
