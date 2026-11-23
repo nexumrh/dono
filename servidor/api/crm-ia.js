@@ -9,6 +9,7 @@
 import { cors, exigirEquipe, db, baixarParcela, asaas } from './_base.js';
 import { chaveIA } from './ia-autonoma.js';
 import { errosTexto, codigosNoTexto, AJUDA_URL } from './erros.js';
+import { exemplosBons } from './crm-rotinas.js';
 
 const MODELO = process.env.GROQ_MODELO_CRM || 'llama-3.3-70b-versatile';
 export const REGRAS = 'Você trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece crédito. Responda sempre em português do Brasil, com educação e frases curtas. Nunca prometa aprovação de crédito, desconto ou liberação que a equipe não confirmou. Nunca peça senha, código ou pagamento em conta de terceiros. Pagamento é só pelo app NexumCell (aba Parcelas → Pix) ou pelo Pix enviado pela equipe. Não use emojis.';
@@ -47,6 +48,7 @@ export default async function handler(req, res) {
   try {
     await exigirEquipe(req, ['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']);
     const b = req.body || {}, txt = String(b.texto || '').slice(0, 4000);
+    if (b.acao === 'relatorioHoje') { const { relatorioDiarioCrm } = await import('./crm-rotinas.js'); await relatorioDiarioCrm({}, true); return res.json({ ok: true }); }
     if (b.acao === 'status') { const chave = await chaveIA().catch(() => ''); if (!chave) return res.json({ chave: false, ok: false, erro: 'Nenhuma chave da IA salva. Cole a chave do Groq (começa com gsk_) em Ajustes do CRM ou no Painel do Dono → Configurações → Inteligência artificial.' });
       const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4) }); }
       catch (e) { return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4), erro: e.message }); } }
@@ -89,7 +91,8 @@ export default async function handler(req, res) {
       const texto = [j.pedido && '- Pedido: ' + j.pedido, j.feito && '- Já feito: ' + j.feito, j.falta && '- Próximo passo: ' + j.falta].filter(Boolean).join('\n');
       return res.json({ texto, ...j, codigos: [...new Set([...(j.codigos || []).map(String), ...cods])] });
     }
-    const t = await groq([{ role: 'system', content: conhecimento }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nQuem escreve: ${quem} (${String(b.cliente || '').slice(0, 80)})\nAtendente: ${String(b.atendente || '').slice(0, 30)}\n\nFicha:\n${ficha}\n\nConversa:\n${conversa}\n\nEscreva a PRÓXIMA mensagem que o atendente deve mandar, pronta para enviar: resolva o que foi pedido com passos claros (numerados se for um procedimento), use os dados da ficha quando ajudarem, as respostas aprovadas como base e, se houver código de erro, o passo a passo dele. No máximo 6 linhas, sem saudação repetida se a conversa já começou. ${ESTILOS[b.estilo] ? 'Estilo: ' + ESTILOS[b.estilo] : ''} Se a pessoa escreveu em espanhol, responda em espanhol. Responda em JSON: {"resposta":"mensagem pronta","alternativa":"uma segunda versão mais curta","motivo":"por que essa é a melhor resposta, em 1 frase"}` }], { temperatura: 0.35, max: 600, json: true });
+    const ex = await exemplosBons();
+    const t = await groq([{ role: 'system', content: conhecimento + (ex ? '\n\n' + ex : '') }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nQuem escreve: ${quem} (${String(b.cliente || '').slice(0, 80)})\nAtendente: ${String(b.atendente || '').slice(0, 30)}\n\nFicha:\n${ficha}\n\nConversa:\n${conversa}\n\nEscreva a PRÓXIMA mensagem que o atendente deve mandar, pronta para enviar: resolva o que foi pedido com passos claros (numerados se for um procedimento), use os dados da ficha quando ajudarem, as respostas aprovadas como base e, se houver código de erro, o passo a passo dele. No máximo 6 linhas, sem saudação repetida se a conversa já começou. ${ESTILOS[b.estilo] ? 'Estilo: ' + ESTILOS[b.estilo] : ''} Se a pessoa escreveu em espanhol, responda em espanhol. Responda em JSON: {"resposta":"mensagem pronta","alternativa":"uma segunda versão mais curta","motivo":"por que essa é a melhor resposta, em 1 frase"}` }], { temperatura: 0.35, max: 600, json: true });
     let j = {}; try { j = JSON.parse(t); } catch (e) { j = { resposta: t }; }
     return res.json({ texto: String(j.resposta || '').trim(), alternativa: String(j.alternativa || '').trim(), motivo: String(j.motivo || ''), codigos: cods });
   } catch (e) { return res.status(e.status || 500).json({ erro: e.message }); }

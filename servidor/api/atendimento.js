@@ -4,6 +4,7 @@
 //                       {acao:'avaliar', id, nota, resolvido, comentario} → pesquisa de satisfação (vale para a comissão do suporte)
 import { db, cors, exigirEquipe, config } from './_base.js';
 import { groq } from './crm-ia.js';
+import { exemplosBons } from './crm-rotinas.js';
 import { ERROS, errosTexto, codigosNoTexto, resolucaoTexto, AJUDA_URL } from './erros.js';
 
 const ONLINE_MS = 3 * 60e3;           // atendente sem sinal do CRM há mais de 3 min = offline
@@ -99,7 +100,8 @@ async function ia(req, b) {
   const hist = msgs.map(m => ({ role: m.de === 'user' ? 'user' : 'assistant', content: String(m.t).slice(0, 1500) }));
   let j = {};
   try {
-    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) }, ...hist], { temperatura: 0.2, max: 600, json: true });
+    const ex = await exemplosBons();
+    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) + (ex ? '\n\n' + ex : '') }, ...hist], { temperatura: 0.2, max: 600, json: true });
     j = JSON.parse(t);
   } catch (e) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join('\n\n'), atendente: false, codigos: cods, fonte: 'catalogo' };

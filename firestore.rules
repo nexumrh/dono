@@ -543,6 +543,8 @@ service cloud.firestore {
     match /crmPromessas/{id} { allow read, write: if crmEquipe(); }
     match /crmAcordos/{id} { allow read, write: if crmEquipe(); }
     match /crmEnvios/{id} { allow read, write: if crmEquipe(); }
+    // relatório diário do atendimento: o servidor grava, a equipe do CRM lê
+    match /relatoriosCrm/{id} { allow read: if crmEquipe(); allow write: if false; }
     match /crmAvaliacoes/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     match /crmAlertas/{id} { allow read, write: if hasRole(['DONO', 'FINANCEIRO']); }
     // CRM: etiquetas e conversas juntadas; mensagens agendadas; comprovantes já usados (gravados pelo servidor)

@@ -1836,7 +1836,7 @@ async function painelSatisfacao(el) {
 document.head.insertAdjacentHTML('beforeend', `<style id="crm-v3">
 .it{padding:13px 16px 13px 14px;gap:12px}.it .l1 b{font-size:14.5px;letter-spacing:-.005em}.it .l2{color:var(--mut);font-size:13.5px}.it .l3{margin-top:7px;gap:5px}.it.nl .l1 b{color:var(--ink)}
 .it .l3 .pill{font-size:11px;padding:1px 8px;line-height:18px}.it.on{background:#F1F5FF;box-shadow:inset 3px 0 0 var(--pri)}.it.urg{box-shadow:inset 3px 0 0 var(--bad)}
-.cp{border-top:1px solid var(--line2)}.cp-t{gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}.cp-t::-webkit-scrollbar{display:none}
+.cp{border-top:1px solid var(--line2)}.cp{position:relative;z-index:6}.cp-t{gap:6px;flex-wrap:wrap;overflow:visible;padding-bottom:2px}.cp-t::-webkit-scrollbar{display:none}
 .cp-t .ferr{flex:none;padding:6px 11px;border-radius:10px;font-size:12.5px;background:#fff;transition:background .12s,border-color .12s}.cp-t .ferr:hover{background:var(--hover);border-color:#CFCDE0}
 .cp-t .ferr .i{width:15px;height:15px}#tMais.on{background:var(--pri-s);border-color:#C9D8FF;color:var(--pri-d)}#tMais .i:last-child{width:13px;height:13px;opacity:.7}
 .cp-mais[hidden]{display:none!important}.cp-mais{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px;padding:8px;border:1px dashed var(--line);border-radius:12px;background:var(--soft)}.cp-mais .ferr{border-radius:10px}
@@ -1870,6 +1870,194 @@ document.head.insertAdjacentHTML('beforeend', `<style id="crm-v3">
 .sat-st{display:inline-flex;gap:1px;vertical-align:middle}.sat-st i .i{width:12px;height:12px;color:#D1D5DB}.sat-st i.on .i{color:#F59E0B;fill:#F59E0B}
 .sat-t{width:100%;border-collapse:collapse;font-size:13.5px}.sat-t th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:8px;border-bottom:1px solid var(--line)}.sat-t td{padding:9px 8px;border-bottom:1px solid var(--line2)}
 .sat-c{margin:14px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.sat-cm{border-top:1px solid var(--line2);padding:8px 0}.sat-cm p{margin:4px 0}
+</style>`);
+
+
+/* ===================== CRM v4 (nov/2026) =====================
+   transferência com contexto · macros · atalhos de teclado · pegar o próximo · prioridade (irritado/urgente)
+   erros repetidos por loja · relatório do dia · histórico de quem chama · aviso no computador */
+Object.assign(ICN, {
+  macro: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>', proximo: '<path d="M5 12h14M13 6l6 6-6 6"/>', teclado: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  fogo: '<path d="M12 2s5 4.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 1.5-4S9 11 11 11c0-4 1-9 1-9z"/>', sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  relat: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+});
+
+/* ---------- 1) transferência com contexto ---------- */
+function pedirMotivoTransferencia(titulo, onOk, onCancel) {
+  const m = modal(titulo, `<p class="hint" style="margin:0 0 8px">Conte em uma frase o que já foi feito e o que falta. Vira uma nota interna: quem recebe não precisa reler a conversa toda.</p><textarea class="inp" id="trM" rows="3" maxlength="400" placeholder="Ex.: já pedi o print; é erro 1010 no Moto G15, falta orientar a instalação pela USB."></textarea>`,
+    '<button class="btn sec" id="trC">Cancelar</button><button class="btn" id="trOk">Passar o atendimento</button>');
+  $('#trM', m).focus(); $('#trC', m).onclick = () => { fechar(); onCancel && onCancel(); };
+  $('#trOk', m).onclick = async () => { const t = $('#trM', m).value.trim(); fechar(); await onOk(t); };
+}
+{ const _lt = ligarTopo; ligarTopo = function (i) { _lt(i); const el = $('#ch-h'); if (!el) return;
+  const r = $('#ch-resp', el); if (r) r.onchange = e => { const novo = e.target.value, u = C.equipe.find(x => x.id === novo); if (!novo || novo === C.me.uid || novo === i.resp?.uid) return atribuir(i, novo);
+    pedirMotivoTransferencia(`Passar para ${esc(u?.nome || 'outra pessoa')}`, async t => { await atribuir(i, novo); await DB.add('crmNotas', { key: i.key, t: `Transferido para ${u?.nome || ''}${t ? ': ' + t : ''}`, em: Date.now(), por: C.me.nome, uid: C.me.uid, tipo: 'transferencia' }).catch(() => { }); if ($('#pf')) ficha(i); },
+      () => { e.target.value = i.resp?.uid || ''; }); };
+  const fl = $('#ch-fila', el); if (fl) fl.onchange = e => { const f = e.target.value;
+    pedirMotivoTransferencia(`Passar para a fila ${FILAS[f][0]}`, async t => { await DB.set('crmAtrib', kSafe(i.key), { key: i.key, fila: f, uid: '', nome: '', em: Date.now(), por: C.me.nome }); await DB.add('crmNotas', { key: i.key, t: `Passado para a fila ${FILAS[f][0]}${t ? ': ' + t : ''}`, em: Date.now(), por: C.me.nome, uid: C.me.uid, tipo: 'transferencia' }).catch(() => { }); toast('Transferido para a fila ' + FILAS[f][0]); },
+      () => { e.target.value = i.fila; }); };
+}; }
+
+/* ---------- 2) macros: várias ações num clique ---------- */
+const MACROS_PAD = [
+  { n: 'Pedir print e aguardar', r: 'Para eu ver exatamente o que está acontecendo, me mande um print da tela (se aparecer um código de erro, ele vem junto). Fico no aguardo.', m: '', nota: '', fila: '', c: false },
+  { n: 'Trava resolvida e concluir', r: 'Pronto, {nome}! A trava foi resolvida. Qualquer coisa é só chamar. Vai aparecer uma pesquisa rápida: sua nota ajuda a melhorar o atendimento.', m: 'Trava / aparelho bloqueado', nota: '', fila: '', c: true },
+  { n: 'Cliente pagou: orientar e concluir', r: 'Peça ao cliente para ligar a internet e tocar em "Já paguei — verificar agora". O aparelho libera em poucos minutos. Se não liberar, me chame aqui de novo.', m: 'Pagamento / Pix', nota: '', fila: '', c: true },
+  { n: 'Passar para o financeiro', r: '{nome}, esse assunto é com o nosso financeiro. Já passei para eles, que continuam por aqui mesmo.', m: '', nota: 'Passado para o financeiro pela macro.', fila: 'financeiro', c: false },
+  { n: 'Encerrar com pesquisa', r: 'Obrigado pelo contato, {nome}! Vou concluir o protocolo {protocolo}. Vai aparecer uma pesquisa rápida: sua nota ajuda a melhorar o atendimento.', m: '', nota: '', fila: '', c: true },
+];
+const macros = () => Array.isArray(RQ_RAW.macrosV2) && RQ_RAW.macrosV2.length ? RQ_RAW.macrosV2 : MACROS_PAD;
+async function rodarMacro(i, mc) {
+  try {
+    if (mc.r) await enviar(i, preencher(mc.r, i, C.me.nome));
+    if (mc.nota) await DB.add('crmNotas', { key: i.key, t: mc.nota, em: Date.now(), por: C.me.nome, uid: C.me.uid }).catch(() => { });
+    if (mc.m) await DB.set('crmAtrib', kSafe(i.key), { key: i.key, motivo: mc.m, motivoEm: Date.now(), fila: i.fila });
+    if (mc.fila && FILAS[mc.fila]) await DB.set('crmAtrib', kSafe(i.key), { key: i.key, fila: mc.fila, uid: '', nome: '', em: Date.now(), por: C.me.nome + ' (macro)' });
+    if (mc.c) await concluir(i);
+    toast('Macro "' + mc.n + '" feita');
+  } catch (e) { toast('A macro parou: ' + (e.message || e), true); }
+}
+function menuMacros(i, b) {
+  document.getElementById('mcMenu')?.remove(); const l = macros();
+  const m = document.createElement('div'); m.id = 'mcMenu'; m.className = 'pop';
+  m.innerHTML = `<div class="pop-h">Macros<span>uma ação faz várias coisas</span></div>` + l.map((x, k) => `<button data-mc="${k}"><b>${esc(x.n)}</b><span>${[x.r && 'manda a mensagem', x.nota && 'nota interna', x.m && 'motivo: ' + esc(x.m), x.fila && 'passa para ' + esc(FILAS[x.fila]?.[0] || x.fila), x.c && 'conclui'].filter(Boolean).join(' · ')}</span></button>`).join('')
+    + (dono() ? `<button data-mcedit><b>${I('lapis')} Editar as macros</b></button>` : '');
+  b.parentElement.style.position = 'relative'; b.parentElement.appendChild(m);
+  const fora = e => { if (!m.contains(e.target) && e.target !== b) { m.remove(); document.removeEventListener('click', fora); } }; setTimeout(() => document.addEventListener('click', fora));
+  $$('[data-mc]', m).forEach(x => x.onclick = () => { m.remove(); rodarMacro(i, l[+x.dataset.mc]); });
+  const ed = $('[data-mcedit]', m); if (ed) ed.onclick = () => { m.remove(); editarMacros(); };
+}
+function editarMacros() {
+  let l = macros().map(x => ({ ...x }));
+  const m = modal('Macros do atendimento', '<div id="mcL"></div>', '<button class="btn sec" id="mcAdd">+ Nova macro</button><button class="btn sec" data-x>Cancelar</button><button class="btn" id="mcOk">Salvar macros</button>', true);
+  const ler = () => $$('.mc-ed', m).forEach((d, k) => { const g = s => $(s, d).value; l[k] = { n: g('[data-f=n]').trim(), r: g('[data-f=r]').trim(), m: g('[data-f=m]'), nota: g('[data-f=nota]').trim(), fila: g('[data-f=fila]'), c: $('[data-f=c]', d).checked }; });
+  const pinta = () => { $('#mcL', m).innerHTML = l.map((x, k) => `<div class="mc-ed"><div style="display:flex;gap:8px"><input class="inp" data-f="n" value="${esc(x.n)}" placeholder="Nome da macro"><button class="ib" data-mcx="${k}" title="Excluir">${I('lixo')}</button></div>
+      <textarea class="inp" data-f="r" rows="2" placeholder="Mensagem que vai para a conversa (use {nome}, {protocolo}, {contrato})">${esc(x.r || '')}</textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><select class="inp" data-f="m"><option value="">Sem motivo</option>${motivos().map(o => `<option ${x.m === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select><select class="inp" data-f="fila"><option value="">Não muda a fila</option>${Object.entries(FILAS).map(([k2, v]) => `<option value="${k2}" ${x.fila === k2 ? 'selected' : ''}>Passa para ${v[0]}</option>`).join('')}</select></div>
+      <input class="inp" data-f="nota" value="${esc(x.nota || '')}" placeholder="Nota interna (opcional)"><label class="chk"><input type="checkbox" data-f="c" ${x.c ? 'checked' : ''}> Concluir o atendimento no final</label></div>`).join('');
+    $$('[data-mcx]', m).forEach(b => b.onclick = () => { ler(); l.splice(+b.dataset.mcx, 1); pinta(); }); };
+  pinta(); $('[data-x]', m).onclick = fechar; $('#mcAdd', m).onclick = () => { ler(); l.push({ n: 'Nova macro', r: '', m: '', nota: '', fila: '', c: false }); pinta(); };
+  $('#mcOk', m).onclick = async () => { ler(); l = l.filter(x => x.n && (x.r || x.nota || x.m || x.fila || x.c)); await DB.set('config', 'crm', { macrosV2: l, atualizadoEm: Date.now() }); RQ_RAW.macrosV2 = l; fechar(); toast('Macros salvas'); };
+}
+{ const _cp = compositor; compositor = function (i) { _cp(i); const t = $('#cp .cp-t'); if (!t || $('#tMac')) return;
+  const ref = $('#tCod', t) || $('#tLnk', t); const span = document.createElement('span'); span.innerHTML = `<button class="ferr" id="tMac" title="Macros (Alt+M)">${I('macro')}Macros</button>`;
+  ref ? ref.after(span) : t.prepend(span); $('#tMac').onclick = e => { e.stopPropagation(); menuMacros(i, e.currentTarget); };
+  const tt = { tRes: 'Alt+R', tLnk: 'Alt+L', tCod: 'Alt+C', tIaS: 'Alt+S' }; Object.entries(tt).forEach(([id, k]) => { const x = $('#' + id, t); if (x) x.title = (x.title ? x.title + ' · ' : '') + k; });
+}; }
+
+/* ---------- 4) pegar o próximo ---------- */
+function proximoDaFila() {
+  return C.itens.filter(i => !i.bot && i.etapa !== 'fim' && semResp(i) && (dono() ? (C.f.fila === 'todas' || i.fila === C.f.fila) : i.fila === C.papel) && (!i.resp?.uid || i.resp.uid === C.me.uid || !online(i.resp.uid)))
+    .sort((a, b) => (prio(b) - prio(a)) || (a.em - b.em))[0];
+}
+async function pegarProximo() {
+  const i = proximoDaFila(); if (!i) return toast('Ninguém esperando na fila agora');
+  if (i.resp?.uid !== C.me.uid) await atribuir(i, C.me.uid);
+  C.view = 'inbox'; limparFiltros(true); abrir(i.key); setTimeout(() => $('#tTxt')?.focus(), 300);
+}
+{ const _dl = desenharLista; desenharLista = function () { _dl(); const el = $('#lst'); if (!el) return; const h = $('.lst-h h2', el);
+  if (h && !$('#lsProx', el)) { const n = C.itens.filter(i => !i.bot && i.etapa !== 'fim' && semResp(i) && (dono() || i.fila === C.papel) && (!i.resp?.uid || !online(i.resp.uid))).length;
+    $('#ls-nova', el)?.insertAdjacentHTML('beforebegin', `<button class="btn sm prox" id="lsProx" title="Pega o atendimento esperando há mais tempo (Alt+P)">${I('proximo')}Próximo${n ? `<i>${n}</i>` : ''}</button>`); $('#lsProx', el).onclick = pegarProximo; }
+  // marca de prioridade nos cartões
+  $$('[data-it]', el).forEach(d => { const it = C.itens.find(x => x.key === d.dataset.it); if (it && prio(it) && !d.querySelector('.pill.prio')) { d.classList.add('prio'); d.querySelector('.l3')?.insertAdjacentHTML('afterbegin', `<span class="pill prio">${I('fogo')}${esc(MARCAS[it.key]?.prioridadeMotivo || 'Prioridade')}</span>`); } });
+}; }
+
+/* ---------- 6) prioridade: pessoa irritada ou urgência ---------- */
+const RX_IRRITA = /(procon|reclame ?aqui|absurd|palha[cç]ada|vergonh|rid[ií]cul|p[ée]ssim|lixo|advogad|process(ar|o judicial)|nunca mais|ningu[ée]m (me )?respond|j[aá] ([ée] a|falei|pedi) .{0,12}(vez|vezes)|enganad|golpe|descaso|desrespeit|cancelar tudo|vou denunciar|que merda|porra|caralho)/i;
+const RX_URG = /(urgente|urgência|emergência|cliente (est[aá] )?(aqui|na loja) esperando|cliente esperando|agora mesmo|o mais r[aá]pido|parado na loja)/i;
+const prio = i => MARCAS[i.key]?.prioridade && i.etapa !== 'fim' ? 1 : 0;
+function motivoPrioridade(t) { const s = String(t || ''); if (RX_IRRITA.test(s) || (s.length > 20 && s.replace(/[^A-ZÀ-Ú]/g, '').length / s.replace(/[^A-Za-zÀ-ú]/g, '').length > .7) || /!{3,}/.test(s)) return 'Pessoa irritada'; if (RX_URG.test(s)) return 'Urgente'; return ''; }
+const _prioFeitos = new Set();
+function detectarPrioridade() {
+  for (const i of C.itens) { if (i.bot || i.etapa === 'fim' || i.ultimaDe !== 'cli' || MARCAS[i.key]?.prioridade) continue; const k = i.key + ':' + i.em; if (_prioFeitos.has(k)) continue; _prioFeitos.add(k);
+    const mot = motivoPrioridade(i.ultima); if (mot && (dono() || i.fila === C.papel)) marcar(i, { prioridade: true, prioridadeEm: Date.now(), prioridadeMotivo: mot, prioridadeNome: i.nome }).catch(() => { }); }
+}
+{ const _mi = montarItens; montarItens = function (...a) { const r = _mi(...a); try { detectarPrioridade(); avisarNovos(); } catch (e) { } return r; }; }
+{ const _l = lista; lista = function () { const l = _l(); if (C.f.prio) return l.filter(prio); return l.slice().sort((a, b) => prio(b) - prio(a)); }; }
+// o resumo da IA também marca prioridade
+{ const _ia = iaCrm; iaCrm = async function (i, acao, b) { await _ia(i, acao, b); const res = $('#iaOut .ia-res'); if (acao !== 'resumo' || !res) return; const t = res.innerText || '';
+  if (/Irritado|Urgência alta/.test(t) && !MARCAS[i.key]?.prioridade) { await marcar(i, { prioridade: true, prioridadeEm: Date.now(), prioridadeMotivo: /Irritado/.test(t) ? 'Pessoa irritada' : 'Urgência alta', prioridadeNome: i.nome }).catch(() => { }); toast('Marcado como prioridade: o dono é avisado'); desenharLista(); } }; }
+// tirar a prioridade / ver só as prioridades
+{ const _tc = topoChat; topoChat = function (i) { const h = _tc(i); return prio(i) ? h.replace('<div class="ch-acoes">', `<div class="ch-acoes"><button class="pill prio" id="chPrio" title="Tirar a prioridade">${I('fogo')}${esc(MARCAS[i.key]?.prioridadeMotivo || 'Prioridade')} ✕</button>`) : h; }; }
+{ const _lt = ligarTopo; ligarTopo = function (i) { _lt(i); const b = $('#chPrio'); if (b) b.onclick = async () => { await marcar(i, { prioridade: false }); atualizarChatTopo(); desenharLista(); }; }; }
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'); if (!el || $('#nvPrio', el)) return; const n = C.itens.filter(i => prio(i) && (dono() || i.fila === C.papel)).length; if (!n && !C.f.prio) return;
+  ($('#nv-meus', el))?.insertAdjacentHTML('afterend', `<button id="nvPrio" class="${C.f.prio && C.view === 'inbox' ? 'on' : ''}">${I('fogo')}<span>Prioridade alta</span>${n ? `<span class="n r">${n}</span>` : ''}</button>`);
+  $('#nvPrio', el).onclick = () => { C.f.prio = !C.f.prio; C.f.meus = false; C.view = 'inbox'; if (C.f.etapa === 'fim') C.f.etapa = 'abertos'; salvarF(); desenhar(); }; }; }
+
+/* ---------- 3) atalhos de teclado ---------- */
+const ATALHOS = [['Alt + P', 'Pegar o próximo da fila'], ['Alt + ↓ / ↑', 'Próxima / anterior conversa da lista'], ['Alt + F', 'Finalizar o atendimento'], ['Alt + R', 'Respostas rápidas'], ['Alt + L', 'Links de resolução'], ['Alt + C', 'Códigos de erro'], ['Alt + M', 'Macros'], ['Alt + S', 'Sugerir resposta com IA'], ['Alt + K', 'Buscar na lista'], ['Alt + /', 'Ver os atalhos']];
+addEventListener('keydown', e => {
+  if (!C.me || !e.altKey || e.ctrlKey || e.metaKey) return; const k = e.key.toLowerCase(), clique = s => { const x = $(s); if (x) { e.preventDefault(); x.click(); } };
+  if (k === 'p') { e.preventDefault(); pegarProximo(); }
+  else if (k === 'f') clique('#ch-fim'); else if (k === 'r') clique('#tRes'); else if (k === 'l') clique('#tLnk'); else if (k === 'c') clique('#tCod'); else if (k === 'm') clique('#tMac'); else if (k === 's') clique($('#iaSug') ? '#iaSug' : '#tIaS');
+  else if (k === 'k') { const q = $('#ls-q'); if (q) { e.preventDefault(); q.focus(); q.select(); } }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const l = $$('[data-it]'); if (!l.length) return; e.preventDefault(); const at = l.findIndex(d => d.dataset.it === C.sel); const n = l[Math.max(0, Math.min(l.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))] || l[0]; abrir(n.dataset.it); }
+  else if (k === '/' || e.code === 'Slash' || k === ';') { e.preventDefault(); modal('Atalhos de teclado', `<div class="atl">${ATALHOS.map(([a, b]) => `<div><kbd>${a}</kbd><span>${b}</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Funcionam mesmo com o cursor no campo de mensagem.</p>`, '<button class="btn" data-x>Entendi</button>'); $('#mr [data-x]').onclick = fechar; }
+});
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const eu = $('#nav .eu'); if (eu && !$('#nvAt', eu)) { eu.insertAdjacentHTML('beforeend', `<button id="nvAt" class="nv-at" title="Atalhos de teclado (Alt + /)">${I('teclado')}</button>`); $('#nvAt', eu).onclick = () => dispatchEvent(new KeyboardEvent('keydown', { key: '/', altKey: true })); } }; }
+
+/* ---------- histórico de quem está chamando (chat dos portais) ---------- */
+{ const _fi = ficha; ficha = async function (i) { const p = _fi(i); if (i.canal !== 'portal') return p;
+  setTimeout(() => { const pf = $('#pf'); if (!pf || C.sel !== i.key || $('#hsPf', pf)) return; const uid = i.raw.abertoPor; if (!uid) return;
+    const dele = C.itens.filter(x => x.canal === 'portal' && x.raw.abertoPor === uid && x.key !== i.key), cods = {}; [...dele, i].forEach(x => (x.codigos || []).forEach(c => cods[c] = (cods[c] || 0) + 1));
+    const notas = dele.map(x => x.raw.pesquisa?.nota).filter(Boolean), media = notas.length ? (notas.reduce((s, x) => s + x, 0) / notas.length).toFixed(1).replace('.', ',') : null;
+    const ref = $('#iaPf', pf) || $('.pf-top', pf); ref?.insertAdjacentHTML('afterend', `<div class="pf-sec" id="hsPf"><h4>${esc(String(i.nome).split(' ')[0])} nos últimos 30 dias</h4><div class="hs-k"><div><b>${dele.length + 1}</b><span>atendimentos</span></div><div><b>${media || '—'}</b><span>nota que deu</span></div><div><b>${Object.keys(cods).length}</b><span>erros diferentes</span></div></div>
+      ${Object.keys(cods).length ? `<div class="hs-c">${Object.entries(cods).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<button class="pill cd-pl" data-hsc="${c}">Erro ${c}${n > 1 ? ' · ' + n + 'x' : ''}</button>`).join('')}</div>${Object.values(cods).some(n => n >= 2) ? '<p class="hint" style="margin:6px 0 0">Erro repetido: vale orientar a loja a revisar o treinamento.</p>' : ''}` : ''}</div>`);
+    $$('[data-hsc]', pf).forEach(b => b.onclick = () => verCodigo(b.dataset.hsc, i)); }, 50);
+  return p; }; }
+
+/* ---------- 7) erros repetidos por loja e 8) relatório do dia (no Painel) ---------- */
+{ const _vp = vPainel; vPainel = function (el) { _vp(el); setTimeout(() => { painelErros(el); painelRelatorio(el); }, 0); }; }
+function painelErros(el) {
+  if (C.view !== 'painel' || $('#erBox', el)) return; const desde = Date.now() - 7 * 864e5, porLoja = {}, total = {};
+  C.itens.filter(i => ['portal', 'chamado'].includes(i.canal) && (i.raw.criadoEm || i.em) >= desde).forEach(i => [...new Set([...(i.codigos || []), ...(i.raw.codigos || [])])].forEach(c => { const l = i.raw.lojaNome || 'Sem loja'; (porLoja[l] ||= {})[c] = ((porLoja[l] || {})[c] || 0) + 1; total[c] = (total[c] || 0) + 1; }));
+  const rep = Object.entries(porLoja).flatMap(([l, o]) => Object.entries(o).map(([c, n]) => ({ l, c, n }))).sort((a, b) => b.n - a.n);
+  const ref = $('#satBox', el) || el.querySelector('.vc-top'); if (!ref) return;
+  ref.insertAdjacentHTML('afterend', `<div id="erBox" class="sat"><div class="sat-h"><div><h3>${I('codigo')}Erros mais comuns · últimos 7 dias</h3><p class="hint">Códigos que vendedores e gerentes mandaram no chat. Erro que se repete na mesma loja costuma ser falta de treinamento ou problema no equipamento da loja.</p></div></div>
+    ${rep.length ? `<div class="er-g"><div><h4 class="sat-c">Por código</h4>${Object.entries(total).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c, n]) => `<div class="er-r"><span class="cd-n sm">${c}</span><span class="er-t">${esc(ERROS_NX[c]?.t || '')}</span><i style="width:${Math.max(8, n / Math.max(...Object.values(total)) * 100)}%"></i><b>${n}</b></div>`).join('')}</div>
+      <div><h4 class="sat-c">Repetidos na mesma loja</h4>${rep.filter(r => r.n >= 2).slice(0, 8).map(r => `<div class="er-r"><b class="er-l">${esc(r.l)}</b><span class="cd-n sm">${r.c}</span><span class="er-t">${esc(ERROS_NX[r.c]?.t || '')}</span><b>${r.n}x</b></div>`).join('') || '<p class="hint">Nenhum erro repetido na mesma loja na semana.</p>'}</div></div>` : '<p class="hint" style="margin:10px 0 0">Nenhum código de erro nos últimos 7 dias.</p>'}</div>`);
+}
+async function painelRelatorio(el) {
+  if (C.view !== 'painel' || $('#rlBox', el)) return; const ref = $('#erBox', el) || $('#satBox', el) || el.querySelector('.vc-top'); if (!ref) return;
+  ref.insertAdjacentHTML('afterend', `<div id="rlBox" class="sat"><div class="rs-load">${I('relogio')}Carregando o relatório do dia…</div></div>`);
+  const de = new Date(Date.now() - 3 * 3600e3 - 7 * 864e5).toISOString().slice(0, 10);
+  const l = (await DB.list('relatoriosCrm', [['data', '>=', de]]).catch(() => [])).sort((a, b) => b.data.localeCompare(a.data)); const box = $('#rlBox', el); if (!box) return;
+  const r = l[0], mm = m => m == null ? '—' : m < 60 ? Math.round(m) + ' min' : Math.floor(m / 60) + ' h ' + String(Math.round(m % 60)).padStart(2, '0');
+  box.innerHTML = `<div class="sat-h"><div><h3>${I('relat')}Relatório do dia${r ? ' · ' + r.data.split('-').reverse().join('/') : ''}</h3><p class="hint">Fechado todo dia às 19h e enviado por e-mail ao dono. Os dias anteriores ficam aqui.</p></div><div style="display:flex;gap:6px;align-items:center">${l.length > 1 ? `<select class="inp" id="rlDia" style="width:auto;padding:6px 8px;font-size:13px">${l.map(x => `<option value="${x.data}">${x.data.split('-').reverse().join('/')}</option>`).join('')}</select>` : ''}${dono() ? `<button class="btn sec sm" id="rlGera">${I('reabrir')}Atualizar agora</button>` : ''}</div></div><div id="rlC"></div>`;
+  const pinta = x => { $('#rlC', box).innerHTML = !x ? '<p class="hint">Ainda não há relatório. O primeiro sai hoje às 19h (ou toque em Atualizar agora).</p>' : `<div class="sat-k"><div><b>${x.chatsPortais}</b><span>Chats dos portais</span></div><div><b>${x.resolvidosAssistente}</b><span>Resolvidos só pela assistente</span></div><div><b>${mm(x.tmrMin)}</b><span>Tempo até a 1ª resposta</span></div><div><b>${x.finalizados}</b><span>Finalizados</span></div><div><b>${x.notaMedia == null ? '—' : String(x.notaMedia).replace('.', ',')}</b><span>Nota média (${x.avaliacoes})</span></div><div><b>${x.prioridade || 0}</b><span>Prioridade alta</span></div></div>
+    ${x.porAtendente?.length ? `<table class="sat-t"><tr><th>Atendente</th><th>Finalizados</th><th>Avaliações</th><th>Nota</th></tr>${x.porAtendente.map(p => `<tr><td><b>${esc(p.nome)}</b></td><td>${p.finalizados}</td><td>${p.avaliacoes}</td><td>${p.media == null ? '—' : String(p.media).replace('.', ',')}</td></tr>`).join('')}</table>` : ''}`; };
+  pinta(r); const sel = $('#rlDia', box); if (sel) sel.onchange = () => pinta(l.find(x => x.data === sel.value));
+  const g = $('#rlGera', box); if (g) g.onclick = async () => { g.disabled = true; try { await api('crm-ia', { acao: 'relatorioHoje' }); toast('Relatório atualizado'); box.remove(); painelRelatorio(el); } catch (e) { toast(/404|Ação/.test(e.message) ? 'Cole o servidor novo no Worker para gerar o relatório.' : e.message, true); g.disabled = false; } };
+}
+
+/* ---------- aviso no computador quando chega atendimento novo ---------- */
+const _avisados = new Set(); let _avPrim = true;
+function avisarNovos() {
+  const meus = C.itens.filter(i => !i.bot && i.nl && i.etapa !== 'fim' && (i.resp?.uid === C.me.uid || (!i.resp?.uid && (dono() || i.fila === C.papel))));
+  if (_avPrim) { meus.forEach(i => _avisados.add(i.key + i.em)); _avPrim = false; return; }
+  for (const i of meus) { const k = i.key + i.em; if (_avisados.has(k)) continue; _avisados.add(k);
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted' && PRES.me === 'on') { try { const n = new Notification(`${prio(i) ? '[Prioridade] ' : ''}${i.nome} · ${CANAIS[i.canal][0]}`, { body: String(i.ultima || '').slice(0, 140), tag: i.key, icon: '../icon-192.png' }); n.onclick = () => { focus(); abrir(i.key); n.close(); }; } catch (e) { } } }
+}
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'); if (!el || $('#nvNot', el) || !('Notification' in window) || Notification.permission !== 'default') return;
+  const eu = $('.eu', el); eu?.insertAdjacentHTML('beforebegin', `<button id="nvNot" class="nv-not">${I('sino')}<span>Ativar aviso de novo atendimento</span></button>`);
+  $('#nvNot', el).onclick = async () => { try { await Notification.requestPermission(); } catch (e) { } desenharNav(); if (Notification.permission === 'granted') toast('Pronto: quando chegar atendimento novo com o CRM minimizado, aparece um aviso no computador.'); }; }; }
+
+document.head.insertAdjacentHTML('beforeend', `<style id="crm-v4">
+.pop{position:absolute;bottom:calc(100% + 6px);left:0;z-index:40;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(10,23,51,.18);padding:6px;width:320px;max-height:60vh;overflow:auto}
+.pop-h{font-size:11px;font-weight:700;color:var(--mut);padding:6px 10px 8px;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between}.pop-h span{text-transform:none;letter-spacing:0;font-weight:500}
+.pop button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:9px;cursor:pointer;font:inherit}.pop button:hover{background:var(--pri-s)}.pop b{display:flex;gap:6px;align-items:center;font-size:13.5px;font-weight:600}.pop span{font-size:12px;color:var(--mut)}
+#tMac{color:#7C3AED;border-color:#E4DCFF}#tMac:hover{background:#F7F4FF}
+.mc-ed{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+.btn.prox{background:#0A1733;border-color:#0A1733;color:#fff;position:relative}.btn.prox:hover{background:#13244D}.btn.prox i{font-style:normal;background:var(--bad);color:#fff;border-radius:99px;font-size:11px;padding:0 6px;margin-left:4px}
+.pill.prio{background:#FEE4E2!important;color:#B42318!important;border:0;cursor:default}.pill.prio .i{width:12px;height:12px}#chPrio{cursor:pointer}
+.it.prio{background:linear-gradient(90deg,#FFF5F4,transparent 60%)}
+.atl{display:grid;gap:6px}.atl div{display:flex;gap:12px;align-items:center}.atl kbd{min-width:110px;background:var(--soft);border:1px solid var(--line);border-bottom-width:2px;border-radius:7px;padding:3px 8px;font:600 12.5px ui-monospace,Menlo,monospace;text-align:center}
+.nv-at{background:none;border:0;color:#B9C3DC;cursor:pointer;padding:4px;border-radius:8px}.nv-at:hover{background:rgba(255,255,255,.08);color:#fff}.nv-at .i{width:16px;height:16px}
+.nv-not{margin:0 12px 8px;display:flex!important;gap:8px;align-items:center;background:rgba(26,92,255,.18)!important;color:#DCE6FF!important;border-radius:10px;padding:8px 10px;font-size:12.5px;text-align:left}
+.hs-k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.hs-k div{background:var(--soft);border-radius:10px;padding:8px;text-align:center}.hs-k b{display:block;font-size:17px}.hs-k span{font-size:11px;color:var(--mut)}.hs-c{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.er-g{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.er-g{grid-template-columns:1fr}}
+.er-r{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2);font-size:13px;position:relative}.er-r i{position:absolute;left:0;bottom:-1px;height:2px;background:#F97066;border-radius:2px}.er-t{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.er-r .er-l{grid-column:1/-1;font-size:12.5px}.er-r:has(.er-l){grid-template-columns:auto 1fr auto}
 </style>`);
 
 /* ---------- início ---------- */
