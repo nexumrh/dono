@@ -1787,7 +1787,7 @@ async function registrarAssinatura(id,o){
   const dig={via:o.via,tk:o.tk,hash,codigo,dispositivo:o.dispositivo||navigator.userAgent.slice(0,180),nomeDigitado:o.nomeDigitado||'',por:S.me.nome};
   if(o.via==='LOJA') await DB.set('assinaturas',o.tk,{vendaId:id,numero:o.numero||0,contrato:o.contrato,assinatura:o.assinatura,assinadoEm:o.assinadoEm,status:'ASSINADO',via:'LOJA',criadoEm:Date.now(),expiraEm:0,hash,codigo});
   else await DB.set('assinaturas',o.tk,{hash,codigo});
-  await DB.set('vendas',id,{status:'AGUARDANDO_ENTRADA',assinatura:o.assinatura,assinadoEm:o.assinadoEm,aceiteBloqueio:true,aceiteLgpd:true,contratoTexto:o.contrato,assinaturaDigital:dig,assinaturaPendente:null});
+  await DB.set('vendas',id,{status:'AGUARDANDO_ENTRADA',assinatura:o.assinatura,assinadoEm:o.assinadoEm,aceiteBloqueio:true,aceiteLocalizacao:true,aceiteLgpd:true,contratoTexto:o.contrato,assinaturaDigital:dig,assinaturaPendente:null});
   await log('Contrato assinado',id,`${o.via==='LOJA'?'na loja':'no celular do cliente'} · código ${codigo}`);
   if(o.via==='LOJA'||DEMO) carimbar(o.tk);
   toast('Contrato assinado','ok'); closeModal();
@@ -2623,7 +2623,8 @@ function contratoHTML(v){
   <h4>3. Atraso</h4><p>O atraso implica multa de ${cfg.multaPct}% e juros de mora de ${cfg.moraDiaPct}% ao dia sobre a parcela vencida.</p>
   <h4>4. Reserva de domínio</h4><p>A propriedade do aparelho permanece com a VENDEDORA até a quitação integral (arts. 521 a 528 do Código Civil); a posse e o uso são do COMPRADOR desde a entrega.</p>
   <h4>5. Aplicativo de gestão e bloqueio do aparelho</h4><p>O COMPRADOR declara ter sido informado, de forma clara e prévia, e concorda que o aparelho terá instalado o aplicativo de gestão NexumCell, que: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) <b>restringe o uso do aparelho quando houver parcela vencida há mais de ${cfg.toleranciaDias} dia(s)</b>, ou quando o aparelho ficar mais de ${cfg.maxDiasOffline} dias sem conexão com a internet; (c) mantém, mesmo durante a restrição, a possibilidade de <b>chamadas de emergência</b> e de contato com a loja; (d) é liberado automaticamente assim que o pagamento é registrado; (e) é <b>removido definitivamente</b> após a quitação. O COMPRADOR se compromete a não remover, desativar ou burlar o aplicativo nem regravar o sistema do aparelho até a quitação.</p>
-  <h4>6. Dados pessoais (LGPD)</h4><p>Os dados do COMPRADOR, as imagens do documento e a biometria facial (coletadas para prevenção a fraude) e os dados do aparelho (IMEI, modelo, operadora e país do chip e da rede celular, nível de bateria, data do último contato e estado da trava) são tratados exclusivamente para execução deste contrato, análise de crédito e cobrança (Lei 13.709/2018, art. 7º, V e X). O aplicativo não acessa fotos, mensagens, contatos nem localização. O COMPRADOR pode solicitar acesso e correção dos seus dados pelo telefone ${esc(cfg.telefoneSuporte||v.lojaNome)}.</p>
+  <h4>5-A. Localização para recuperação do aparelho</h4><p>Enquanto houver saldo a pagar, o COMPRADOR autoriza que a VENDEDORA solicite pelo aplicativo a posição do aparelho <b>somente</b> quando (a) houver parcela vencida há mais de ${+cfg.localizarDias||30} dias ou (b) o COMPRADOR comunicar roubo, furto ou perda. A posição é lida uma única vez a cada pedido, sem acompanhamento contínuo, e é usada exclusivamente para a recuperação do bem sob reserva de domínio (cláusula 4) e para a cobrança. Cada pedido fica registrado (quem pediu, quando e o motivo). Com a quitação, a localização é desativada definitivamente.</p>
+  <h4>6. Dados pessoais (LGPD)</h4><p>Os dados do COMPRADOR, as imagens do documento e a biometria facial (coletadas para prevenção a fraude) e os dados do aparelho (localização somente nos casos da cláusula 5-A, IMEI, modelo, operadora e país do chip e da rede celular, nível de bateria, data do último contato e estado da trava) são tratados exclusivamente para execução deste contrato, análise de crédito e cobrança (Lei 13.709/2018, art. 7º, V e X). O aplicativo não acessa fotos, mensagens, contatos nem localização. O COMPRADOR pode solicitar acesso e correção dos seus dados pelo telefone ${esc(cfg.telefoneSuporte||v.lojaNome)}.</p>
   <h4>7. Garantia, troca e assistência</h4><p>Garantia legal (90 dias, CDC art. 26) e do fabricante. Por política da VENDEDORA, em até ${+cfg.trocaDias||7} dias da compra o COMPRADOR pode trocar o aparelho com defeito por outro igual ou devolvê-lo com caixa, acessórios e sem danos de uso, com o cancelamento deste contrato e a devolução do que pagou. O bloqueio por atraso não se confunde com defeito do produto.</p>
   <h4>8. Assinatura eletrônica</h4><p>As partes aceitam a assinatura eletrônica deste contrato como válida e equivalente à assinatura de próprio punho (MP 2.200-2/2001, art. 10, §2º, e Lei 14.063/2020). A identificação do COMPRADOR é feita pelo documento com foto, pela biometria facial e pelo registro de data, hora, endereço IP e código de integridade (hash) do documento assinado, que ficam guardados como prova.</p>
   ${S.cfg.scdNome?`<h4>9. Instituição financeira</h4><p>Esta operação de crédito é concedida por ${esc(S.cfg.scdNome)}${S.cfg.scdCnpj?`, CNPJ ${esc(S.cfg.scdCnpj)}`:''}, atuando a VENDEDORA como correspondente bancário${S.cfg.scdResolucao?`, ${esc(S.cfg.scdResolucao)}`:''}.</p>`:''}
@@ -2984,7 +2985,7 @@ function verRoubos(){
     <span>${esc(a.roubo.tipo)} em ${fmtD(a.roubo.data)} · ${esc(a.roubo.local||'')}${a.roubo.bo?' · B.O. '+esc(a.roubo.bo):' · sem B.O.'} · comunicado ${relT(a.roubo.em)} pelo portal do cliente</span>
     <span>IMEI <span class="mono">${esc(a.imei)}</span> · ${esc(a.lojaNome)} · aparelho travado</span>
     ${a.roubo.localizar?(a.checkin?.local?`<span><a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${a.checkin.local.lat},${a.checkin.local.lng}">📍 Ver no mapa</a> · ${fmtDT(a.checkin.local.em)} · precisão ${Math.round(a.checkin.local.precisao||0)} m</span>`:'<span class="small muted">Cliente autorizou a localização — aguardando o aparelho se conectar.</span>'):''}</div>
-    ${can('DONO','FINANCEIRO','SUPORTE','GERENTE')?`<div class="row"><button class="btn sm" data-act="rouboTratado" data-id="${a.id}">Marcar como tratado</button><button class="btn sm" data-act="rouboLiberar" data-id="${a.id}">Foi engano — liberar</button></div>`:''}</div>`).join('')||'<p class="muted">Nada pendente.</p>'}
+    ${can('DONO','FINANCEIRO','SUPORTE','GERENTE')?`<div class="row"><button class="btn sm" data-act="rouboTratado" data-id="${a.id}">Marcar como tratado</button>${can('DONO','FINANCEIRO')&&a.vendaId?`<button class="btn sm navy" data-act="locPedir" data-id="${a.vendaId}">Localizar aparelho</button>`:''}<button class="btn sm" data-act="rouboLiberar" data-id="${a.id}">Foi engano — liberar</button></div>`:''}</div>`).join('')||'<p class="muted">Nada pendente.</p>'}
     <p class="hint">O aparelho continua travado depois de “tratado”. As parcelas continuam valendo: o cliente segue pagando o contrato. Oriente o cliente a bloquear o IMEI no Celular Seguro (celularseguro.mj.gov.br).</p>`);
 }
 async function rouboTratado(id){ const a=await DB.get('aparelhos',id); await DB.set('aparelhos',id,{roubo:{...a.roubo,tratadoEm:Date.now(),tratadoPor:S.me.nome}}); await log('Roubo tratado',a.vendaId,a.imei); closeModal(); render(); }
@@ -4534,7 +4535,7 @@ async function assinaturaZapsign(v){
 }
 async function simZapsign(id){   // só no modo demonstração: faz o papel do webhook da ZapSign
   const v=await DB.get('vendas',id);
-  await DB.set('vendas',id,{zapsign:{...v.zapsign,status:'assinado',assinadoEm:Date.now(),selfie:true,documento:true},status:'AGUARDANDO_ENTRADA',assinadoEm:Date.now(),aceiteBloqueio:true,aceiteLgpd:true,assinaturaPendente:null,
+  await DB.set('vendas',id,{zapsign:{...v.zapsign,status:'assinado',assinadoEm:Date.now(),selfie:true,documento:true},status:'AGUARDANDO_ENTRADA',assinadoEm:Date.now(),aceiteBloqueio:true,aceiteLocalizacao:true,aceiteLgpd:true,assinaturaPendente:null,
     assinaturaDigital:{via:'ZAPSIGN',codigo:String(v.zapsign?.docToken||'demo').slice(0,10).toUpperCase(),hash:v.zapsign?.docToken||'demo',por:'ZapSign',dispositivo:'ZapSign · selfie + documento'}});
   await log('Contrato assinado (ZapSign)',id,'simulado');
 }
@@ -7024,7 +7025,7 @@ Object.assign(ACT,{ copiarErro:d=>{ const e=ERROS[d.cod]; if(e&&e.cliente){ (nav
 
 { const _c2=PAGES.config; PAGES.config=async()=>{ await _c2(); const c=S.cfg, vw=$('#view'); if(!vw||!can('DONO')) return;
   const f=(k,l,pad)=>`<label>${l}<input data-cfg="${k}" type="number" min="0" value="${esc(c[k]??pad)}"></label>`;
-  const html=`<div class="card mt"><h2>Prazos e limites</h2><div class="grid g4">${f('vencMaxDias','1º vencimento até (dias depois da compra)',45)}${f('recolherDias','Sugerir recolher com atraso de (dias)',60)}${f('foraPaisDias','Alerta de aparelho fora do Brasil após (dias)',3)}${f('preAprovadoMax','Pré-aprovado: limite máximo (R$)',6000)}
+  const html=`<div class="card mt"><h2>Prazos e limites</h2><div class="grid g4">${f('vencMaxDias','1º vencimento até (dias depois da compra)',45)}${f('recolherDias','Sugerir recolher com atraso de (dias)',60)}${f('localizarDias','Permitir localizar o aparelho com atraso de (dias)',30)}${f('foraPaisDias','Alerta de aparelho fora do Brasil após (dias)',3)}${f('preAprovadoMax','Pré-aprovado: limite máximo (R$)',6000)}
     ${f('atendHoraIni','Atendimento humano: abre (hora)',8)}${f('atendHoraFim','Atendimento humano: fecha (hora)',20)}${f('retornoDias','Chamar de novo o reprovado após (dias)',30)}<label>Cliente pode pedir acordo do atraso pelo portal<select data-cfg="acordoCliente"><option value="sim" ${c.acordoCliente!=='nao'?'selected':''}>Sim</option><option value="nao" ${c.acordoCliente==='nao'?'selected':''}>Não</option></select></label>${f('acordoMaxParcelas','Acordo: máximo de parcelas',4)}<label>Ao pedir acordo, liberar o aparelho na hora<select data-cfg="acordoLiberar"><option value="sim" ${c.acordoLiberar!=='nao'?'selected':''}>Sim, por algumas horas</option><option value="nao" ${c.acordoLiberar==='nao'?'selected':''}>Não</option></select></label>${f('acordoLiberarHoras','Liberar por quantas horas',48)}<label>Cópia de segurança diária por e-mail<select data-cfg="backupAuto"><option value="sim" ${c.backupAuto!=='nao'?'selected':''}>Ligada</option><option value="nao" ${c.backupAuto==='nao'?'selected':''}>Desligada</option></select></label><label>E-mails extras para a cópia (opcional)<input data-cfg="backupEmail" value="${esc(c.backupEmail||'')}" placeholder="contador@empresa.com"></label><label>Instalar a trava por link (sem QR)<select data-cfg="instalacaoLink"><option value="sim" ${c.instalacaoLink!=='nao'?'selected':''}>Permitido</option><option value="nao" ${c.instalacaoLink==='nao'?'selected':''}>Só pelo QR</option></select></label>${f('assistentePct','Assistente: parcela ideal até (% da renda)',30)}</div>
     <p class="small muted">Pré-aprovado: todo dia à noite, quem pagou 60% ou mais em dia (ou quitou) ganha limite para trocar de aparelho, válido por 90 dias. Aparece no app e no portal do cliente e acelera a análise.</p></div>`;
   const ult=[...vw.querySelectorAll('[data-act="salvarConfig"]')].pop()?.closest('.row'); if(ult) ult.insertAdjacentHTML('beforebegin',html); else vw.insertAdjacentHTML('beforeend',html);
@@ -10619,7 +10620,7 @@ PAGES.recolher=async()=>{
           ${can('DONO','SUPORTE')&&!r.suporteOk?`<button class="btn sm navy" data-act="bkRecOk" data-id="${v.id}">Ok para retirar (trava)</button>`:''}
           <a class="btn sm" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(end(v))}">Mapa</a>
           ${r.status?`<button class="btn sm" data-act="recStatus" data-id="${v.id}" data-q="EM_ROTA">Em rota</button><button class="btn sm" data-act="recStatus" data-id="${v.id}" data-q="NAO_ENCONTRADO">Não encontrado</button>`:''}
-          <button class="btn sm" data-act="bkRecRisco" data-id="${v.id}">${rk?'Não é área de risco':'Marcar área de risco'}</button>
+          ${can('DONO','FINANCEIRO')&&v.aceiteLocalizacao?`<button class="btn sm navy" data-act="locPedir" data-id="${v.id}">Localizar aparelho</button>`:''}<button class="btn sm" data-act="bkRecRisco" data-id="${v.id}">${rk?'Não é área de risco':'Marcar área de risco'}</button>
           ${!a.viavel?`<button class="btn sm red" data-act="bkRecMulta" data-id="${v.id}" data-v="${a.multa}">Gerar multa (35% off)</button>`:''}</div></div>`; }).join('')||'<div class="card empty">Nada nesta lista.</div>'}</div>
     <p class="hint">“Vale buscar” = área normal, aparelho dando sinal e valor do usado (${REC_VALOR_PCT()}% do preço) pelo menos o dobro do custo da busca. A rota de hoje usa os prontos (ok do suporte e vale buscar), na ordem do bairro.</p>`;
   S._rec=lista;
@@ -11453,6 +11454,58 @@ ACT.fichaLoja=d=>fichaLoja(d.id);
     if(tr.cells[2]) tr.cells[2].innerHTML=`<b>${fs.length}</b><div class="small muted">${fs.filter(u=>u.ativo).length} ativo(s)</div>`;
     b.closest('td').insertAdjacentHTML('afterbegin',`<button class="btn sm gold" data-act="fichaLoja" data-id="${id}">Ficha completa</button> `); });
 }; }
+
+
+/* ======================= LOCALIZAR APARELHO para recuperação (dono e financeiro, nov/2026) =======================
+   Pedido pontual, previsto no contrato: o app lê a posição UMA vez por pedido. Tudo fica registrado. */
+const LOC_MOT={atraso:'Atraso no pagamento',roubo:'Roubo, furto ou perda comunicado'};
+const LOC_ST={AGUARDANDO:['Aguardando o aparelho','amber'],OK:['Localizado','green'],SEM_SINAL:['Aparelho sem sinal de GPS','red'],EXPIRADO:['Sem resposta em 24 h','gray']};
+let _locPoll=0;
+async function locPedir(id){
+  if(!can('DONO','FINANCEIRO')) return toast('Só o dono e o financeiro podem localizar aparelhos','err');
+  clearInterval(_locPoll);
+  const v=await DB.get('vendas',id), ap=v?.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken).catch(()=>null):null, h=hoje();
+  const at=Math.max(0,...(v.parcelas||[]).filter(p=>!p.pago&&p.venc<h).map(p=>diasEntre(p.venc,h))), min=+S.cfg.localizarDias||30, roubo=!!(ap?.roubo&&!ap.roubo.liberadoEm);
+  const hist=(await DB.list('localizacoes',[['vendaId','==',id]]).catch(()=>[])).sort((a,b)=>b.em-a.em);
+  const histH=hist.length?`<h3 style="margin:16px 0 6px;font-size:14px">Pedidos anteriores</h3><table><tr><th>Quando</th><th>Quem</th><th>Motivo</th><th>Resultado</th></tr>${hist.map(x=>`<tr><td class="small">${fmtDT(x.em)}</td><td class="small">${esc(x.por)}</td><td class="small">${esc(LOC_MOT[x.motivo]||x.motivo)}<div class="muted">${esc(x.obs||'')}</div></td><td class="small">${badge(...(LOC_ST[x.status]||LOC_ST.AGUARDANDO))}${x.local?`<div><a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${x.local.lat},${x.local.lng}">Ver no mapa</a> · ±${x.local.precisao} m</div>`:''}</td></tr>`).join('')}</table>`:'';
+  const topo=`<h2>Localizar aparelho</h2><p class="small muted" style="margin-top:-4px">${esc(v.clienteNome)} · contrato nº ${v.numero} · ${esc(apNome(v))} · ${at} dia(s) de atraso</p>`;
+  if(v.status!=='ATIVA') return openModal(topo+`<div class="warn">Contrato ${esc(String(v.status).toLowerCase())}: a localização fica desligada.</div>`+histH);
+  if(!v.aparelhoToken) return openModal(topo+'<div class="warn">Este contrato não tem trava instalada.</div>'+histH);
+  if(v.aceiteLocalizacao!==true) return openModal(topo+`<div class="warn"><b>Este contrato não tem a autorização de localização.</b><br>Foi assinado antes da cláusula de localização. Sem a autorização do cliente não é permitido localizar. Use o endereço do cadastro e os telefones.${roubo&&ap.roubo.localizar?' Como o cliente comunicou roubo e autorizou, a posição aparece em "Roubos comunicados" no painel.':''}</div>`+histH);
+  const podeAt=at>=min;
+  openModal(topo+`<div class="card" style="background:#F5F8FF;border:1px solid #DCE6FA;box-shadow:none;padding:12px 14px"><b>Como funciona</b><ul class="small" style="margin:6px 0 0;padding-left:18px"><li>O app do aparelho manda a posição <b>uma vez</b> (não acompanha o cliente).</li><li>Fica registrado quem pediu, quando e o motivo. O cliente autorizou no contrato.</li><li>Use só para buscar o aparelho. Não compartilhe fora da equipe de recolhimento.</li></ul></div>
+    <div class="mt"><b class="small">Motivo</b><div class="row" style="gap:8px;margin-top:6px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;border:1px solid #DCE3EF;border-radius:10px;padding:8px 12px;font-size:13.5px;cursor:pointer;${podeAt?'':'opacity:.5'}"><input type="radio" style="width:16px;height:16px;margin:0;flex:none;appearance:auto" name="locM" value="atraso" ${podeAt?'checked':'disabled'}> Atraso (${at} de ${min} dias mínimos)</label>
+      <label style="display:flex;align-items:center;gap:8px;border:1px solid #DCE3EF;border-radius:10px;padding:8px 12px;font-size:13.5px;cursor:pointer;${roubo?'':'opacity:.5'}"><input type="radio" style="width:16px;height:16px;margin:0;flex:none;appearance:auto" name="locM" value="roubo" ${roubo?(podeAt?'':'checked'):'disabled'}> Roubo, furto ou perda comunicado</label></div></div>
+    <label class="mt" style="display:block">Por que está pedindo? (vai para o registro)<textarea id="locObs" rows="2" placeholder="Ex.: cliente não atende há 20 dias e mudou de endereço"></textarea></label>
+    ${!podeAt&&!roubo?`<div class="warn mt">Ainda não pode localizar: precisa de ${min} dias de atraso (hoje são ${at}) ou de roubo comunicado. O prazo fica em Configurações, Prazos e limites.</div>`:''}
+    <div id="locRes"></div><div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" data-act="closeModal">Fechar</button>${podeAt||roubo?`<button class="btn gold" id="locOk">Pedir a localização agora</button>`:''}</div>${histH}`,true);
+  const ok=$('#locOk'); if(!ok) return;
+  ok.onclick=async()=>{ const motivo=document.querySelector('[name="locM"]:checked')?.value, obs=$('#locObs').value.trim();
+    if(!motivo) return toast('Escolha o motivo','err'); if(obs.length<5) return toast('Escreva o motivo do pedido','err');
+    ok.disabled=true; ok.textContent='Pedindo…';
+    try{ const r=await apiServ('localizar',{acao:'pedir',vendaId:id,motivo,obs}); await log('Pedido de localização do aparelho',id,`${LOC_MOT[motivo]}: ${obs}`); ok.remove(); locEsperar(r.id,v); }
+    catch(e){ ok.disabled=false; ok.textContent='Pedir a localização agora'; toast(e.message,'err'); } };
+}
+function locEsperar(pid,v){
+  const box=$('#locRes'), ini=Date.now(); if(!box) return;
+  const pinta=x=>{ if(!$('#locRes')) return clearInterval(_locPoll);
+    if(x.status==='OK'){ clearInterval(_locPoll); const l=x.local, g=`https://www.google.com/maps?q=${l.lat},${l.lng}`, txt=`Recolhimento NexumCell: ${v.clienteNome} (contrato ${v.numero}), ${apNome(v)}. Posição de ${fmtDT(l.em)} (±${l.precisao} m): ${g}`;
+      box.innerHTML=`<div class="card mt" style="box-shadow:none;border:1px solid #BFE6D2;background:#F2FBF6;padding:12px 14px"><b>Aparelho localizado</b><div class="small">Posição de ${fmtDT(l.em)} · precisão de ±${l.precisao} m${Date.now()-l.em>3600e3?' · <b>posição antiga</b>: o GPS não deu uma leitura nova':''}</div>
+        <iframe title="Mapa" src="https://maps.google.com/maps?q=${l.lat},${l.lng}&z=16&output=embed" style="width:100%;height:260px;border:0;border-radius:10px;margin-top:8px" loading="lazy"></iframe>
+        <div class="row mt" style="gap:6px;flex-wrap:wrap"><a class="btn sm gold" target="_blank" rel="noopener" href="${g}">Abrir no Google Maps</a><a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(txt)}">Mandar para quem vai buscar</a><button class="btn sm" id="locCp">Copiar</button></div></div>`;
+      $('#locCp').onclick=()=>navigator.clipboard?.writeText(txt).then(()=>toast('Copiado','ok')); return; }
+    if(x.status==='SEM_SINAL'){ clearInterval(_locPoll); box.innerHTML='<div class="warn mt">O aparelho respondeu, mas não conseguiu a posição (GPS desligado sem permissão, ou em local fechado). Tente de novo mais tarde.</div>'; return; }
+    if(x.status==='EXPIRADO'||Date.now()-ini>5*60e3){ clearInterval(_locPoll); box.innerHTML=`<div class="warn mt">O aparelho ainda não respondeu${x.ultimoContato?` (último contato ${relT(x.ultimoContato)})`:''}. Ele pode estar desligado ou sem internet. A posição chega sozinha quando ele conectar (até 24 h): abra este contrato de novo para ver.</div>`; return; }
+    box.innerHTML=`<div class="card mt" style="box-shadow:none;padding:12px 14px"><b>Esperando o aparelho responder…</b><div class="small muted">Normalmente leva menos de 1 minuto se o celular estiver ligado e com internet.${x.ultimoContato?` Último contato: ${relT(x.ultimoContato)}.`:''}</div></div>`; };
+  pinta({status:'AGUARDANDO'});
+  const ver=async()=>{ try{ pinta(await apiServ('localizar',{acao:'resultado',id:pid})); }catch(e){ } };
+  _locPoll=setInterval(ver,8000); setTimeout(ver,3000);
+}
+Object.assign(ACT,{ locPedir:d=>locPedir(d.id) });
+{ const _ss=simServ; let n=0; simServ=function(rota,d){ if(rota!=='localizar') return _ss(rota,d);
+  if(d.acao==='pedir'){ n=0; return {ok:true,id:'demo'+Date.now(),push:true}; }
+  return ++n<2?{status:'AGUARDANDO',ultimoContato:Date.now()-120e3}:{status:'OK',local:{lat:-25.5163,lng:-54.5854,precisao:12,em:Date.now()-30e3}}; }; }
 
 /* ======================= ATENDIMENTO v3 (nov/2026) =======================
    - código de erro no chat: a assistente responde na hora com o passo a passo

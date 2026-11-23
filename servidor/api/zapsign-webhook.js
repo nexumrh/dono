@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       const dados = { zapsign: z };
       // venda parada no passo do contrato: segue para a entrada (igual à assinatura na loja)
       if (v.status === 'APROVADA')
-        Object.assign(dados, { status: 'AGUARDANDO_ENTRADA', assinadoEm: z.assinadoEm, aceiteBloqueio: true, aceiteLgpd: true, assinaturaPendente: null,
+        Object.assign(dados, { status: 'AGUARDANDO_ENTRADA', assinadoEm: z.assinadoEm, aceiteBloqueio: true, aceiteLgpd: true, aceiteLocalizacao: true, assinaturaPendente: null,
           assinaturaDigital: { via: 'ZAPSIGN', codigo: String(d.token).slice(0, 10).toUpperCase(), hash: d.token, por: 'ZapSign', dispositivo: 'ZapSign · selfie + documento' } });
       await ref.set(dados, { merge: true });
       await db.collection('logs').add({ em: Date.now(), acao: 'Contrato assinado (ZapSign)', alvo: vendaId, det: d.token, por: 'ZapSign' });

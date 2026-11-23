@@ -329,10 +329,10 @@ function avaliarIos(d, agora = Date.now()) {
   let maior = 0, atrasadas = 0;
   for (const p of d.parcelas || []) {
     if (p.pago || !p.venc) continue;
-    const dias5 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
-    if (dias5 > 0) {
+    const dias6 = Math.floor((hoje2 - Date.parse(p.venc)) / DIA);
+    if (dias6 > 0) {
       atrasadas++;
-      maior = Math.max(maior, dias5);
+      maior = Math.max(maior, dias6);
     }
   }
   if (maior >= etapaTotal(d)) return { travar: true, motivo: atrasadas === 1 ? "1 parcela em atraso" : `${atrasadas} parcelas em atraso` };
@@ -432,10 +432,10 @@ function cors(req, res) {
   return false;
 }
 function encargos(p, ap, data = hoje()) {
-  const dias5 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
-  if (dias5 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
-  if (dias5 === 0) return p.valor;
-  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias5));
+  const dias6 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
+  if (dias6 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
+  if (dias6 === 0) return p.valor;
+  return r2(p.valor * (1 + (ap.multaPct || 0) / 100 + (ap.moraDiaPct || 0) / 100 * dias6));
 }
 async function baixarParcela(vendaId, n, valorPago, forma, obs, por = "Asaas (autom\xE1tico)") {
   const ref = db.collection("vendas").doc(vendaId);
@@ -1536,7 +1536,7 @@ async function handler5(req, res) {
 function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
   const vs = (vendas || []).filter((v) => !["REPROVADA", "CANCELADA"].includes(v.status));
   if (!vs.length) return { score: 500, faixa: "Sem hist\xF3rico", pagas: 0, atrasadas: 0 };
-  const dias5 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
+  const dias6 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
   let s = 550, pagas = 0, atrasadas = 0;
   for (const v of vs) {
     if (v.status === "QUITADA") s += 60;
@@ -1544,11 +1544,11 @@ function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0,
     for (const p of v.parcelas || []) {
       if (p.pago) {
         pagas++;
-        const d = p.pagoEm ? dias5(p.venc, String(p.pagoEm).slice(0, 10)) : 0;
+        const d = p.pagoEm ? dias6(p.venc, String(p.pagoEm).slice(0, 10)) : 0;
         s += d <= 3 ? 12 : d <= 15 ? 4 : d <= 30 ? -10 : -30;
       } else if (p.venc < h) {
         atrasadas++;
-        s -= Math.min(250, 40 + dias5(p.venc, h) * 2);
+        s -= Math.min(250, 40 + dias6(p.venc, h) * 2);
       }
     }
   }
@@ -2043,9 +2043,9 @@ async function saasPagamento(event, payment) {
   }
 }
 async function saasRotina() {
-  const cfg = await config(), dias5 = Number(cfg.saasDiasBloqueio ?? 5);
-  if (!(dias5 > 0)) return { bloqueadas: 0 };
-  const limite2 = addDias(hoje(), -dias5);
+  const cfg = await config(), dias6 = Number(cfg.saasDiasBloqueio ?? 5);
+  if (!(dias6 > 0)) return { bloqueadas: 0 };
+  const limite2 = addDias(hoje(), -dias6);
   const atras = (await db.collection("empresas").where("situacao", "==", "ATRASADA").get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.atrasadaDesde && e.atrasadaDesde <= limite2 && !e.bloqueadaPorAtraso);
   for (const e of atras) {
     await mudarBloqueio(e.id, true, `Mensalidade do sistema em atraso desde ${e.atrasadaDesde.split("-").reverse().join("/")}. Pague pelo link enviado por e-mail para liberar na hora.`);
@@ -2487,9 +2487,9 @@ async function negativacaoRotina(cfg) {
     }
   }
   if (cfg.negativarAuto !== "sim") return r;
-  const dias5 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
+  const dias6 = Math.max(30, Number(cfg.negativarDias) || 60), max = Math.max(1, Number(cfg.negativarMax) || 10);
   const ativas = (await db.collection("vendas").where("status", "==", "ATIVA").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
-  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias5 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
+  const alvo = ativas.map((v) => ({ v, p: (v.parcelas || []).filter((x) => !x.pago && x.venc < h).sort((a, b) => a.venc < b.venc ? -1 : 1)[0] })).filter(({ v, p }) => p && diasEntre(p.venc, h) >= dias6 && !(v.negativacao && ATIVAS.includes(v.negativacao.status)) && !v.naoNegativar && !(v.acordo && v.acordo.status !== "QUEBRADO") && !(v.liberadoAte && v.liberadoAte > Date.now())).sort((a, b) => a.p.venc < b.p.venc ? -1 : 1).slice(0, max);
   for (const { v, p } of alvo) {
     try {
       let parc = p;
@@ -2627,8 +2627,8 @@ async function relatorioSemanal(cfg, forcar = false) {
   for (const v of vendas) {
     const atr = (v.parcelas || []).filter((p) => !p.pago && p.venc < h);
     if (!atr.length) continue;
-    const dias5 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
-    (lojas[v.lojaId] ||= []).push({ v, dias: dias5, devido, n: atr.length });
+    const dias6 = Math.max(...atr.map((p) => diasEntre2(p.venc, h))), devido = r2(atr.reduce((s, p) => s + encargos(p, cfg), 0));
+    (lojas[v.lojaId] ||= []).push({ v, dias: dias6, devido, n: atr.length });
   }
   const gerentes = (await db.collection("users").where("role", "==", "GERENTE").get()).docs.map((d) => d.data()).filter((u) => u.ativo !== false && u.email);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
@@ -2941,11 +2941,11 @@ async function avaliarVenda(vendaId) {
     }
   }
   const entradaMin = entradaDaFaixa(R, N.faixa);
-  const resultado = reprova.length ? "REPROVAR" : manual.length ? "MANUAL" : "APROVAR";
-  const parecer = { resultado, modo: R.modo, score: N.score, faixa: N.faixa, limite: limite2, entradaMin, parcelaMax, comprometimentoMax: comprMax, reprova, manual, ok: [...ok, ...N.motivos], alertas, em: Date.now() };
+  const resultado2 = reprova.length ? "REPROVAR" : manual.length ? "MANUAL" : "APROVAR";
+  const parecer = { resultado: resultado2, modo: R.modo, score: N.score, faixa: N.faixa, limite: limite2, entradaMin, parcelaMax, comprometimentoMax: comprMax, reprova, manual, ok: [...ok, ...N.motivos], alertas, em: Date.now() };
   const upd = { motor: parecer, ...alertas.length ? { alertasFraude: alertas } : {}, ...serasa ? { serasa } : {} };
-  if (R.modo === "automatico" && resultado !== "MANUAL") {
-    const status = resultado === "APROVAR" ? "APROVADA" : "REPROVADA";
+  if (R.modo === "automatico" && resultado2 !== "MANUAL") {
+    const status = resultado2 === "APROVAR" ? "APROVADA" : "REPROVADA";
     const entBase = Number(cfg.entradaPct) || 30;
     const contra = status === "APROVADA" && entradaMin > entBase ? { entradaPct: entradaMin, limite: limite2 || null } : null;
     Object.assign(upd, { status, analise: {
@@ -2967,8 +2967,8 @@ async function avaliarVenda(vendaId) {
     upd.analise.obs += ` Recompra: entrada a partir de ${upd.analise.recompra.entradaPct}% e ${upd.analise.recompra.descontoJuros} ponto(s) a menos de juros.`;
   }
   await ref.set(upd, { merge: true });
-  await db.collection("logs").add({ em: Date.now(), acao: "Motor de cr\xE9dito: " + (upd.status || resultado), alvo: vendaId, det: [...reprova, ...manual].join("; ").slice(0, 400), por: "Motor de cr\xE9dito" });
-  return { resultado, status: upd.status || "ANALISE", limite: limite2, score: N.score };
+  await db.collection("logs").add({ em: Date.now(), acao: "Motor de cr\xE9dito: " + (upd.status || resultado2), alvo: vendaId, det: [...reprova, ...manual].join("; ").slice(0, 400), por: "Motor de cr\xE9dito" });
+  return { resultado: resultado2, status: upd.status || "ANALISE", limite: limite2, score: N.score };
 }
 async function handler12(req, res) {
   if (cors(req, res)) return;
@@ -4569,6 +4569,7 @@ async function handler19(req, res) {
           assinadoEm: z.assinadoEm,
           aceiteBloqueio: true,
           aceiteLgpd: true,
+          aceiteLocalizacao: true,
           assinaturaPendente: null,
           assinaturaDigital: { via: "ZAPSIGN", codigo: String(d.token).slice(0, 10).toUpperCase(), hash: d.token, por: "ZapSign", dispositivo: "ZapSign \xB7 selfie + documento" }
         });
@@ -5318,13 +5319,13 @@ async function conferirLink(tok) {
   const mac = await hmac(LINK(), "LINK|" + exp);
   return b64url2(mac) === b;
 }
-function pagina(cod, erro13) {
+function pagina(cod, erro14) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexumCell \u2014 Remover a trava</title>
 <style>body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0B1E35;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:#071424;border:1px solid #1b3350;border-radius:14px;padding:24px;max-width:460px;width:100%}
 h1{font-size:18px;margin:0 0 6px}.cod{font-size:42px;letter-spacing:6px;font-weight:800;color:#C9A84C;text-align:center;margin:18px 0}
 ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9FB0C3;font-size:13px}.err{color:#E07A5F}</style></head>
-<body><div class="card">${erro13 ? `<h1>Remover a trava</h1><p class="err">${erro13}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
+<body><div class="card">${erro14 ? `<h1>Remover a trava</h1><p class="err">${erro14}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
 <p class="muted">No aparelho, na tela do app NexumCell, toque em \u201CProblema? Inserir c\xF3digo de remo\xE7\xE3o da loja\u201D e digite o c\xF3digo:</p>
 <div class="cod">${cod}</div>
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
@@ -5664,8 +5665,84 @@ async function handler29(req, res) {
   }
 }
 
+// api/localizar.js
+init_base();
+var dias5 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(a + "T12:00:00Z")) / 864e5);
+var atrasoDe = (v, h = hoje()) => Math.max(0, ...(v.parcelas || []).filter((p) => !p.pago && p.venc && p.venc < h).map((p) => dias5(p.venc, h)));
+var erro13 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+async function pedir(b, eu) {
+  const vendaId = String(b.vendaId || ""), motivo = b.motivo === "roubo" ? "roubo" : "atraso", obs = String(b.obs || "").trim().slice(0, 300);
+  if (!vendaId) throw erro13("Informe o contrato");
+  const vs = await db.collection("vendas").doc(vendaId).get();
+  if (!vs.exists) throw erro13("Contrato n\xE3o encontrado", 404);
+  const v = vs.data(), tk = v.aparelhoToken;
+  if (v.status !== "ATIVA") throw erro13("S\xF3 \xE9 poss\xEDvel localizar aparelho de contrato em aberto");
+  if (!tk) throw erro13("Este contrato n\xE3o tem trava instalada");
+  if (v.aceiteLocalizacao !== true) throw erro13("Este contrato n\xE3o tem a autoriza\xE7\xE3o de localiza\xE7\xE3o assinada pelo cliente (contratos assinados antes da cl\xE1usula). N\xE3o \xE9 poss\xEDvel localizar.");
+  const as = await db.collection("aparelhos").doc(tk).get(), ap = as.exists ? as.data() : {};
+  const cfg = await config(), min = +cfg.localizarDias || 30, at = atrasoDe(v);
+  if (motivo === "atraso" && at < min) throw erro13(`O atraso \xE9 de ${at} dia(s). S\xF3 pode localizar com ${min} dias ou mais de atraso.`);
+  if (motivo === "roubo" && !(ap.roubo && !ap.roubo.liberadoEm)) throw erro13("N\xE3o h\xE1 roubo, furto ou perda comunicado neste contrato");
+  if (obs.length < 5) throw erro13("Escreva o motivo do pedido (para o registro)");
+  const recentes = await db.collection("localizacoes").where("vendaId", "==", vendaId).get();
+  if (recentes.docs.filter((d) => (d.data().em || 0) > Date.now() - 864e5).length >= 3) throw erro13("Limite de 3 pedidos por contrato em 24 horas");
+  const ref = db.collection("localizacoes").doc(), em = Date.now();
+  await ref.set({
+    vendaId,
+    token: tk,
+    numero: v.numero || null,
+    clienteNome: v.clienteNome || "",
+    lojaNome: v.lojaNome || "",
+    motivo,
+    obs,
+    atrasoDias: at,
+    por: eu.nome,
+    porUid: eu.uid,
+    role: eu.role,
+    em,
+    status: "AGUARDANDO"
+  });
+  await db.collection("aparelhos").doc(tk).set({ localizarPedido: { id: ref.id, em, motivo } }, { merge: true });
+  const push = await pushAparelho(tk).catch(() => false);
+  await db.collection("logs").add({ em, uid: eu.uid, nome: eu.nome, role: eu.role, acao: "Pedido de localiza\xE7\xE3o do aparelho", alvo: vendaId, detalhe: `${motivo === "roubo" ? "Roubo" : "Atraso de " + at + " dias"}: ${obs}` });
+  return { ok: true, id: ref.id, push };
+}
+async function resultado(b, eu) {
+  const ref = db.collection("localizacoes").doc(String(b.id || "")), s = await ref.get();
+  if (!s.exists) throw erro13("Pedido n\xE3o encontrado", 404);
+  const p = s.data();
+  if (p.status === "OK") return { status: "OK", local: p.local, recebidoEm: p.recebidoEm };
+  const ap = (await db.collection("aparelhos").doc(p.token).get()).data() || {}, c = ap.checkin || {};
+  if (c.localPedido === s.id && c.local?.lat != null) {
+    const local = { lat: +c.local.lat, lng: +c.local.lng, precisao: Math.round(+c.local.precisao || 0), em: +c.local.em || +c.em || Date.now() };
+    await ref.set({ status: "OK", local, recebidoEm: Date.now(), bateria: c.bateria ?? null }, { merge: true });
+    return { status: "OK", local, recebidoEm: Date.now() };
+  }
+  if (c.localPedido === s.id) {
+    await ref.set({ status: "SEM_SINAL", recebidoEm: Date.now() }, { merge: true });
+    return { status: "SEM_SINAL" };
+  }
+  if (Date.now() - p.em > 24 * 36e5) {
+    await ref.set({ status: "EXPIRADO" }, { merge: true });
+    return { status: "EXPIRADO" };
+  }
+  return { status: "AGUARDANDO", ultimoContato: c.em || null };
+}
+async function handler30(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    const eu = await exigirEquipe(req, ["DONO", "FINANCEIRO"]), b = req.body || {};
+    if (b.acao === "pedir") return res.json(await pedir(b, eu));
+    if (b.acao === "resultado") return res.json(await resultado(b, eu));
+    return res.status(400).json({ erro: "a\xE7\xE3o inv\xE1lida" });
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
 // worker/index.js
-var ROTAS = { metas: handler15, atendimento: handler29, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
+var ROTAS = { metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
