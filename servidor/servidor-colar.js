@@ -4899,8 +4899,32 @@ Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
   }
 }
 
+// api/avisar-dono.js
+async function handler27(req, res) {
+  if (cors(req, res)) return;
+  try {
+    const eu = await exigirEquipe(req, ["SUPORTE", "FINANCEIRO", "COMERCIAL"]);
+    const ref = db.collection("chatDono").doc(eu.uid), c = (await ref.get()).data() || {};
+    if ((c.avisadoEm || 0) > Date.now() - 15 * 6e4 || !brevoLigado() || !process.env.DONO_EMAIL) return res.json({ ok: true, enviado: false });
+    await ref.set({ avisadoEm: Date.now() }, { merge: true });
+    await enviarEmail({
+      para: process.env.DONO_EMAIL,
+      assunto: `Mensagem de ${eu.nome} (${eu.role.toLowerCase()})`,
+      titulo: "Nova mensagem da equipe",
+      texto: `${eu.nome} mandou uma mensagem para voc\xEA:
+
+"${String(req.body?.texto || "").slice(0, 300)}"
+
+Responda no Painel do Dono, no bot\xE3o de conversa no canto da tela.`
+    });
+    return res.json({ ok: true, enviado: true });
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+
 // worker/index.js
-var ROTAS = { equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler26, ios: handler23, codigo, acordo, instalacao: handler11, "cliente-app": handler22, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler15, nf: handler16, assinatura: handler17, "zapsign-webhook": handler18, preanalise: handler4, credenciamento: handler19, push: handler20, saas: handler7, motor: handler12, repasse: handler10, remota: handler21, "remover-codigo": handler24, lead: handler25 };
+var ROTAS = { "avisar-dono": handler27, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler26, ios: handler23, codigo, acordo, instalacao: handler11, "cliente-app": handler22, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler15, nf: handler16, assinatura: handler17, "zapsign-webhook": handler18, preanalise: handler4, credenciamento: handler19, push: handler20, saas: handler7, motor: handler12, repasse: handler10, remota: handler21, "remover-codigo": handler24, lead: handler25 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
