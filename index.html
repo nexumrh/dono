@@ -11393,6 +11393,17 @@ PAGES.metas = async () => {
 };
 ACT.linkCopiarM = () => { (navigator.clipboard ? navigator.clipboard.writeText(URL_METAS) : Promise.reject()).then(() => toast('Link copiado', 'ok'), () => prompt('Copie o link:', URL_METAS)); };
 
+
+/* metas v2: app Metas & Bônus (entrada por CPF) */
+PAGES.metas = async () => {
+  const ehVend = PORTAL === 'vendedor' && !can('DONO', 'GERENTE'), msg = 'As suas metas e o seu bônus do mês estão no app Metas & Bônus da NexumCell: ' + URL_METAS + '\nEntre com o seu CPF. No primeiro acesso, confirme a data de nascimento e crie a sua senha.';
+  $('#topActions').innerHTML = ehVend ? '' : `<a class="btn gold" href="${URL_METAS}" target="_blank" rel="noopener">Abrir e definir metas</a>`;
+  $('#view').innerHTML = `<div class="card" style="background:linear-gradient(135deg,#0A1733,#16306B);color:#fff;border:0"><div class="row" style="justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
+    <div style="max-width:640px"><small style="opacity:.75;text-transform:uppercase;letter-spacing:.08em">App Metas & Bônus</small><h2 style="margin:4px 0 6px;color:#fff">${ehVend ? 'Suas metas e o seu bônus do mês' : 'Metas e bônus da equipe'}</h2>
+    <p style="margin:0;opacity:.85;font-size:14px">${ehVend ? 'Abra no celular e entre com o seu CPF. No primeiro acesso você confirma a data de nascimento e cria a sua senha.' : PORTAL === 'dono' ? 'Monte as metas da equipe NexumCell (financeiro, suporte, vendedores internos e gerentes) e veja qualquer loja. Entre no app com o seu ID e senha do sistema.' : 'Monte as metas da sua loja do seu jeito: categorias, meta de cada vendedor e bônus por faixa. Entre no app com o seu ID e senha do sistema.'}</p></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="${URL_METAS}" target="_blank" rel="noopener">Abrir o app</a>${ehVend ? '' : `<button class="btn" data-act="linkCopiarM">Copiar link</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Mandar para a equipe</a>`}</div></div></div>
+    ${ehVend ? '' : `<div class="card mt"><h2 style="margin:0 0 6px">Como funciona</h2><ol style="margin:0;padding-left:20px;line-height:1.9"><li>No app, aba <b>Equipe</b>: cadastre cada pessoa com nome, CPF e data de nascimento.</li><li>Aba <b>Metas e bônus</b>: crie as categorias, a meta de cada um e quanto ganha em cada faixa (80%, 100%, 120%…).</li><li>Mande o link. Cada pessoa entra com o CPF e cria a própria senha no primeiro acesso.</li><li>Acompanhe no <b>Painel</b> (tendência, matriz por categoria) e no <b>Bônus</b> (projeção do mês).</li></ol></div>`}`;
+};
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>

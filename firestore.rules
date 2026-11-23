@@ -554,6 +554,31 @@ service cloud.firestore {
     match /chatDono/{uid} {
       allow read, write: if hasRole(['DONO']) || (signed() && request.auth.uid == uid && hasRole(['SUPORTE', 'FINANCEIRO', 'COMERCIAL']));
     }
+    // ===== app Minhas Metas: o gerente cuida da loja dele (escopo = lojaId) e o dono da equipe NexumCell (escopo 'nexum') e de qualquer loja
+    function metasGestor(esc) { return hasRole(['DONO']) || (hasRole(['GERENTE']) && me().lojaId == esc); }
+    function metasAc() { return get(/databases/$(database)/documents/metasAcesso/$(request.auth.uid)).data; }
+    function metasFunc(esc) { return signed() && exists(/databases/$(database)/documents/metasAcesso/$(request.auth.uid)) && metasAc().escopo == esc; }
+    match /metasAcesso/{uid} { allow read: if signed() && request.auth.uid == uid; allow write: if false; }
+    match /metasTentativas/{id} { allow read, write: if false; }
+    match /metasPessoas/{id} {
+      allow read: if (signed() && resource.data.get('uid', '') == request.auth.uid) || metasGestor(resource.data.escopo);
+      allow create: if metasGestor(request.resource.data.escopo) && id == request.resource.data.escopo + '_' + request.resource.data.cpf;
+      allow update: if metasGestor(resource.data.escopo) && request.resource.data.escopo == resource.data.escopo && request.resource.data.cpf == resource.data.cpf
+                    && request.resource.data.get('uid', '') == resource.data.get('uid', '');
+      allow delete: if metasGestor(resource.data.escopo) && resource.data.get('uid', '') == '';
+    }
+    match /metasPlano/{id} {
+      allow read: if metasFunc(resource.data.escopo) || metasGestor(resource.data.escopo);
+      allow create: if metasGestor(request.resource.data.escopo) && id.matches('^' + request.resource.data.escopo + '_[0-9]{4}-[0-9]{2}$');
+      allow update: if metasGestor(resource.data.escopo) && request.resource.data.escopo == resource.data.escopo;
+    }
+    match /metasLanc/{id} {
+      allow read: if (metasFunc(resource.data.escopo) && resource.data.cpf == metasAc().cpf) || metasGestor(resource.data.escopo);
+      allow create: if (metasFunc(request.resource.data.escopo) && request.resource.data.cpf == metasAc().cpf && request.resource.data.porUid == request.auth.uid)
+                    || metasGestor(request.resource.data.escopo);
+      allow delete: if metasGestor(resource.data.escopo) || (metasFunc(resource.data.escopo) && resource.data.porUid == request.auth.uid);
+      allow update: if false;
+    }
     // respostas rápidas pessoais de cada atendente do CRM
     match /crmMinhas/{uid} { allow read, write: if signed() && request.auth.uid == uid && staff(); }
     // contrato assinado do empréstimo (gravado só pelo servidor)
