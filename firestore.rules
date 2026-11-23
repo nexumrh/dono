@@ -599,6 +599,8 @@ service cloud.firestore {
     }
 
     // pausas com motivo (cada atendente registra as próprias), base de conhecimento, incidentes (erro em massa) e nota de qualidade da IA
+    // pedidos de localização do aparelho para recuperação: só o servidor cria e atualiza; dono e financeiro leem o registro
+    match /localizacoes/{id} { allow read: if hasRole(['DONO', 'FINANCEIRO']); allow write: if false; }
     match /crmPausas/{id} { allow read: if crmEquipe(); allow create: if crmEquipe() && request.resource.data.uid == request.auth.uid; allow update: if crmEquipe() && resource.data.uid == request.auth.uid; allow delete: if false; }
     match /crmArtigos/{id} { allow read: if crmEquipe(); allow create, update: if hasRole(['DONO']); allow delete: if false; }
     match /crmIncidentes/{id} { allow read, create, update: if crmEquipe(); allow delete: if false; }
