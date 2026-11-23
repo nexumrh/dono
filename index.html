@@ -10514,12 +10514,12 @@ PAGES.crm=async()=>{
       <label>IA autônoma<select id="iaOn"><option value="sim">Ligada</option><option value="nao" ${S.cfg.iaAutonoma==='nao'?'selected':''}>Desligada</option></select></label>
       <label>Lista negra automática<select id="iaLn"><option value="sim">Ligada</option><option value="nao" ${S.cfg.listaNegraAuto==='nao'?'selected':''}>Desligada</option></select></label>
       <label>&nbsp;<button class="btn gold" data-act="bkIaSalvar">Salvar IA autônoma</button></label></div>
-    <p class="hint">Sem a chave própria, ela usa a chave do Groq do servidor. Crie uma chave nova em console.groq.com → API Keys.</p></div>`);
+    <p class="hint">${S.cfg.iaChaveFinal?`<span class="badge b-green" style="margin-right:6px">Chave salva</span>termina em <b class="mono">…${esc(S.cfg.iaChaveFinal)}</b>, colada em ${fmtDT(S.cfg.iaChaveEm)} por ${esc(S.cfg.iaChavePor||'')}. Por segurança ela não aparece aqui de novo: para trocar, cole a nova e salve.`:'Cole aqui a chave do Groq (começa com gsk_) e clique em Salvar: ela fica guardada no sistema e vale para a IA autônoma, o CRM e o chat do site. Crie a chave em console.groq.com → API Keys.'}</p></div>`);
 }; }
 Object.assign(ACT,{
   bkIaSalvar:async()=>{ const k=$('#iaK2').value.trim(), d={iaAutonoma:$('#iaOn').value,listaNegraAuto:$('#iaLn').value};
-    try{ if(k){ if(!/^gsk_/.test(k)) return toast('A chave do Groq começa com gsk_','err'); await DB.set('segredos','ia',{chave:k,em:Date.now(),por:S.me.nome}); }
-      await DB.set('config','sistema',d); Object.assign(S.cfg,d); await log('IA autônoma configurada','config',JSON.stringify(d)+(k?' · chave nova':'')); $('#iaK2').value=''; toast('IA autônoma salva','ok'); }
+    try{ if(k){ if(!/^gsk_/.test(k)) return toast('A chave do Groq começa com gsk_','err'); await DB.set('segredos','ia',{chave:k,em:Date.now(),por:S.me.nome}); Object.assign(d,{iaChaveFinal:k.slice(-4),iaChaveEm:Date.now(),iaChavePor:S.me.nome}); }
+      await DB.set('config','sistema',d); Object.assign(S.cfg,d); await log('IA autônoma configurada','config',JSON.stringify(d)+(k?' · chave nova':'')); $('#iaK2').value=''; toast(k?'Chave salva no sistema. A IA já pode usar.':'IA autônoma salva','ok'); render(); }
     catch(e){ toast('Não foi possível salvar: '+e.message,'err'); } },
   bkIaRodar:async(d,b)=>{ if(b) b.disabled=true; try{ const r=await apiServ('ia',{acao:'rodar'}); toast(`IA rodou: ${r.aprovacoes||0} aprovação(ões), ${r.preanalises||0} pré-análise(s), ${r.listaNegra||0} na lista negra`,'ok'); render(); }catch(e){ toast('IA: '+e.message,'err'); } if(b) b.disabled=false; },
 });
