@@ -33,6 +33,7 @@ import avisarDono from '../api/avisar-dono.js';
 import metas from '../api/metas.js';
 import atendimento from '../api/atendimento.js';
 import localizar from '../api/localizar.js';
+import assistenteDono from '../api/assistente-dono.js';
 import { ajudaArtigos } from '../api/crm-extra.js';
 
 const ROTAS = { metas, atendimento, localizar, 'ajuda-artigos': ajudaArtigos, 'avisar-dono': avisarDono, equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };

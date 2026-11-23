@@ -11457,6 +11457,124 @@ ACT.fichaLoja=d=>fichaLoja(d.id);
 
 
 
+
+/* ======================= ASSISTENTE DO NEGÓCIO (IA com os números) e PREVISÃO DE ATRASO (nov/2026) ======================= */
+TABS.push({id:'assistente',label:'Assistente IA',roles:['DONO','FINANCEIRO']});
+NAV_GRUPOS[0][1].push('assistente');
+['dono','financeiro'].forEach(k=>{ const t=PORTAIS[k]?.tabs; if(t&&!t.includes('assistente')) t.splice(Math.max(0,t.indexOf('painel')+1),0,'assistente'); });
+IC.assistente='<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8zM5 16l.6 1.4 1.4.6-1.4.6L5 20l-.6-1.4L3 18l1.4-.6z"/>';
+
+/* resumo dos números que vai para a IA (calculado aqui, com o que este usuário já pode ver) */
+async function dadosNegocio(){
+  const h=hoje(), mes=h.slice(0,7), dAnt=new Date(mes+'-15T12:00:00'); dAnt.setMonth(dAnt.getMonth()-1); const mesAnt=dAnt.toISOString().slice(0,7);
+  const [vs,lojas,desp,aps]=await Promise.all([loadVendas(),DB.list('lojas').catch(()=>[]),DB.list('despesas').catch(()=>[]),loadAparelhos().catch(()=>[])]);
+  const efet=vs.filter(v=>['ATIVA','QUITADA','RETOMADA'].includes(v.status)), ativ=vs.filter(v=>v.status==='ATIVA'), r2=n=>Math.round((+n||0)*100)/100;
+  const nomeLoja=id=>lojas.find(l=>l.id===id)?.nome||id||'sem loja', mesDe=t=>t?new Date(+t-3*3600e3).toISOString().slice(0,7):'';
+  const pagas=[]; efet.forEach(v=>(v.parcelas||[]).forEach(p=>{ if(p.pago&&p.pagoEm) pagas.push({v,valor:+(p.valorPago??p.valor)||0,em:String(p.pagoEm).slice(0,10)}); }));
+  const soma=(l,f)=>r2(l.filter(f).reduce((s,x)=>s+x.valor,0));
+  const abertas=[]; ativ.forEach(v=>(v.parcelas||[]).forEach(p=>{ if(!p.pago) abertas.push({v,p,valor:+p.valor||0,dias:diasEntre(p.venc,h)}); }));
+  const atr=abertas.filter(x=>x.dias>0), faixa=(a,b)=>({valor:soma(atr,x=>x.dias>=a&&x.dias<=b),parcelas:atr.filter(x=>x.dias>=a&&x.dias<=b).length});
+  const contAtr=new Set(atr.map(x=>x.v.id)), inad=inadimplencia(vs);
+  const porMes=[]; for(let i=5;i>=0;i--){ const d=new Date(mes+'-15T12:00:00'); d.setMonth(d.getMonth()-i); const m=d.toISOString().slice(0,7), l=efet.filter(v=>mesDe(v.criadoEm)===m);
+    porMes.push({mes:m,vendas:l.length,valorAparelhos:r2(l.reduce((s,v)=>s+(+v.valor||0),0)),financiado:r2(l.reduce((s,v)=>s+(+v.financiado||0),0)),recebido:soma(pagas,x=>x.em.startsWith(m))}); }
+  const grp=(chave,nome)=>{ const o={}; efet.forEach(v=>{ const k=chave(v)||'—'; const g=(o[k]||={nome:nome(v),contratosAtivos:0,vendasMes:0,vendasMesAnterior:0,vendasTotal:0,contratosComAtraso:0,valorEmAtraso:0,recebidoMes:0});
+      g.vendasTotal++; if(v.status==='ATIVA') g.contratosAtivos++; if(mesDe(v.criadoEm)===mes) g.vendasMes++; if(mesDe(v.criadoEm)===mesAnt) g.vendasMesAnterior++; if(contAtr.has(v.id)) g.contratosComAtraso++; });
+    atr.forEach(x=>{ const k=chave(x.v)||'—'; if(o[k]) o[k].valorEmAtraso=r2(o[k].valorEmAtraso+x.valor); });
+    pagas.filter(x=>x.em.startsWith(mes)).forEach(x=>{ const k=chave(x.v)||'—'; if(o[k]) o[k].recebidoMes=r2(o[k].recebidoMes+x.valor); });
+    return Object.values(o).map(g=>({...g,pctContratosComAtraso:g.contratosAtivos?Math.round(g.contratosComAtraso/g.contratosAtivos*100):0})); };
+  const lim=Date.now()-diasSemSinal()*864e5, semSinal=aps.filter(a=>a.status==='ATIVO'&&!a.quitado&&a.checkin?.em&&a.checkin.em<lim);
+  return { hoje:h, mesAtual:mes, mesAnterior:mesAnt, perfil:ROLES[S.me.role],
+    carteira:{contratosAtivos:ativ.length,saldoAReceber:soma(abertas,()=>1),contratosComAtraso:contAtr.size,valorEmAtraso:soma(atr,()=>1),inadimplenciaPct:Math.round(inad.pct*10)/10,
+      atrasoPorFaixa:{'1a15dias':faixa(1,15),'16a30dias':faixa(16,30),'31a60dias':faixa(31,60),'mais60dias':faixa(61,9999)}},
+    recebido:{hoje:soma(pagas,x=>x.em===h),ultimos7dias:soma(pagas,x=>diasEntre(x.em,h)<7),ultimos30dias:soma(pagas,x=>diasEntre(x.em,h)<30),mesAtual:soma(pagas,x=>x.em.startsWith(mes)),mesAnterior:soma(pagas,x=>x.em.startsWith(mesAnt))},
+    aVencer:{proximos7dias:soma(abertas,x=>x.dias<=0&&x.dias>-7),proximos30dias:soma(abertas,x=>x.dias<=0&&x.dias>-30)},
+    vendasPorMes:porMes, porLoja:grp(v=>v.lojaId,v=>nomeLoja(v.lojaId)),
+    porVendedor:grp(v=>v.vendedorUid,v=>`${v.vendedorNome||'—'} (${nomeLoja(v.lojaId)})`).sort((a,b)=>b.vendasMes-a.vendasMes||b.vendasTotal-a.vendasTotal).slice(0,25),
+    maioresAtrasos:Object.values(atr.reduce((o,x)=>{ const g=(o[x.v.id]||={cliente:x.v.clienteNome,contrato:x.v.numero,loja:nomeLoja(x.v.lojaId),vendedor:x.v.vendedorNome,diasAtraso:0,valor:0}); g.diasAtraso=Math.max(g.diasAtraso,x.dias); g.valor=r2(g.valor+x.valor); return o; },{})).sort((a,b)=>b.valor-a.valor).slice(0,12),
+    despesas:{mesAtual:r2(desp.filter(d=>String(d.data).startsWith(mes)).reduce((s,d)=>s+(+d.valor||0),0)),mesAnterior:r2(desp.filter(d=>String(d.data).startsWith(mesAnt)).reduce((s,d)=>s+(+d.valor||0),0))},
+    trava:{aparelhosAtivos:aps.filter(a=>a.status==='ATIVO').length,semSinalHaMaisDe:diasSemSinal()+' dias',aparelhosSemSinal:semSinal.length},
+    previsaoDeAtraso:(await previsaoAtraso().catch(()=>[])).slice(0,10).map(x=>({cliente:x.v.clienteNome,contrato:x.v.numero,vence:x.p.venc,valor:x.p.valor,risco:x.score,motivos:x.mot.join('; ')})) };
+}
+const ASS={msgs:[],dados:null,em:0};
+const ASS_SUG=['Como está a empresa este mês comparado ao mês passado?','Qual loja tem mais atraso e o que eu faço?','Quanto vou receber nos próximos 7 dias?','Quais vendedores vendem para quem mais atrasa?','Quem pode atrasar esta semana?','Quanto entrou hoje e quanto está atrasado?'];
+const fmtIA=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^#+\s*(.+)$/gm,'<b>$1</b>').replace(/^\s*[-*]\s+/gm,'• ').replace(/\n/g,'<br>');
+PAGES.assistente=async()=>{
+  const v=$('#view'); if(!can('DONO','FINANCEIRO')){ v.innerHTML='<div class="card">Somente o dono e o financeiro.</div>'; return; }
+  v.innerHTML=`<div class="card as-top"><div><h2 style="margin:0">Assistente do negócio</h2><p class="small muted" style="margin:4px 0 0">Pergunte em português sobre vendas, recebimentos, atrasos, lojas e vendedores. A IA responde com os números do sistema de agora, calculados com o que você pode ver.</p></div><button class="btn sm" id="asAtu">Atualizar números</button></div>
+    <div class="card as-chat"><div id="asMsgs" class="as-msgs">${ASS.msgs.length?'':`<div class="as-vazio"><b>Sugestões para começar</b><div class="as-sug">${ASS_SUG.map(s=>`<button class="btn sm" data-assug="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`}</div>
+    <form id="asF" class="as-f"><textarea id="asIn" rows="1" maxlength="600" placeholder="Ex.: qual loja vendeu mais este mês?"></textarea><button class="btn gold" id="asB">Perguntar</button></form>
+    <p class="small muted" style="margin:8px 2px 0" id="asInfo">${ASS.em?'Números de '+fmtDT(ASS.em):'Os números são calculados quando você faz a primeira pergunta.'}</p></div>`;
+  const pinta=()=>{ const b=$('#asMsgs'); if(!b) return; if(!ASS.msgs.length) return; b.innerHTML=ASS.msgs.map(m=>`<div class="as-m ${m.de}">${m.de==='ia'?fmtIA(m.t):esc(m.t)}</div>`).join(''); b.scrollTop=b.scrollHeight; };
+  pinta();
+  const perguntar=async q=>{ q=String(q||'').trim(); if(q.length<3) return; ASS.msgs.push({de:'eu',t:q},{de:'ia',t:'Calculando os números e pensando…'}); pinta(); $('#asB').disabled=true;
+    try{ if(!ASS.dados||Date.now()-ASS.em>10*60e3){ ASS.dados=await dadosNegocio(); ASS.em=Date.now(); }
+      const r=await apiServ('assistente-dono',{pergunta:q,dados:ASS.dados,historico:ASS.msgs.slice(0,-2).slice(-6)}); ASS.msgs[ASS.msgs.length-1]={de:'ia',t:r.resposta||'Não consegui responder agora.'}; }
+    catch(e){ ASS.msgs[ASS.msgs.length-1]={de:'ia',t:'Não foi possível responder: '+e.message}; }
+    if(!$('#asMsgs')) return; $('#asB').disabled=false; $('#asInfo').textContent='Números de '+fmtDT(ASS.em); pinta(); };
+  $('#asF').onsubmit=e=>{ e.preventDefault(); const t=$('#asIn').value; $('#asIn').value=''; perguntar(t); };
+  $('#asIn').onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('#asF').requestSubmit(); } };
+  $('#asAtu').onclick=async()=>{ $('#asAtu').disabled=true; ASS.dados=await dadosNegocio().catch(()=>null); ASS.em=Date.now(); $('#asAtu').disabled=false; $('#asInfo').textContent='Números de '+fmtDT(ASS.em); toast('Números atualizados','ok'); };
+  v.querySelectorAll('[data-assug]').forEach(b=>b.onclick=()=>perguntar(b.dataset.assug));
+};
+{ const _as=apiServ; apiServ=async function(rota,d){ if(rota==='assistente-dono'&&!FB_ON){ const c=d.dados?.carteira||{};
+    return {resposta:`Modo demonstração. Hoje há **${c.contratosAtivos} contratos ativos**, ${c.contratosComAtraso} com atraso somando ${brl(c.valorEmAtraso)} (inadimplência de ${String(c.inadimplenciaPct).replace('.',',')}%).\nNo mês foram recebidos ${brl(d.dados?.recebido?.mesAtual)}.\nSugestão: comece a cobrança pelos contratos de 1 a 15 dias de atraso, que têm mais chance de pagar.`}; }
+  return _as(rota,d); }; }
+
+/* ---------- previsão de atraso: quem tem mais chance de atrasar a próxima parcela (próximos 7 dias) ---------- */
+async function previsaoAtraso(){
+  const h=hoje(), [vs,cobs]=await Promise.all([loadVendas(),loadCobrancas()]), cm={}; cobs.forEach(c=>cm[c.id]=c);
+  const l=[];
+  vs.filter(v=>v.status==='ATIVA').forEach(v=>{ const ps=v.parcelas||[], ab=ps.filter(p=>!p.pago);
+    if(!ab.length||ab.some(p=>p.venc<h)) return; const p=ab.sort((a,b)=>String(a.venc).localeCompare(b.venc))[0], fal=diasEntre(h,p.venc); if(fal<0||fal>7) return;
+    const pg=ps.filter(x=>x.pago&&x.pagoEm), atrs=pg.map(x=>Math.max(0,diasEntre(x.venc,String(x.pagoEm).slice(0,10)))), tard=atrs.filter(d=>d>2).length;
+    const taxa=pg.length?tard/pg.length:0, media=atrs.length?atrs.reduce((s,d)=>s+d,0)/atrs.length:0, ult=atrs.length?atrs[atrs.length-1]:0;
+    const queb=(cm[v.id]?.promessas||[]).filter(x=>x.status==='QUEBRADA').length, parc=ps.some(x=>x.pagoParcial&&!x.pago);
+    let s=12; const mot=[];
+    if(!pg.length){ s+=28; mot.push('ainda não pagou nenhuma parcela'); }
+    if(taxa>0){ s+=Math.round(taxa*45); mot.push(`atrasou ${tard} de ${pg.length} parcela(s)`); }
+    if(media>3){ s+=Math.min(15,Math.round(media)); mot.push(`atraso médio de ${Math.round(media)} dia(s)`); }
+    if(ult>3){ s+=10; mot.push(`atrasou a última (${ult} dia(s))`); }
+    if(queb){ s+=Math.min(20,queb*10); mot.push(`${queb} promessa(s) quebrada(s)`); }
+    if(parc){ s+=6; mot.push('pagou parcela pela metade'); }
+    if(pg.length>=3&&!tard){ s-=10; }
+    s=Math.max(1,Math.min(99,s)); if(s<40) return;
+    l.push({v,p,fal,score:s,mot,avisado:+(cm[v.id]?.previsaoAvisoEm||0)>Date.now()-4*864e5});
+  });
+  return l.sort((a,b)=>(a.avisado-b.avisado)||(b.score-a.score)||(a.fal-b.fal));
+}
+function blocoPrevAtraso(l){
+  if(!l.length) return '';
+  const app=new URL('../cliente/',location.href).href, fal=d=>d===0?'vence hoje':d===1?'vence amanhã':`vence em ${d} dias`;
+  const row=x=>{ const v=x.v, tel=onlyDig((v.cliente?.telefones||[])[0]||v.cliente?.tel||''), nome=primeiroNome(v.clienteNome);
+    const msg=`Olá, ${nome}! Aqui é da NexumCell. Passando para lembrar que a parcela ${x.p.n} do seu celular, de ${brl(x.p.valor)}, ${x.fal===0?'vence hoje':'vence em '+fmtD(x.p.venc)}. Pelo app você paga no PIX em segundos e já fica em dia: ${app}. Qualquer dúvida é só responder aqui. Obrigado!`;
+    const cor=x.score>=70?'red':x.score>=55?'amber':'blue';
+    return `<div class="pv-i ${x.avisado?'feito':''}"><div class="pv-s ${cor}"><b>${x.score}%</b><small>risco</small></div><div class="pv-t"><b>${esc(v.clienteNome)}</b> <span class="small muted">· nº ${v.numero} · ${esc(v.lojaNome||'')}</span>
+      <div class="small">Parcela ${x.p.n} de ${brl(x.p.valor)} ${fal(x.fal)}</div><div class="pv-m">${x.mot.map(m=>`<span>${esc(m)}</span>`).join('')}</div></div>
+      <div class="pv-a">${x.avisado?'<span class="badge b-green">Lembrete enviado</span>':`${tel?`<a class="btn sm green" target="_blank" rel="noopener" data-pvok="${v.id}" href="https://wa.me/55${tel}?text=${encodeURIComponent(msg)}">Lembrar no WhatsApp</a>`:''}<button class="btn sm" data-pvok="${v.id}" data-so="1">Já avisei</button>`}</div></div>`; };
+  const pend=l.filter(x=>!x.avisado).length;
+  return `<details class="card pv-card" ${pend?'open':''}><summary><div><h3 style="margin:0">Podem atrasar nos próximos 7 dias <span class="badge b-${pend?"amber":"green"}">${pend} para avisar</span></h3>
+    <p class="small muted" style="margin:3px 0 0">Previsão pelo histórico de cada cliente: atrasos anteriores, promessas quebradas e pagamentos pela metade. Um lembrete antes do vencimento evita boa parte dos atrasos.</p></div></summary>
+    <div class="pv-l">${l.slice(0,40).map(row).join('')}</div></details>`;
+}
+{ const _pf2=PAGES.fila; PAGES.fila=async(...a)=>{ await _pf2(...a); if(can('VENDEDOR')||!$('#view')||$('.pv-card')) return;
+  const l=await previsaoAtraso().catch(()=>[]); if(!$('#view')||$('.pv-card')) return; $('#view').insertAdjacentHTML('afterbegin',blocoPrevAtraso(l));
+  $('#view').querySelectorAll('[data-pvok]').forEach(b=>b.addEventListener('click',async()=>{ const id=b.dataset.pvok;
+    await DB.set('cobrancas',id,{previsaoAvisoEm:Date.now(),previsaoAvisoPor:S.me.nome,lojaId:(S._vendas||[]).find?.(v=>v.id===id)?.lojaId||S.me.lojaId||''}).catch(()=>{});
+    const it=b.closest('.pv-i'); it?.classList.add('feito'); const ac=it?.querySelector('.pv-a'); if(ac) setTimeout(()=>{ ac.innerHTML='<span class="badge b-green">Lembrete enviado</span>'; },b.dataset.so?0:400); })); }; }
+
+document.head.insertAdjacentHTML('beforeend',`<style id="as-pv">
+.as-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.as-chat{display:flex;flex-direction:column}.as-msgs{min-height:260px;max-height:58vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 12px}
+.as-m{max-width:86%;padding:11px 14px;border-radius:16px;font-size:14.5px;line-height:1.55}.as-m.eu{align-self:flex-end;background:#1D4ED8;color:#fff;border-bottom-right-radius:5px}.as-m.ia{align-self:flex-start;background:#F1F5F9;color:#0F172A;border-bottom-left-radius:5px}
+.as-vazio{margin:auto 0;text-align:center;color:#475569}.as-sug{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}.as-sug .btn{white-space:normal;text-align:left}
+.as-f{display:flex;gap:8px;align-items:flex-end;border-top:1px solid #E5E9F2;padding-top:12px}.as-f textarea{flex:1;resize:none;min-height:46px;max-height:140px;margin:0}
+.pv-card summary{list-style:none;cursor:pointer}.pv-card summary::-webkit-details-marker{display:none}.pv-l{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.pv-i{display:flex;gap:12px;align-items:center;border:1px solid #E5E9F2;border-radius:14px;padding:10px 12px;flex-wrap:wrap}.pv-i.feito{opacity:.6}
+.pv-s{width:56px;text-align:center;border-radius:12px;padding:6px 0;flex:none}.pv-s b{display:block;font-size:17px;line-height:1.1}.pv-s small{font-size:10.5px;text-transform:uppercase;font-weight:700}
+.pv-s.red{background:#FEE2E2;color:#991B1B}.pv-s.amber{background:#FEF3C7;color:#92400E}.pv-s.blue{background:#DBEAFE;color:#1E40AF}
+.pv-t{flex:1;min-width:220px}.pv-m{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.pv-m span{font-size:11.5px;background:#F1F5F9;color:#475569;border-radius:99px;padding:2px 8px}.pv-a{display:flex;gap:6px;flex-wrap:wrap}
+</style>`);
+
 /* ======================= REINICIAR O SISTEMA (só o dono) e aviso de erro (nov/2026) =======================
    Neste aparelho: limpa a cópia salva do site, a sessão da aba e os filtros guardados, e recarrega (o login continua).
    Para toda a equipe: o dono grava plataforma/reinicio e todos os portais abertos reiniciam sozinhos em 5 segundos.
