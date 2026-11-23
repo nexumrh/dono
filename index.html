@@ -1141,7 +1141,7 @@ PAGES.painel = async () => {
 /* ======================= IA: leitura de documento e biometria ======================= */
 const IA = window.NEXUMCELL_IA || {};
 const iaChave = () => (S.cfg.iaChave||IA.chave||'').trim();
-const iaModelo = () => S.cfg.iaModelo||IA.modelo||'qwen/qwen3.8-27b';
+const iaModelo = () => { const m=S.cfg.iaModelo||IA.modelo||''; return m&&!/llama-3\.[0-9]-|llama3-|llama-4-scout|qwen3-32b|deepseek-r1-distill|mixtral|gemma2/i.test(m)?m:'qwen/qwen3.8-27b'; }; // modelos desligados pelo Groq são ignorados
 // modelos de visão do Groq, do preferido para o reserva (o Groq às vezes aposenta um modelo)
 const IA_VISAO=['qwen/qwen3.8-27b','qwen/qwen3.6-27b','meta-models/muse-spark-open','meta-llama/llama-4-scout-17b-16e-instruct'];
 async function iaChamar(modelo,prompt,imagens,semJson=false,maxTok=700){

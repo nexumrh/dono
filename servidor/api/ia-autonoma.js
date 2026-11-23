@@ -9,7 +9,8 @@
 import { db, config, hoje, r2, baixarParcela, pushAparelho } from './_base.js';
 import { decidir as decidirPre } from './preanalise.js';
 
-const MODELO = process.env.GROQ_MODELO_AUTONOMA || 'llama-3.3-70b-versatile';
+const MODELO = process.env.GROQ_MODELO_AUTONOMA || '';
+import { groqChat } from './groq-modelos.js';
 const dias = (a, b) => Math.round((new Date(String(b).slice(0, 10) + 'T12:00:00') - new Date(String(a).slice(0, 10) + 'T12:00:00')) / 86400e3);
 const POR = 'IA NexumCell';
 
@@ -26,13 +27,10 @@ export async function chaveIA() {
 export async function parecerIA(tarefa, dados) {
   const chave = await chaveIA(); if (!chave) return null;
   try {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + chave, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODELO, temperature: 0.1, max_tokens: 300, response_format: { type: 'json_object' }, messages: [
+    const r = await groqChat(chave, [
         { role: 'system', content: 'Você é o analista de risco da NexumCell, financeira de celulares com trava para clientes negativados. Responda SOMENTE em JSON {"parecer":"até 2 frases em português do Brasil, objetivas","risco":"baixo|medio|alto"}. Use só os dados recebidos; não invente.' },
-        { role: 'user', content: tarefa + '\nDADOS: ' + JSON.stringify(dados).slice(0, 6000) }] }) });
-    if (!r.ok) return null;
-    const j = await r.json(); return JSON.parse(j.choices?.[0]?.message?.content || '{}');
+        { role: 'user', content: tarefa + '\nDADOS: ' + JSON.stringify(dados).slice(0, 6000) }], { temperatura: 0.1, max: 300, json: true, preferido: MODELO });
+    return JSON.parse(r.texto || '{}');
   } catch (e) { return null; }
 }
 

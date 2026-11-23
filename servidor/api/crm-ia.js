@@ -12,7 +12,9 @@ import { errosTexto, codigosNoTexto, AJUDA_URL } from './erros.js';
 import { exemplosBons } from './crm-rotinas.js';
 import { transcrever, traduzir, qualidade, artigosTexto } from './crm-extra.js';
 
-const MODELO = process.env.GROQ_MODELO_CRM || 'llama-3.3-70b-versatile';
+import { groqChat } from './groq-modelos.js';
+let ULTIMO_MODELO = '';
+const MODELO = process.env.GROQ_MODELO_CRM || '';
 export const REGRAS = 'Você trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece crédito. Responda sempre em português do Brasil, com educação e frases curtas. Nunca prometa aprovação de crédito, desconto ou liberação que a equipe não confirmou. Nunca peça senha, código ou pagamento em conta de terceiros. Pagamento é só pelo app NexumCell (aba Parcelas → Pix) ou pelo Pix enviado pela equipe. Não use emojis.';
 const ESTILOS = {
   curta: 'Reescreva a mensagem de forma mais curta e direta, mantendo todas as informações importantes.',
@@ -23,13 +25,9 @@ const ESTILOS = {
 };
 const IDIOMAS = { es: 'espanhol (do Paraguai/Argentina, claro e simples)', pt: 'português do Brasil', en: 'inglês simples' };
 
-export async function groq(mensagens, { temperatura = 0.3, max = 400, json = false, modelo = MODELO } = {}) {
+export async function groq(mensagens, { temperatura = 0.3, max = 400, json = false, modelo = MODELO, tipo = 'texto' } = {}) {
   const chave = await chaveIA(); if (!chave) throw Object.assign(new Error('IA sem chave: coloque a chave da IA em Configurações do Painel do Dono'), { status: 400 });
-  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: 'Bearer ' + chave, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: modelo, temperature: temperatura, max_tokens: max, ...(json ? { response_format: { type: 'json_object' } } : {}), messages: mensagens }) });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error('IA: ' + (j.error?.message || r.status)), { status: 502 });
-  return String(j.choices?.[0]?.message?.content || '').trim();
+  const r = await groqChat(chave, mensagens, { temperatura, max, json, tipo, preferido: modelo }); ULTIMO_MODELO = r.modelo; return r.texto;
 }
 
 /* base de conhecimento: respostas rápidas da equipe + orientações do dono */
@@ -52,8 +50,8 @@ export default async function handler(req, res) {
     const EXTRA = { transcrever, traduzir, qualidade }; if (EXTRA[b.acao]) return res.json(await EXTRA[b.acao](b, eu));
     if (b.acao === 'relatorioHoje') { const { relatorioDiarioCrm } = await import('./crm-rotinas.js'); await relatorioDiarioCrm({}, true); return res.json({ ok: true }); }
     if (b.acao === 'status') { const chave = await chaveIA().catch(() => ''); if (!chave) return res.json({ chave: false, ok: false, erro: 'Nenhuma chave da IA salva. Cole a chave do Groq (começa com gsk_) em Ajustes do CRM ou no Painel do Dono → Configurações → Inteligência artificial.' });
-      const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4) }); }
-      catch (e) { return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: MODELO, final: chave.slice(-4), erro: e.message }); } }
+      const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: ULTIMO_MODELO, final: chave.slice(-4) }); }
+      catch (e) { return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: ULTIMO_MODELO || '(nenhum)', final: chave.slice(-4), erro: e.message }); } }
     if (b.acao === 'reescrever') { if (!txt.trim()) throw Object.assign(new Error('Escreva a mensagem primeiro'), { status: 400 });
       return res.json({ texto: await groq([{ role: 'system', content: REGRAS }, { role: 'user', content: `${ESTILOS[b.estilo] || ESTILOS.corrigir} Devolva só a mensagem pronta, sem aspas e sem comentários.\n\nMensagem:\n${txt}` }], { temperatura: 0.3 }) }); }
     if (b.acao === 'traduzir') { if (!txt.trim()) throw Object.assign(new Error('Nada para traduzir'), { status: 400 });
@@ -64,7 +62,7 @@ export default async function handler(req, res) {
     if (b.acao === 'comprovante') { const img = String(b.imagem || ''); if (!/^data:image\/(png|jpe?g|webp);base64,/.test(img) || img.length > 5.5e6) throw Object.assign(new Error('Mande uma foto (JPG ou PNG) de até 4 MB'), { status: 400 });
       const t = await groq([{ role: 'system', content: 'Você lê comprovantes de pagamento brasileiros (Pix, TED, boleto, depósito). Extraia os dados exatamente como aparecem. Não invente: campo que não aparece fica vazio.' },
         { role: 'user', content: [{ type: 'text', text: 'Leia este comprovante e responda em JSON: {"ehComprovante":true|false,"tipo":"PIX|TED|BOLETO|DEPOSITO|OUTRO","valor":0.00,"data":"AAAA-MM-DD","hora":"HH:MM","pagador":"nome de quem pagou","recebedor":"nome de quem recebeu","banco":"banco ou app","idTransacao":"código/ID/autenticação da transação","duvidas":"algo estranho na imagem (editada, cortada, valor ilegível) ou vazio"}' }, { type: 'image_url', image_url: { url: img } }] }],
-        { temperatura: 0, max: 400, json: true, modelo: process.env.GROQ_MODELO_VISAO || 'meta-llama/llama-4-scout-17b-16e-instruct' });
+        { temperatura: 0, max: 400, json: true, tipo: 'visao', modelo: process.env.GROQ_MODELO_VISAO || '' });
       let j = {}; try { j = JSON.parse(t); } catch (e) { throw Object.assign(new Error('A IA não conseguiu ler o comprovante'), { status: 502 }); }
       const id = String(j.idTransacao || '').replace(/\s+/g, '').slice(0, 80), usado = id ? (await db.collection('comprovantes').doc(id.replace(/[\/]/g, '_')).get()).data() : null;
       return res.json({ ...j, valor: Math.round((+String(j.valor || 0).toString().replace(',', '.') || 0) * 100) / 100, idTransacao: id, jaUsado: usado ? { em: usado.em, vendaNumero: usado.vendaNumero, parcela: usado.n, por: usado.por } : null }); }
