@@ -9677,7 +9677,7 @@ document.head.insertAdjacentHTML('beforeend',`<style id="gxCss">
 .gx-pick button:hover{border-color:#1D5BFF;background:#F5F8FF}
 .gx-av{width:38px;height:38px;border-radius:50%;background:#0A1733;color:#F3D98B;display:grid;place-items:center;font-weight:700;flex:none}
 .gx-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#0A1733;color:#fff;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:14px}
-.gx-banner b{color:#F3D98B}.gx-banner button{margin-left:auto}
+.gx-banner svg{width:20px;height:20px;flex:none}.gx-banner b{color:#F3D98B}.gx-banner button{margin-left:auto}
 .gx-tabs{display:flex;gap:4px;border-bottom:1px solid #E2E6F0;margin:14px 0 12px;overflow:auto}
 .gx-tabs button{border:0;background:none;padding:9px 12px;font:inherit;font-size:14px;font-weight:600;color:#5B6478;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .gx-tabs button.on{color:#0A1733;border-bottom-color:#C9A227}
@@ -9741,7 +9741,7 @@ Object.assign(ACT,{ gxVendaPara:d=>{ S._vendaPara={uid:d.id,nome:d.n}; S._vendaP
   if(S.w?.vendaId){ S._vendaParaOk=false; return _nv(...a); }   // proposta já criada: segue do jeito que está
   if(!S._vendaParaOk){ const vs=await vendedoresDaLoja(); if(vs.length) return telaVendaPara(vs); S._vendaPara=null; }
   await _nv(...a);
-  if(S._vendaPara&&$('#view')&&!S.w?.vendaId) $('#view').insertAdjacentHTML('afterbegin',`<div class="gx-banner">${svg(IC.equipe||IC.nova)}<span>Esta venda conta para <b>${esc(S._vendaPara.nome)}</b> (meta e comissão)</span><button class="btn sm" data-act="gxTrocarVendaPara">Trocar vendedor</button></div>`);
+  if(S._vendaPara&&$('#view')&&!S.w?.vendaId) $('#view').insertAdjacentHTML('afterbegin',`<div class="gx-banner"><span>Esta venda conta para <b>${esc(S._vendaPara.nome)}</b> (meta e comissão)</span><button class="btn sm" data-act="gxTrocarVendaPara">Trocar vendedor</button></div>`);
 }; }
 
 /* ---------- 4. códigos de erro: a lista fica com o suporte e o dono; o vendedor e o gerente veem o número na tela ---------- */
