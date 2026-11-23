@@ -1298,9 +1298,58 @@ async function handler4(req, res) {
   }
 }
 
+// api/groq-modelos.js
+var TEXTO = ["openai/gpt-oss-120b", "qwen/qwen3.6-27b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"];
+var VISAO = ["qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-models/muse-spark-open"];
+var RX_VISAO = /qwen3\.?[6-9]|muse|vision|-vl|gemma-?[34]|kimi|scout|maverick/i;
+var RX_FORA = /guard|whisper|tts|orpheus|compound|safeguard|playai|distil/i;
+var cache = null;
+async function modelosAtivos(chave, forcar = false) {
+  if (!forcar && cache && cache.em > Date.now() - 36e5) return cache.ids;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: "Bearer " + chave } });
+    const j = await r.json().catch(() => ({}));
+    const ids = (j.data || []).filter((m) => m.active !== false).map((m) => m.id);
+    if (ids.length) {
+      cache = { em: Date.now(), ids };
+      return ids;
+    }
+  } catch (e) {
+  }
+  return null;
+}
+async function escolherModelo(chave, tipo = "texto", preferido = "", evitar = []) {
+  const pref = tipo === "visao" ? VISAO : TEXTO, lista3 = [preferido, ...pref].filter((m) => m && !evitar.includes(m));
+  const ids = await modelosAtivos(chave, evitar.length > 0);
+  if (!ids) return lista3[0] || pref[0];
+  return lista3.find((m) => ids.includes(m)) || ids.find((m) => !evitar.includes(m) && !RX_FORA.test(m) && (tipo === "visao" ? RX_VISAO.test(m) : /gpt-oss|qwen|llama|kimi|gemma|mistral/i.test(m))) || lista3[0] || pref[0];
+}
+var extrasModelo = (m) => /gpt-oss/i.test(m) ? { reasoning_effort: "low" } : /qwen3\.?8/i.test(m) ? { reasoning_effort: "none" } : {};
+var tokensModelo = (m, max) => /gpt-oss|qwen3/i.test(m) ? max + 800 : max;
+var sumiu = (msg) => /does not exist|decommission|deprecat|not found|no access|not supported|model_not_found/i.test(msg || "");
+var limpar = (t) => String(t || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+async function groqChat(chave, mensagens, { temperatura = 0.3, max = 400, json = false, tipo = "texto", preferido = "" } = {}) {
+  const evitar = [];
+  let modelo = await escolherModelo(chave, tipo, preferido, evitar), ultimo = "";
+  for (let t = 0; t < 3; t++) {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelo, temperature: temperatura, max_tokens: tokensModelo(modelo, max), ...extrasModelo(modelo), ...json ? { response_format: { type: "json_object" } } : {}, messages: mensagens })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) return { texto: limpar(j.choices?.[0]?.message?.content), modelo };
+    ultimo = j.error?.message || String(r.status);
+    if (!sumiu(ultimo)) break;
+    evitar.push(modelo);
+    modelo = await escolherModelo(chave, tipo, "", evitar);
+  }
+  throw Object.assign(new Error("IA: " + ultimo), { status: 502 });
+}
+
 // api/ia-autonoma.js
 init_base();
-var MODELO = process.env.GROQ_MODELO_AUTONOMA || "llama-3.3-70b-versatile";
+var MODELO = process.env.GROQ_MODELO_AUTONOMA || "";
 var dias = (a, b) => Math.round((/* @__PURE__ */ new Date(String(b).slice(0, 10) + "T12:00:00") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00")) / 864e5);
 var POR = "IA NexumCell";
 var _chave = null;
@@ -1322,17 +1371,11 @@ async function parecerIA(tarefa, dados) {
   const chave = await chaveIA();
   if (!chave) return null;
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODELO, temperature: 0.1, max_tokens: 300, response_format: { type: "json_object" }, messages: [
-        { role: "system", content: 'Voc\xEA \xE9 o analista de risco da NexumCell, financeira de celulares com trava para clientes negativados. Responda SOMENTE em JSON {"parecer":"at\xE9 2 frases em portugu\xEAs do Brasil, objetivas","risco":"baixo|medio|alto"}. Use s\xF3 os dados recebidos; n\xE3o invente.' },
-        { role: "user", content: tarefa + "\nDADOS: " + JSON.stringify(dados).slice(0, 6e3) }
-      ] })
-    });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return JSON.parse(j.choices?.[0]?.message?.content || "{}");
+    const r = await groqChat(chave, [
+      { role: "system", content: 'Voc\xEA \xE9 o analista de risco da NexumCell, financeira de celulares com trava para clientes negativados. Responda SOMENTE em JSON {"parecer":"at\xE9 2 frases em portugu\xEAs do Brasil, objetivas","risco":"baixo|medio|alto"}. Use s\xF3 os dados recebidos; n\xE3o invente.' },
+      { role: "user", content: tarefa + "\nDADOS: " + JSON.stringify(dados).slice(0, 6e3) }
+    ], { temperatura: 0.1, max: 300, json: true, preferido: MODELO });
+    return JSON.parse(r.texto || "{}");
   } catch (e) {
     return null;
   }
@@ -1567,7 +1610,7 @@ var PAD = {
 };
 var NOME = { clt: "Consignado CLT", pessoal: "Empr\xE9stimo pessoal", cartao: "iPhone no cart\xE3o" };
 var ST = { APROVADO: "Aprovado", RECUSADO: "Recusado", PENDENTE: "Aguardando decis\xE3o", CONTRATADO: "Contratado", CANCELADO: "Cancelado", EM_ANALISE: "Em an\xE1lise" };
-var VISAO = process.env.GROQ_MODELO_VISAO || "meta-llama/llama-4-scout-17b-16e-instruct";
+var VISAO2 = process.env.GROQ_MODELO_VISAO || "";
 var soD = (s) => String(s || "").replace(/\D/g, "");
 var brl2 = (n) => "R$ " + (Number(n) || 0).toFixed(2).replace(".", ",");
 var meses = (a, b) => {
@@ -1602,16 +1645,16 @@ async function conferirRosto(b) {
   const chave = await chaveIA();
   if (!chave) return { status: "DUVIDA", observacao: "IA sem chave: a equipe confere as fotos." };
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: VISAO, temperature: 0, max_tokens: 350, response_format: { type: "json_object" }, messages: [{ role: "user", content: [
+    let r;
+    try {
+      r = await groqChat(chave, [{ role: "user", content: [
         { type: "text", text: 'Imagem 1: documento de identidade com foto. Imagem 2: selfie de frente tirada agora. Imagem 3: selfie tirada agora virando o rosto. Responda SOMENTE em JSON: {"documento_legivel":true,"rosto_no_documento":true,"mesma_pessoa":"sim|nao|incerto","confianca":0,"selfies_mesma_pessoa":true,"angulos_diferentes":true,"foto_de_tela_ou_papel":false,"observacao":"1 frase em portugu\xEAs"}. "confianca" de 0 a 100 para a selfie ser a pessoa do documento.' },
         ...[b.documento, b.selfie, b.selfie2].map((u) => ({ type: "image_url", image_url: { url: u } }))
-      ] }] })
-    });
-    if (!r.ok) return { status: "DUVIDA", observacao: "A IA n\xE3o respondeu (" + r.status + "): a equipe confere as fotos." };
-    const j = JSON.parse((await r.json()).choices?.[0]?.message?.content || "{}"), conf = +j.confianca || 0;
+      ] }], { temperatura: 0, max: 350, json: true, tipo: "visao", preferido: VISAO2 });
+    } catch (er) {
+      return { status: "DUVIDA", observacao: "A IA n\xE3o respondeu: a equipe confere as fotos." };
+    }
+    const j = JSON.parse(r.texto || "{}"), conf = +j.confianca || 0;
     const reprova = j.foto_de_tela_ou_papel || j.mesma_pessoa === "nao" || j.selfies_mesma_pessoa === false;
     const status = reprova ? "REPROVADA" : j.mesma_pessoa === "sim" && conf >= 70 && j.angulos_diferentes !== false && j.documento_legivel !== false ? "APROVADA" : "DUVIDA";
     return { status, confianca: conf, observacao: j.observacao || "", ia: j };
@@ -2135,7 +2178,7 @@ async function handler8(req, res) {
 
 // api/assistente.js
 init_base();
-var MODELO2 = process.env.GROQ_MODELO || "openai/gpt-oss-120b";
+var MODELO2 = process.env.GROQ_MODELO || "";
 async function handler9(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
@@ -2164,22 +2207,12 @@ async function handler9(req, res) {
       limitacaoComDiasDeAtraso: ap.etapaParcialDias,
       parcelas
     };
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODELO2,
-        temperature: 0.2,
-        max_tokens: 400,
-        messages: [
-          { role: "system", content: origem === "app" ? "Voc\xEA \xE9 a assistente virtual da NexumCell dentro do app do cliente, no celular financiado. Responda em portugu\xEAs do Brasil, em texto simples, sem markdown, sem asteriscos e sem listas com s\xEDmbolos; no m\xE1ximo 4 frases curtas. Use s\xF3 os DADOS DO CONTRATO; nunca invente valores, datas, promo\xE7\xF5es ou regras e n\xE3o prometa descontos nem libera\xE7\xE3o. Valores sempre no formato R$ 0,00 e datas dd/mm/aaaa. Nunca cite telefone, WhatsApp, e-mail ou site. Caminhos que existem no app: aba Parcelas \u2192 Pagar com PIX ou Cart\xE3o ou boleto em cada parcela; aba Parcelas \u2192 Quitar com PIX; aba Parcelas \u2192 Atualizar; aba Contrato \u2192 Baixar contrato assinado e Mudar dia do vencimento; aba Suporte \u2192 Iniciar atendimento. O aparelho libera sozinho alguns minutos depois que o pagamento \xE9 confirmado. Se o caso precisar de uma pessoa (defeito, roubo, contesta\xE7\xE3o, pagamento que n\xE3o caiu depois de 30 minutos), diga para tocar em N\xE3o, logo abaixo da resposta, que a assistente chama a equipe." : "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp informado em telefoneLoja, exatamente como est\xE1 nos dados. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo." },
-          { role: "system", content: "DADOS DO CONTRATO: " + JSON.stringify(contexto) },
-          { role: "user", content: String(pergunta) }
-        ]
-      })
-    });
-    const j = await r.json();
-    return res.status(200).json({ resposta: j.choices?.[0]?.message?.content?.trim() || null });
+    const r = await groqChat(chave, [
+      { role: "system", content: origem === "app" ? "Voc\xEA \xE9 a assistente virtual da NexumCell dentro do app do cliente, no celular financiado. Responda em portugu\xEAs do Brasil, em texto simples, sem markdown, sem asteriscos e sem listas com s\xEDmbolos; no m\xE1ximo 4 frases curtas. Use s\xF3 os DADOS DO CONTRATO; nunca invente valores, datas, promo\xE7\xF5es ou regras e n\xE3o prometa descontos nem libera\xE7\xE3o. Valores sempre no formato R$ 0,00 e datas dd/mm/aaaa. Nunca cite telefone, WhatsApp, e-mail ou site. Caminhos que existem no app: aba Parcelas \u2192 Pagar com PIX ou Cart\xE3o ou boleto em cada parcela; aba Parcelas \u2192 Quitar com PIX; aba Parcelas \u2192 Atualizar; aba Contrato \u2192 Baixar contrato assinado e Mudar dia do vencimento; aba Suporte \u2192 Iniciar atendimento. O aparelho libera sozinho alguns minutos depois que o pagamento \xE9 confirmado. Se o caso precisar de uma pessoa (defeito, roubo, contesta\xE7\xE3o, pagamento que n\xE3o caiu depois de 30 minutos), diga para tocar em N\xE3o, logo abaixo da resposta, que a assistente chama a equipe." : "Voc\xEA \xE9 o assistente da loja de celulares parcelados NexumCell no portal do cliente. Responda em portugu\xEAs do Brasil, curto (at\xE9 3 frases), educado e s\xF3 com base nos DADOS DO CONTRATO. Nunca invente valores, datas, promo\xE7\xF5es ou regras. N\xE3o prometa descontos nem libera\xE7\xE3o. Se n\xE3o souber ou for algo que precisa de uma pessoa, oriente a falar com a loja pelo WhatsApp informado em telefoneLoja, exatamente como est\xE1 nos dados. Bot\xF5es que existem no portal: Pagar (gera PIX), Quitar com PIX, Mudar dia do vencimento, Meu aparelho deu defeito, Roubo/furto/perda, Meus dados (LGPD), Recibo." },
+      { role: "system", content: "DADOS DO CONTRATO: " + JSON.stringify(contexto) },
+      { role: "user", content: String(pergunta) }
+    ], { temperatura: 0.2, max: 400, preferido: MODELO2 });
+    return res.status(200).json({ resposta: r.texto || null });
   } catch (e) {
     console.error(e);
     return res.status(200).json({ resposta: null });
@@ -3236,7 +3269,8 @@ async function incidentesRotina() {
 }
 
 // api/crm-ia.js
-var MODELO3 = process.env.GROQ_MODELO_CRM || "llama-3.3-70b-versatile";
+var ULTIMO_MODELO = "";
+var MODELO3 = process.env.GROQ_MODELO_CRM || "";
 var REGRAS = "Voc\xEA trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece cr\xE9dito. Responda sempre em portugu\xEAs do Brasil, com educa\xE7\xE3o e frases curtas. Nunca prometa aprova\xE7\xE3o de cr\xE9dito, desconto ou libera\xE7\xE3o que a equipe n\xE3o confirmou. Nunca pe\xE7a senha, c\xF3digo ou pagamento em conta de terceiros. Pagamento \xE9 s\xF3 pelo app NexumCell (aba Parcelas \u2192 Pix) ou pelo Pix enviado pela equipe. N\xE3o use emojis.";
 var ESTILOS = {
   curta: "Reescreva a mensagem de forma mais curta e direta, mantendo todas as informa\xE7\xF5es importantes.",
@@ -3246,17 +3280,12 @@ var ESTILOS = {
   corrigir: "Corrija a ortografia, a pontua\xE7\xE3o e a clareza da mensagem, mudando o m\xEDnimo poss\xEDvel."
 };
 var IDIOMAS = { es: "espanhol (do Paraguai/Argentina, claro e simples)", pt: "portugu\xEAs do Brasil", en: "ingl\xEAs simples" };
-async function groq(mensagens, { temperatura = 0.3, max = 400, json = false, modelo = MODELO3 } = {}) {
+async function groq(mensagens, { temperatura = 0.3, max = 400, json = false, modelo = MODELO3, tipo = "texto" } = {}) {
   const chave = await chaveIA();
   if (!chave) throw Object.assign(new Error("IA sem chave: coloque a chave da IA em Configura\xE7\xF5es do Painel do Dono"), { status: 400 });
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + chave, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: modelo, temperature: temperatura, max_tokens: max, ...json ? { response_format: { type: "json_object" } } : {}, messages: mensagens })
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error("IA: " + (j.error?.message || r.status)), { status: 502 });
-  return String(j.choices?.[0]?.message?.content || "").trim();
+  const r = await groqChat(chave, mensagens, { temperatura, max, json, tipo, preferido: modelo });
+  ULTIMO_MODELO = r.modelo;
+  return r.texto;
 }
 async function baseConhecimento() {
   const c = (await db.collection("config").doc("crm").get()).data() || {}, artTxt = await artigosTexto().catch(() => "");
@@ -3285,9 +3314,9 @@ async function handler14(req, res) {
       const t0 = Date.now();
       try {
         const r = await groq([{ role: "user", content: "Responda s\xF3: OK" }], { max: 5, temperatura: 0 });
-        return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: MODELO3, final: chave.slice(-4) });
+        return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: ULTIMO_MODELO, final: chave.slice(-4) });
       } catch (e) {
-        return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: MODELO3, final: chave.slice(-4), erro: e.message });
+        return res.json({ chave: true, ok: false, ms: Date.now() - t0, modelo: ULTIMO_MODELO || "(nenhum)", final: chave.slice(-4), erro: e.message });
       }
     }
     if (b.acao === "reescrever") {
@@ -3323,7 +3352,7 @@ ${txt6}` }], { temperatura: 0.1 }) });
           { role: "system", content: "Voc\xEA l\xEA comprovantes de pagamento brasileiros (Pix, TED, boleto, dep\xF3sito). Extraia os dados exatamente como aparecem. N\xE3o invente: campo que n\xE3o aparece fica vazio." },
           { role: "user", content: [{ type: "text", text: 'Leia este comprovante e responda em JSON: {"ehComprovante":true|false,"tipo":"PIX|TED|BOLETO|DEPOSITO|OUTRO","valor":0.00,"data":"AAAA-MM-DD","hora":"HH:MM","pagador":"nome de quem pagou","recebedor":"nome de quem recebeu","banco":"banco ou app","idTransacao":"c\xF3digo/ID/autentica\xE7\xE3o da transa\xE7\xE3o","duvidas":"algo estranho na imagem (editada, cortada, valor ileg\xEDvel) ou vazio"}' }, { type: "image_url", image_url: { url: img2 } }] }
         ],
-        { temperatura: 0, max: 400, json: true, modelo: process.env.GROQ_MODELO_VISAO || "meta-llama/llama-4-scout-17b-16e-instruct" }
+        { temperatura: 0, max: 400, json: true, tipo: "visao", modelo: process.env.GROQ_MODELO_VISAO || "" }
       );
       let j2 = {};
       try {

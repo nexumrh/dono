@@ -21,7 +21,8 @@ const PAD = {
 };
 const NOME = { clt: 'Consignado CLT', pessoal: 'Empréstimo pessoal', cartao: 'iPhone no cartão' };
 const ST = { APROVADO: 'Aprovado', RECUSADO: 'Recusado', PENDENTE: 'Aguardando decisão', CONTRATADO: 'Contratado', CANCELADO: 'Cancelado', EM_ANALISE: 'Em análise' };
-const VISAO = process.env.GROQ_MODELO_VISAO || 'meta-llama/llama-4-scout-17b-16e-instruct';
+const VISAO = process.env.GROQ_MODELO_VISAO || '';
+import { groqChat } from './groq-modelos.js';
 const soD = (s) => String(s || '').replace(/\D/g, '');
 const brl = (n) => 'R$ ' + (Number(n) || 0).toFixed(2).replace('.', ',');
 const meses = (a, b) => { const x = new Date(a + 'T12:00'), y = new Date(b + 'T12:00'); return (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth() - (y.getDate() < x.getDate() ? 1 : 0); };
@@ -44,12 +45,10 @@ async function historicoCpf(cpf) {
 async function conferirRosto(b) {
   const chave = await chaveIA(); if (!chave) return { status: 'DUVIDA', observacao: 'IA sem chave: a equipe confere as fotos.' };
   try {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: 'Bearer ' + chave, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: VISAO, temperature: 0, max_tokens: 350, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [
+    let r; try { r = await groqChat(chave, [{ role: 'user', content: [
         { type: 'text', text: 'Imagem 1: documento de identidade com foto. Imagem 2: selfie de frente tirada agora. Imagem 3: selfie tirada agora virando o rosto. Responda SOMENTE em JSON: {"documento_legivel":true,"rosto_no_documento":true,"mesma_pessoa":"sim|nao|incerto","confianca":0,"selfies_mesma_pessoa":true,"angulos_diferentes":true,"foto_de_tela_ou_papel":false,"observacao":"1 frase em português"}. "confianca" de 0 a 100 para a selfie ser a pessoa do documento.' },
-        ...[b.documento, b.selfie, b.selfie2].map((u) => ({ type: 'image_url', image_url: { url: u } }))] }] }) });
-    if (!r.ok) return { status: 'DUVIDA', observacao: 'A IA não respondeu (' + r.status + '): a equipe confere as fotos.' };
-    const j = JSON.parse((await r.json()).choices?.[0]?.message?.content || '{}'), conf = +j.confianca || 0;
+        ...[b.documento, b.selfie, b.selfie2].map((u) => ({ type: 'image_url', image_url: { url: u } }))] }], { temperatura: 0, max: 350, json: true, tipo: 'visao', preferido: VISAO }); } catch (er) { return { status: 'DUVIDA', observacao: 'A IA não respondeu: a equipe confere as fotos.' }; }
+    const j = JSON.parse(r.texto || '{}'), conf = +j.confianca || 0;
     const reprova = j.foto_de_tela_ou_papel || j.mesma_pessoa === 'nao' || j.selfies_mesma_pessoa === false;
     const status = reprova ? 'REPROVADA' : j.mesma_pessoa === 'sim' && conf >= 70 && j.angulos_diferentes !== false && j.documento_legivel !== false ? 'APROVADA' : 'DUVIDA';
     return { status, confianca: conf, observacao: j.observacao || '', ia: j };
