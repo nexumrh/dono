@@ -11562,6 +11562,18 @@ atNota = async n => avaliarAt(n, null, '');
 { const _ss = simServ; simServ = function (rota, d) {
   if (rota === 'atendimento') { if (d.acao === 'fila') { const h = horarioAtendimento(); return { atendido: false, posicao: 3, aFrente: 2, online: 1, tma: 5, estimativaMin: 10, aberto: h.aberto, proximo: h.aberto ? '' : 'no próximo horário, às ' + h.ini + 'h', horario: `${h.ini}h às ${h.fim}h, de segunda a sábado`, em: Date.now() }; } if (d.acao === 'avaliar') return { ok: true }; return { texto: '' }; }
   return _ss(rota, d); }; }
+/* ======================= ATENDIMENTO v5: digitando e visto (nov/2026) ======================= */
+{ const _r=atRender; atRender=async function(...a){ const r=await _r.apply(this,a); try{ atSinais(); }catch(e){} return r; }; }
+function atSinais(){
+  const c=$('#atC'), d=CH.doc; if(!c||!d||CH.tela!=='chat') return; c.querySelectorAll('.at-vs,.at-dg').forEach(x=>x.remove());
+  const ms=d.msgs||[], ult=[...ms].reverse().find(m=>m.de==='user'), ultAt=[...ms].reverse().find(m=>m.de==='atendente');
+  if(ult&&d.status==='HUMANO'&&(+d.vistoSuporteEm||0)>=+ult.em&&(!ultAt||+ultAt.em<+ult.em)) c.insertAdjacentHTML('beforeend',`<div class="at-vs">Visto pelo atendimento às ${new Date(+d.vistoSuporteEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>`);
+  const g=d.digitando; if(d.status==='HUMANO'&&g&&Date.now()-(+g.em||0)<7000) c.insertAdjacentHTML('beforeend',`<div class="m atendente at-dg"><div class="bb dig" title="${esc(g.nome||'Atendente')} está digitando"><i></i><i></i><i></i></div></div><div class="at-vs" style="text-align:left">${esc(g.nome||'Atendente')} está digitando…</div>`);
+  c.scrollTop=c.scrollHeight;
+}
+setInterval(()=>{ if($('#atP')?.classList.contains('on')) try{ atSinais(); }catch(e){} },3000);
+let _atDigT=0; document.addEventListener('input',e=>{ if(e.target?.id!=='atT') return; const d=CH.doc; if(!d||d.status!=='HUMANO'||Date.now()-_atDigT<4000) return; _atDigT=Date.now(); DB.set('atendimentos',d.id,{digitandoUser:Date.now()}).catch(()=>{}); });
+document.head.insertAdjacentHTML('beforeend','<style>.at-vs{font-size:11px;color:#667085;text-align:right;margin:2px 10px 6px}</style>');
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
