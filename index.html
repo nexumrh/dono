@@ -11404,6 +11404,14 @@ PAGES.metas = async () => {
     <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="${URL_METAS}" target="_blank" rel="noopener">Abrir o app</a>${ehVend ? '' : `<button class="btn" data-act="linkCopiarM">Copiar link</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Mandar para a equipe</a>`}</div></div></div>
     ${ehVend ? '' : `<div class="card mt"><h2 style="margin:0 0 6px">Como funciona</h2><ol style="margin:0;padding-left:20px;line-height:1.9"><li>No app, aba <b>Equipe</b>: cadastre cada pessoa com nome, CPF e data de nascimento.</li><li>Aba <b>Metas e bônus</b>: crie as categorias, a meta de cada um e quanto ganha em cada faixa (80%, 100%, 120%…).</li><li>Mande o link. Cada pessoa entra com o CPF e cria a própria senha no primeiro acesso.</li><li>Acompanhe no <b>Painel</b> (tendência, matriz por categoria) e no <b>Bônus</b> (projeção do mês).</li></ol></div>`}`;
 };
+
+/* atalho no menu: abre direto o app Metas & Bônus */
+ACT.abrirMetasApp = () => { window.open('https://nexumrh.github.io/metas/', '_blank', 'noopener'); };
+{ const _rn = renderNav; renderNav = async (...a) => { await _rn(...a); const nav = document.getElementById('nav'); if (!nav || nav.querySelector('[data-act=abrirMetasApp]')) return;
+  const gestor = typeof can === 'function' && can('DONO', 'GERENTE');
+  const b = document.createElement('button'); b.dataset.act = 'abrirMetasApp'; b.title = 'Abre o app Metas & Bônus em outra aba';
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>' + (gestor ? 'Abrir app de metas' : 'Abrir Minhas Metas') + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-left:auto;opacity:.6"><path d="M7 17 17 7M8 7h9v9"/></svg>';
+  const ini = nav.querySelector('[data-tab=inicio]'); if (ini) ini.after(b); else nav.prepend(b); }; }
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
