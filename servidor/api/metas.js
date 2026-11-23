@@ -75,11 +75,20 @@ export default async function handler(req, res) {
 // Rotina de hora em hora: conta os aparelhos vendidos e o faturamento no mês de quem está ligado a um vendedor do sistema
 export async function metasRotina() {
   const mes = hoje().slice(0, 7), ini = new Date(mes + '-01T00:00:00-03:00').getTime();
-  const ps = (await db.collection('metasPessoas').get()).docs.map((d) => d.data()).filter((p) => p.ativo !== false && p.vendedorUid);
+  const todas = (await db.collection('metasPessoas').get()).docs.map((d) => d.data()).filter((p) => p.ativo !== false);
   const porEsc = {}; let n = 0;
-  for (const p of ps) {
+  for (const p of todas.filter((x) => x.vendedorUid)) {
     const vs = (await db.collection('vendas').where('vendedorUid', '==', p.vendedorUid).get()).docs.map((d) => d.data()).filter((v) => (v.criadoEm || 0) >= ini && ['ATIVA', 'QUITADA'].includes(v.status));
     (porEsc[p.escopo] ||= {})[p.cpf] = { aparelhos: vs.length, faturamento: Math.round(vs.reduce((s, v) => s + (+v.valor || 0), 0) * 100) / 100, em: Date.now() }; n++;
+  }
+  // equipe NexumCell ligada a um usuário do CRM: satisfação e atendimentos finalizados contam sozinhos
+  const crm = todas.filter((x) => x.usuarioUid);
+  if (crm.length) {
+    const [av, atr] = await Promise.all([db.collection('crmAvaliacoes').where('em', '>=', ini).get(), db.collection('crmAtrib').where('finalizadoEm', '>=', ini).get()]);
+    const avs = av.docs.map((d) => d.data()), fins = atr.docs.map((d) => d.data());
+    for (const p of crm) { const meu = avs.filter((a) => a.uid === p.usuarioUid), notas = meu.map((a) => +a.nota || 0);
+      (porEsc[p.escopo] ||= {})[p.cpf] = { ...((porEsc[p.escopo] || {})[p.cpf] || {}), satMedia: notas.length ? Math.round(notas.reduce((s, x) => s + x, 0) / notas.length * 10) / 10 : 0, satBons: notas.filter((x) => x >= 4).length, satQtd: notas.length,
+        atendidos: fins.filter((a) => a.finalizadoUid === p.usuarioUid).length, em: Date.now() }; n++; }
   }
   for (const [esc, auto] of Object.entries(porEsc)) await db.collection('metasPlano').doc(`${esc}_${mes}`).set({ escopo: esc, mes, auto }, { merge: true });
   return { metasAuto: n };

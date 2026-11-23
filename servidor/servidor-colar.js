@@ -1,18 +1,16 @@
 // NexumCell — servidor em UM arquivo (copiar e colar no Cloudflare: Workers › nexumcell-servidor › Edit code).
 // Gerado automaticamente a partir da pasta servidor/. Não edite aqui: edite os arquivos de servidor/ e gere de novo.
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
 // worker/firebase-rest.js
-var conta = () => {
-  const raw = globalThis.process?.env?.FIREBASE_SERVICE_ACCOUNT;
-  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT n\xE3o configurado");
-  return typeof raw === "string" ? JSON.parse(raw) : raw;
-};
-var b64url = (buf) => {
-  const s = typeof buf === "string" ? btoa(unescape(encodeURIComponent(buf))) : btoa(String.fromCharCode(...new Uint8Array(buf)));
-  return s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
-var deB64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
-var pemParaDer = (pem) => Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
-var cacheToken = null;
 async function tokenAcesso() {
   if (cacheToken && cacheToken.exp > Date.now() + 6e4) return cacheToken.t;
   const sa = conta(), agora = Math.floor(Date.now() / 1e3);
@@ -40,7 +38,6 @@ function paraFs(v) {
   if (typeof v === "object") return { mapValue: { fields: campos(v) } };
   return { stringValue: String(v) };
 }
-var campos = (o) => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== void 0).map(([k, x]) => [k, paraFs(x)]));
 function deFs(v) {
   if (!v) return null;
   if ("nullValue" in v) return null;
@@ -55,15 +52,6 @@ function deFs(v) {
   if ("geoPointValue" in v) return v.geoPointValue;
   return null;
 }
-var caminhoCampo = (k) => /^[A-Za-z_][A-Za-z_0-9]*$/.test(k) ? k : "`" + k.replace(/[`\\]/g, (c) => "\\" + c) + "`";
-var caminhoConsulta = (k) => String(k).split(".").map(caminhoCampo).join(".");
-var autoId = () => {
-  const a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", b = crypto.getRandomValues(new Uint8Array(20));
-  return [...b].map((x) => a[x % 62]).join("");
-};
-var projeto = () => conta().project_id;
-var raiz = () => `projects/${projeto()}/databases/(default)/documents`;
-var base = () => "https://firestore.googleapis.com/v1/";
 async function rest(caminho, opts = {}) {
   const r = await fetch(base() + caminho, { ...opts, headers: { Authorization: "Bearer " + await tokenAcesso(), "Content-Type": "application/json", ...opts.headers || {} } });
   const j = await r.json().catch(() => ({}));
@@ -74,138 +62,15 @@ async function rest(caminho, opts = {}) {
   }
   return j;
 }
-var snap = (id, doc) => ({ id, exists: !!doc, ref: null, data: () => doc ? deFs({ mapValue: { fields: doc.fields || {} } }) : void 0 });
 function escrita(nome, dados, modo) {
   const w = { update: { name: nome, fields: campos(dados) } };
   if (modo === "merge" || modo === "update") w.updateMask = { fieldPaths: Object.keys(dados).filter((k) => dados[k] !== void 0).map(caminhoCampo) };
   if (modo === "update") w.currentDocument = { exists: true };
   return w;
 }
-var DocRef = class {
-  constructor(col, id) {
-    this.col = col;
-    this.id = id;
-    this.path = `${col}/${id}`;
-  }
-  get nome() {
-    return `${raiz()}/${this.path}`;
-  }
-  async get() {
-    try {
-      return snap(this.id, await rest(this.nome));
-    } catch (e) {
-      if (e.code === 404) return snap(this.id, null);
-      throw e;
-    }
-  }
-  async set(dados, opt = {}) {
-    await commit([escrita(this.nome, dados, opt.merge ? "merge" : "set")]);
-  }
-  async update(dados) {
-    await commit([escrita(this.nome, dados, "update")]);
-  }
-  async delete() {
-    await commit([{ delete: this.nome }]);
-  }
-  collection(sub) {
-    return new Consulta(`${this.path}/${sub}`);
-  }
-};
-var Consulta = class _Consulta {
-  constructor(col, filtros = [], lim = 0, ordem = null) {
-    this.col = col;
-    this.filtros = filtros;
-    this.lim = lim;
-    this.ordem = ordem;
-  }
-  doc(id) {
-    return new DocRef(this.col, id || autoId());
-  }
-  async add(dados) {
-    const d = this.doc();
-    await d.set(dados);
-    return d;
-  }
-  where(campo, op, valor) {
-    return new _Consulta(this.col, [...this.filtros, [campo, op, valor]], this.lim, this.ordem);
-  }
-  limit(n) {
-    return new _Consulta(this.col, this.filtros, n, this.ordem);
-  }
-  orderBy(campo, dir = "asc") {
-    return new _Consulta(this.col, this.filtros, this.lim, [campo, dir]);
-  }
-  async get() {
-    const partes = this.col.split("/"), colId = partes.pop(), pai = partes.length ? `${raiz()}/${partes.join("/")}` : raiz();
-    const OPS = { "==": "EQUAL", "!=": "NOT_EQUAL", "<": "LESS_THAN", "<=": "LESS_THAN_OR_EQUAL", ">": "GREATER_THAN", ">=": "GREATER_THAN_OR_EQUAL", "array-contains": "ARRAY_CONTAINS", in: "IN" };
-    const f = this.filtros.map(([c, op, v]) => ({ fieldFilter: { field: { fieldPath: caminhoConsulta(c) }, op: OPS[op], value: paraFs(v) } }));
-    const q = { from: [{ collectionId: colId }] };
-    if (f.length === 1) q.where = f[0];
-    else if (f.length > 1) q.where = { compositeFilter: { op: "AND", filters: f } };
-    if (this.ordem) q.orderBy = [{ field: { fieldPath: caminhoConsulta(this.ordem[0]) }, direction: this.ordem[1] === "desc" ? "DESCENDING" : "ASCENDING" }];
-    if (this.lim) q.limit = this.lim;
-    const r = await rest(pai.replace(base(), "") + ":runQuery", { method: "POST", body: JSON.stringify({ structuredQuery: q }) });
-    const docs = (Array.isArray(r) ? r : []).filter((x) => x.document).map((x) => {
-      const id = x.document.name.split("/").pop();
-      const s = snap(id, x.document);
-      s.ref = new DocRef(this.col, id);
-      return s;
-    });
-    return { empty: !docs.length, size: docs.length, docs, forEach: (fn) => docs.forEach(fn) };
-  }
-};
 async function commit(writes, transaction) {
   return rest(`projects/${projeto()}/databases/(default)/documents:commit`, { method: "POST", body: JSON.stringify({ writes, ...transaction ? { transaction } : {} }) });
 }
-var firestore = {
-  collection: (c) => new Consulta(c),
-  doc: (p) => {
-    const i = p.lastIndexOf("/");
-    return new DocRef(p.slice(0, i), p.slice(i + 1));
-  },
-  batch() {
-    const ws = [];
-    return { set: (ref, d, o = {}) => ws.push(escrita(ref.nome, d, o.merge ? "merge" : "set")), update: (ref, d) => ws.push(escrita(ref.nome, d, "update")), delete: (ref) => ws.push({ delete: ref.nome }), commit: () => commit(ws) };
-  },
-  // transação de verdade: leituras com o id da transação, escritas no commit (o Firestore recusa se alguém mudou no meio)
-  async runTransaction(fn) {
-    for (let tentativa = 0; tentativa < 5; tentativa++) {
-      const { transaction } = await rest(`projects/${projeto()}/databases/(default)/documents:beginTransaction`, { method: "POST", body: "{}" });
-      const ws = [];
-      const t = {
-        get: async (ref) => {
-          try {
-            return snap(ref.id, await rest(ref.nome + "?transaction=" + encodeURIComponent(transaction)));
-          } catch (e) {
-            if (e.code === 404) return snap(ref.id, null);
-            throw e;
-          }
-        },
-        set: (ref, d, o = {}) => {
-          ws.push(escrita(ref.nome, d, o.merge ? "merge" : "set"));
-          return t;
-        },
-        update: (ref, d) => {
-          ws.push(escrita(ref.nome, d, "update"));
-          return t;
-        },
-        delete: (ref) => {
-          ws.push({ delete: ref.nome });
-          return t;
-        }
-      };
-      const res = await fn(t);
-      try {
-        await commit(ws, transaction);
-        return res;
-      } catch (e) {
-        if (e.code !== 409 && e.code !== 400 && e.code !== 412) throw e;
-      }
-    }
-    throw new Error("transa\xE7\xE3o n\xE3o conclu\xEDda depois de 5 tentativas");
-  }
-};
-var chavesGoogle = null;
 async function chavePublica(kid) {
   if (!chavesGoogle || chavesGoogle.exp < Date.now() || !chavesGoogle.k[kid]) {
     const r = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
@@ -258,23 +123,170 @@ async function enviarFcm(msg) {
   if (!r.ok) throw Object.assign(new Error("FCM " + r.status + ": " + (j.error?.message || "")), { codigo: j.error?.details?.[0]?.errorCode || j.error?.status });
   return j.name;
 }
-var admin = {
-  apps: [],
-  initializeApp() {
-    admin.apps.push({});
-    return {};
-  },
-  credential: { cert: (x) => x },
-  firestore: () => firestore,
-  auth: () => ({ verifyIdToken, updateUser, createUser }),
-  messaging: () => ({ send: enviarFcm })
-};
-var firebase_rest_default = admin;
+var conta, b64url, deB64url, pemParaDer, cacheToken, campos, caminhoCampo, caminhoConsulta, autoId, projeto, raiz, base, snap, DocRef, Consulta, firestore, chavesGoogle, admin, firebase_rest_default;
+var init_firebase_rest = __esm({
+  "worker/firebase-rest.js"() {
+    conta = () => {
+      const raw = globalThis.process?.env?.FIREBASE_SERVICE_ACCOUNT;
+      if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT n\xE3o configurado");
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    };
+    b64url = (buf) => {
+      const s = typeof buf === "string" ? btoa(unescape(encodeURIComponent(buf))) : btoa(String.fromCharCode(...new Uint8Array(buf)));
+      return s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    };
+    deB64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+    pemParaDer = (pem) => Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+    cacheToken = null;
+    campos = (o) => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== void 0).map(([k, x]) => [k, paraFs(x)]));
+    caminhoCampo = (k) => /^[A-Za-z_][A-Za-z_0-9]*$/.test(k) ? k : "`" + k.replace(/[`\\]/g, (c) => "\\" + c) + "`";
+    caminhoConsulta = (k) => String(k).split(".").map(caminhoCampo).join(".");
+    autoId = () => {
+      const a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", b = crypto.getRandomValues(new Uint8Array(20));
+      return [...b].map((x) => a[x % 62]).join("");
+    };
+    projeto = () => conta().project_id;
+    raiz = () => `projects/${projeto()}/databases/(default)/documents`;
+    base = () => "https://firestore.googleapis.com/v1/";
+    snap = (id, doc) => ({ id, exists: !!doc, ref: null, data: () => doc ? deFs({ mapValue: { fields: doc.fields || {} } }) : void 0 });
+    DocRef = class {
+      constructor(col, id) {
+        this.col = col;
+        this.id = id;
+        this.path = `${col}/${id}`;
+      }
+      get nome() {
+        return `${raiz()}/${this.path}`;
+      }
+      async get() {
+        try {
+          return snap(this.id, await rest(this.nome));
+        } catch (e) {
+          if (e.code === 404) return snap(this.id, null);
+          throw e;
+        }
+      }
+      async set(dados, opt = {}) {
+        await commit([escrita(this.nome, dados, opt.merge ? "merge" : "set")]);
+      }
+      async update(dados) {
+        await commit([escrita(this.nome, dados, "update")]);
+      }
+      async delete() {
+        await commit([{ delete: this.nome }]);
+      }
+      collection(sub) {
+        return new Consulta(`${this.path}/${sub}`);
+      }
+    };
+    Consulta = class _Consulta {
+      constructor(col, filtros = [], lim = 0, ordem = null) {
+        this.col = col;
+        this.filtros = filtros;
+        this.lim = lim;
+        this.ordem = ordem;
+      }
+      doc(id) {
+        return new DocRef(this.col, id || autoId());
+      }
+      async add(dados) {
+        const d = this.doc();
+        await d.set(dados);
+        return d;
+      }
+      where(campo, op, valor) {
+        return new _Consulta(this.col, [...this.filtros, [campo, op, valor]], this.lim, this.ordem);
+      }
+      limit(n) {
+        return new _Consulta(this.col, this.filtros, n, this.ordem);
+      }
+      orderBy(campo, dir = "asc") {
+        return new _Consulta(this.col, this.filtros, this.lim, [campo, dir]);
+      }
+      async get() {
+        const partes = this.col.split("/"), colId = partes.pop(), pai = partes.length ? `${raiz()}/${partes.join("/")}` : raiz();
+        const OPS = { "==": "EQUAL", "!=": "NOT_EQUAL", "<": "LESS_THAN", "<=": "LESS_THAN_OR_EQUAL", ">": "GREATER_THAN", ">=": "GREATER_THAN_OR_EQUAL", "array-contains": "ARRAY_CONTAINS", in: "IN" };
+        const f = this.filtros.map(([c, op, v]) => ({ fieldFilter: { field: { fieldPath: caminhoConsulta(c) }, op: OPS[op], value: paraFs(v) } }));
+        const q = { from: [{ collectionId: colId }] };
+        if (f.length === 1) q.where = f[0];
+        else if (f.length > 1) q.where = { compositeFilter: { op: "AND", filters: f } };
+        if (this.ordem) q.orderBy = [{ field: { fieldPath: caminhoConsulta(this.ordem[0]) }, direction: this.ordem[1] === "desc" ? "DESCENDING" : "ASCENDING" }];
+        if (this.lim) q.limit = this.lim;
+        const r = await rest(pai.replace(base(), "") + ":runQuery", { method: "POST", body: JSON.stringify({ structuredQuery: q }) });
+        const docs = (Array.isArray(r) ? r : []).filter((x) => x.document).map((x) => {
+          const id = x.document.name.split("/").pop();
+          const s = snap(id, x.document);
+          s.ref = new DocRef(this.col, id);
+          return s;
+        });
+        return { empty: !docs.length, size: docs.length, docs, forEach: (fn) => docs.forEach(fn) };
+      }
+    };
+    firestore = {
+      collection: (c) => new Consulta(c),
+      doc: (p) => {
+        const i = p.lastIndexOf("/");
+        return new DocRef(p.slice(0, i), p.slice(i + 1));
+      },
+      batch() {
+        const ws = [];
+        return { set: (ref, d, o = {}) => ws.push(escrita(ref.nome, d, o.merge ? "merge" : "set")), update: (ref, d) => ws.push(escrita(ref.nome, d, "update")), delete: (ref) => ws.push({ delete: ref.nome }), commit: () => commit(ws) };
+      },
+      // transação de verdade: leituras com o id da transação, escritas no commit (o Firestore recusa se alguém mudou no meio)
+      async runTransaction(fn) {
+        for (let tentativa = 0; tentativa < 5; tentativa++) {
+          const { transaction } = await rest(`projects/${projeto()}/databases/(default)/documents:beginTransaction`, { method: "POST", body: "{}" });
+          const ws = [];
+          const t = {
+            get: async (ref) => {
+              try {
+                return snap(ref.id, await rest(ref.nome + "?transaction=" + encodeURIComponent(transaction)));
+              } catch (e) {
+                if (e.code === 404) return snap(ref.id, null);
+                throw e;
+              }
+            },
+            set: (ref, d, o = {}) => {
+              ws.push(escrita(ref.nome, d, o.merge ? "merge" : "set"));
+              return t;
+            },
+            update: (ref, d) => {
+              ws.push(escrita(ref.nome, d, "update"));
+              return t;
+            },
+            delete: (ref) => {
+              ws.push({ delete: ref.nome });
+              return t;
+            }
+          };
+          const res = await fn(t);
+          try {
+            await commit(ws, transaction);
+            return res;
+          } catch (e) {
+            if (e.code !== 409 && e.code !== 400 && e.code !== 412) throw e;
+          }
+        }
+        throw new Error("transa\xE7\xE3o n\xE3o conclu\xEDda depois de 5 tentativas");
+      }
+    };
+    chavesGoogle = null;
+    admin = {
+      apps: [],
+      initializeApp() {
+        admin.apps.push({});
+        return {};
+      },
+      credential: { cert: (x) => x },
+      firestore: () => firestore,
+      auth: () => ({ verifyIdToken, updateUser, createUser }),
+      messaging: () => ({ send: enviarFcm })
+    };
+    firebase_rest_default = admin;
+  }
+});
 
 // api/_ios.js
-var BASE = "https://a.simplemdm.com/api/v1";
-var DIA = 864e5;
-var mdmLigado = () => !!process.env.SIMPLEMDM_API_KEY;
 async function mdm(path, { method = "GET", form } = {}) {
   const k = process.env.SIMPLEMDM_API_KEY;
   if (!k) throw Object.assign(new Error("Trava do iPhone n\xE3o configurada: falta a chave do MDM (SIMPLEMDM_API_KEY) no servidor."), { status: 400 });
@@ -297,10 +309,9 @@ async function acharPorSerie(serial) {
   const s = String(serial || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (s.length < 8) throw Object.assign(new Error("N\xFAmero de s\xE9rie inv\xE1lido."), { status: 400 });
   const j = await mdm("/devices?limit=20&include_awaiting_enrollment=true&search=" + encodeURIComponent(s));
-  const lista2 = (j.data || []).map((d) => ({ id: d.id, ...d.attributes }));
-  return lista2.find((d) => String(d.serial_number || "").toUpperCase() === s) || null;
+  const lista3 = (j.data || []).map((d) => ({ id: d.id, ...d.attributes }));
+  return lista3.find((d) => String(d.serial_number || "").toUpperCase() === s) || null;
 }
-var hojeBR = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 function etapaTotal(d) {
   if (d.etapaTotalDias != null) return Math.max(1, +d.etapaTotalDias || 7);
   return (+d.toleranciaDias || 0) + 1;
@@ -368,15 +379,17 @@ async function iosRotina(db2) {
   }
   return { iosTotal: aps.length, iosTravados: travados, iosLiberados: liberados, iosErros: erros };
 }
+var BASE, DIA, mdmLigado, hojeBR;
+var init_ios = __esm({
+  "api/_ios.js"() {
+    BASE = "https://a.simplemdm.com/api/v1";
+    DIA = 864e5;
+    mdmLigado = () => !!process.env.SIMPLEMDM_API_KEY;
+    hojeBR = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  }
+});
 
 // api/_base.js
-if (!firebase_rest_default.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
-  firebase_rest_default.initializeApp({ credential: firebase_rest_default.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-}
-var db = firebase_rest_default.firestore();
-var auth = firebase_rest_default.auth();
-var ASAAS = () => process.env.ASAAS_URL || "https://api.asaas.com/v3";
-var _cofre = null;
 async function asaasConf() {
   if (!_cofre || _cofre.em < Date.now() - 6e4) {
     let d2 = {};
@@ -391,8 +404,6 @@ async function asaasConf() {
   if (chave) return { chave, url: d.ambiente === "producao" ? "https://api.asaas.com/v3" : "https://api-sandbox.asaas.com/v3", webhookToken: d.webhookToken || process.env.ASAAS_WEBHOOK_TOKEN || "", origem: "painel", ambiente: d.ambiente === "producao" ? "producao" : "sandbox" };
   return { chave: process.env.ASAAS_API_KEY || "", url: ASAAS(), webhookToken: process.env.ASAAS_WEBHOOK_TOKEN || "", origem: "servidor", ambiente: ASAAS().includes("sandbox") ? "sandbox" : "producao" };
 }
-var asaasLigadoSrv = async () => !!(await asaasConf()).chave;
-var _cfg = null;
 async function config() {
   if (_cfg && _cfg.em > Date.now() - 3e5) return _cfg.d;
   const d = (await db.collection("config").doc("sistema").get()).data() || {};
@@ -420,8 +431,6 @@ function cors(req, res) {
   }
   return false;
 }
-var r2 = (n) => Math.round(n * 100) / 100;
-var hoje = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 function encargos(p, ap, data = hoje()) {
   const dias5 = Math.round((new Date(data) - new Date(p.venc)) / 864e5);
   if (dias5 < 0) return r2(p.valor * (1 - (ap.descontoPct || 0) / 100));
@@ -651,8 +660,300 @@ function paraAparelho(p) {
   if (!p.pago && p.asaasLink) o.asaasLink = p.asaasLink;
   return o;
 }
+var db, auth, ASAAS, _cofre, asaasLigadoSrv, _cfg, r2, hoje;
+var init_base = __esm({
+  "api/_base.js"() {
+    init_firebase_rest();
+    init_ios();
+    if (!firebase_rest_default.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
+      firebase_rest_default.initializeApp({ credential: firebase_rest_default.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+    }
+    db = firebase_rest_default.firestore();
+    auth = firebase_rest_default.auth();
+    ASAAS = () => process.env.ASAAS_URL || "https://api.asaas.com/v3";
+    _cofre = null;
+    asaasLigadoSrv = async () => !!(await asaasConf()).chave;
+    _cfg = null;
+    r2 = (n) => Math.round(n * 100) / 100;
+    hoje = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  }
+});
+
+// api/_brevo.js
+async function brevo(caminho, corpo) {
+  if (!brevoLigado()) throw new Error("Brevo n\xE3o configurado (falta BREVO_API_KEY)");
+  const r = await fetch("https://api.brevo.com/v3" + caminho, {
+    method: "POST",
+    headers: { "api-key": env().BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify(corpo)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error("Brevo " + r.status + ": " + (j.message || j.code || JSON.stringify(j)));
+  return j;
+}
+function moldura(titulo, corpoTexto, rodape = "") {
+  const corpo = String(corpoTexto).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${escHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
+  return `<!doctype html><html><body style="margin:0;background:#F2F4F8;font-family:Arial,Helvetica,sans-serif;color:#1B2540">
+  <div style="max-width:560px;margin:0 auto;padding:24px 14px"><div style="background:#0E1A3A;color:#F3D98B;border-radius:14px 14px 0 0;padding:18px 22px;font-size:19px;font-weight:bold">${escHtml(titulo)}</div>
+  <div style="background:#fff;border-radius:0 0 14px 14px;padding:22px;font-size:15px;line-height:1.5">${corpo}</div>
+  <p style="font-size:12px;color:#7A86A3;text-align:center;margin-top:14px">${escHtml(rodape || "Mensagem autom\xE1tica do sistema NexumCell.")}</p></div></body></html>`;
+}
+async function enviarEmail({ para, assunto, html, texto, titulo, anexos }) {
+  const to = (Array.isArray(para) ? para : [para]).filter(Boolean).map((x) => typeof x === "string" ? { email: x } : x);
+  if (!to.length) throw new Error("sem destinat\xE1rio");
+  return brevo("/smtp/email", {
+    sender: { email: env().BREVO_REMETENTE, name: env().BREVO_REMETENTE_NOME || "NexumCell" },
+    to,
+    subject: String(assunto).slice(0, 200),
+    htmlContent: html || moldura(titulo || assunto, texto || ""),
+    ...texto ? { textContent: texto } : {},
+    ...anexos?.length ? { attachment: anexos } : {}
+    // [{name:'relatorio.csv', content:'<base64>'}]
+  });
+}
+async function enviarSms(tel, texto) {
+  const n = telInter(tel);
+  if (!n) throw new Error("sem telefone");
+  return brevo("/transactionalSMS/send", { sender: (env().BREVO_SMS_REMETENTE || "NexumCell").replace(/\s/g, "").slice(0, 11), recipient: n, content: String(texto).slice(0, 640), type: "transactional", unicodeEnabled: false });
+}
+async function enviarWhatsapp(tel, { templateId, params, texto }) {
+  const n = telInter(tel);
+  if (!n) throw new Error("sem telefone");
+  if (!env().BREVO_WHATSAPP_NUMERO) throw new Error("falta BREVO_WHATSAPP_NUMERO");
+  const corpo = { senderNumber: telInter(env().BREVO_WHATSAPP_NUMERO), contactNumbers: [n] };
+  if (templateId) Object.assign(corpo, { templateId: +templateId, params: params || {} });
+  else corpo.text = String(texto || "");
+  return brevo("/whatsapp/sendMessage", corpo);
+}
+async function avisarCliente(tel, canal, { modelo, params, texto }) {
+  const r = { whatsapp: null, sms: null };
+  if (["whatsapp", "ambos", "whatsapp_ou_sms"].includes(canal)) {
+    try {
+      const id = MODELOS[modelo]?.();
+      if (!id) throw new Error('modelo de WhatsApp "' + modelo + '" n\xE3o configurado');
+      await enviarWhatsapp(tel, { templateId: id, params });
+      r.whatsapp = "ok";
+    } catch (e) {
+      r.whatsapp = e.message;
+    }
+  }
+  if (["sms", "ambos"].includes(canal) || canal === "whatsapp_ou_sms" && r.whatsapp !== "ok") {
+    try {
+      await enviarSms(tel, texto);
+      r.sms = "ok";
+    } catch (e) {
+      r.sms = e.message;
+    }
+  }
+  return r;
+}
+var env, brevoLigado, escHtml, telInter, MODELOS;
+var init_brevo = __esm({
+  "api/_brevo.js"() {
+    env = () => globalThis.process?.env || {};
+    brevoLigado = () => !!env().BREVO_API_KEY;
+    escHtml = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    telInter = (t) => {
+      const d = String(t || "").replace(/\D/g, "");
+      if (!d) return "";
+      return d.startsWith("55") && d.length >= 12 ? d : "55" + d;
+    };
+    MODELOS = {
+      lembrete: () => env().BREVO_WA_TEMPLATE_LEMBRETE,
+      // parcela vencendo: NOME, VALOR, VENCIMENTO, LINK
+      atraso: () => env().BREVO_WA_TEMPLATE_ATRASO,
+      // parcela atrasada: NOME, VALOR, DIAS, LINK
+      recibo: () => env().BREVO_WA_TEMPLATE_RECIBO,
+      // pagamento recebido: NOME, VALOR, PARCELA
+      resumo: () => env().BREVO_WA_TEMPLATE_RESUMO
+      // resumo do dono: TEXTO
+    };
+  }
+});
+
+// api/erros.js
+function codigosNoTexto(t) {
+  const s = String(t || ""), achados = /* @__PURE__ */ new Set();
+  const so = s.trim().match(/^#?(\d{3,4})$/);
+  if (so && ERROS[so[1]]) achados.add(so[1]);
+  const rx = /(?:erro|c[oó]d(?:igo)?\.?|cod\.?|apareceu|aparece|mensagem|tela|deu)\D{0,25}?(\d{3,4})\b/gi;
+  let m;
+  while (m = rx.exec(s)) if (ERROS[m[1]]) achados.add(m[1]);
+  return [...achados];
+}
+function resolucaoTexto(c) {
+  const e = ERROS[c];
+  if (!e) return "";
+  return `C\xF3digo ${c} \u2014 ${e.t}
+O que \xE9: ${e.x}
+
+O que fazer:
+${e.v.map((p, k) => `${k + 1}. ${p}`).join("\n")}
+
+Passo a passo completo: ${AJUDA_URL}#erro-${c}`;
+}
+function errosTexto() {
+  return Object.entries(ERROS).map(([c, e]) => `- ${c} ${e.t}: ${e.x} O vendedor/gerente faz: ${e.v.join(" ")} Suporte: ${e.chat}${e.cliente ? ' Mensagem para o cliente: "' + e.cliente + '"' : ""}`).join("\n");
+}
+var ERROS, AJUDA_URL;
+var init_erros = __esm({
+  "api/erros.js"() {
+    ERROS = { "314": { "t": "Vendedor ou gerente suspenso", "g": "acesso", "x": "O acesso foi desativado pela loja ou pela NexumCell.", "v": ["Vendedor: fale com o gerente da sua loja para reativar o seu acesso.", "Gerente: use o chat da tela de acesso restrito para falar com a NexumCell."], "chat": "Confirme quem desativou. Se foi a NexumCell, oriente o gerente a falar pelo chat da tela de bloqueio; se foi a loja, com o gerente dela." }, "315": { "t": "Treinamento obrigat\xF3rio pendente", "g": "acesso", "x": "A pessoa ainda n\xE3o concluiu os m\xF3dulos obrigat\xF3rios do Treinamento.", "v": ["Abra Treinamento no menu.", "Conclua os m\xF3dulos marcados como obrigat\xF3rios, com o teste no final.", "As vendas s\xE3o liberadas assim que voc\xEA terminar."], "chat": "Oriente a concluir o Treinamento (aba Treinamento). As vendas liberam ao terminar." }, "316": { "t": "Sess\xE3o encerrada", "g": "acesso", "x": "A sess\xE3o expirou ou foi aberta em outro aparelho.", "v": ["Entre de novo com o seu ID e a sua senha.", "Use o sistema em um aparelho por vez.", "Se cair de novo, confira a internet e recarregue a p\xE1gina (Ctrl + Shift + R)."], "chat": "Pe\xE7a para entrar de novo. Se persistir, confira a internet." }, "403": { "t": "Venda fora da loja", "g": "venda", "x": "A localiza\xE7\xE3o do notebook n\xE3o bate com a da loja cadastrada.", "v": ["Fa\xE7a a venda dentro da loja, no notebook autorizado.", "Ligue a localiza\xE7\xE3o do navegador: cadeado ao lado do endere\xE7o \u2192 Localiza\xE7\xE3o \u2192 Permitir.", "Recarregue a p\xE1gina e tente de novo."], "chat": "Oriente a fazer a venda dentro da loja, com a localiza\xE7\xE3o do navegador permitida." }, "409": { "t": "Um aparelho por CPF", "g": "venda", "x": "O CPF j\xE1 tem um aparelho financiado em aberto.", "v": ["Explique ao cliente que \xE9 um aparelho por vez, at\xE9 quitar o atual.", "Mostre quanto falta para quitar (Atendimento \u2192 Valor para quitar).", "Caso de bom pagador: s\xF3 o dono pode liberar um segundo aparelho."], "chat": "Explique a regra. S\xF3 com o anterior quitado, ou libera\xE7\xE3o do dono para bom pagador.", "cliente": "Ol\xE1! No momento n\xE3o \xE9 poss\xEDvel um novo financiamento porque j\xE1 existe um aparelho em aberto neste CPF. Assim que ele for quitado, voc\xEA pode financiar outro. Qualquer d\xFAvida, estamos \xE0 disposi\xE7\xE3o." }, "410": { "t": "Cliente na lista negra", "g": "venda", "x": "O CPF ou o telefone do cliente est\xE1 na lista negra.", "v": ["N\xE3o continue a venda.", "Diga ao cliente apenas que a an\xE1lise n\xE3o aprovou neste momento.", "Se o cliente contestar, abra um atendimento aqui."], "chat": "N\xE3o prometa venda. Encaminhe ao dono ou ao financeiro se o cliente contestar." }, "411": { "t": "Cliente menor de 18 anos", "g": "venda", "x": "N\xE3o \xE9 poss\xEDvel contratar cr\xE9dito para menor de idade.", "v": ["Explique com educa\xE7\xE3o que o cr\xE9dito exige 18 anos ou mais.", "A compra pode ser feita no nome de um respons\xE1vel maior de idade, com os documentos dele."], "chat": "Explique com educa\xE7\xE3o que o cr\xE9dito exige maioridade.", "cliente": "Ol\xE1! Para o financiamento \xE9 necess\xE1rio ter 18 anos ou mais. Assim que poss\xEDvel, teremos prazer em atender voc\xEA." }, "412": { "t": "Proposta j\xE1 em andamento", "g": "venda", "x": "J\xE1 existe uma proposta em an\xE1lise ou aprovada para este CPF.", "v": ["N\xE3o crie outra proposta.", "Em Vendas, procure pelo CPF do cliente e abra a proposta com o n\xFAmero informado.", "Continue de onde ela parou."], "chat": "Oriente a continuar a proposta que j\xE1 existe, pelo n\xFAmero informado." }, "413": { "t": "Telefone da equipe no cadastro", "g": "venda", "x": "O telefone informado \xE9 de algu\xE9m da equipe.", "v": ["Troque pelos dois telefones do pr\xF3prio cliente, diferentes entre si.", "Nunca use o seu telefone ou de algu\xE9m da loja: isso \xE9 tratado como fraude."], "chat": "Pe\xE7a dois telefones do pr\xF3prio cliente. Isso \xE9 tratado como fraude." }, "420": { "t": "Aparelho fora do estoque", "g": "venda", "x": "O IMEI informado n\xE3o est\xE1 no estoque da loja.", "v": ["Confira se o IMEI foi digitado certo (na caixa ou discando *#06#).", "Gerente: cadastre o aparelho em Estoque.", "Volte na venda e informe o IMEI de novo."], "chat": "Oriente o gerente a cadastrar o aparelho no estoque antes de vender." }, "421": { "t": "Cidade fora da \xE1rea atendida", "g": "venda", "x": "A cidade do cliente est\xE1 fora da \xE1rea configurada.", "v": ["N\xE3o precisa refazer a proposta.", "Ela segue para an\xE1lise manual da NexumCell: acompanhe o resultado na tela da venda."], "chat": "A proposta vai para an\xE1lise manual da NexumCell; aguarde o parecer." }, "515": { "t": "Parcela em atraso: aparelho bloqueado", "g": "pagamento", "x": "H\xE1 parcela vencida al\xE9m da toler\xE2ncia e o aparelho travou.", "v": ["O cliente paga pelo Pix no app NexumCell (aba Parcelas).", "Pagando, o aparelho libera sozinho em poucos minutos.", 'Se ele j\xE1 pagou: pe\xE7a para ligar a internet e tocar em "J\xE1 paguei \u2014 verificar agora".', "Se ainda assim n\xE3o liberar, chame o atendente aqui com o n\xFAmero do contrato."], "chat": 'Confirme a parcela em atraso. Oriente a pagar pelo Pix no app; ao registrar, o aparelho libera sozinho. Se j\xE1 pagou, pe\xE7a para abrir o app com internet e tocar em "J\xE1 paguei".', "cliente": "Ol\xE1! Seu aparelho foi bloqueado porque h\xE1 uma parcela em atraso. Assim que o pagamento for feito pelo Pix no app NexumCell (aba Parcelas), ele \xE9 liberado em poucos minutos." }, "516": { "t": "Aparelho sem internet h\xE1 muitos dias", "g": "pagamento", "x": "O aparelho ficou muitos dias sem conex\xE3o e travou por seguran\xE7a.", "v": ["Pe\xE7a ao cliente para ligar o Wi-Fi ou os dados m\xF3veis.", "Abrir o app NexumCell uma vez: ele libera sozinho.", "Se o cliente estiver sem internet nenhuma, chame o atendente aqui para receber um c\xF3digo de libera\xE7\xE3o."], "chat": "Pe\xE7a para ligar o Wi-Fi ou os dados e abrir o app uma vez. Se n\xE3o liberar, gere um c\xF3digo de libera\xE7\xE3o tempor\xE1ria.", "cliente": "Ol\xE1! Seu aparelho ficou muitos dias sem conex\xE3o e foi bloqueado por seguran\xE7a. \xC9 s\xF3 ligar o Wi-Fi ou os dados m\xF3veis e abrir o app NexumCell que ele libera sozinho." }, "517": { "t": "Promessa de pagamento quebrada", "g": "pagamento", "x": "A data prometida passou sem pagamento e o aparelho travou de novo.", "v": ["O cliente precisa pagar a parcela pelo Pix no app para liberar.", "Uma nova promessa s\xF3 com autoriza\xE7\xE3o do financeiro: chame o atendente aqui."], "chat": "Oriente a pagar. N\xE3o h\xE1 segunda promessa no mesmo contrato sem autoriza\xE7\xE3o.", "cliente": "Ol\xE1! A data de pagamento que combinamos passou e o aparelho foi bloqueado novamente. Assim que a parcela for paga, ele \xE9 liberado na hora." }, "600": { "t": "Cr\xE9dito reprovado", "g": "credito", "x": "A an\xE1lise de cr\xE9dito reprovou pelas regras.", "v": ["Explique com educa\xE7\xE3o que o cr\xE9dito n\xE3o foi aprovado desta vez.", "O cliente pode tentar de novo depois de 30 dias.", "N\xE3o prometa aprova\xE7\xE3o."], "chat": "Explique com educa\xE7\xE3o que pode tentar de novo depois de 30 dias.", "cliente": "Ol\xE1! Infelizmente n\xE3o foi poss\xEDvel aprovar o financiamento desta vez. Voc\xEA pode tentar novamente ap\xF3s 30 dias. Agradecemos o interesse!" }, "601": { "t": "Renda insuficiente para a parcela", "g": "credito", "x": "A parcela passa do limite de comprometimento da renda.", "v": ["Ofere\xE7a uma entrada maior, mais parcelas ou um aparelho mais barato.", "Simule de novo: o Assistente da venda mostra quando a parcela cabe."], "chat": "Sugira aumentar a entrada, mais parcelas ou um aparelho mais barato." }, "602": { "t": "Documento irregular", "g": "credito", "x": "O documento est\xE1 ileg\xEDvel, editado ou vencido.", "v": ["Tire novas fotos do documento original, frente e verso.", "Sem reflexo, sem cortar as bordas e com a c\xE2mera parada.", "A proposta vai para an\xE1lise manual."], "chat": "Pe\xE7a novas fotos do documento original; a proposta vai para an\xE1lise manual." }, "900": { "t": "Acesso bloqueado pela NexumCell", "g": "acesso", "x": "O dono bloqueou este acesso.", "v": ["Fale com a NexumCell pelo chat da tela de bloqueio."], "chat": "Oriente a falar com a NexumCell pelo chat da tela de bloqueio." }, "1001": { "t": "Loja bloqueada", "g": "loja", "x": "A NexumCell bloqueou a loja.", "v": ["O gerente fala com a NexumCell pelo chat da tela de bloqueio.", "Os contratos dos clientes continuam funcionando normalmente."], "chat": "O gerente fala com a NexumCell pelo chat da tela de bloqueio. Os contratos dos clientes continuam normalmente." }, "1002": { "t": "Loja bloqueada por mensalidade", "g": "loja", "x": "A mensalidade da loja est\xE1 atrasada.", "v": ["O gerente paga a mensalidade em Licen\xE7as.", "A loja desbloqueia assim que o pagamento cair."], "chat": "Oriente o pagamento da mensalidade; a loja desbloqueia na hora." }, "1003": { "t": "Loja acima do limite de carteira", "g": "loja", "x": "A loja passou do teto de carteira em aberto.", "v": ["Continue vendendo normalmente.", "As novas vendas v\xE3o para an\xE1lise manual at\xE9 a carteira baixar, ent\xE3o a aprova\xE7\xE3o pode demorar um pouco mais."], "chat": "Novas vendas v\xE3o para an\xE1lise manual at\xE9 reduzir a carteira." }, "1004": { "t": "Loja acima da inadimpl\xEAncia", "g": "loja", "x": "A inadimpl\xEAncia da loja passou do limite.", "v": ["As novas vendas v\xE3o para an\xE1lise manual.", "Ajude a cobrar os clientes em atraso pela Fila de cobran\xE7a."], "chat": "Novas vendas v\xE3o para an\xE1lise manual; oriente a loja a cobrar os atrasos." }, "1005": { "t": "Loja sem licen\xE7as", "g": "loja", "x": "A loja n\xE3o tem saldo de licen\xE7as para a venda (1 licen\xE7a a cada 12 parcelas).", "v": ["A proposta fica salva: n\xE3o precisa refazer.", "O gerente compra mais licen\xE7as no menu Licen\xE7as.", "Assim que o pagamento cair, a venda \xE9 liberada."], "chat": "Oriente o gerente a comprar licen\xE7as no menu Licen\xE7as; a venda libera assim que o pagamento cai." }, "1010": { "t": "A trava n\xE3o subiu", "g": "trava", "x": "A instala\xE7\xE3o da trava n\xE3o concluiu.", "v": ["Confira se o celular foi restaurado de f\xE1brica, sem conta Google.", "Conecte no Wi-Fi da loja.", "Na tela de boas-vindas, toque 6 vezes e leia o QR da venda de novo.", 'Se aparecer "app bloqueado para proteger o dispositivo", instale pelo computador (USB).', "Nunca entregue o aparelho sem a trava confirmada (tela verde)."], "chat": "Oriente a refazer pelo QR ou instalar pelo computador (USB). Nunca entregar o aparelho sem a trava." }, "1011": { "t": "IMEI irregular", "g": "trava", "x": "O IMEI lido no aparelho n\xE3o \xE9 o do contrato.", "v": ["Confira se pegou o aparelho certo no estoque (IMEI na caixa e discando *#06#).", "N\xE3o entregue o aparelho.", "Chame o atendente aqui para corrigir o contrato."], "chat": "O aparelho foi bloqueado. Oriente a conferir se pegou o aparelho certo do estoque." }, "1012": { "t": "A trava n\xE3o confirmou", "g": "trava", "x": "O aparelho n\xE3o confirmou a trava a tempo.", "v": ["Deixe o celular no Wi-Fi e abra o app NexumCell uma vez.", "Espere 1 ou 2 minutos: a tela da venda fica verde quando confirmar.", "Se n\xE3o confirmar em 10 minutos, chame o atendente aqui."], "chat": "Pe\xE7a para conferir o Wi-Fi e abrir o app uma vez; a tela da venda fica verde ao confirmar." }, "1013": { "t": "Sem resposta do servidor", "g": "trava", "x": "O servidor n\xE3o respondeu durante a opera\xE7\xE3o.", "v": ["Espere 2 minutos e tente de novo.", "Veja em Ajuda e status se o servidor est\xE1 verde.", "Se continuar, mande aqui o c\xF3digo e um print da tela."], "chat": "Pe\xE7a para tentar de novo em alguns minutos; confira o Status do sistema na Ajuda." } };
+    AJUDA_URL = "https://nexumrh.github.io/gerente/ajuda.html";
+  }
+});
+
+// api/crm-rotinas.js
+var crm_rotinas_exports = {};
+__export(crm_rotinas_exports, {
+  autoEncerrar: () => autoEncerrar,
+  avisoPrioridade: () => avisoPrioridade,
+  exemplosBons: () => exemplosBons,
+  lembretePesquisa: () => lembretePesquisa,
+  relatorioDiarioCrm: () => relatorioDiarioCrm
+});
+async function relatorioDiarioCrm(cfg = {}, forcar = false) {
+  if (cfg.relCrmDiario === "nao") return { relDiario: "desligado" };
+  const h = hoje(), ref = db.collection("relatoriosCrm").doc(h);
+  if (!forcar && (await ref.get()).exists) return { relDiario: "j\xE1 feito hoje" };
+  const ini = (/* @__PURE__ */ new Date(h + "T00:00:00-03:00")).getTime();
+  const [at, ch, atr, av, wa, app, mk] = await Promise.all([lista2("atendimentos", "atualizadoEm", ini), lista2("chamados", "criadoEm", ini), lista2("crmAtrib", "em", ini - 7 * 864e5), lista2("crmAvaliacoes", "em", ini), lista2("waConversas", "atualizadoEm", ini), lista2("suporteApp", "atualizadoEm", ini), lista2("crmMarcas", "atualizadoEm", ini)]);
+  const humanos = at.filter((a) => a.status !== "BOT" && (a.encaminhadoEm || 0) >= ini);
+  const tempos = humanos.map((a) => {
+    const r = (a.msgs || []).find((m) => m.de === "atendente" && !m.auto && (+m.em || 0) >= (+a.encaminhadoEm || 0));
+    return r ? (r.em - a.encaminhadoEm) / 6e4 : null;
+  }).filter((x) => x != null && x >= 0);
+  const tmr = tempos.length ? tempos.reduce((s, x) => s + x, 0) / tempos.length : null;
+  const resolvidosBot = at.filter((a) => (a.criadoEm || 0) >= ini && a.status === "CONCLUIDO" && !a.encaminhadoEm).length;
+  const fin = atr.filter((a) => (a.finalizadoEm || 0) >= ini), porAt = {};
+  fin.forEach((a) => {
+    const k = a.finalizadoPor || a.nome || "\u2014";
+    (porAt[k] ||= { fin: 0, notas: [] }).fin++;
+  });
+  av.forEach((a) => {
+    const k = a.nome || "\u2014";
+    (porAt[k] ||= { fin: 0, notas: [] }).notas.push(+a.nota || 0);
+  });
+  const media = av.length ? av.reduce((s, a) => s + (+a.nota || 0), 0) / av.length : null;
+  const erros = {};
+  at.forEach((a) => (a.codigos || []).forEach((c) => {
+    erros[c] = (erros[c] || 0) + 1;
+  }));
+  const errosLoja = {};
+  at.forEach((a) => (a.codigos || []).forEach((c) => {
+    const k = `${a.lojaNome || "Sem loja"} \xB7 ${c}`;
+    errosLoja[k] = (errosLoja[k] || 0) + 1;
+  }));
+  const prioridade = mk.filter((a) => a.prioridade && (a.prioridadeEm || 0) >= ini).length;
+  const dados = {
+    data: h,
+    em: Date.now(),
+    chatsPortais: at.filter((a) => (a.criadoEm || 0) >= ini).length,
+    comEquipe: humanos.length,
+    resolvidosAssistente: resolvidosBot,
+    chamados: ch.length,
+    whatsapp: wa.length,
+    app: app.length,
+    finalizados: fin.length,
+    tmrMin: tmr == null ? null : Math.round(tmr * 10) / 10,
+    notaMedia: media == null ? null : Math.round(media * 10) / 10,
+    avaliacoes: av.length,
+    prioridade,
+    porAtendente: Object.entries(porAt).map(([nome, v]) => ({ nome, finalizados: v.fin, avaliacoes: v.notas.length, media: v.notas.length ? Math.round(v.notas.reduce((s, x) => s + x, 0) / v.notas.length * 10) / 10 : null })).sort((a, b) => b.finalizados - a.finalizados),
+    erros: Object.entries(erros).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c, n]) => ({ c, n, t: ERROS[c]?.t || "" })),
+    errosLoja: Object.entries(errosLoja).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => ({ k, n }))
+  };
+  await ref.set(dados);
+  if (brevoLigado() && process.env.DONO_EMAIL) {
+    const tr = (a, b) => `<tr><td style="padding:5px 10px 5px 0;color:#5B6478">${a}</td><td style="padding:5px 0;text-align:right"><b>${b}</b></td></tr>`;
+    const html = `<div style="font-family:Arial,sans-serif;color:#0A1733;max-width:640px"><h2 style="margin:0 0 4px">Atendimento de hoje \xB7 ${h.split("-").reverse().join("/")}</h2><p style="color:#5B6478;margin:0 0 14px">Resumo autom\xE1tico do CRM da NexumCell.</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">${tr("Chats dos portais abertos", dados.chatsPortais)}${tr("Resolvidos s\xF3 pela assistente", dados.resolvidosAssistente)}${tr("Passaram para a equipe", dados.comEquipe)}${tr("Tempo m\xE9dio at\xE9 a 1\xAA resposta", minFmt(dados.tmrMin))}${tr("Chamados", dados.chamados)}${tr("Conversas no WhatsApp", dados.whatsapp)}${tr("Finalizados", dados.finalizados)}${tr("Nota m\xE9dia", dados.notaMedia == null ? "\u2014" : dados.notaMedia + " de 5 (" + dados.avaliacoes + ")")}${tr("Marcados como prioridade", dados.prioridade)}</table>
+      <h3 style="margin:0 0 6px;font-size:15px">Quem atendeu</h3><table style="width:100%;margin-bottom:14px">${dados.porAtendente.map((p) => tr(p.nome, `${p.finalizados} finalizado(s) \xB7 nota ${p.media ?? "\u2014"}`)).join("") || tr("Ningu\xE9m finalizou atendimentos hoje", "")}</table>
+      <h3 style="margin:0 0 6px;font-size:15px">Erros mais comuns</h3><table style="width:100%;margin-bottom:14px">${dados.erros.map((e) => tr(`${e.c} \xB7 ${e.t}`, e.n)).join("") || tr("Nenhum c\xF3digo de erro hoje", "")}</table>
+      ${dados.errosLoja.length ? `<h3 style="margin:0 0 6px;font-size:15px">Erros repetidos na mesma loja</h3><table style="width:100%">${dados.errosLoja.map((e) => tr(e.k, e.n + "x")).join("")}</table>` : ""}</div>`;
+    try {
+      await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `Atendimento de hoje: ${dados.chatsPortais + dados.chamados + dados.whatsapp} contatos, nota ${dados.notaMedia ?? "\u2014"}, 1\xAA resposta em ${minFmt(dados.tmrMin)}`, html });
+    } catch (e) {
+      console.error("reldiario email", e.message);
+    }
+  }
+  return { relDiario: "feito" };
+}
+async function lembretePesquisa() {
+  const agora = Date.now();
+  let n = 0;
+  const l = await lista2("atendimentos", "concluidoEm", agora - 48 * 36e5);
+  for (const a of l) {
+    if (a.status !== "CONCLUIDO" || a.pesquisa || a.lembretePesquisaEm || (a.concluidoEm || 0) > agora - 24 * 36e5) continue;
+    if (!(a.msgs || []).some((m) => m.de === "atendente" && !m.auto)) continue;
+    await db.collection("atendimentos").doc(a.id).set({ lembretePesquisaEm: agora, naoLidoUser: true, msgs: [...a.msgs || [], { de: "bot", t: "Voc\xEA ainda n\xE3o avaliou este atendimento. Leva 5 segundos: escolha as estrelas logo abaixo. Sua nota ajuda a melhorar o suporte.", em: agora }] }, { merge: true });
+    n++;
+  }
+  return { lembretesPesquisa: n };
+}
+async function avisoPrioridade() {
+  if (!brevoLigado() || !process.env.DONO_EMAIL) return { prioridade: "sem e-mail" };
+  const l = (await lista2("crmMarcas", "atualizadoEm", Date.now() - 6 * 36e5)).filter((a) => a.prioridade && (a.prioridadeEm || 0) > Date.now() - 6 * 36e5 && !a.prioridadeAvisadoEm);
+  if (!l.length) return { prioridade: 0 };
+  const linhas = l.slice(0, 10).map((a) => `<li><b>${a.prioridadeNome || a.key}</b> \xB7 ${a.prioridadeMotivo || "prioridade alta"}</li>`).join("");
+  await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `${l.length} atendimento(s) com prioridade alta no CRM`, html: `<div style="font-family:Arial,sans-serif;color:#0A1733"><h2 style="margin:0 0 8px">Atendimentos que pedem aten\xE7\xE3o</h2><p style="color:#5B6478">Pessoa irritada ou urg\xEAncia alta. Eles j\xE1 est\xE3o no topo da fila do CRM.</p><ul>${linhas}</ul></div>` });
+  for (const a of l) await db.collection("crmMarcas").doc(a.id).set({ prioridadeAvisadoEm: Date.now() }, { merge: true });
+  return { prioridade: l.length };
+}
+async function exemplosBons() {
+  if (_ex && _ex.em > Date.now() - 15 * 6e4) return _ex.t;
+  let t = "";
+  try {
+    const av = (await db.collection("crmAvaliacoes").where("nota", "==", 5).limit(40).get()).docs.map((d) => d.data()).filter((a) => a.canal === "portal" && a.key).sort((a, b) => b.em - a.em).slice(0, 8);
+    const ex = [];
+    for (const a of av) {
+      const s = await db.collection("atendimentos").doc(String(a.key).replace(/^portal:/, "")).get();
+      if (!s.exists) continue;
+      const ms = s.data().msgs || [];
+      const perg = ms.filter((m) => m.de === "user").slice(-1)[0]?.t, resp = ms.filter((m) => m.de === "atendente" && !m.auto).slice(-2).map((m) => m.t).join(" ");
+      if (perg && resp) ex.push(`Pergunta: ${String(perg).slice(0, 200)}
+Resposta que recebeu nota 5: ${String(resp).slice(0, 400)}`);
+      if (ex.length >= 5) break;
+    }
+    t = ex.length ? "Exemplos de respostas da equipe que receberam nota 5 (siga o mesmo tom e o mesmo n\xEDvel de detalhe):\n" + ex.join("\n---\n") : "";
+  } catch (e) {
+    t = "";
+  }
+  _ex = { em: Date.now(), t };
+  return t;
+}
+async function autoEncerrar() {
+  const agora = Date.now();
+  let n = 0;
+  for (const d of (await db.collection("atendimentos").where("status", "==", "HUMANO").get()).docs) {
+    const a = d.data(), ms = (a.msgs || []).filter((m) => !m.auto && m.de !== "bot"), u = ms[ms.length - 1];
+    if (!u || u.de !== "atendente" || (+u.em || 0) > agora - 24 * 36e5) continue;
+    await d.ref.set({
+      status: "CONCLUIDO",
+      concluidoEm: agora,
+      concluidoPor: "Encerramento autom\xE1tico",
+      naoLidoUser: true,
+      atualizadoEm: agora,
+      msgs: [...a.msgs || [], { de: "bot", t: "Como n\xE3o tivemos resposta nas \xFAltimas 24 horas, encerramos este atendimento. Se ainda precisar de ajuda, \xE9 s\xF3 abrir um novo chat. Antes, avalie como foi o atendimento logo abaixo.", em: agora, auto: true }]
+    }, { merge: true });
+    n++;
+  }
+  return { autoEncerrados: n };
+}
+var lista2, minFmt, _ex;
+var init_crm_rotinas = __esm({
+  "api/crm-rotinas.js"() {
+    init_base();
+    init_brevo();
+    init_erros();
+    lista2 = async (c, campo, desde) => (await db.collection(c).where(campo, ">=", desde).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+    minFmt = (m) => m == null ? "\u2014" : m < 60 ? Math.round(m) + " min" : Math.floor(m / 60) + " h " + String(Math.round(m % 60)).padStart(2, "0");
+    _ex = null;
+  }
+});
 
 // api/pix.js
+init_base();
 async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
@@ -700,6 +1001,7 @@ async function handler(req, res) {
 }
 
 // api/loja.js
+init_base();
 async function pedirNegativacao(v2, p, por) {
   const c = v2.cliente || {}, num = (String(c.endereco || "").match(/,\s*(\d+)/) || [])[1] || "S/N";
   const r = await asaas("/paymentDunnings", { method: "POST", body: JSON.stringify({
@@ -839,6 +1141,7 @@ async function handler2(req, res) {
 }
 
 // api/pix-automatico.js
+init_base();
 async function handler3(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
@@ -873,7 +1176,14 @@ async function handler3(req, res) {
   }
 }
 
+// api/emprestimo.js
+init_base();
+
+// api/ia-autonoma.js
+init_base();
+
 // api/preanalise.js
+init_base();
 var dig = (s) => String(s || "").replace(/\D/g, "");
 function cpfOk(c) {
   c = dig(c);
@@ -989,6 +1299,7 @@ async function handler4(req, res) {
 }
 
 // api/ia-autonoma.js
+init_base();
 var MODELO = process.env.GROQ_MODELO_AUTONOMA || "llama-3.3-70b-versatile";
 var dias = (a, b) => Math.round((/* @__PURE__ */ new Date(String(b).slice(0, 10) + "T12:00:00") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00")) / 864e5);
 var POR = "IA NexumCell";
@@ -1246,6 +1557,7 @@ function scoreDe(vendas, h = (/* @__PURE__ */ new Date()).toISOString().slice(0,
 }
 
 // api/emprestimo.js
+init_base();
 var PAD = {
   instituicao: { tipo: "NENHUMA" },
   dataprev: { modo: "MANUAL" },
@@ -1574,94 +1886,12 @@ async function baixarParcelaEmprestimo(ref, valor, cobrancaId) {
   return true;
 }
 
-// api/_brevo.js
-var env = () => globalThis.process?.env || {};
-var brevoLigado = () => !!env().BREVO_API_KEY;
-async function brevo(caminho, corpo) {
-  if (!brevoLigado()) throw new Error("Brevo n\xE3o configurado (falta BREVO_API_KEY)");
-  const r = await fetch("https://api.brevo.com/v3" + caminho, {
-    method: "POST",
-    headers: { "api-key": env().BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify(corpo)
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error("Brevo " + r.status + ": " + (j.message || j.code || JSON.stringify(j)));
-  return j;
-}
-var escHtml = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-function moldura(titulo, corpoTexto, rodape = "") {
-  const corpo = String(corpoTexto).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${escHtml(p).replace(/\n/g, "<br>")}</p>`).join("");
-  return `<!doctype html><html><body style="margin:0;background:#F2F4F8;font-family:Arial,Helvetica,sans-serif;color:#1B2540">
-  <div style="max-width:560px;margin:0 auto;padding:24px 14px"><div style="background:#0E1A3A;color:#F3D98B;border-radius:14px 14px 0 0;padding:18px 22px;font-size:19px;font-weight:bold">${escHtml(titulo)}</div>
-  <div style="background:#fff;border-radius:0 0 14px 14px;padding:22px;font-size:15px;line-height:1.5">${corpo}</div>
-  <p style="font-size:12px;color:#7A86A3;text-align:center;margin-top:14px">${escHtml(rodape || "Mensagem autom\xE1tica do sistema NexumCell.")}</p></div></body></html>`;
-}
-async function enviarEmail({ para, assunto, html, texto, titulo, anexos }) {
-  const to = (Array.isArray(para) ? para : [para]).filter(Boolean).map((x) => typeof x === "string" ? { email: x } : x);
-  if (!to.length) throw new Error("sem destinat\xE1rio");
-  return brevo("/smtp/email", {
-    sender: { email: env().BREVO_REMETENTE, name: env().BREVO_REMETENTE_NOME || "NexumCell" },
-    to,
-    subject: String(assunto).slice(0, 200),
-    htmlContent: html || moldura(titulo || assunto, texto || ""),
-    ...texto ? { textContent: texto } : {},
-    ...anexos?.length ? { attachment: anexos } : {}
-    // [{name:'relatorio.csv', content:'<base64>'}]
-  });
-}
-var telInter = (t) => {
-  const d = String(t || "").replace(/\D/g, "");
-  if (!d) return "";
-  return d.startsWith("55") && d.length >= 12 ? d : "55" + d;
-};
-async function enviarSms(tel, texto) {
-  const n = telInter(tel);
-  if (!n) throw new Error("sem telefone");
-  return brevo("/transactionalSMS/send", { sender: (env().BREVO_SMS_REMETENTE || "NexumCell").replace(/\s/g, "").slice(0, 11), recipient: n, content: String(texto).slice(0, 640), type: "transactional", unicodeEnabled: false });
-}
-async function enviarWhatsapp(tel, { templateId, params, texto }) {
-  const n = telInter(tel);
-  if (!n) throw new Error("sem telefone");
-  if (!env().BREVO_WHATSAPP_NUMERO) throw new Error("falta BREVO_WHATSAPP_NUMERO");
-  const corpo = { senderNumber: telInter(env().BREVO_WHATSAPP_NUMERO), contactNumbers: [n] };
-  if (templateId) Object.assign(corpo, { templateId: +templateId, params: params || {} });
-  else corpo.text = String(texto || "");
-  return brevo("/whatsapp/sendMessage", corpo);
-}
-var MODELOS = {
-  lembrete: () => env().BREVO_WA_TEMPLATE_LEMBRETE,
-  // parcela vencendo: NOME, VALOR, VENCIMENTO, LINK
-  atraso: () => env().BREVO_WA_TEMPLATE_ATRASO,
-  // parcela atrasada: NOME, VALOR, DIAS, LINK
-  recibo: () => env().BREVO_WA_TEMPLATE_RECIBO,
-  // pagamento recebido: NOME, VALOR, PARCELA
-  resumo: () => env().BREVO_WA_TEMPLATE_RESUMO
-  // resumo do dono: TEXTO
-};
-async function avisarCliente(tel, canal, { modelo, params, texto }) {
-  const r = { whatsapp: null, sms: null };
-  if (["whatsapp", "ambos", "whatsapp_ou_sms"].includes(canal)) {
-    try {
-      const id = MODELOS[modelo]?.();
-      if (!id) throw new Error('modelo de WhatsApp "' + modelo + '" n\xE3o configurado');
-      await enviarWhatsapp(tel, { templateId: id, params });
-      r.whatsapp = "ok";
-    } catch (e) {
-      r.whatsapp = e.message;
-    }
-  }
-  if (["sms", "ambos"].includes(canal) || canal === "whatsapp_ou_sms" && r.whatsapp !== "ok") {
-    try {
-      await enviarSms(tel, texto);
-      r.sms = "ok";
-    } catch (e) {
-      r.sms = e.message;
-    }
-  }
-  return r;
-}
+// api/asaas-webhook.js
+init_base();
+init_brevo();
 
 // api/saas.js
+init_base();
 var addDias = (iso, n) => {
   const d = /* @__PURE__ */ new Date(iso + "T12:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
@@ -1904,6 +2134,7 @@ async function handler8(req, res) {
 }
 
 // api/assistente.js
+init_base();
 var MODELO2 = process.env.GROQ_MODELO || "openai/gpt-oss-120b";
 async function handler9(req, res) {
   if (cors(req, res)) return;
@@ -1955,7 +2186,15 @@ async function handler9(req, res) {
   }
 }
 
+// api/avisos.js
+init_base();
+init_brevo();
+
+// api/cron.js
+init_base();
+
 // api/repasse.js
+init_base();
 var r22 = (x) => Math.round(x * 100) / 100;
 var TIPOS = { CPF: "CPF", CNPJ: "CNPJ", EMAIL: "EMAIL", TELEFONE: "PHONE", ALEATORIA: "EVP" };
 var valorRepasse = (v) => r22(Math.max(0, (+v.valor || 0) - (+v.entrada || 0)));
@@ -2030,6 +2269,8 @@ async function handler10(req, res) {
 }
 
 // api/seguranca.js
+init_base();
+init_brevo();
 var erro3 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 var sha = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");
 async function codigo(req, res) {
@@ -2161,6 +2402,7 @@ Guarde este e-mail. Para restaurar, fale com o suporte do sistema.`,
 }
 
 // api/instalacao.js
+init_base();
 var erro4 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 function travaConfirmada(ck, cfg) {
   if (!ck || !ck.em) return false;
@@ -2214,6 +2456,7 @@ async function handler11(req, res) {
 }
 
 // api/negativacao.js
+init_base();
 var diasEntre = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(a + "T12:00:00Z")) / 864e5);
 var ATIVAS = ["PENDING", "AWAITING_APPROVAL", "AWAITING_CANCELLATION", "PROCESSED", "PAID", "PARTIALLY_PAID"];
 async function negativacaoRotina(cfg) {
@@ -2267,6 +2510,7 @@ async function negativacaoRotina(cfg) {
 }
 
 // api/fidelidade.js
+init_base();
 var ENCERRADAS = ["CANCELADA", "REPROVADA", "RASCUNHO"];
 async function cashbackRotina(cfg) {
   if (cfg.cashbackAtivo !== "sim") return { cashback: "desligado" };
@@ -2367,6 +2611,8 @@ async function posVendaRotina(cfg) {
 }
 
 // api/relatorio-semanal.js
+init_base();
+init_brevo();
 var diasEntre2 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(a + "T12:00:00Z")) / 864e5);
 var brl3 = (n) => "R$ " + (Number(n) || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 async function relatorioSemanal(cfg, forcar = false) {
@@ -2418,6 +2664,8 @@ ${cfg.empresa || "NexumCell"}`;
 }
 
 // api/relatorio-crm.js
+init_base();
+init_brevo();
 var brl4 = (n) => "R$ " + (Number(n) || 0).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 var lista = async (c, campo, desde) => (await db.collection(c).where(campo, ">=", desde).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
 async function relatorioCrm(cfg, forcar = false) {
@@ -2466,6 +2714,7 @@ async function relatorioCrm(cfg, forcar = false) {
 }
 
 // api/motor.js
+init_base();
 var MOTOR_PADRAO = {
   modo: "sugerir",
   // desligado | sugerir | automatico
@@ -2619,8 +2868,8 @@ async function avaliarVenda(vendaId) {
   else if (idade > R.idadeMax) reprova.push(`idade ${idade} acima de ${R.idadeMax}`);
   if (!(c.renda >= R.rendaMin)) reprova.push(`renda abaixo do m\xEDnimo (R$ ${R.rendaMin})`);
   if (R.cidades) {
-    const lista2 = R.cidades.split(",").map(sem).filter(Boolean);
-    if (lista2.length && !lista2.includes(sem(c.cidade))) manual.push(`cidade fora da \xE1rea (${c.cidade || "\u2014"})`);
+    const lista3 = R.cidades.split(",").map(sem).filter(Boolean);
+    if (lista3.length && !lista3.includes(sem(c.cidade))) manual.push(`cidade fora da \xE1rea (${c.cidade || "\u2014"})`);
   }
   if (R.exigirDocOriginal && vf.documentoOriginal === false) manual.push("documento parece c\xF3pia ou foto de tela");
   if (R.exigirRosto && vf.face?.mesma_pessoa && vf.face.mesma_pessoa !== "sim") manual.push(`rosto x documento: ${vf.face.mesma_pessoa}`);
@@ -2742,7 +2991,13 @@ async function handler12(req, res) {
   }
 }
 
+// api/cron.js
+init_brevo();
+init_ios();
+
 // api/equipe.js
+init_base();
+init_brevo();
 var PRAZO_AUTO_MS = 2 * 36e5;
 var PRE = { DONO: "DON", GERENTE: "GER", VENDEDOR: "VND", FINANCEIRO: "FIN", SUPORTE: "SUP" };
 var ORIGEM = () => process.env.PORTAL_ORIGEM || "https://nexumrh.github.io";
@@ -2841,34 +3096,13 @@ async function handler13(req, res) {
   }
 }
 
-// api/erros.js
-var ERROS = { "314": { "t": "Vendedor ou gerente suspenso", "g": "acesso", "x": "O acesso foi desativado pela loja ou pela NexumCell.", "v": ["Vendedor: fale com o gerente da sua loja para reativar o seu acesso.", "Gerente: use o chat da tela de acesso restrito para falar com a NexumCell."], "chat": "Confirme quem desativou. Se foi a NexumCell, oriente o gerente a falar pelo chat da tela de bloqueio; se foi a loja, com o gerente dela." }, "315": { "t": "Treinamento obrigat\xF3rio pendente", "g": "acesso", "x": "A pessoa ainda n\xE3o concluiu os m\xF3dulos obrigat\xF3rios do Treinamento.", "v": ["Abra Treinamento no menu.", "Conclua os m\xF3dulos marcados como obrigat\xF3rios, com o teste no final.", "As vendas s\xE3o liberadas assim que voc\xEA terminar."], "chat": "Oriente a concluir o Treinamento (aba Treinamento). As vendas liberam ao terminar." }, "316": { "t": "Sess\xE3o encerrada", "g": "acesso", "x": "A sess\xE3o expirou ou foi aberta em outro aparelho.", "v": ["Entre de novo com o seu ID e a sua senha.", "Use o sistema em um aparelho por vez.", "Se cair de novo, confira a internet e recarregue a p\xE1gina (Ctrl + Shift + R)."], "chat": "Pe\xE7a para entrar de novo. Se persistir, confira a internet." }, "403": { "t": "Venda fora da loja", "g": "venda", "x": "A localiza\xE7\xE3o do notebook n\xE3o bate com a da loja cadastrada.", "v": ["Fa\xE7a a venda dentro da loja, no notebook autorizado.", "Ligue a localiza\xE7\xE3o do navegador: cadeado ao lado do endere\xE7o \u2192 Localiza\xE7\xE3o \u2192 Permitir.", "Recarregue a p\xE1gina e tente de novo."], "chat": "Oriente a fazer a venda dentro da loja, com a localiza\xE7\xE3o do navegador permitida." }, "409": { "t": "Um aparelho por CPF", "g": "venda", "x": "O CPF j\xE1 tem um aparelho financiado em aberto.", "v": ["Explique ao cliente que \xE9 um aparelho por vez, at\xE9 quitar o atual.", "Mostre quanto falta para quitar (Atendimento \u2192 Valor para quitar).", "Caso de bom pagador: s\xF3 o dono pode liberar um segundo aparelho."], "chat": "Explique a regra. S\xF3 com o anterior quitado, ou libera\xE7\xE3o do dono para bom pagador.", "cliente": "Ol\xE1! No momento n\xE3o \xE9 poss\xEDvel um novo financiamento porque j\xE1 existe um aparelho em aberto neste CPF. Assim que ele for quitado, voc\xEA pode financiar outro. Qualquer d\xFAvida, estamos \xE0 disposi\xE7\xE3o." }, "410": { "t": "Cliente na lista negra", "g": "venda", "x": "O CPF ou o telefone do cliente est\xE1 na lista negra.", "v": ["N\xE3o continue a venda.", "Diga ao cliente apenas que a an\xE1lise n\xE3o aprovou neste momento.", "Se o cliente contestar, abra um atendimento aqui."], "chat": "N\xE3o prometa venda. Encaminhe ao dono ou ao financeiro se o cliente contestar." }, "411": { "t": "Cliente menor de 18 anos", "g": "venda", "x": "N\xE3o \xE9 poss\xEDvel contratar cr\xE9dito para menor de idade.", "v": ["Explique com educa\xE7\xE3o que o cr\xE9dito exige 18 anos ou mais.", "A compra pode ser feita no nome de um respons\xE1vel maior de idade, com os documentos dele."], "chat": "Explique com educa\xE7\xE3o que o cr\xE9dito exige maioridade.", "cliente": "Ol\xE1! Para o financiamento \xE9 necess\xE1rio ter 18 anos ou mais. Assim que poss\xEDvel, teremos prazer em atender voc\xEA." }, "412": { "t": "Proposta j\xE1 em andamento", "g": "venda", "x": "J\xE1 existe uma proposta em an\xE1lise ou aprovada para este CPF.", "v": ["N\xE3o crie outra proposta.", "Em Vendas, procure pelo CPF do cliente e abra a proposta com o n\xFAmero informado.", "Continue de onde ela parou."], "chat": "Oriente a continuar a proposta que j\xE1 existe, pelo n\xFAmero informado." }, "413": { "t": "Telefone da equipe no cadastro", "g": "venda", "x": "O telefone informado \xE9 de algu\xE9m da equipe.", "v": ["Troque pelos dois telefones do pr\xF3prio cliente, diferentes entre si.", "Nunca use o seu telefone ou de algu\xE9m da loja: isso \xE9 tratado como fraude."], "chat": "Pe\xE7a dois telefones do pr\xF3prio cliente. Isso \xE9 tratado como fraude." }, "420": { "t": "Aparelho fora do estoque", "g": "venda", "x": "O IMEI informado n\xE3o est\xE1 no estoque da loja.", "v": ["Confira se o IMEI foi digitado certo (na caixa ou discando *#06#).", "Gerente: cadastre o aparelho em Estoque.", "Volte na venda e informe o IMEI de novo."], "chat": "Oriente o gerente a cadastrar o aparelho no estoque antes de vender." }, "421": { "t": "Cidade fora da \xE1rea atendida", "g": "venda", "x": "A cidade do cliente est\xE1 fora da \xE1rea configurada.", "v": ["N\xE3o precisa refazer a proposta.", "Ela segue para an\xE1lise manual da NexumCell: acompanhe o resultado na tela da venda."], "chat": "A proposta vai para an\xE1lise manual da NexumCell; aguarde o parecer." }, "515": { "t": "Parcela em atraso: aparelho bloqueado", "g": "pagamento", "x": "H\xE1 parcela vencida al\xE9m da toler\xE2ncia e o aparelho travou.", "v": ["O cliente paga pelo Pix no app NexumCell (aba Parcelas).", "Pagando, o aparelho libera sozinho em poucos minutos.", 'Se ele j\xE1 pagou: pe\xE7a para ligar a internet e tocar em "J\xE1 paguei \u2014 verificar agora".', "Se ainda assim n\xE3o liberar, chame o atendente aqui com o n\xFAmero do contrato."], "chat": 'Confirme a parcela em atraso. Oriente a pagar pelo Pix no app; ao registrar, o aparelho libera sozinho. Se j\xE1 pagou, pe\xE7a para abrir o app com internet e tocar em "J\xE1 paguei".', "cliente": "Ol\xE1! Seu aparelho foi bloqueado porque h\xE1 uma parcela em atraso. Assim que o pagamento for feito pelo Pix no app NexumCell (aba Parcelas), ele \xE9 liberado em poucos minutos." }, "516": { "t": "Aparelho sem internet h\xE1 muitos dias", "g": "pagamento", "x": "O aparelho ficou muitos dias sem conex\xE3o e travou por seguran\xE7a.", "v": ["Pe\xE7a ao cliente para ligar o Wi-Fi ou os dados m\xF3veis.", "Abrir o app NexumCell uma vez: ele libera sozinho.", "Se o cliente estiver sem internet nenhuma, chame o atendente aqui para receber um c\xF3digo de libera\xE7\xE3o."], "chat": "Pe\xE7a para ligar o Wi-Fi ou os dados e abrir o app uma vez. Se n\xE3o liberar, gere um c\xF3digo de libera\xE7\xE3o tempor\xE1ria.", "cliente": "Ol\xE1! Seu aparelho ficou muitos dias sem conex\xE3o e foi bloqueado por seguran\xE7a. \xC9 s\xF3 ligar o Wi-Fi ou os dados m\xF3veis e abrir o app NexumCell que ele libera sozinho." }, "517": { "t": "Promessa de pagamento quebrada", "g": "pagamento", "x": "A data prometida passou sem pagamento e o aparelho travou de novo.", "v": ["O cliente precisa pagar a parcela pelo Pix no app para liberar.", "Uma nova promessa s\xF3 com autoriza\xE7\xE3o do financeiro: chame o atendente aqui."], "chat": "Oriente a pagar. N\xE3o h\xE1 segunda promessa no mesmo contrato sem autoriza\xE7\xE3o.", "cliente": "Ol\xE1! A data de pagamento que combinamos passou e o aparelho foi bloqueado novamente. Assim que a parcela for paga, ele \xE9 liberado na hora." }, "600": { "t": "Cr\xE9dito reprovado", "g": "credito", "x": "A an\xE1lise de cr\xE9dito reprovou pelas regras.", "v": ["Explique com educa\xE7\xE3o que o cr\xE9dito n\xE3o foi aprovado desta vez.", "O cliente pode tentar de novo depois de 30 dias.", "N\xE3o prometa aprova\xE7\xE3o."], "chat": "Explique com educa\xE7\xE3o que pode tentar de novo depois de 30 dias.", "cliente": "Ol\xE1! Infelizmente n\xE3o foi poss\xEDvel aprovar o financiamento desta vez. Voc\xEA pode tentar novamente ap\xF3s 30 dias. Agradecemos o interesse!" }, "601": { "t": "Renda insuficiente para a parcela", "g": "credito", "x": "A parcela passa do limite de comprometimento da renda.", "v": ["Ofere\xE7a uma entrada maior, mais parcelas ou um aparelho mais barato.", "Simule de novo: o Assistente da venda mostra quando a parcela cabe."], "chat": "Sugira aumentar a entrada, mais parcelas ou um aparelho mais barato." }, "602": { "t": "Documento irregular", "g": "credito", "x": "O documento est\xE1 ileg\xEDvel, editado ou vencido.", "v": ["Tire novas fotos do documento original, frente e verso.", "Sem reflexo, sem cortar as bordas e com a c\xE2mera parada.", "A proposta vai para an\xE1lise manual."], "chat": "Pe\xE7a novas fotos do documento original; a proposta vai para an\xE1lise manual." }, "900": { "t": "Acesso bloqueado pela NexumCell", "g": "acesso", "x": "O dono bloqueou este acesso.", "v": ["Fale com a NexumCell pelo chat da tela de bloqueio."], "chat": "Oriente a falar com a NexumCell pelo chat da tela de bloqueio." }, "1001": { "t": "Loja bloqueada", "g": "loja", "x": "A NexumCell bloqueou a loja.", "v": ["O gerente fala com a NexumCell pelo chat da tela de bloqueio.", "Os contratos dos clientes continuam funcionando normalmente."], "chat": "O gerente fala com a NexumCell pelo chat da tela de bloqueio. Os contratos dos clientes continuam normalmente." }, "1002": { "t": "Loja bloqueada por mensalidade", "g": "loja", "x": "A mensalidade da loja est\xE1 atrasada.", "v": ["O gerente paga a mensalidade em Licen\xE7as.", "A loja desbloqueia assim que o pagamento cair."], "chat": "Oriente o pagamento da mensalidade; a loja desbloqueia na hora." }, "1003": { "t": "Loja acima do limite de carteira", "g": "loja", "x": "A loja passou do teto de carteira em aberto.", "v": ["Continue vendendo normalmente.", "As novas vendas v\xE3o para an\xE1lise manual at\xE9 a carteira baixar, ent\xE3o a aprova\xE7\xE3o pode demorar um pouco mais."], "chat": "Novas vendas v\xE3o para an\xE1lise manual at\xE9 reduzir a carteira." }, "1004": { "t": "Loja acima da inadimpl\xEAncia", "g": "loja", "x": "A inadimpl\xEAncia da loja passou do limite.", "v": ["As novas vendas v\xE3o para an\xE1lise manual.", "Ajude a cobrar os clientes em atraso pela Fila de cobran\xE7a."], "chat": "Novas vendas v\xE3o para an\xE1lise manual; oriente a loja a cobrar os atrasos." }, "1005": { "t": "Loja sem licen\xE7as", "g": "loja", "x": "A loja n\xE3o tem saldo de licen\xE7as para a venda (1 licen\xE7a a cada 12 parcelas).", "v": ["A proposta fica salva: n\xE3o precisa refazer.", "O gerente compra mais licen\xE7as no menu Licen\xE7as.", "Assim que o pagamento cair, a venda \xE9 liberada."], "chat": "Oriente o gerente a comprar licen\xE7as no menu Licen\xE7as; a venda libera assim que o pagamento cai." }, "1010": { "t": "A trava n\xE3o subiu", "g": "trava", "x": "A instala\xE7\xE3o da trava n\xE3o concluiu.", "v": ["Confira se o celular foi restaurado de f\xE1brica, sem conta Google.", "Conecte no Wi-Fi da loja.", "Na tela de boas-vindas, toque 6 vezes e leia o QR da venda de novo.", 'Se aparecer "app bloqueado para proteger o dispositivo", instale pelo computador (USB).', "Nunca entregue o aparelho sem a trava confirmada (tela verde)."], "chat": "Oriente a refazer pelo QR ou instalar pelo computador (USB). Nunca entregar o aparelho sem a trava." }, "1011": { "t": "IMEI irregular", "g": "trava", "x": "O IMEI lido no aparelho n\xE3o \xE9 o do contrato.", "v": ["Confira se pegou o aparelho certo no estoque (IMEI na caixa e discando *#06#).", "N\xE3o entregue o aparelho.", "Chame o atendente aqui para corrigir o contrato."], "chat": "O aparelho foi bloqueado. Oriente a conferir se pegou o aparelho certo do estoque." }, "1012": { "t": "A trava n\xE3o confirmou", "g": "trava", "x": "O aparelho n\xE3o confirmou a trava a tempo.", "v": ["Deixe o celular no Wi-Fi e abra o app NexumCell uma vez.", "Espere 1 ou 2 minutos: a tela da venda fica verde quando confirmar.", "Se n\xE3o confirmar em 10 minutos, chame o atendente aqui."], "chat": "Pe\xE7a para conferir o Wi-Fi e abrir o app uma vez; a tela da venda fica verde ao confirmar." }, "1013": { "t": "Sem resposta do servidor", "g": "trava", "x": "O servidor n\xE3o respondeu durante a opera\xE7\xE3o.", "v": ["Espere 2 minutos e tente de novo.", "Veja em Ajuda e status se o servidor est\xE1 verde.", "Se continuar, mande aqui o c\xF3digo e um print da tela."], "chat": "Pe\xE7a para tentar de novo em alguns minutos; confira o Status do sistema na Ajuda." } };
-var AJUDA_URL = "https://nexumrh.github.io/gerente/ajuda.html";
-function codigosNoTexto(t) {
-  const s = String(t || ""), achados = /* @__PURE__ */ new Set();
-  const so = s.trim().match(/^#?(\d{3,4})$/);
-  if (so && ERROS[so[1]]) achados.add(so[1]);
-  const rx = /(?:erro|c[oó]d(?:igo)?\.?|cod\.?|apareceu|aparece|mensagem|tela|deu)\D{0,25}?(\d{3,4})\b/gi;
-  let m;
-  while (m = rx.exec(s)) if (ERROS[m[1]]) achados.add(m[1]);
-  return [...achados];
-}
-function resolucaoTexto(c) {
-  const e = ERROS[c];
-  if (!e) return "";
-  return `C\xF3digo ${c} \u2014 ${e.t}
-O que \xE9: ${e.x}
-
-O que fazer:
-${e.v.map((p, k) => `${k + 1}. ${p}`).join("\n")}
-
-Passo a passo completo: ${AJUDA_URL}#erro-${c}`;
-}
-function errosTexto() {
-  return Object.entries(ERROS).map(([c, e]) => `- ${c} ${e.t}: ${e.x} O vendedor/gerente faz: ${e.v.join(" ")} Suporte: ${e.chat}${e.cliente ? ' Mensagem para o cliente: "' + e.cliente + '"' : ""}`).join("\n");
-}
+// api/crm-auto.js
+init_base();
 
 // api/crm-ia.js
+init_base();
+init_erros();
+init_crm_rotinas();
 var MODELO3 = process.env.GROQ_MODELO_CRM || "llama-3.3-70b-versatile";
 var REGRAS = "Voc\xEA trabalha no atendimento da NexumCell, que vende celulares parcelados com trava do aparelho e oferece cr\xE9dito. Responda sempre em portugu\xEAs do Brasil, com educa\xE7\xE3o e frases curtas. Nunca prometa aprova\xE7\xE3o de cr\xE9dito, desconto ou libera\xE7\xE3o que a equipe n\xE3o confirmou. Nunca pe\xE7a senha, c\xF3digo ou pagamento em conta de terceiros. Pagamento \xE9 s\xF3 pelo app NexumCell (aba Parcelas \u2192 Pix) ou pelo Pix enviado pela equipe. N\xE3o use emojis.";
 var ESTILOS = {
@@ -2905,6 +3139,11 @@ async function handler14(req, res) {
   try {
     await exigirEquipe(req, ["DONO", "SUPORTE", "FINANCEIRO", "COMERCIAL"]);
     const b = req.body || {}, txt6 = String(b.texto || "").slice(0, 4e3);
+    if (b.acao === "relatorioHoje") {
+      const { relatorioDiarioCrm: relatorioDiarioCrm2 } = await Promise.resolve().then(() => (init_crm_rotinas(), crm_rotinas_exports));
+      await relatorioDiarioCrm2({}, true);
+      return res.json({ ok: true });
+    }
     if (b.acao === "status") {
       const chave = await chaveIA().catch(() => "");
       if (!chave) return res.json({ chave: false, ok: false, erro: "Nenhuma chave da IA salva. Cole a chave do Groq (come\xE7a com gsk_) em Ajustes do CRM ou no Painel do Dono \u2192 Configura\xE7\xF5es \u2192 Intelig\xEAncia artificial." });
@@ -3032,7 +3271,8 @@ Fa\xE7a o resumo para o atendente em JSON: {"pedido":"o que a pessoa quer, em 1 
       const texto = [j2.pedido && "- Pedido: " + j2.pedido, j2.feito && "- J\xE1 feito: " + j2.feito, j2.falta && "- Pr\xF3ximo passo: " + j2.falta].filter(Boolean).join("\n");
       return res.json({ texto, ...j2, codigos: [.../* @__PURE__ */ new Set([...(j2.codigos || []).map(String), ...cods])] });
     }
-    const t = await groq([{ role: "system", content: conhecimento }, { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
+    const ex = await exemplosBons();
+    const t = await groq([{ role: "system", content: conhecimento + (ex ? "\n\n" + ex : "") }, { role: "user", content: `Canal: ${String(b.canal || "").slice(0, 40)}
 Quem escreve: ${quem} (${String(b.cliente || "").slice(0, 80)})
 Atendente: ${String(b.atendente || "").slice(0, 30)}
 
@@ -3191,6 +3431,7 @@ async function agendadasRotina() {
 }
 
 // api/metas.js
+init_base();
 var SENHA_INICIAL = "123456";
 var soD2 = (s) => String(s || "").replace(/\D/g, "");
 var cpfOk2 = (c) => {
@@ -3273,19 +3514,40 @@ async function handler15(req, res) {
 }
 async function metasRotina() {
   const mes = hoje().slice(0, 7), ini = (/* @__PURE__ */ new Date(mes + "-01T00:00:00-03:00")).getTime();
-  const ps = (await db.collection("metasPessoas").get()).docs.map((d) => d.data()).filter((p) => p.ativo !== false && p.vendedorUid);
+  const todas = (await db.collection("metasPessoas").get()).docs.map((d) => d.data()).filter((p) => p.ativo !== false);
   const porEsc = {};
   let n = 0;
-  for (const p of ps) {
+  for (const p of todas.filter((x) => x.vendedorUid)) {
     const vs = (await db.collection("vendas").where("vendedorUid", "==", p.vendedorUid).get()).docs.map((d) => d.data()).filter((v) => (v.criadoEm || 0) >= ini && ["ATIVA", "QUITADA"].includes(v.status));
     (porEsc[p.escopo] ||= {})[p.cpf] = { aparelhos: vs.length, faturamento: Math.round(vs.reduce((s, v) => s + (+v.valor || 0), 0) * 100) / 100, em: Date.now() };
     n++;
+  }
+  const crm = todas.filter((x) => x.usuarioUid);
+  if (crm.length) {
+    const [av, atr] = await Promise.all([db.collection("crmAvaliacoes").where("em", ">=", ini).get(), db.collection("crmAtrib").where("finalizadoEm", ">=", ini).get()]);
+    const avs = av.docs.map((d) => d.data()), fins = atr.docs.map((d) => d.data());
+    for (const p of crm) {
+      const meu2 = avs.filter((a) => a.uid === p.usuarioUid), notas = meu2.map((a) => +a.nota || 0);
+      (porEsc[p.escopo] ||= {})[p.cpf] = {
+        ...(porEsc[p.escopo] || {})[p.cpf] || {},
+        satMedia: notas.length ? Math.round(notas.reduce((s, x) => s + x, 0) / notas.length * 10) / 10 : 0,
+        satBons: notas.filter((x) => x >= 4).length,
+        satQtd: notas.length,
+        atendidos: fins.filter((a) => a.finalizadoUid === p.usuarioUid).length,
+        em: Date.now()
+      };
+      n++;
+    }
   }
   for (const [esc, auto] of Object.entries(porEsc)) await db.collection("metasPlano").doc(`${esc}_${mes}`).set({ escopo: esc, mes, auto }, { merge: true });
   return { metasAuto: n };
 }
 
+// api/cron.js
+init_crm_rotinas();
+
 // api/comportamento.js
+init_base();
 var dias3 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
 var soD3 = (s) => String(s || "").replace(/\D/g, "");
 var isoBr = (ms) => new Date(ms - 3 * 36e5).toISOString();
@@ -3692,6 +3954,11 @@ async function rotinas(qual) {
   if (qual === "hora") {
     const r = {};
     try {
+      Object.assign(r, await lembretePesquisa(), await avisoPrioridade(), await autoEncerrar());
+    } catch (e) {
+      console.error("crm-rotinas", e.message);
+    }
+    try {
       r.equipe = await autoAprovarEquipe();
     } catch (e) {
       console.error("equipe", e.message);
@@ -3738,6 +4005,11 @@ async function rotinas(qual) {
   }
   if (qual === "noite") {
     const r = await resumoDoDia(cfg);
+    try {
+      Object.assign(r, await relatorioDiarioCrm(cfg));
+    } catch (e) {
+      console.error("reldiario", e.message);
+    }
     try {
       Object.assign(r, await alertasComportamento(cfg));
     } catch (e) {
@@ -3932,6 +4204,7 @@ async function handler16(req, res) {
 }
 
 // api/nf.js
+init_base();
 var URL_ = () => (process.env.FOCUS_NFE_URL || "https://homologacao.focusnfe.com.br").replace(/\/$/, "");
 async function focus(caminho, opts = {}) {
   if (!process.env.FOCUS_NFE_TOKEN) throw new Error("Nota fiscal n\xE3o configurada (falta FOCUS_NFE_TOKEN no servidor)");
@@ -4048,6 +4321,7 @@ async function handler17(req, res) {
 }
 
 // api/assinatura.js
+init_base();
 var ZURL = () => (process.env.ZAPSIGN_URL || "https://sandbox.api.zapsign.com.br/api/v1").replace(/\/$/, "");
 async function zapsign(caminho, opts = {}) {
   if (!process.env.ZAPSIGN_TOKEN) throw new Error("ZapSign n\xE3o configurada (falta ZAPSIGN_TOKEN no servidor)");
@@ -4138,6 +4412,7 @@ async function handler18(req, res) {
 }
 
 // api/zapsign-webhook.js
+init_base();
 async function handler19(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   if (process.env.ZAPSIGN_WEBHOOK_TOKEN && req.headers["x-nexum-token"] !== process.env.ZAPSIGN_WEBHOOK_TOKEN) return res.status(401).json({ erro: "token inv\xE1lido" });
@@ -4175,6 +4450,8 @@ async function handler19(req, res) {
 }
 
 // api/credenciamento.js
+init_base();
+init_brevo();
 var dig2 = (s) => String(s || "").replace(/\D/g, "");
 var txt2 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
 var erro6 = (msg, status = 400) => Object.assign(new Error(msg), { status });
@@ -4304,11 +4581,11 @@ async function gravarFotos(solId, lojas, fotosIn, exigir) {
   for (const [i, l] of lojas.entries()) {
     const f = (fotosIn || [])[i] || {}, cont = {};
     for (const t of FOTOS_LOJA) {
-      const lista2 = (Array.isArray(f[t]) ? f[t] : []).slice(0, 3).filter((x) => typeof x === "string" && /^data:image\/(jpeg|webp|png);base64,/.test(x));
-      for (const x of lista2) if (x.length > 7e5) throw erro6(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
-      if (exigir && !lista2.length) throw erro6(`${l.nome}: falta a foto \u201C${t}\u201D.`);
-      cont[t] = lista2.length;
-      for (const [j, x] of lista2.entries()) await db.collection("lojaFotos").doc(`${solId}_${i}_${t}_${j}`).set({ solicitacaoId: solId, loja: i, tipo: t, n: j, foto: x, criadoEm: Date.now() });
+      const lista3 = (Array.isArray(f[t]) ? f[t] : []).slice(0, 3).filter((x) => typeof x === "string" && /^data:image\/(jpeg|webp|png);base64,/.test(x));
+      for (const x of lista3) if (x.length > 7e5) throw erro6(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
+      if (exigir && !lista3.length) throw erro6(`${l.nome}: falta a foto \u201C${t}\u201D.`);
+      cont[t] = lista3.length;
+      for (const [j, x] of lista3.entries()) await db.collection("lojaFotos").doc(`${solId}_${i}_${t}_${j}`).set({ solicitacaoId: solId, loja: i, tipo: t, n: j, foto: x, criadoEm: Date.now() });
     }
     l.fotos = cont;
   }
@@ -4477,6 +4754,7 @@ Aprove no Painel do Dono \u2192 Lojas parceiras.`);
 }
 
 // api/push.js
+init_base();
 async function handler21(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
@@ -4492,6 +4770,7 @@ async function handler21(req, res) {
 }
 
 // api/remota.js
+init_base();
 var dig3 = (s) => String(s || "").replace(/\D/g, "");
 var txt3 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
 var erro7 = (m, s = 400) => Object.assign(new Error(m), { status: s });
@@ -4601,6 +4880,7 @@ async function handler22(req, res) {
 }
 
 // api/cliente-app.js
+init_base();
 var addDias2 = (iso, n) => {
   const d = /* @__PURE__ */ new Date(iso + "T12:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
@@ -4820,6 +5100,8 @@ async function handler23(req, res) {
 }
 
 // api/ios.js
+init_base();
+init_ios();
 var erro9 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 async function handler24(req, res) {
   if (cors(req, res)) return;
@@ -4868,6 +5150,7 @@ async function handler24(req, res) {
 }
 
 // api/remover-codigo.js
+init_base();
 var SEG = () => String(process.env.MESTRE_REMOCAO || "");
 var LINK = () => String(process.env.LINK_SECRET || process.env.MESTRE_REMOCAO || "");
 var diaSP = (d = /* @__PURE__ */ new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -4931,6 +5214,8 @@ async function handler25(req, res) {
 }
 
 // api/lead.js
+init_base();
+init_brevo();
 var txt4 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n || 120);
 var dig4 = (s) => String(s || "").replace(/\D/g, "");
 var sha2 = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
@@ -5004,6 +5289,8 @@ O lead est\xE1 no CRM, no funil comercial. Confirme o hor\xE1rio pelo WhatsApp.`
 }
 
 // api/ouvidoria.js
+init_base();
+init_brevo();
 var PRAZO_UTEIS = 10;
 var soD4 = (s) => String(s || "").replace(/\D/g, "");
 var txt5 = (s, n) => String(s || "").replace(/[<>]/g, "").trim().slice(0, n);
@@ -5074,6 +5361,8 @@ Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
 }
 
 // api/avisar-dono.js
+init_base();
+init_brevo();
 async function handler28(req, res) {
   if (cors(req, res)) return;
   try {
@@ -5098,6 +5387,9 @@ Responda no Painel do Dono, no bot\xE3o de conversa no canto da tela.`
 }
 
 // api/atendimento.js
+init_base();
+init_crm_rotinas();
+init_erros();
 var ONLINE_MS = 3 * 6e4;
 var TMA_PAD = 5;
 var erro11 = (m, s = 400) => Object.assign(new Error(m), { status: s });
@@ -5132,7 +5424,7 @@ async function meu(req, id) {
 }
 async function fila(req, id) {
   const { a } = await meu(req, id);
-  const [cfg, crm, pres, atr, lista2] = await Promise.all([
+  const [cfg, crm, pres, atr, lista3] = await Promise.all([
     config(),
     db.collection("config").doc("crm").get().then((s) => s.data() || {}),
     db.collection("plataforma").doc("presencaCrm").get().then((s) => s.data() || {}),
@@ -5140,7 +5432,7 @@ async function fila(req, id) {
     db.collection("atendimentos").where("status", "==", "HUMANO").get().then((q) => q.docs.map((d) => ({ id: d.id, ...d.data() })))
   ]);
   const hr = horario(cfg), filaNome = atr.fila || "suporte", on = onlineDe(pres, filaNome), tma = Math.max(1, Math.min(60, +crm.tmaMin || TMA_PAD));
-  const espera = lista2.filter(esperando).sort((x, y) => (+x.encaminhadoEm || +x.atualizadoEm || 0) - (+y.encaminhadoEm || +y.atualizadoEm || 0));
+  const espera = lista3.filter(esperando).sort((x, y) => (+x.encaminhadoEm || +x.atualizadoEm || 0) - (+y.encaminhadoEm || +y.atualizadoEm || 0));
   const pos = espera.findIndex((x) => x.id === id);
   const atendido = a.status !== "HUMANO" || !esperando(a);
   const aFrente = pos < 0 ? 0 : pos;
@@ -5210,7 +5502,8 @@ async function ia(req, b) {
   const hist = msgs.map((m) => ({ role: m.de === "user" ? "user" : "assistant", content: String(m.t).slice(0, 1500) }));
   let j = {};
   try {
-    const t = await groq([{ role: "system", content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || "").slice(0, 2500) }) }, ...hist], { temperatura: 0.2, max: 600, json: true });
+    const ex = await exemplosBons();
+    const t = await groq([{ role: "system", content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || "").slice(0, 2500) }) + (ex ? "\n\n" + ex : "") }, ...hist], { temperatura: 0.2, max: 600, json: true });
     j = JSON.parse(t);
   } catch (e) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join("\n\n"), atendente: false, codigos: cods, fonte: "catalogo" };
