@@ -11476,9 +11476,10 @@ const esperandoAt = d => d && d.status === 'HUMANO' && !(d.msgs || []).some(m =>
   const passo = d?.fluxo?.passo || '', cods = t ? codigosNoTextoAt(t) : [];
   if (!cods.length || !d || d.status === 'CONCLUIDO' || CH.dig || BUSCA_AT.includes(passo) || ['motivo', 'cad_valor'].includes(passo)) return _env();
   ta.value = ''; await atUser(t);
-  const bot = d.status === 'BOT', txt = cods.slice(0, 2).map(resolucaoAt).join('\n\n') + (bot ? '\n\nSe não resolver, toque em "Falar com atendente".' : '\n\nO atendente também já recebeu o código e continua por aqui.');
-  await atSalvar({ msgs: [...(CH.doc.msgs || []), atMsg('bot', txt, bot ? [{ id: 'resolvido', t: '✅ Resolveu' }, { id: 'atendente', t: 'Falar com atendente' }, ...VOLTAR] : undefined)],
-    codigos: [...new Set([...(d.codigos || []), ...cods])], ...(d.categoria ? {} : { categoria: 'Erro ' + cods[0] }), ...(bot ? { fluxo: { passo: 'ia', ia: 1 } } : { naoLidoSuporte: true }) });
+  // a assistente responde o passo a passo na hora e já chama um atendente humano para acompanhar
+  const bot = d.status === 'BOT', txt = cods.slice(0, 2).map(resolucaoAt).join('\n\n') + (bot ? '\n\nJá vou chamar um atendente para acompanhar com você. Enquanto isso, siga os passos acima.' : '\n\nO atendente também já recebeu o código e continua por aqui.');
+  await atSalvar({ msgs: [...(CH.doc.msgs || []), atMsg('bot', txt)], codigos: [...new Set([...(d.codigos || []), ...cods])], ...(d.categoria ? {} : { categoria: 'Erro ' + cods[0] }), ...(bot ? {} : { naoLidoSuporte: true }) });
+  if (bot) await atHumano(`Erro ${cods.join(', ')} · ${ERROS_NX[cods[0]].t}: "${t.slice(0, 160)}" (a assistente já mandou o passo a passo)`, { tipo: 'ERRO', codigos: cods });
 }; }
 
 // 2) IA no servidor
