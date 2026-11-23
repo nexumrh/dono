@@ -11456,6 +11456,72 @@ ACT.fichaLoja=d=>fichaLoja(d.id);
 }; }
 
 
+
+/* ======================= REINICIAR O SISTEMA (só o dono) e aviso de erro (nov/2026) =======================
+   Neste aparelho: limpa a cópia salva do site, a sessão da aba e os filtros guardados, e recarrega (o login continua).
+   Para toda a equipe: o dono grava plataforma/reinicio e todos os portais abertos reiniciam sozinhos em 5 segundos.
+   Erro na tela: aparece uma barra com o botão para recarregar (equipe) ou reiniciar (dono). Os erros ficam registrados para o dono. */
+const NX_CARREGOU=Date.now();
+async function reiniciarAqui(){
+  try{ const rs=await navigator.serviceWorker?.getRegistrations?.(); await Promise.all((rs||[]).map(r=>r.unregister())); }catch(e){}
+  try{ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }catch(e){}
+  try{ sessionStorage.clear(); }catch(e){}
+  try{ Object.keys(localStorage).filter(k=>/^(nx_nav_|crmnc:f|crmnc:v)/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  const u=new URL(location.href); u.searchParams.set('r',Date.now().toString(36)); location.replace(u.href);
+}
+function telaReiniciando(txt){
+  document.body.insertAdjacentHTML('beforeend',`<div id="nxRein" style="position:fixed;inset:0;z-index:99999;background:rgba(10,23,51,.92);color:#fff;display:grid;place-items:center;text-align:center;padding:24px;font-family:inherit">
+    <div><div style="width:46px;height:46px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;margin:0 auto 18px;animation:nxGira 1s linear infinite"></div><b style="font-size:19px">Reiniciando o sistema</b><p style="opacity:.8;margin:8px 0 0;max-width:340px">${esc(txt)}</p></div></div><style>@keyframes nxGira{to{transform:rotate(360deg)}}</style>`);
+}
+/* ouvir o reinício geral pedido pelo dono */
+let _reinUn=null;
+function ouvirReinicio(){
+  try{ _reinUn&&_reinUn(); }catch(e){}
+  _reinUn=DB.watch('plataforma','reinicio',r=>{ if(!r||!r.em||+r.em<=NX_CARREGOU||+r.em===window._nxReinPedi||window._nxReinFeito) return; // só pedidos feitos depois que esta página abriu
+    window._nxReinFeito=1;
+    telaReiniciando(`${r.por||'O dono'} reiniciou o sistema${r.motivo?': '+r.motivo:''}. Volta em alguns segundos, sem perder o que já foi salvo.`);
+    setTimeout(reiniciarAqui,5000); });
+}
+{ const _is=iniciarSessao; iniciarSessao=async function(p){ try{ ouvirReinicio(); }catch(e){} return _is(p); }; }
+
+/* barra de erro e registro para o dono */
+const NX_ERR={n:0,ult:0,env:0,vistos:new Set()};
+const errIgnorar=m=>/ResizeObserver|Script error\.?$|network|Failed to fetch|Load failed|NetworkError|AbortError|cancelad|offline|quota/i.test(m||'');
+function avisoErro(msg,pilha){
+  if(errIgnorar(msg)) return;
+  NX_ERR.n=Date.now()-NX_ERR.ult>60e3?1:NX_ERR.n+1; NX_ERR.ult=Date.now();
+  const k=String(msg).slice(0,140);
+  if(!NX_ERR.vistos.has(k)&&NX_ERR.env<15&&typeof FB_ON!=='undefined'&&FB_ON&&S.me){ NX_ERR.vistos.add(k); NX_ERR.env++;
+    DB.add('errosSistema',{em:Date.now(),msg:k,pilha:String(pilha||'').slice(0,600),portal:P?.nome||'',tela:S.tab||'',uid:S.me.uid,nome:S.me.nome||'',role:S.me.role||'',nav:navigator.userAgent.slice(0,160)}).catch(()=>{}); }
+  const vazio=!$('#view')||!$('#view').innerText.trim();
+  if(NX_ERR.n<2&&!vazio) return; if($('#nxErrBar')) return;
+  const dono=S.me&&can('DONO');
+  document.body.insertAdjacentHTML('beforeend',`<div id="nxErrBar" role="alert" style="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;width:min(560px,calc(100% - 24px));background:#0A1733;color:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 20px 40px -10px rgba(10,23,51,.55);display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px"><b style="display:block">O sistema encontrou um erro</b><small style="opacity:.75">${dono?'Reinicie para voltar ao normal. O que já foi salvo não se perde.':'Recarregue para voltar ao normal. Se continuar, avise o dono para reiniciar o sistema.'}</small><div style="font-size:11px;opacity:.5;margin-top:4px;word-break:break-word">${esc(k)}</div></div>
+    <button class="btn sm" id="nxErrOk" style="background:#2563EB;border-color:#2563EB;color:#fff">${dono?'Reiniciar':'Recarregar'}</button><button class="btn sm" id="nxErrX" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3)">Fechar</button></div>`);
+  $('#nxErrOk').onclick=()=>{ telaReiniciando('Limpando e carregando de novo.'); setTimeout(dono?reiniciarAqui:()=>location.reload(),600); };
+  $('#nxErrX').onclick=()=>$('#nxErrBar').remove();
+}
+window.addEventListener('error',e=>avisoErro(e.message,e.error?.stack));
+window.addEventListener('unhandledrejection',e=>{ const r=e.reason; if(r?.code==='permission-denied') return; avisoErro(r?.message||String(r),r?.stack); });
+
+/* cartão "Sistema" nas configurações (só o dono) */
+{ const _pc=PAGES.config; PAGES.config=async()=>{ await _pc(); const vw=$('#view'); if(!vw||!can('DONO')||$('#nxSisCard')) return;
+  const ult=await DB.get('plataforma','reinicio').catch(()=>null), errs=FB_ON?await DB.list('errosSistema',[['em','>=',Date.now()-7*864e5]]).catch(()=>[]):[];
+  errs.sort((a,b)=>b.em-a.em);
+  (vw.firstElementChild||vw).insertAdjacentHTML(vw.firstElementChild?'afterend':'afterbegin',`<div class="card" id="nxSisCard" style="border-left:4px solid #2563EB"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px"><h3 style="margin:0">Reiniciar o sistema</h3><p class="small muted" style="margin:4px 0 0">Use quando o sistema estiver travando ou mostrando erro. Limpa a cópia salva e carrega tudo de novo. Ninguém é deslogado e nada do que foi salvo se perde.${ult?.em?` Último reinício geral: ${fmtDT(ult.em)} por ${esc(ult.por||'')}${ult.motivo?' ('+esc(ult.motivo)+')':''}.`:''}</p></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" id="nxReinAqui">Reiniciar neste aparelho</button><button class="btn gold" id="nxReinTodos">Reiniciar para toda a equipe</button></div></div>
+    <details style="margin-top:12px"><summary class="small" style="cursor:pointer;font-weight:600">Erros registrados nos últimos 7 dias (${errs.length})</summary>${errs.length?`<table style="margin-top:8px"><tr><th>Quando</th><th>Quem</th><th>Portal e tela</th><th>Erro</th></tr>${errs.slice(0,40).map(x=>`<tr><td class="small">${fmtDT(x.em)}</td><td class="small">${esc(x.nome)}<div class="muted">${esc(ROLES[x.role]||x.role||'')}</div></td><td class="small">${esc(x.portal)}<div class="muted">${esc(x.tela)}</div></td><td class="small" style="word-break:break-word">${esc(x.msg)}</td></tr>`).join('')}</table>`:'<p class="small muted">Nenhum erro registrado.</p>'}</details></div>`);
+  $('#nxReinAqui').onclick=()=>{ telaReiniciando('Limpando e carregando de novo.'); setTimeout(reiniciarAqui,600); };
+  $('#nxReinTodos').onclick=()=>{ openModal(`<h2>Reiniciar para toda a equipe</h2><p class="small muted">Todos os portais abertos (dono, gerente, vendedor, financeiro, suporte, CRM e Metas) mostram um aviso e recarregam em 5 segundos. Quem estiver no meio de um cadastro perde só o que ainda não salvou.</p>
+      <label>Motivo (aparece para a equipe)<input id="nxReinM" maxlength="120" placeholder="Ex.: sistema travando na tela de vendas"></label><div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" id="nxReinOk">Reiniciar agora</button></div>`);
+    $('#nxReinOk').onclick=async()=>{ const motivo=$('#nxReinM').value.trim(), em=Date.now(); $('#nxReinOk').disabled=true; window._nxReinPedi=em;
+      try{ await DB.set('plataforma','reinicio',{em,por:S.me.nome,porUid:S.me.uid,motivo}); await log('Reiniciou o sistema para toda a equipe','sistema',motivo); }
+      catch(e){ $('#nxReinOk').disabled=false; return toast('Não foi possível reiniciar: '+e.message,'err'); }
+      closeModal(); telaReiniciando('Reiniciando para toda a equipe. Este aparelho também recarrega.'); setTimeout(reiniciarAqui,1500); }; };
+}; }
+
 /* ======================= LOCALIZAR APARELHO para recuperação (dono e financeiro, nov/2026) =======================
    Pedido pontual, previsto no contrato: o app lê a posição UMA vez por pedido. Tudo fica registrado. */
 const LOC_MOT={atraso:'Atraso no pagamento',roubo:'Roubo, furto ou perda comunicado'};

@@ -600,6 +600,8 @@ service cloud.firestore {
 
     // pausas com motivo (cada atendente registra as próprias), base de conhecimento, incidentes (erro em massa) e nota de qualidade da IA
     // pedidos de localização do aparelho para recuperação: só o servidor cria e atualiza; dono e financeiro leem o registro
+    // erros que aparecem nas telas da equipe: qualquer pessoa logada registra, só o dono lê
+    match /errosSistema/{id} { allow read: if hasRole(['DONO']); allow create: if signed() && !anon() && request.resource.data.uid == request.auth.uid && request.resource.data.msg is string && request.resource.data.msg.size() <= 200; allow update, delete: if false; }
     match /localizacoes/{id} { allow read: if hasRole(['DONO', 'FINANCEIRO']); allow write: if false; }
     match /crmPausas/{id} { allow read: if crmEquipe(); allow create: if crmEquipe() && request.resource.data.uid == request.auth.uid; allow update: if crmEquipe() && resource.data.uid == request.auth.uid; allow delete: if false; }
     match /crmArtigos/{id} { allow read: if crmEquipe(); allow create, update: if hasRole(['DONO']); allow delete: if false; }
@@ -614,7 +616,7 @@ service cloud.firestore {
     }
     match /waSaida/{id} { allow read, create: if crmEquipe(); allow update, delete: if false; }
     match /plataforma/{doc} {
-      allow read: if (doc in ['waWebStatus', 'presencaCrm'] && crmEquipe()) || hasRole(['DONO']);
+      allow read: if (doc in ['waWebStatus', 'presencaCrm'] && crmEquipe()) || (doc == 'reinicio' && signed() && !anon()) || hasRole(['DONO']);
       allow write: if (doc == 'presencaCrm' && crmEquipe()) || hasRole(['DONO']);
     }
 
