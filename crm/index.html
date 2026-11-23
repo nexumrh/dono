@@ -1379,6 +1379,10 @@ function exportarCobranca() { const l = atrasados(); if (!l.length) return toast
   baixarPlanilha('cobranca', ['Cliente', 'CPF', 'Contrato', 'Loja', 'Telefone', 'Parcelas em atraso', 'Desde', 'Dias', 'Valor em atraso', 'Promessa', 'Acordo'], l.map(x => [x.v.clienteNome, fmtCpf(x.v.clienteCpf), x.v.numero, x.v.lojaNome || '', fmtTel(x.tel), x.atr.length, x.atr[0].venc.split('-').reverse().join('/'), x.dias, nBr(x.devido), x.prom ? `${x.prom.status} ${String(x.prom.data || '').split('-').reverse().join('/')}` : '', x.acordo ? 'sim' : ''])); }
 async function exportarCampanhas() { const l = await DB.list('crmEnvios', [['em', '>=', Date.now() - 90 * 864e5]]).catch(() => []); if (!l.length) return toast('Nenhum envio nos últimos 90 dias', true);
   baixarPlanilha('mensagens-em-massa', ['Quando', 'Tipo', 'Cliente', 'Telefone', 'Por'], l.sort((a, b) => b.em - a.em).map(x => [fdh(x.em), x.tipo || '', x.nome || x.clienteNome || '', fmtTel(x.tel || x.numero || ''), x.por || ''])); }
+{ const _m = metricas; metricas = function () { const sv = C.itens; C.itens = sv.filter(i => !i.bot); try { return _m(); } finally { C.itens = sv; } }; }
+{ const semBot = fn => function (...a) { const sv = C.itens; C.itens = sv.filter(i => !i.bot); try { return fn.apply(this, a); } finally { C.itens = sv; } }; vPainel = semBot(vPainel); vKanban = semBot(vKanban); }
+// conversas que a assistente virtual ainda está resolvendo sozinha só aparecem na busca
+{ const _l = lista; lista = function () { const l = _l(); return (C.f.q || '').trim() ? l : l.filter(i => !i.bot); }; }
 { const _dl = desenharLista; desenharLista = function () { _dl(); const h = $('#lst .lst-h h2'); if (h && !$('#ls-csv')) { const b = document.createElement('button'); b.className = 'ib'; b.id = 'ls-csv'; b.title = 'Exportar esta lista para planilha'; b.innerHTML = I('planilha'); b.style.marginRight = '4px'; b.onclick = exportarAtendimentos; h.insertBefore(b, $('#ls-nova', h)); } marcasNaLista(); }; }
 { const _vc = vCobranca; vCobranca = function (el) { _vc(el); const top = $('.kb-top', el); if (top && C.cob.vendas && !$('#cbCsv', el)) top.insertAdjacentHTML('beforeend', `<button class="btn sec sm" id="cbCsv">${I('planilha')}Planilha</button>`); $('#cbCsv', el) && ($('#cbCsv', el).onclick = exportarCobranca); }; }
 { const _vm = vCampanhas; vCampanhas = async function (el) { const r = await _vm(el); const top = $('.kb-top', el); if (top && !$('#cmCsv', el)) { top.insertAdjacentHTML('beforeend', `<button class="btn sec sm" id="cmCsv">${I('planilha')}Planilha dos envios</button>`); $('#cmCsv', el).onclick = exportarCampanhas; } return r; }; }
@@ -1537,6 +1541,336 @@ document.addEventListener('click', e => { const b = e.target.closest && e.target
   C.un.push(DB.watch('crmMarcas', [['atualizadoEm', '>=', Date.now() - 120 * 864e5]], l => { MARCAS = Object.fromEntries(l.map(x => [x.key, x])); if (C.view === 'inbox') desenharLista(); }, () => { }));
   C.un.push(DB.watch('crmAgendadas', [['status', 'in', ['PENDENTE', 'NA_FILA']]], l => { AGENDADAS = l; pintarAgendadas(); verificarAgendadasWeb(); }, () => { }));
   return r; }; }
+
+
+/* ===================== CRM v3 (nov/2026) =====================
+   1) lista nunca some com filtro esquecido        2) configurações salvas no formato que o Firestore aceita
+   3) presença da equipe e atendente offline passa para outro   4) códigos de erro: tela, aviso na conversa e resolução
+   5) Assistente IA na ficha (resumo e sugestão)   6) links de resolução que funcionam e mais respostas rápidas
+   7) satisfação e comissão do atendimento         8) visual mais limpo e profissional */
+const ERROS_NX={"314":{"t":"Vendedor ou gerente suspenso","g":"acesso","x":"O acesso foi desativado pela loja ou pela NexumCell.","v":["Vendedor: fale com o gerente da sua loja para reativar o seu acesso.","Gerente: use o chat da tela de acesso restrito para falar com a NexumCell."],"chat":"Confirme quem desativou. Se foi a NexumCell, oriente o gerente a falar pelo chat da tela de bloqueio; se foi a loja, com o gerente dela."},"315":{"t":"Treinamento obrigatório pendente","g":"acesso","x":"A pessoa ainda não concluiu os módulos obrigatórios do Treinamento.","v":["Abra Treinamento no menu.","Conclua os módulos marcados como obrigatórios, com o teste no final.","As vendas são liberadas assim que você terminar."],"chat":"Oriente a concluir o Treinamento (aba Treinamento). As vendas liberam ao terminar."},"316":{"t":"Sessão encerrada","g":"acesso","x":"A sessão expirou ou foi aberta em outro aparelho.","v":["Entre de novo com o seu ID e a sua senha.","Use o sistema em um aparelho por vez.","Se cair de novo, confira a internet e recarregue a página (Ctrl + Shift + R)."],"chat":"Peça para entrar de novo. Se persistir, confira a internet."},"403":{"t":"Venda fora da loja","g":"venda","x":"A localização do notebook não bate com a da loja cadastrada.","v":["Faça a venda dentro da loja, no notebook autorizado.","Ligue a localização do navegador: cadeado ao lado do endereço → Localização → Permitir.","Recarregue a página e tente de novo."],"chat":"Oriente a fazer a venda dentro da loja, com a localização do navegador permitida."},"409":{"t":"Um aparelho por CPF","g":"venda","x":"O CPF já tem um aparelho financiado em aberto.","v":["Explique ao cliente que é um aparelho por vez, até quitar o atual.","Mostre quanto falta para quitar (Atendimento → Valor para quitar).","Caso de bom pagador: só o dono pode liberar um segundo aparelho."],"chat":"Explique a regra. Só com o anterior quitado, ou liberação do dono para bom pagador.","cliente":"Olá! No momento não é possível um novo financiamento porque já existe um aparelho em aberto neste CPF. Assim que ele for quitado, você pode financiar outro. Qualquer dúvida, estamos à disposição."},"410":{"t":"Cliente na lista negra","g":"venda","x":"O CPF ou o telefone do cliente está na lista negra.","v":["Não continue a venda.","Diga ao cliente apenas que a análise não aprovou neste momento.","Se o cliente contestar, abra um atendimento aqui."],"chat":"Não prometa venda. Encaminhe ao dono ou ao financeiro se o cliente contestar."},"411":{"t":"Cliente menor de 18 anos","g":"venda","x":"Não é possível contratar crédito para menor de idade.","v":["Explique com educação que o crédito exige 18 anos ou mais.","A compra pode ser feita no nome de um responsável maior de idade, com os documentos dele."],"chat":"Explique com educação que o crédito exige maioridade.","cliente":"Olá! Para o financiamento é necessário ter 18 anos ou mais. Assim que possível, teremos prazer em atender você."},"412":{"t":"Proposta já em andamento","g":"venda","x":"Já existe uma proposta em análise ou aprovada para este CPF.","v":["Não crie outra proposta.","Em Vendas, procure pelo CPF do cliente e abra a proposta com o número informado.","Continue de onde ela parou."],"chat":"Oriente a continuar a proposta que já existe, pelo número informado."},"413":{"t":"Telefone da equipe no cadastro","g":"venda","x":"O telefone informado é de alguém da equipe.","v":["Troque pelos dois telefones do próprio cliente, diferentes entre si.","Nunca use o seu telefone ou de alguém da loja: isso é tratado como fraude."],"chat":"Peça dois telefones do próprio cliente. Isso é tratado como fraude."},"420":{"t":"Aparelho fora do estoque","g":"venda","x":"O IMEI informado não está no estoque da loja.","v":["Confira se o IMEI foi digitado certo (na caixa ou discando *#06#).","Gerente: cadastre o aparelho em Estoque.","Volte na venda e informe o IMEI de novo."],"chat":"Oriente o gerente a cadastrar o aparelho no estoque antes de vender."},"421":{"t":"Cidade fora da área atendida","g":"venda","x":"A cidade do cliente está fora da área configurada.","v":["Não precisa refazer a proposta.","Ela segue para análise manual da NexumCell: acompanhe o resultado na tela da venda."],"chat":"A proposta vai para análise manual da NexumCell; aguarde o parecer."},"515":{"t":"Parcela em atraso: aparelho bloqueado","g":"pagamento","x":"Há parcela vencida além da tolerância e o aparelho travou.","v":["O cliente paga pelo Pix no app NexumCell (aba Parcelas).","Pagando, o aparelho libera sozinho em poucos minutos.","Se ele já pagou: peça para ligar a internet e tocar em \"Já paguei — verificar agora\".","Se ainda assim não liberar, chame o atendente aqui com o número do contrato."],"chat":"Confirme a parcela em atraso. Oriente a pagar pelo Pix no app; ao registrar, o aparelho libera sozinho. Se já pagou, peça para abrir o app com internet e tocar em \"Já paguei\".","cliente":"Olá! Seu aparelho foi bloqueado porque há uma parcela em atraso. Assim que o pagamento for feito pelo Pix no app NexumCell (aba Parcelas), ele é liberado em poucos minutos."},"516":{"t":"Aparelho sem internet há muitos dias","g":"pagamento","x":"O aparelho ficou muitos dias sem conexão e travou por segurança.","v":["Peça ao cliente para ligar o Wi-Fi ou os dados móveis.","Abrir o app NexumCell uma vez: ele libera sozinho.","Se o cliente estiver sem internet nenhuma, chame o atendente aqui para receber um código de liberação."],"chat":"Peça para ligar o Wi-Fi ou os dados e abrir o app uma vez. Se não liberar, gere um código de liberação temporária.","cliente":"Olá! Seu aparelho ficou muitos dias sem conexão e foi bloqueado por segurança. É só ligar o Wi-Fi ou os dados móveis e abrir o app NexumCell que ele libera sozinho."},"517":{"t":"Promessa de pagamento quebrada","g":"pagamento","x":"A data prometida passou sem pagamento e o aparelho travou de novo.","v":["O cliente precisa pagar a parcela pelo Pix no app para liberar.","Uma nova promessa só com autorização do financeiro: chame o atendente aqui."],"chat":"Oriente a pagar. Não há segunda promessa no mesmo contrato sem autorização.","cliente":"Olá! A data de pagamento que combinamos passou e o aparelho foi bloqueado novamente. Assim que a parcela for paga, ele é liberado na hora."},"600":{"t":"Crédito reprovado","g":"credito","x":"A análise de crédito reprovou pelas regras.","v":["Explique com educação que o crédito não foi aprovado desta vez.","O cliente pode tentar de novo depois de 30 dias.","Não prometa aprovação."],"chat":"Explique com educação que pode tentar de novo depois de 30 dias.","cliente":"Olá! Infelizmente não foi possível aprovar o financiamento desta vez. Você pode tentar novamente após 30 dias. Agradecemos o interesse!"},"601":{"t":"Renda insuficiente para a parcela","g":"credito","x":"A parcela passa do limite de comprometimento da renda.","v":["Ofereça uma entrada maior, mais parcelas ou um aparelho mais barato.","Simule de novo: o Assistente da venda mostra quando a parcela cabe."],"chat":"Sugira aumentar a entrada, mais parcelas ou um aparelho mais barato."},"602":{"t":"Documento irregular","g":"credito","x":"O documento está ilegível, editado ou vencido.","v":["Tire novas fotos do documento original, frente e verso.","Sem reflexo, sem cortar as bordas e com a câmera parada.","A proposta vai para análise manual."],"chat":"Peça novas fotos do documento original; a proposta vai para análise manual."},"900":{"t":"Acesso bloqueado pela NexumCell","g":"acesso","x":"O dono bloqueou este acesso.","v":["Fale com a NexumCell pelo chat da tela de bloqueio."],"chat":"Oriente a falar com a NexumCell pelo chat da tela de bloqueio."},"1001":{"t":"Loja bloqueada","g":"loja","x":"A NexumCell bloqueou a loja.","v":["O gerente fala com a NexumCell pelo chat da tela de bloqueio.","Os contratos dos clientes continuam funcionando normalmente."],"chat":"O gerente fala com a NexumCell pelo chat da tela de bloqueio. Os contratos dos clientes continuam normalmente."},"1002":{"t":"Loja bloqueada por mensalidade","g":"loja","x":"A mensalidade da loja está atrasada.","v":["O gerente paga a mensalidade em Licenças.","A loja desbloqueia assim que o pagamento cair."],"chat":"Oriente o pagamento da mensalidade; a loja desbloqueia na hora."},"1003":{"t":"Loja acima do limite de carteira","g":"loja","x":"A loja passou do teto de carteira em aberto.","v":["Continue vendendo normalmente.","As novas vendas vão para análise manual até a carteira baixar, então a aprovação pode demorar um pouco mais."],"chat":"Novas vendas vão para análise manual até reduzir a carteira."},"1004":{"t":"Loja acima da inadimplência","g":"loja","x":"A inadimplência da loja passou do limite.","v":["As novas vendas vão para análise manual.","Ajude a cobrar os clientes em atraso pela Fila de cobrança."],"chat":"Novas vendas vão para análise manual; oriente a loja a cobrar os atrasos."},"1005":{"t":"Loja sem licenças","g":"loja","x":"A loja não tem saldo de licenças para a venda (1 licença a cada 12 parcelas).","v":["A proposta fica salva: não precisa refazer.","O gerente compra mais licenças no menu Licenças.","Assim que o pagamento cair, a venda é liberada."],"chat":"Oriente o gerente a comprar licenças no menu Licenças; a venda libera assim que o pagamento cai."},"1010":{"t":"A trava não subiu","g":"trava","x":"A instalação da trava não concluiu.","v":["Confira se o celular foi restaurado de fábrica, sem conta Google.","Conecte no Wi-Fi da loja.","Na tela de boas-vindas, toque 6 vezes e leia o QR da venda de novo.","Se aparecer \"app bloqueado para proteger o dispositivo\", instale pelo computador (USB).","Nunca entregue o aparelho sem a trava confirmada (tela verde)."],"chat":"Oriente a refazer pelo QR ou instalar pelo computador (USB). Nunca entregar o aparelho sem a trava."},"1011":{"t":"IMEI irregular","g":"trava","x":"O IMEI lido no aparelho não é o do contrato.","v":["Confira se pegou o aparelho certo no estoque (IMEI na caixa e discando *#06#).","Não entregue o aparelho.","Chame o atendente aqui para corrigir o contrato."],"chat":"O aparelho foi bloqueado. Oriente a conferir se pegou o aparelho certo do estoque."},"1012":{"t":"A trava não confirmou","g":"trava","x":"O aparelho não confirmou a trava a tempo.","v":["Deixe o celular no Wi-Fi e abra o app NexumCell uma vez.","Espere 1 ou 2 minutos: a tela da venda fica verde quando confirmar.","Se não confirmar em 10 minutos, chame o atendente aqui."],"chat":"Peça para conferir o Wi-Fi e abrir o app uma vez; a tela da venda fica verde ao confirmar."},"1013":{"t":"Sem resposta do servidor","g":"trava","x":"O servidor não respondeu durante a operação.","v":["Espere 2 minutos e tente de novo.","Veja em Ajuda e status se o servidor está verde.","Se continuar, mande aqui o código e um print da tela."],"chat":"Peça para tentar de novo em alguns minutos; confira o Status do sistema na Ajuda."}}, ERROS_GRP_NX={"acesso":"Acesso e equipe","venda":"Venda e cadastro","credito":"Crédito","pagamento":"Pagamento e bloqueio do aparelho","loja":"Loja parceira","trava":"Trava e instalação"};
+const AJUDA_URL = (URLS.gerente || 'https://nexumrh.github.io/gerente/') + 'ajuda.html';
+Object.assign(ICN, {
+  codigo: '<path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/><path d="M12 8v4M12 16h.01"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>', estrela: ICN.estrela || '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+  copia: ICN.copia || '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  externo: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  moedas: '<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.8 0-3 .9-3 2.1 0 2.9 6 1.5 6 4.4 0 1.2-1.3 2.1-3 2.1-1.5 0-2.6-.6-3.1-1.6M12 6.5v11"/>',
+});
+
+/* ---------- códigos de erro ---------- */
+function codigosNoTexto(t) {
+  const s = String(t || ''), ach = new Set(), so = s.trim().match(/^#?(\d{3,4})$/); if (so && ERROS_NX[so[1]]) ach.add(so[1]);
+  const rx = /(?:erro|c[oó]d(?:igo)?\.?|cod\.?|apareceu|aparece|mensagem|tela|deu)\D{0,25}?(\d{3,4})\b/gi; let m;
+  while ((m = rx.exec(s))) if (ERROS_NX[m[1]]) ach.add(m[1]);
+  return [...ach];
+}
+function resolucaoTexto(c, i) {
+  const e = ERROS_NX[c]; if (!e) return ''; const nome = i ? String(i.nome || '').split(' ')[0] : '';
+  return `${nome ? nome + ', ' : ''}o código ${c} é "${e.t}": ${e.x}\n\nO que fazer:\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}\n\nPasso a passo completo: ${AJUDA_URL}#erro-${c}`;
+}
+const codigosDaConversa = () => [...new Set((C._msgs || []).filter(m => !m.nos && m.de !== 'bot' && m.tipo !== 'nota' && m.tipo !== 'sis').flatMap(m => codigosNoTexto(m.t)))];
+
+/* ---------- 2) configurações no formato do Firestore (o Firestore não aceita lista dentro de lista) ---------- */
+function cfgDoBanco(v) {
+  v = { ...(v || {}) };
+  if (Array.isArray(v.respostasV2)) { const gs = []; v.respostasV2.forEach(r => { if (!r || !r.x) return; let g = gs.find(x => x[0] === r.g); if (!g) gs.push(g = [r.g || 'Atendimento', []]); g[1].push([r.t || '', r.x, r.a || '', r.f || '']); }); v.respostas = gs; }
+  else if (Array.isArray(v.respostas) && !v.respostas.every(g => Array.isArray(g) && Array.isArray(g[1]))) delete v.respostas;
+  if (Array.isArray(v.linksV2)) v.links = v.linksV2.filter(l => l && l.u).map(l => [l.t || 'Link', l.u]);
+  else if (Array.isArray(v.links) && !v.links.every(Array.isArray)) delete v.links;
+  if (Array.isArray(v.etiquetasV2)) v.etiquetas = v.etiquetasV2.filter(e => e && e.n).map(e => [e.n, e.c || '#6B7390']);
+  else if (Array.isArray(v.etiquetas) && !v.etiquetas.every(Array.isArray)) delete v.etiquetas;
+  return v;
+}
+function cfgParaBanco(d) {
+  d = { ...d };
+  if (Array.isArray(d.respostas)) { d.respostasV2 = d.respostas.flatMap(g => (Array.isArray(g?.[1]) ? g[1] : []).map(r => ({ g: String(g[0] || 'Atendimento'), t: String(r[0] || ''), x: String(r[1] || ''), a: String(r[2] || ''), f: String(r[3] || '') }))).filter(r => r.x); delete d.respostas; }
+  if (Array.isArray(d.links)) { d.linksV2 = d.links.filter(l => Array.isArray(l) && l[1]).map(([t, u]) => ({ t: String(t || 'Link'), u: String(u) })); delete d.links; }
+  if (Array.isArray(d.etiquetas)) { d.etiquetasV2 = d.etiquetas.filter(Array.isArray).map(([n, c]) => ({ n: String(n), c: String(c || '#6B7390') })); delete d.etiquetas; }
+  return d;
+}
+{ const _set = DB.set; DB.set = (c, id, d) => _set(c, id, c === 'config' && id === 'crm' && d ? cfgParaBanco(d) : d); }
+{ const desc = Object.getOwnPropertyDescriptor(C, 'cfg'); Object.defineProperty(C, 'cfg', { configurable: true, get: desc.get, set(v) { desc.set.call(C, cfgDoBanco(v)); } }); }
+// cópia local das respostas salvas também passa pelo mesmo formato
+{ const _rg = rqGravar; rqGravar = async function (orig, novo) { try { return await _rg(orig, novo); } catch (e) { toast('Não foi possível salvar: ' + (e.code || e.message), true); } }; }
+
+/* ---------- 6) mais respostas rápidas e links de resolução ---------- */
+const RESP_LIB = [
+  ['Atendimento', [['Recebi, já verifico', 'Recebi, {nome}! Já estou verificando o protocolo {protocolo} e te respondo em instantes.', 'recebi'], ['Pedir print', 'Para eu ver exatamente o que está acontecendo, me mande um print da tela com a mensagem (se tiver um código de erro, ele aparece na tela).', 'print'], ['Pedir contrato', 'Me passe, por favor, o número do contrato ou o CPF do cliente para eu localizar.', 'contrato'], ['Aguarde um momento', 'Só um momento, {nome}: estou conferindo com a equipe e já volto com a resposta.', 'aguarde'], ['Transferir para o financeiro', '{nome}, esse assunto é com o nosso financeiro. Já passei o seu atendimento para eles, que continuam por aqui mesmo.', 'financeiro']]],
+  ['Trava e instalação', [['Refazer a trava pelo QR', 'Vamos refazer a trava:\n1. Restaure o celular de fábrica, sem conta Google.\n2. Conecte no Wi-Fi da loja.\n3. Na tela de boas-vindas, toque 6 vezes e leia o QR da venda.\n4. Aguarde a tela da venda ficar verde.\nPasso a passo: {linkAjuda}#trava-qr', 'qr'], ['Instalar pela USB', 'Como o QR não funcionou, instale pelo computador com o cabo USB. O passo a passo completo está aqui: {linkAjuda}#trava-usb (tem vídeo).', 'usb'], ['Trava não confirmou', 'Deixe o celular no Wi-Fi e abra o app NexumCell uma vez. Em 1 ou 2 minutos a tela da venda fica verde. Se não confirmar em 10 minutos, me avise aqui.', 'confirmar'], ['Nunca entregar sem trava', 'Importante: o aparelho só pode ser entregue com a trava confirmada (tela verde na venda). Assim protegemos a loja e o cliente.', 'entrega']]],
+  ['Aparelho bloqueado', [['Cliente pagou e não liberou', 'Peça ao cliente para ligar o Wi-Fi ou os dados e tocar em "Já paguei — verificar agora" na tela de bloqueio. Com internet, libera em poucos minutos. Se não liberar em 15 minutos, me mande o comprovante aqui.', 'jaPaguei'], ['Liberação de 24 h feita', 'Pronto, {nome}! Liberei o aparelho do contrato nº {contrato} por 24 horas. Peça ao cliente para ligar a internet. Depois do prazo, sem pagamento, ele trava de novo.', 'lib24'], ['Código sem internet', 'Como o cliente está sem internet, vou te passar um código de liberação: na tela de bloqueio, ele toca em "Tenho um código da loja" e digita os números.', 'codigo'], ['Como pagar para liberar', 'O cliente paga pelo Pix no app NexumCell (aba Parcelas). Assim que o pagamento cai, o aparelho libera sozinho em poucos minutos.', 'pagar']]],
+  ['Pagamento', [['Pix da parcela', 'Para pagar: app NexumCell → aba Parcelas → Pagar com Pix. Pagando até o vencimento, tem desconto na parcela.', 'pix'], ['Comprovante recebido', 'Recebi o comprovante, {nome}. Vou conferir e dar baixa; assim que confirmar, te aviso por aqui.', 'comprovante'], ['Valor para quitar', 'O valor para quitar o contrato nº {contrato} hoje aparece no app NexumCell em "Quitar o contrato", já com o desconto dos juros futuros.', 'quitar'], ['Pagamento confirmado', 'Pagamento confirmado, {nome}! O aparelho libera sozinho em instantes. Se não liberar, toque em Atualizar no app.', 'confirmado']]],
+  ['Venda e cadastro', [['Notebook da loja', 'As vendas só podem ser feitas no notebook autorizado, dentro da loja. Para cadastrar: menu → Meu notebook. Passo a passo: {linkAjuda}#notebook', 'notebook'], ['Foto do documento', 'Para a análise aceitar, a foto precisa ser do documento original, sem reflexo e com todas as bordas aparecendo. Dicas: {linkAjuda}#foto-documento', 'documento'], ['Um aparelho por CPF', 'Esse CPF já tem um aparelho financiado em aberto. Só dá para vender outro depois que ele for quitado.', 'umcpf'], ['Proposta em análise', 'A proposta está em análise. O resultado aparece na tela da venda em poucos minutos dentro do horário de atendimento.', 'analise'], ['Sem licenças', 'A loja está sem licenças para esta venda. O gerente compra mais no menu Licenças; assim que o pagamento cai, a venda libera. A proposta fica salva.', 'licenca']]],
+  ['Encerramento', [['Ficou alguma dúvida?', 'Ficou alguma dúvida, {nome}? Se estiver tudo certo, vou concluir este atendimento.', 'duvida'], ['Encerramento com pesquisa', 'Obrigado pelo contato, {nome}! Vou concluir o protocolo {protocolo}. Vai aparecer uma pesquisa rápida: sua nota ajuda a melhorar o atendimento.', 'fim']]],
+];
+{ const juntar = (base, lib) => { const r = base.map(([g, l]) => [g, l.map(x => [...x])]); lib.forEach(([g, l]) => { let G = r.find(x => x[0] === g); if (!G) r.push(G = [g, []]); l.forEach(x => { if (!G[1].some(y => y[0] === x[0])) G[1].push([x[0], x[1], x[2] || '', x[3] || '']); }); }); return r; };
+  RESP_PADRAO.splice(0, RESP_PADRAO.length, ...juntar(RESP_PADRAO, RESP_LIB)); }
+const LINKS_LIB = [['Central de ajuda (como resolver)', '{linkAjuda}'], ['Resolução do erro desta conversa', '{linkErro}'], ['Instalar a trava pelo QR code', '{linkAjuda}#trava-qr'], ['Instalar a trava pela USB (com vídeo)', '{linkAjuda}#trava-usb'], ['Vídeo: instalação pela USB', '{linkVideoUsb}'],
+  ['Cliente pagou e não liberou', '{linkAjuda}#pagou-nao-liberou'], ['Como o cliente paga pelo Pix', '{linkAjuda}#pix-cliente'], ['Cadastrar o notebook da loja', '{linkAjuda}#notebook'], ['Venda a distância', '{linkAjuda}#venda-distancia'], ['Foto do documento sem erro', '{linkAjuda}#foto-documento'], ['Comprar licenças', '{linkAjuda}#licencas'], ['Esqueci a senha / acesso', '{linkAjuda}#acesso'],
+  ['App do cliente (parcelas e Pix)', '{portalCliente}'], ['Contrato assinado do cliente', '{linkContrato}'], ['Pré-análise online', '{linkPre}'], ['Seja cliente NexumCell', '{linkSejaCliente}'], ['Ouvidoria', '{linkOuvidoria}'], ['Seja loja parceira', '{linkSite}'], ['Portal do vendedor', '{portalVendedor}'], ['Portal do gerente', '{portalGerente}']];
+LINKS_PADRAO.splice(0, LINKS_PADRAO.length, ...LINKS_LIB);
+{ const _pr = preencher; preencher = function (t, i, at) {
+  const cod = (i && C.sel === i.key ? codigosDaConversa() : [])[0], cli = URLS.cliente || 'https://nexumrh.github.io/cliente/';
+  return _pr(String(t).replace(/\{linkAjuda\}/g, AJUDA_URL).replace(/\{linkErro\}/g, AJUDA_URL + (cod ? '#erro-' + cod : '')).replace(/\{linkVideoUsb\}/g, (URLS.gerente || 'https://nexumrh.github.io/gerente/') + 'nexumcell-instalacao-usb-completo.mp4')
+    .replace(/\{linkSejaCliente\}/g, cli + 'seja-cliente.html').replace(/\{linkOuvidoria\}/g, cli + 'ouvidoria.html').replace(/\{portalVendedor\}/g, URLS.vendedor || 'https://nexumrh.github.io/vendedor/').replace(/\{portalGerente\}/g, URLS.gerente || 'https://nexumrh.github.io/gerente/'), i, at); }; }
+escolherLink = function (i) {
+  const ls = links(), cod = codigosDaConversa()[0];
+  const m = modal('Links de resolução', `<p class="hint" style="margin:0 0 10px">O link entra na mensagem já com os dados desta conversa${cod ? ` (erro <b>${cod}</b> detectado)` : ''}. Toque para usar ou em ${I('externo')} para conferir antes.</p>
+    <div class="busca" style="margin-bottom:10px">${I('busca')}<input class="inp" id="lkQ" placeholder="Buscar link"></div><div class="lk-l" id="lkL"></div>`, '<button class="btn sec" data-x>Fechar</button>', true);
+  const pinta = () => { const q = ($('#lkQ').value || '').toLowerCase();
+    $('#lkL').innerHTML = ls.map(([t, u], k) => [t, u, k, preencher(u, i)]).filter(([t, u, k, r]) => !q || (t + ' ' + r).toLowerCase().includes(q)).map(([t, u, k, r]) => `<div class="lk-i"><button data-lk="${k}"><b>${esc(t)}</b><span>${esc(r)}</span></button><a class="ib" href="${esc(r)}" target="_blank" rel="noopener" title="Abrir o link">${I('externo')}</a></div>`).join('') || '<p class="hint">Nenhum link.</p>';
+    $$('[data-lk]', m).forEach(b => b.onclick = () => { const [t, u] = ls[+b.dataset.lk], tx = $('#tTxt'); if (tx) { tx.value = (tx.value ? tx.value.trimEnd() + '\n' : '') + `${t}: ${preencher(u, i)}`; tx.dispatchEvent(new Event('input')); tx.focus(); } fechar(); }); };
+  $('#lkQ').oninput = pinta; pinta(); $('[data-x]', m).onclick = fechar;
+};
+
+/* ---------- 1) filtros: a bolinha vermelha sempre leva aos atendimentos abertos ---------- */
+function limparFiltros(manterFila) { C.f.meus = false; C.f.q = ''; C.f.etq = ''; if (C.f.etapa === 'fim') C.f.etapa = 'abertos'; if (!manterFila) { C.f.fila = dono() ? 'todas' : C.papel; C.f.canal = 'todos'; } salvarF(); }
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'); if (!el) return;
+  $$('[data-fila]', el).forEach(x => x.onclick = () => { C.f.fila = x.dataset.fila; C.f.meus = false; C.f.etq = ''; if (C.f.etapa === 'fim') C.f.etapa = 'abertos'; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
+  $$('[data-canal]', el).forEach(x => x.onclick = () => { C.f.canal = x.dataset.canal; C.f.meus = false; C.f.etq = ''; if (C.f.etapa === 'fim') C.f.etapa = 'abertos'; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
+  const ib = $('[data-vw="inbox"]', el); if (ib) ib.onclick = () => { C.view = 'inbox'; limparFiltros(); el.classList.remove('aberto'); desenhar(); };
+  // presença: disponível, pausa ou offline
+  const eu = $('.eu', el); if (eu && !$('#prSt', eu)) { const st = PRES.me; eu.insertAdjacentHTML('beforeend', `<label class="pr-st" title="Sua disponibilidade para receber atendimentos"><i class="pr-d ${st}"></i><select id="prSt" aria-label="Disponibilidade"><option value="on" ${st === 'on' ? 'selected' : ''}>Disponível</option><option value="pausa" ${st === 'pausa' ? 'selected' : ''}>Em pausa</option><option value="off" ${st === 'off' ? 'selected' : ''}>Offline</option></select></label>`);
+    $('#prSt', eu).onchange = e => { PRES.me = e.target.value; try { localStorage.setItem('crmnc:st', PRES.me); } catch (x) { } presencaPing(); toast(PRES.me === 'on' ? 'Você está disponível: recebe novos atendimentos' : PRES.me === 'pausa' ? 'Em pausa: novos atendimentos vão para outra pessoa' : 'Offline: os seus atendimentos esperando resposta passam para quem está disponível'); desenharNav(); redistribuirOffline(true); }; }
+  // tela de códigos de erro
+  const rr = $('[data-vw="respostas"]', el); if (rr && !$('[data-vw="codigos"]', el)) { rr.insertAdjacentHTML('afterend', `<button data-vw="codigos" class="${C.view === 'codigos' ? 'on' : ''}">${I('codigo')}<span>Códigos de erro</span></button>`); $('[data-vw="codigos"]', el).onclick = () => { C.view = 'codigos'; el.classList.remove('aberto'); desenhar(); }; }
+}; }
+{ const _dl = desenharLista; desenharLista = function () { _dl(); const el = $('#lst'); if (!el || $('[data-it]', el)) return;
+  const abertos = C.itens.filter(i => i.etapa !== 'fim' && (dono() || i.fila === C.papel)).length;
+  const v = $('.vazio', el); if (v && abertos && !C.f.q) v.insertAdjacentHTML('beforeend', `<p class="hint" style="margin:6px 0 10px">Há <b>${abertos}</b> atendimento(s) aberto(s) escondido(s) pelos filtros desta tela.</p><button class="btn" id="lsTodos">${I('camadas')}Mostrar todos os abertos</button>`);
+  const b = $('#lsTodos', el); if (b) b.onclick = () => { limparFiltros(); desenhar(); }; }; }
+// filtros que ficaram salvos de uma visita anterior não escondem mais os abertos ao entrar
+{ const _en = entrou; entrou = async function (...a) { C.f.meus = false; if (C.f.etapa === 'fim') C.f.etapa = 'abertos'; return _en(...a); }; }
+
+/* ---------- 3) presença da equipe e redistribuição ---------- */
+const PRES = { me: (() => { try { return localStorage.getItem('crmnc:st') || 'on'; } catch (e) { return 'on'; } })(), mapa: {}, timer: 0 };
+const ONLINE_MS = 3 * 60e3;
+const online = uid => { const p = PRES.mapa[uid]; return !!p && Date.now() - (+p.em || 0) < ONLINE_MS && !['off', 'pausa'].includes(p.status); };
+function presencaPing() { if (!C.me) return; DB.set('plataforma', 'presencaCrm', { [C.me.uid]: { nome: C.me.nome, em: Date.now(), fila: C.papel, status: PRES.me } }).catch(() => { }); }
+{ const _ou = ouvir; ouvir = function (...a) { const r = _ou(...a);
+  C.un.push(DB.watchDoc('plataforma', 'presencaCrm', d => { PRES.mapa = d || {}; if (C.view === 'equipe' && $('#kb')) desenhar(); pintarPresenca(); _distT = 0; distribuir(); redistribuirOffline(true); }));
+  return r; }; }
+{ const _en = entrou; entrou = async function (...a) { const r = await _en(...a); presencaPing(); clearInterval(PRES.timer); PRES.timer = setInterval(() => { presencaPing(); redistribuirOffline(); pintarEspera(); }, 45e3); return r; }; }
+addEventListener('pagehide', () => { if (C.me && PRES.me === 'on') DB.set('plataforma', 'presencaCrm', { [C.me.uid]: { nome: C.me.nome, em: Date.now() - ONLINE_MS, fila: C.papel, status: 'off' } }).catch(() => { }); });
+function pintarPresenca() { $$('[data-pres]').forEach(e => { const on = online(e.dataset.pres); e.classList.toggle('on', on); e.title = on ? 'Disponível agora' : 'Offline ou em pausa'; }); }
+const carga = uid => C.itens.filter(x => x.etapa !== 'fim' && x.resp?.uid === uid).length;
+// distribuição por igual: só entre quem está disponível; se ninguém estiver, o atendimento espera sem responsável
+distribuir = async function () {
+  if (Date.now() - _distT < 4000) return; _distT = Date.now();
+  const sem = C.itens.filter(i => i.etapa !== 'fim' && !i.resp && (dono() || i.fila === C.papel)).slice(0, 25);
+  for (const i of sem) {
+    const time = C.equipe.filter(u => u.fila === i.fila && u.ativo !== false && u.crmAtivo !== false && online(u.id)); if (!time.length) continue;
+    const alvo = time.sort((a, b) => carga(a.id) - carga(b.id) || String(a.nome).localeCompare(b.nome))[0];
+    try { await F.m.runTransaction(F.db, async tx => { const r = DB.doc('crmAtrib', kSafe(i.key)), s = await tx.get(r); if (s.exists() && s.data().uid) return; tx.set(r, { ...(s.exists() ? s.data() : {}), key: i.key, uid: alvo.id, nome: alvo.nome, fila: i.fila, em: Date.now(), por: 'distribuição automática' }); }); }
+    catch (e) { console.warn('distribuir', e.code || e.message); }
+  }
+};
+let _redT = 0;
+async function redistribuirOffline(agora) {
+  if (!C.me || (!agora && Date.now() - _redT < 40e3)) return; _redT = Date.now();
+  const alvos = C.itens.filter(i => i.etapa !== 'fim' && i.resp?.uid && !online(i.resp.uid) && i.ultimaDe === 'cli' && (dono() || i.fila === C.papel)).slice(0, 20);
+  for (const i of alvos) {
+    const time = C.equipe.filter(u => u.fila === i.fila && u.id !== i.resp.uid && u.ativo !== false && u.crmAtivo !== false && online(u.id)); if (!time.length) continue;
+    const alvo = time.sort((a, b) => carga(a.id) - carga(b.id) || String(a.nome).localeCompare(b.nome))[0], de = i.resp;
+    try { const ok = await F.m.runTransaction(F.db, async tx => { const r = DB.doc('crmAtrib', kSafe(i.key)), s = await tx.get(r); if (s.exists() && s.data().uid !== de.uid) return false;
+        tx.set(r, { ...(s.exists() ? s.data() : {}), key: i.key, uid: alvo.id, nome: alvo.nome, fila: i.fila, em: Date.now(), por: 'redistribuído: ' + String(de.nome || '').split(' ')[0] + ' ficou offline', antes: de.uid }); return true; });
+      if (ok && alvo.id === C.me.uid) toast(`${i.nome} passou para você: ${String(de.nome || '').split(' ')[0]} ficou offline`); }
+    catch (e) { console.warn('redistribuir', e.code || e.message); }
+  }
+}
+
+/* ---------- aviso automático: só cita o nome de quem está disponível; senão fala da fila ---------- */
+const MSG_ACK_FILA = 'Olá, {nome}! Recebemos o seu atendimento (protocolo {protocolo}). Ele já está na fila da equipe {fila} da NexumCell: aqui no chat você vê a sua posição e a previsão para começar.';
+autoAck = async function () {
+  for (const i of C.itens.filter(x => x.canal === 'portal' && x.raw.status === 'HUMANO' && !x.raw.autoAckEm && !(x.raw.msgs || []).some(m => m.de === 'atendente')).slice(0, 5)) {
+    if (!(dono() || i.fila === C.papel)) continue; const on = i.resp && online(i.resp.uid);
+    const t = preencher(on ? (C.cfg.msgAck || MSG_ACK) : MSG_ACK_FILA, i, on ? i.resp.nome : C.me.nome);
+    try { await DB.set('atendimentos', i.id, { msgs: [...(i.raw.msgs || []), { de: 'atendente', t, em: Date.now(), por: 'Suporte NexumCell', auto: true }], autoAckEm: Date.now(), naoLidoUser: true, atualizadoEm: Date.now() }); } catch (e) { }
+  }
+};
+/* ---------- conversas dos portais: a mensagem automática não conta como resposta ---------- */
+{ const _cp = conv.portal; conv.portal = a => { const it = _cp(a), ms = (a.msgs || []).filter(m => !m.auto && m.de !== 'bot'), u = ms[ms.length - 1] || {};
+  if (a.status === 'BOT') { it.etapa = 'fim'; it.bot = true; it.nl = false; it.sub = 'Com a assistente virtual · ' + (a.lojaNome || ''); }
+  else if (it.etapa !== 'fim') it.etapa = !ms.some(m => m.de === 'atendente') ? 'novo' : u.de === 'user' ? 'atendendo' : 'aguardando';
+  it.ultima = u.t || it.ultima; it.ultimaDe = u.de === 'user' ? 'cli' : 'nos'; if (u.em) it.em = Math.max(+u.em, +(a.encaminhadoEm || 0));
+  it.codigos = (a.msgs || []).filter(m => m.de === 'user').flatMap(m => codigosNoTexto(m.t));
+  it.sub = `${a.role === 'GERENTE' ? 'Gerente' : a.role === 'VENDEDOR' ? 'Vendedor' : (a.perfil || 'Portal')}${a.lojaNome ? ' · ' + a.lojaNome : ''}${a.categoria ? ' · ' + a.categoria : ''}`;
+  if (a.pesquisa) it.nota = a.pesquisa.nota; return it; }; }
+{ const _ch = conv.chamado; conv.chamado = c => { const it = _ch(c); it.ultima = (c.respostas || []).length ? it.ultima : `${c.assunto || 'Chamado'}${c.descricao ? ': ' + c.descricao : ''}`; it.codigos = codigosNoTexto(`${c.assunto} ${c.descricao}`); return it; }; }
+
+/* ---------- 4) códigos de erro: aviso na conversa, botão no campo e tela própria ---------- */
+{ const _pm = pintarMsgs; pintarMsgs = function (ms) { C._msgs = ms || []; _pm(ms); const el = $('#ch-b'), i = itemSel(); if (!el || !i) return;
+  const cods = codigosDaConversa(); if (!cods.length) return;
+  el.insertAdjacentHTML('beforeend', `<div class="cdbar">${cods.slice(0, 3).map(c => `<div class="cd-i"><span class="cd-n">${c}</span><div class="cd-t"><b>${esc(ERROS_NX[c].t)}</b><span>Código de erro citado na conversa</span></div><button class="btn sm" data-cdusa="${c}">${I('raio')}Usar resolução</button><button class="ib" data-cdver="${c}" title="Ver detalhes">${I('info')}</button></div>`).join('')}</div>`);
+  el.scrollTop = el.scrollHeight;
+  $$('[data-cdusa]', el).forEach(b => b.onclick = () => usarResolucao(i, b.dataset.cdusa)); $$('[data-cdver]', el).forEach(b => b.onclick = () => verCodigo(b.dataset.cdver, i)); }; }
+function usarResolucao(i, c) { const tx = $('#tTxt'); if (!tx) return; tx.value = resolucaoTexto(c, i); tx.dispatchEvent(new Event('input')); tx.focus(); toast('Resolução do código ' + c + ' no campo: revise e envie.'); }
+function verCodigo(c, i) { const e = ERROS_NX[c]; if (!e) return;
+  const m = modal(`Código ${c} · ${esc(e.t)}`, `<p style="margin:0 0 10px;color:var(--mut)">${esc(e.x)}</p><h4 class="cd-h">O que o vendedor ou gerente faz</h4><ol class="cd-ol">${e.v.map(p => `<li>${esc(p)}</li>`).join('')}</ol>
+    <h4 class="cd-h">Orientação para o suporte</h4><p style="margin:0">${esc(e.chat)}</p>${e.cliente ? `<h4 class="cd-h">Mensagem pronta para o cliente</h4><div class="cd-cli">${esc(e.cliente)}</div>` : ''}
+    <p class="hint" style="margin:12px 0 0">Link público com o passo a passo: <a href="${AJUDA_URL}#erro-${c}" target="_blank" rel="noopener">${AJUDA_URL.replace(/^https?:\/\//, '')}#erro-${c}</a></p>`,
+    `<button class="btn sec" data-cdcp>${I('copia')}Copiar resolução</button>${e.cliente ? `<button class="btn sec" data-cdcl>${I('copia')}Copiar msg do cliente</button>` : ''}${i && $('#tTxt') ? `<button class="btn" data-cdus>${I('raio')}Usar na conversa</button>` : ''}`, true);
+  $('[data-cdcp]', m).onclick = () => navigator.clipboard?.writeText(resolucaoTexto(c)).then(() => toast('Resolução copiada'));
+  if ($('[data-cdcl]', m)) $('[data-cdcl]', m).onclick = () => navigator.clipboard?.writeText(e.cliente).then(() => toast('Mensagem copiada'));
+  if ($('[data-cdus]', m)) $('[data-cdus]', m).onclick = () => { fechar(); usarResolucao(i, c); }; }
+function escolherCodigo(i) {
+  const m = modal('Códigos de erro', `<div class="busca" style="margin-bottom:10px">${I('busca')}<input class="inp" id="cdQ" placeholder="Número do código ou assunto (ex.: 1010, trava, Pix)"></div><div class="lk-l" id="cdL"></div>`, '<button class="btn sec" data-x>Fechar</button>', true);
+  const pinta = () => { const q = ($('#cdQ').value || '').toLowerCase().trim();
+    $('#cdL').innerHTML = Object.entries(ERROS_NX).filter(([c, e]) => !q || (c + ' ' + e.t + ' ' + e.x + ' ' + e.v.join(' ')).toLowerCase().includes(q)).map(([c, e]) => `<div class="lk-i"><button data-cdp="${c}"><b><span class="cd-n sm">${c}</span> ${esc(e.t)}</b><span>${esc(e.x)}</span></button><button class="ib" data-cdv="${c}" title="Ver detalhes">${I('info')}</button></div>`).join('') || '<p class="hint">Nenhum código encontrado.</p>';
+    $$('[data-cdp]', m).forEach(b => b.onclick = () => { fechar(); usarResolucao(i, b.dataset.cdp); }); $$('[data-cdv]', m).forEach(b => b.onclick = () => { fechar(); verCodigo(b.dataset.cdv, i); }); };
+  $('#cdQ').oninput = pinta; pinta(); $('#cdQ').focus(); $('[data-x]', m).onclick = fechar; }
+function vCodigos(el) {
+  const q = (C.cdQ || '').toLowerCase().trim(), grupos = {};
+  Object.entries(ERROS_NX).filter(([c, e]) => !q || (c + ' ' + e.t + ' ' + e.x + ' ' + e.v.join(' ') + ' ' + e.chat).toLowerCase().includes(q)).forEach(([c, e]) => (grupos[e.g] = grupos[e.g] || []).push([c, e]));
+  el.innerHTML = topoKb('Códigos de erro', `<a class="btn sec" href="${AJUDA_URL}" target="_blank" rel="noopener">${I('externo')}Página pública de ajuda</a>`) + `<div class="cd-pg"><p class="hint" style="margin:0 0 12px">Quando o vendedor ou o gerente mandar um código no chat, a assistente já responde sozinha com o passo a passo. Aqui está a lista completa para o suporte: o que é, o que a loja faz, como orientar e a mensagem para o cliente.</p>
+    <div class="busca" style="margin-bottom:14px;max-width:520px">${I('busca')}<input class="inp" id="cdPq" placeholder="Buscar por número ou assunto" value="${esc(C.cdQ || '')}"></div>
+    ${Object.entries(ERROS_GRP_NX).filter(([g]) => grupos[g]).map(([g, n]) => `<h3 class="cd-g">${esc(n)}</h3><div class="cd-grid">${grupos[g].map(([c, e]) => `<div class="cd-card"><div class="cd-top"><span class="cd-n">${c}</span><b>${esc(e.t)}</b></div><p>${esc(e.x)}</p>
+      <ol class="cd-ol">${e.v.map(p => `<li>${esc(p)}</li>`).join('')}</ol><div class="cd-sup"><b>Suporte:</b> ${esc(e.chat)}</div>
+      <div class="cd-ac"><button class="btn sec sm" data-cdc="${c}">${I('copia')}Copiar resolução</button><button class="btn sec sm" data-cdl="${c}">${I('link')}Copiar link</button>${e.cliente ? `<button class="btn sec sm" data-cdm="${c}">${I('copia')}Msg do cliente</button>` : ''}</div></div>`).join('')}</div>`).join('') || '<p class="hint">Nenhum código encontrado.</p>'}</div>`;
+  ligaMenu(el);
+  $('#cdPq').oninput = e => { C.cdQ = e.target.value; clearTimeout(C._cdT); C._cdT = setTimeout(() => { vCodigos(el); const n = $('#cdPq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); };
+  $$('[data-cdc]', el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(resolucaoTexto(b.dataset.cdc)).then(() => toast('Resolução copiada')));
+  $$('[data-cdl]', el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(AJUDA_URL + '#erro-' + b.dataset.cdl).then(() => toast('Link copiado')));
+  $$('[data-cdm]', el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(ERROS_NX[b.dataset.cdm].cliente).then(() => toast('Mensagem copiada')));
+}
+{ const _ds = desenhar; desenhar = function () { if (C.me && $('#app') && C.view === 'codigos') { if (!$('#kb')) $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; desenharNav(); return vCodigos($('#kb')); } return _ds(); }; }
+
+/* ---------- campo de mensagem: barra enxuta (principais à vista, o resto em "Mais") ---------- */
+{ const _cp = compositor; compositor = function (i) { _cp(i); const t = $('#cp .cp-t'); if (!t || $('#tCod')) return;
+  const lnk = $('#tLnk', t); if (lnk) { lnk.lastChild && (lnk.lastChild.textContent = 'Links'); lnk.insertAdjacentHTML('afterend', `<button class="ferr" id="tCod">${I('codigo')}Códigos</button>`); }
+  $('#tCod').onclick = () => escolherCodigo(i);
+  const arq = $('#tArq', t)?.closest('label'); if (arq) arq.childNodes.forEach(n => { if (n.nodeType === 3 && n.textContent.trim() === 'Arquivo') n.textContent = 'Anexo'; });
+  const mais = ['#tNota', '#tRet', '#tAg', '#tCpv', '#tIaR', '#tNt', '#tMot'].map(s => $(s, t)).filter(Boolean).map(e => e.id === 'tMot' ? e.closest('span') : e);
+  if (mais.length) { const box = document.createElement('div'); box.className = 'cp-mais'; box.hidden = true; mais.forEach(e => box.appendChild(e));
+    const b = document.createElement('button'); b.className = 'ferr'; b.id = 'tMais'; b.innerHTML = `${I('mais')}Mais ações${I('chev')}`; b.onclick = () => { box.hidden = !box.hidden; b.classList.toggle('on', !box.hidden); };
+    t.appendChild(b); t.after(box); }
+}; }
+
+/* ---------- 5) Assistente IA na ficha: resumo, sugestão e códigos ---------- */
+function conversaTexto(i) { const quem = m => m.tipo === 'nota' ? 'Nota interna da equipe' : m.de === 'bot' ? 'Assistente virtual' : m.nos ? `Atendente NexumCell${m.quem ? ' (' + m.quem + ')' : ''}` : `${['portal', 'chamado'].includes(i.canal) ? 'Loja' : 'Cliente'}${m.quem ? ' (' + m.quem + ')' : ''}`;
+  return (C._msgs || []).filter(m => m.t && m.tipo !== 'sis').slice(-40).map(m => `${quem(m)}: ${String(m.t).replace(/\s+/g, ' ').slice(0, 900)}`).join('\n').slice(-9000); }
+textoFicha = function () { const pf = $('#pf'); if (!pf) return ''; const c = pf.cloneNode(true); c.querySelector('#iaPf')?.remove(); c.querySelectorAll('button,select,script,style').forEach(x => x.remove()); return (c.textContent || '').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(0, 2500); };
+textoConversa = async function () { const i = itemSel(); return i ? conversaTexto(i) : ''; };
+function iaPainel(i) { const pf = $('#pf'); if (!pf || C.sel !== i.key) return null; let box = $('#iaPf', pf);
+  if (!box) { const top = $('.pf-top', pf); (top || pf).insertAdjacentHTML(top ? 'afterend' : 'afterbegin', `<div class="pf-sec ia-pf" id="iaPf"><h4>${I('raioIa')}Assistente IA</h4><div class="ia-bt"><button class="btn sec sm" id="iaRes">${I('nota')}Resumir</button><button class="btn sm ia-go" id="iaSug">${I('raioIa')}Sugerir resposta</button></div><div id="iaOut"></div></div>`);
+    box = $('#iaPf', pf); $('#iaRes', box).onclick = e => iaCrm(i, 'resumo', e.currentTarget); $('#iaSug', box).onclick = e => iaCrm(i, 'sugestao', e.currentTarget); }
+  return box; }
+iaCrm = async function (i, acao, b) {
+  const box = iaPainel(i); const out = box ? $('#iaOut', box) : null; if (b) b.disabled = true;
+  const conversa = conversaTexto(i); if (!conversa) { if (b) b.disabled = false; return toast('A conversa ainda está vazia', true); }
+  if (out) out.innerHTML = `<div class="ia-load">${I('raioIa')}${acao === 'resumo' ? 'Lendo a conversa…' : 'Escrevendo uma resposta…'}</div>`;
+  try { const r = await api('crm-ia', { acao, canal: CANAIS[i.canal][0], cliente: i.nome, conversa, ficha: textoFicha(), atendente: C.me.nome.split(' ')[0] });
+    if (acao === 'resumo') { const chip = (t, c) => `<span class="pill" style="background:${c}1A;color:${c}">${t}</span>`, hum = { calmo: ['Calmo', '#0E8A5F'], ansioso: ['Ansioso', '#A86A12'], irritado: ['Irritado', '#C23B3B'] }[r.humor], urg = { baixa: ['Urgência baixa', '#64748B'], media: ['Urgência média', '#A86A12'], alta: ['Urgência alta', '#C23B3B'] }[r.urgencia];
+      out.innerHTML = `<div class="ia-res">${r.pedido ? `<div><span>Pedido</span>${esc(r.pedido)}</div>` : ''}${r.feito ? `<div><span>Já feito</span>${esc(r.feito)}</div>` : ''}${r.falta ? `<div><span>Próximo passo</span>${esc(r.falta)}</div>` : ''}${!r.pedido ? esc(r.texto || '').replace(/\n/g, '<br>') : ''}
+        <div class="ia-chips">${hum ? chip(...hum) : ''}${urg ? chip(...urg) : ''}${(r.codigos || []).filter(c => ERROS_NX[c]).map(c => `<button class="pill cd-pl" data-cdver2="${c}">Erro ${c}</button>`).join('')}</div></div>`;
+      $$('[data-cdver2]', out).forEach(x => x.onclick = () => verCodigo(x.dataset.cdver2, i)); }
+    else { const usar = t => { const tx = $('#tTxt'); if (!tx) return; tx.value = t; tx.dispatchEvent(new Event('input')); tx.focus(); };
+      if (out) { out.innerHTML = `<div class="ia-sug"><p>${esc(r.texto).replace(/\n/g, '<br>')}</p><div class="ia-bt"><button class="btn sm" id="iaUsa">${I('ok')}Usar no campo</button>${r.alternativa ? `<button class="btn sec sm" id="iaAlt">Versão curta</button>` : ''}<button class="ib" id="iaDe" title="Gerar outra">${I('reabrir')}</button></div>${r.motivo ? `<small class="hint">${esc(r.motivo)}</small>` : ''}</div>`;
+        $('#iaUsa', out).onclick = () => usar(r.texto); if ($('#iaAlt', out)) $('#iaAlt', out).onclick = () => usar(r.alternativa); $('#iaDe', out).onclick = e => iaCrm(i, 'sugestao', e.currentTarget); }
+      usar(r.texto); toast('Sugestão da IA no campo de mensagem: revise antes de enviar.'); } }
+  catch (e) { const msg = /chave/i.test(e.message) ? 'A IA está sem chave. O dono cola a chave do Groq em Ajustes → Inteligência artificial.' : /failed to fetch|network/i.test(e.message) ? 'Sem conexão com o servidor. Confira a internet e tente de novo.' : e.message;
+    if (out) out.innerHTML = `<div class="ia-err">${I('alerta')}${esc(msg)}${dono() ? ` <button class="btn sec sm" id="iaCfg">Abrir ajustes</button>` : ''}</div>`; else toast(msg, true); const c = $('#iaCfg'); if (c) c.onclick = () => { C.view = 'config'; desenhar(); }; }
+  if (b) b.disabled = false;
+};
+{ const _fi = ficha; ficha = async function (i) { const p = _fi(i); setTimeout(() => { if (C.sel === i.key) iaPainel(i); }, 0); return p; }; }
+
+/* ---------- tempo de espera no topo da conversa ---------- */
+const minEsp = ms => { const m = Math.max(0, Math.floor(ms / 60e3)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+{ const _tc = topoChat; topoChat = function (i) { const h = _tc(i); if (!semResp(i)) return h;
+  return h.replace('<div class="ch-acoes">', `<div class="ch-acoes"><span class="pill esp" data-esp="${+i.em || 0}" title="Tempo esperando resposta">${I('relogio')}<b>${minEsp(Date.now() - i.em)}</b></span>`); }; }
+function pintarEspera() { $$('[data-esp]').forEach(e => { const b = e.querySelector('b'); if (b) b.textContent = minEsp(Date.now() - +e.dataset.esp); e.classList.toggle('urg', Date.now() - +e.dataset.esp > 15 * 60e3); }); }
+
+/* ---------- 7) satisfação e comissão do atendimento ---------- */
+{ const _vp = vPainel; vPainel = function (el) { _vp(el); setTimeout(() => painelSatisfacao(el), 0); }; }
+async function painelSatisfacao(el) {
+  if (!el || C.view !== 'painel' || $('#satBox', el)) return; const alvo = el.querySelector('div[style*="overflow"]') || el; const mes = hoje().slice(0, 7), ini = new Date(mes + '-01T00:00:00-03:00').getTime();
+  const vt = el.querySelector('.vc-top'); (vt || alvo).insertAdjacentHTML(vt ? 'afterend' : 'afterbegin', `<div id="satBox" class="sat"><div class="rs-load">${I('relogio')}Carregando a satisfação do mês…</div></div>`);
+  const av = await DB.list('crmAvaliacoes', [['em', '>=', ini]]).catch(() => []); const box = $('#satBox', el); if (!box) return;
+  const cfg = RQ_RAW.bonusSat || {}, porNota = +cfg.porNota || 0, mediaMin = +cfg.mediaMin || 4, extra = +cfg.extra || 0, minAv = +cfg.minAv || 10;
+  const por = {}; av.forEach(a => { const k = a.uid || a.nome || '—'; (por[k] = por[k] || { nome: a.nome || '—', uid: a.uid, l: [] }).l.push(a); });
+  const linhas = Object.values(por).map(p => { const n = p.l.length, med = p.l.reduce((s, a) => s + (+a.nota || 0), 0) / n, bons = p.l.filter(a => a.nota >= 4).length, res = p.l.filter(a => a.resolvido === true).length, comRes = p.l.filter(a => a.resolvido !== undefined && a.resolvido !== null).length;
+    const bonus = bons * porNota + (n >= minAv && med >= mediaMin ? extra : 0); return { ...p, n, med, csat: bons / n * 100, res: comRes ? res / comRes * 100 : null, bonus }; }).sort((a, b) => b.med - a.med || b.n - a.n);
+  const tot = av.length, med = tot ? av.reduce((s, a) => s + (+a.nota || 0), 0) / tot : 0, csat = tot ? av.filter(a => a.nota >= 4).length / tot * 100 : 0, coment = av.filter(a => a.comentario).sort((a, b) => b.em - a.em).slice(0, 5);
+  const est = n => `<span class="sat-st">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= Math.round(n) ? 'on' : ''}">${I('estrela')}</i>`).join('')}</span>`;
+  box.innerHTML = `<div class="sat-h"><div><h3>${I('estrela')}Satisfação e comissão do atendimento</h3><p class="hint">Notas que vendedores, gerentes e clientes deram ao final de cada atendimento em ${new Date(ini).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}. É a base da comissão do suporte.</p></div>${dono() ? `<button class="btn sec sm" id="satCfg">${I('moedas')}Regras da comissão</button>` : ''}</div>
+    <div class="sat-k"><div><b>${tot ? med.toFixed(1).replace('.', ',') : '—'}</b>${tot ? est(med) : ''}<span>Nota média</span></div><div><b>${tot ? Math.round(csat) + '%' : '—'}</b><span>Satisfeitos (nota 4 ou 5)</span></div><div><b>${tot}</b><span>Avaliações no mês</span></div><div><b>${brl(linhas.reduce((s, l) => s + l.bonus, 0))}</b><span>Comissão estimada</span></div></div>
+    <div class="tw"><table class="sat-t"><tr><th>Atendente</th><th>Avaliações</th><th>Média</th><th>Satisfeitos</th><th>Resolvido</th><th>Comissão</th></tr>${linhas.map(l => `<tr><td><i class="pr-d" data-pres="${esc(l.uid || '')}"></i><b>${esc(l.nome)}</b></td><td>${l.n}</td><td>${l.med.toFixed(1).replace('.', ',')} ${est(l.med)}</td><td>${Math.round(l.csat)}%</td><td>${l.res == null ? '—' : Math.round(l.res) + '%'}</td><td><b>${brl(l.bonus)}</b>${extra && l.n >= minAv && l.med >= mediaMin ? '<br><small class="hint">com bônus de média</small>' : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="hint">Nenhuma avaliação neste mês ainda.</td></tr>'}</table></div>
+    <p class="hint" style="margin:8px 0 0">${porNota || extra ? `Regra: ${porNota ? brl(porNota) + ' por avaliação com nota 4 ou 5' : ''}${porNota && extra ? ' + ' : ''}${extra ? brl(extra) + ` de bônus para quem fecha o mês com média ${String(mediaMin).replace('.', ',')} ou mais (mínimo ${minAv} avaliações)` : ''}.` : 'A comissão ainda não tem regra: o dono define em "Regras da comissão".'}</p>
+    ${coment.length ? `<h4 class="sat-c">Últimos comentários</h4>${coment.map(a => `<div class="sat-cm">${est(a.nota)}<p>“${esc(a.comentario)}”</p><small class="hint">${esc(a.avaliador || '')}${a.lojaNome ? ' · ' + esc(a.lojaNome) : ''} · atendido por ${esc(String(a.nome || '').split(' ')[0])} · ${fdt(a.em)}</small></div>`).join('')}` : ''}`;
+  pintarPresenca();
+  const cb = $('#satCfg', box); if (cb) cb.onclick = () => { const m = modal('Regras da comissão do atendimento', `<p class="hint" style="margin-top:0">A comissão do suporte é calculada pelas avaliações do mês. Deixe 0 para não usar uma parte.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label class="small" style="font-weight:600">Valor por avaliação nota 4 ou 5 (R$)<input class="inp" id="bsN" type="number" min="0" step="0.5" value="${porNota || ''}"></label><label class="small" style="font-weight:600">Bônus do mês (R$)<input class="inp" id="bsE" type="number" min="0" step="10" value="${extra || ''}"></label>
+      <label class="small" style="font-weight:600">Média mínima para o bônus<input class="inp" id="bsM" type="number" min="1" max="5" step="0.1" value="${mediaMin}"></label><label class="small" style="font-weight:600">Mínimo de avaliações no mês<input class="inp" id="bsA" type="number" min="1" step="1" value="${minAv}"></label></div>`,
+      '<button class="btn sec" data-x>Cancelar</button><button class="btn" id="bsOk">Salvar regras</button>');
+    $('[data-x]', m).onclick = fechar;
+    $('#bsOk', m).onclick = async () => { await DB.set('config', 'crm', { bonusSat: { porNota: +$('#bsN').value || 0, extra: +$('#bsE').value || 0, mediaMin: Math.min(5, Math.max(1, +$('#bsM').value || 4)), minAv: Math.max(1, +$('#bsA').value || 10) }, atualizadoEm: Date.now() }); RQ_RAW.bonusSat = { porNota: +$('#bsN').value || 0, extra: +$('#bsE').value || 0, mediaMin: +$('#bsM').value || 4, minAv: +$('#bsA').value || 10 }; fechar(); toast('Regras da comissão salvas'); $('#satBox')?.remove(); painelSatisfacao(el); }; };
+}
+// presença na tela de equipe
+{ const _ve = vEquipe; vEquipe = function (el) { _ve(el); $$('[data-at]', el).forEach(c => { const b = c.closest('.eq-i')?.querySelector('.eq-t b'), uid = c.dataset.at, p = PRES.mapa[uid]; if (!b || b.querySelector('.pr-d')) return;
+  b.insertAdjacentHTML('afterbegin', `<i class="pr-d" data-pres="${esc(uid)}"></i>`); b.insertAdjacentHTML('beforeend', ` <span class="hint" style="font-weight:500;font-size:12px">${online(uid) ? '· disponível' : p?.status === 'pausa' && Date.now() - (+p.em || 0) < ONLINE_MS ? '· em pausa' : p?.em ? '· visto ' + fdt(p.em) : '· offline'}</span>`); }); pintarPresenca(); }; }
+
+/* ---------- Ajustes: inteligência artificial, fila e horário do chat dos portais ---------- */
+{ const _vc = vConfig; vConfig = function (el) { _vc(el);
+  const g = el.querySelector('div[style*="display:grid"]'); if (!g || $('#iaCard', el)) return; const ro = dono() ? '' : 'disabled', cs = C.sis || {};
+  g.insertAdjacentHTML('afterbegin', `<div id="iaCard" class="cfg-card"><h3>${I('raioIa')} Inteligência artificial</h3><p class="hint">A IA responde o chat dos portais (dúvidas e códigos de erro), a resposta automática do app e do WhatsApp, o resumo e a sugestão de resposta do CRM. A chave do Groq fica guardada só no servidor.</p>
+    <div class="ia-st" id="iaSt"><span class="ia-dot"></span>Verificando a IA…</div>
+    ${dono() ? `<label class="small" style="font-weight:600;display:block;margin-top:10px">Trocar a chave do Groq (começa com gsk_)<div style="display:flex;gap:6px;margin-top:4px"><input class="inp" id="iaK" type="password" autocomplete="off" placeholder="gsk_…"><button class="btn sec" id="iaKs">Salvar chave</button></div></label><p class="hint" style="margin:6px 0 0">Crie grátis em console.groq.com → API Keys.</p>` : '<p class="hint" style="margin:8px 0 0">Só o dono troca a chave.</p>'}
+    <button class="btn sec sm" id="iaTs" style="margin-top:10px">${I('reabrir')}Testar a IA agora</button>
+    <h3 style="margin-top:18px">${I('relogio')} Fila do chat dos portais</h3><p class="hint">O vendedor e o gerente veem a posição na fila e a previsão para começar, com cronômetro. Fora do horário, o chat avisa o próximo horário de atendimento.</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><label class="small" style="font-weight:600">Min. por atendimento<input class="inp" id="tmaM" type="number" min="1" max="60" value="${+RQ_RAW.tmaMin || 5}" ${ro}></label><label class="small" style="font-weight:600">Abre (hora)<input class="inp" id="atIni" type="number" min="0" max="23" value="${+(cs.atendHoraIni ?? 8)}" ${ro}></label><label class="small" style="font-weight:600">Fecha (hora)<input class="inp" id="atFim" type="number" min="1" max="24" value="${+(cs.atendHoraFim ?? 20)}" ${ro}></label><label class="small" style="font-weight:600">Domingo<select class="inp" id="atDom" ${ro}><option value="nao">Fechado</option><option value="sim" ${cs.atendDomingo === 'sim' ? 'selected' : ''}>Aberto</option></select></label></div>
+    ${dono() ? `<button class="btn sm" id="atSalva" style="margin-top:10px">${I('ok')}Salvar fila e horário</button>` : ''}</div>`);
+  const st = async () => { const b = $('#iaSt'); if (!b) return; b.className = 'ia-st'; b.innerHTML = '<span class="ia-dot"></span>Verificando a IA…';
+    try { const r = await api('crm-ia', { acao: 'status' }); b.className = 'ia-st ' + (r.ok ? 'ok' : 'bad');
+      b.innerHTML = r.ok ? `<span class="ia-dot"></span><div><b>IA funcionando</b><small>Chave terminada em …${esc(r.final || '')} · ${esc(r.modelo || '')} · respondeu em ${r.ms} ms</small></div>` : `<span class="ia-dot"></span><div><b>${r.chave ? 'A IA não respondeu' : 'IA sem chave'}</b><small>${esc(r.erro || '')}</small></div>`; }
+    catch (e) { b.className = 'ia-st bad'; b.innerHTML = `<span class="ia-dot"></span><div><b>Não foi possível verificar</b><small>${esc(/404/.test(e.message) ? 'O servidor ainda não tem a versão nova: cole o servidor-colar.js no Worker.' : e.message)}</small></div>`; } };
+  st(); $('#iaTs').onclick = st;
+  if ($('#iaKs')) $('#iaKs').onclick = async () => { const k = $('#iaK').value.trim(); if (!/^gsk_\w{20,}/.test(k)) return toast('A chave do Groq começa com gsk_', true);
+    try { await DB.set('segredos', 'ia', { chave: k, em: Date.now(), por: C.me.nome }); await DB.set('config', 'sistema', { iaChaveFinal: k.slice(-4), iaChaveEm: Date.now(), iaChavePor: C.me.nome }); $('#iaK').value = ''; toast('Chave salva. Testando…'); setTimeout(st, 1500); } catch (e) { toast('Não foi possível salvar: ' + (e.code || e.message), true); } };
+  if ($('#atSalva')) $('#atSalva').onclick = async () => { try { await DB.set('config', 'crm', { tmaMin: Math.max(1, Math.min(60, +$('#tmaM').value || 5)), atualizadoEm: Date.now() });
+    await DB.set('config', 'sistema', { atendHoraIni: Math.max(0, Math.min(23, +$('#atIni').value || 8)), atendHoraFim: Math.max(1, Math.min(24, +$('#atFim').value || 20)), atendDomingo: $('#atDom').value }); toast('Fila e horário salvos'); } catch (e) { toast('Não foi possível salvar: ' + (e.code || e.message), true); } };
+  // o botão Salvar dos ajustes antigos grava os links no formato novo (DB.set converte)
+}; }
+{ const _ou = ouvir; ouvir = function (...a) { const r = _ou(...a); C.un.push(DB.watchDoc('config', 'sistema', d => { C.sis = d || {}; })); return r; }; }
+
+/* ---------- 8) visual ---------- */
+document.head.insertAdjacentHTML('beforeend', `<style id="crm-v3">
+.it{padding:13px 16px 13px 14px;gap:12px}.it .l1 b{font-size:14.5px;letter-spacing:-.005em}.it .l2{color:var(--mut);font-size:13.5px}.it .l3{margin-top:7px;gap:5px}.it.nl .l1 b{color:var(--ink)}
+.it .l3 .pill{font-size:11px;padding:1px 8px;line-height:18px}.it.on{background:#F1F5FF;box-shadow:inset 3px 0 0 var(--pri)}.it.urg{box-shadow:inset 3px 0 0 var(--bad)}
+.cp{border-top:1px solid var(--line2)}.cp-t{gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}.cp-t::-webkit-scrollbar{display:none}
+.cp-t .ferr{flex:none;padding:6px 11px;border-radius:10px;font-size:12.5px;background:#fff;transition:background .12s,border-color .12s}.cp-t .ferr:hover{background:var(--hover);border-color:#CFCDE0}
+.cp-t .ferr .i{width:15px;height:15px}#tMais.on{background:var(--pri-s);border-color:#C9D8FF;color:var(--pri-d)}#tMais .i:last-child{width:13px;height:13px;opacity:.7}
+.cp-mais[hidden]{display:none!important}.cp-mais{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px;padding:8px;border:1px dashed var(--line);border-radius:12px;background:var(--soft)}.cp-mais .ferr{border-radius:10px}
+#tCod{color:#B42318;border-color:#F6CFCB}#tCod:hover{background:#FEF3F2}
+.cdbar{margin:10px auto 4px;max-width:640px;display:grid;gap:8px}.cd-i{display:flex;align-items:center;gap:10px;background:#FFF8F6;border:1px solid #F6CFCB;border-radius:14px;padding:10px 12px;box-shadow:var(--sh)}
+.cd-n{background:#FDECEC;color:#B42318;border-radius:9px;padding:4px 9px;font-weight:800;font-family:ui-monospace,Menlo,monospace;font-size:13px;flex:none}.cd-n.sm{padding:1px 7px;font-size:12px;margin-right:4px}
+.cd-t{flex:1;min-width:0}.cd-t b{display:block;font-size:13.5px}.cd-t span{font-size:12px;color:var(--mut)}
+.cd-h{margin:14px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.cd-ol{margin:4px 0 0;padding-left:20px;line-height:1.55}.cd-ol li{margin:3px 0}
+.cd-cli{background:var(--soft);border:1px solid var(--line2);border-radius:10px;padding:10px 12px}
+.cd-pg{padding:18px 22px;overflow:auto}.cd-g{margin:18px 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.cd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}.cd-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--sh);display:flex;flex-direction:column}
+.cd-top{display:flex;gap:10px;align-items:center}.cd-top b{font-size:15px}.cd-card>p{margin:8px 0 0;color:var(--mut);font-size:13.5px}.cd-card .cd-ol{font-size:13.5px;flex:1}
+.cd-sup{margin-top:10px;font-size:12.5px;background:var(--soft);border-radius:10px;padding:8px 10px;color:var(--txt)}.cd-ac{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.lk-l{display:grid;gap:6px;max-height:min(56vh,520px);overflow:auto}.lk-i{display:flex;gap:6px;align-items:center}.lk-i>button{flex:1;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;cursor:pointer;font:inherit;min-width:0}
+.lk-i>button:hover{border-color:var(--pri);background:var(--pri-s)}.lk-i b{display:block;font-size:13.5px;font-weight:600}.lk-i span{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ia-pf h4{display:flex;align-items:center;gap:6px;color:#5B21B6}.ia-pf h4 .i{width:14px;height:14px}.ia-bt{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.ia-go{background:#6D28D9;border-color:#6D28D9}.ia-go:hover{background:#5B21B6}
+.ia-load{margin-top:10px;font-size:13px;color:#5B21B6;display:flex;gap:6px;align-items:center;animation:iaPul 1.2s infinite}@keyframes iaPul{50%{opacity:.5}}
+.ia-res{margin-top:10px;background:#F7F4FF;border:1px solid #E4DCFF;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5}.ia-res>div{margin:0 0 6px}.ia-res span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6D28D9}
+.ia-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.cd-pl{border:0;cursor:pointer;background:#FDECEC!important;color:#B42318!important}
+.ia-sug{margin-top:10px;background:#F7F4FF;border:1px solid #E4DCFF;border-radius:12px;padding:10px 12px}.ia-sug p{margin:0 0 8px;font-size:13px;line-height:1.5}.ia-sug small{display:block;margin-top:6px;font-size:11.5px}
+.ia-err{margin-top:10px;background:var(--bad-s);color:var(--bad);border-radius:12px;padding:10px 12px;font-size:13px;display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+.pill.esp{background:var(--warn-s);color:var(--warn)}.pill.esp.urg{background:var(--bad-s);color:var(--bad)}.pill.esp .i{width:13px;height:13px}
+.pr-st{display:flex;align-items:center;gap:6px;margin-left:auto;margin-right:4px;background:rgba(255,255,255,.08);border-radius:9px;padding:3px 6px}.pr-st select{background:none;border:0;color:#fff;font:inherit;font-size:12px;cursor:pointer;max-width:92px}.pr-st option{color:#111}
+.pr-d{display:inline-block;width:9px;height:9px;border-radius:50%;background:#9CA3AF;flex:none;margin-right:6px;box-shadow:0 0 0 2px rgba(255,255,255,.6)}.pr-d.on{background:#22C55E}.pr-st .pr-d{margin:0}.pr-st .pr-d.on,.pr-d.on{background:#22C55E}.pr-st .pr-d.pausa{background:#F59E0B}.pr-st .pr-d.off{background:#9CA3AF}
+.eu{flex-wrap:wrap}
+.cfg-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--sh)}.cfg-card h3{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:6px}.cfg-card .hint{margin:0 0 10px}
+.ia-st{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}.ia-st b{display:block}.ia-st small{color:var(--mut)}
+.ia-dot{width:10px;height:10px;border-radius:50%;background:#CBD5E1;flex:none}.ia-st.ok{border-color:#BBE5D0;background:var(--ok-s)}.ia-st.ok .ia-dot{background:#16A34A}.ia-st.bad{border-color:#F3C9C9;background:var(--bad-s)}.ia-st.bad .ia-dot{background:var(--bad)}
+.sat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--sh);margin:0 0 14px;grid-column:1/-1}.sat-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}.sat-h h3{margin:0;font-size:15px;display:flex;gap:6px;align-items:center}.sat-h .hint{margin:4px 0 0}
+.sat-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}.sat-k>div{border:1px solid var(--line2);border-radius:12px;padding:12px}.sat-k b{font-size:22px;display:block}.sat-k span{font-size:12px;color:var(--mut)}
+.sat-st{display:inline-flex;gap:1px;vertical-align:middle}.sat-st i .i{width:12px;height:12px;color:#D1D5DB}.sat-st i.on .i{color:#F59E0B;fill:#F59E0B}
+.sat-t{width:100%;border-collapse:collapse;font-size:13.5px}.sat-t th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:8px;border-bottom:1px solid var(--line)}.sat-t td{padding:9px 8px;border-bottom:1px solid var(--line2)}
+.sat-c{margin:14px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.sat-cm{border-top:1px solid var(--line2);padding:8px 0}.sat-cm p{margin:4px 0}
+</style>`);
 
 /* ---------- início ---------- */
 (async () => {

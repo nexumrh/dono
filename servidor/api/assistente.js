@@ -2,6 +2,7 @@
 // A chave da IA fica só aqui no servidor (variável GROQ_API_KEY na Vercel), nunca no portal.
 // POST /api/assistente  {"token":"<token do aparelho>","pergunta":"...","origem":"app"|"portal"}  (o app da trava manda origem "app")
 import { db, cors, encargos, hoje, config } from './_base.js';
+import { chaveIA } from './ia-autonoma.js';
 
 const MODELO = process.env.GROQ_MODELO || 'openai/gpt-oss-120b';
 
@@ -11,7 +12,7 @@ export default async function handler(req, res) {
   try {
     const { token, pergunta, origem } = req.body || {};
     if (!token || !pergunta || String(pergunta).length > 500) return res.status(400).json({ erro: 'pedido inválido' });
-    const chave = process.env.GROQ_API_KEY || (await config()).iaChave || '';
+    const chave = (await chaveIA().catch(() => '')) || process.env.GROQ_API_KEY || (await config()).iaChave || '';
     if (!chave) return res.status(200).json({ resposta: null });
     const s = await db.collection('aparelhos').doc(String(token)).get();
     if (!s.exists) return res.status(404).json({ erro: 'contrato não encontrado' });

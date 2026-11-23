@@ -31,8 +31,9 @@ import crmIa from '../api/crm-ia.js';
 import ouvidoria from '../api/ouvidoria.js';
 import avisarDono from '../api/avisar-dono.js';
 import metas from '../api/metas.js';
+import atendimento from '../api/atendimento.js';
 
-const ROTAS = { metas, 'avisar-dono': avisarDono, equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
+const ROTAS = { metas, atendimento, 'avisar-dono': avisarDono, equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };
