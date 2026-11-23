@@ -1,8 +1,11 @@
-// App Minhas Metas: entrada do funcionário pelo CPF.
-// O gerente (ou o dono) cadastra a pessoa com CPF e data de nascimento em metasPessoas/{escopo}_{cpf}.
-// POST /api/metas {acao:'status', cpf}               → {existe, ativado, nome}
-// POST /api/metas {acao:'ativar', cpf, nasc, senha}  → cria (ou troca) a senha e devolve o e-mail interno do login
+// App Metas & Bônus: entrada do funcionário pelo CPF.
+// O gerente (ou o dono) cadastra a pessoa com CPF em metasPessoas/{escopo}_{cpf}.
+// A senha inicial do funcionário é 123456; no primeiro acesso ele é obrigado a trocar.
+// POST /api/metas {acao:'status', cpf}               → {existe, ativado, nome, precisaTrocar}
+// POST /api/metas {acao:'preparar', cpf}             → garante o login com a senha inicial 123456 (1º acesso)
+// POST /api/metas {acao:'trocar', cpf, senhaAtual, senha} → troca a senha e tira a obrigação de trocar
 // O login usa o Firebase Auth com o e-mail interno {cpf}@metas.nexumcell.app.
+const SENHA_INICIAL = '123456';
 import { db, auth, cors, hoje } from './_base.js';
 
 const soD = (s) => String(s || '').replace(/\D/g, '');
@@ -25,29 +28,45 @@ export default async function handler(req, res) {
   try {
     const b = req.body || {}, cpf = soD(b.cpf);
     if (!cpfOk(cpf)) throw erro('CPF inválido.');
+    const email = `${cpf}@metas.nexumcell.app`;
     if (b.acao === 'status') {
       const ip = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || 'x').split(',')[0].trim();
       await limitar('ip_' + ip.replace(/[^\w]/g, '_') + '_' + hoje(), 60);
       const p = await pessoaDo(cpf);
       if (!p) return res.json({ existe: false });
-      return res.json({ existe: true, ativado: !!(p.ativado && p.uid), nome: String(p.nome || '').split(' ')[0] });
+      return res.json({ existe: true, ativado: !!(p.ativado && p.uid), precisaTrocar: !!(p.precisaTrocar !== false && !p.senhaTrocada), nome: String(p.nome || '').split(' ')[0] });
     }
-    if (b.acao === 'ativar') {
+    // 1º acesso: garante o login com a senha inicial 123456, para o app entrar e então obrigar a trocar
+    if (b.acao === 'preparar') {
       await limitar('cpf_' + cpf);
       const p = await pessoaDo(cpf); if (!p) throw erro('CPF não cadastrado. Peça ao seu gerente para cadastrar você nas metas.', 404);
-      if (p.ativado && p.uid) throw erro('Você já criou a sua senha. Entre com o CPF e a senha. Esqueceu? Peça ao gerente para liberar um novo primeiro acesso.', 409);
-      if (!p.nasc || String(b.nasc || '').slice(0, 10) !== String(p.nasc).slice(0, 10)) throw erro('A data de nascimento não confere com o cadastro feito pelo seu gerente.', 403);
-      const senha = String(b.senha || ''); if (senha.length < 6) throw erro('A senha precisa ter pelo menos 6 caracteres.');
-      const email = `${cpf}@metas.nexumcell.app`; let uid = p.uid;
-      if (uid) await auth.updateUser(uid, { password: senha });
+      if (p.senhaTrocada) throw erro('Você já tem uma senha. Entre com o CPF e a sua senha. Esqueceu? Peça ao gerente para liberar um novo primeiro acesso.', 409);
+      let uid = p.uid;
+      if (uid) await auth.updateUser(uid, { password: SENHA_INICIAL });
       else {
-        try { uid = (await auth.createUser({ email, password: senha, displayName: p.nome || '' })).uid; }
-        catch (e) { if (e.code === 'auth/email-already-exists') throw erro('Este CPF já tinha um acesso antigo. Peça ao gerente para liberar um novo primeiro acesso.', 409); throw e; }
+        try { uid = (await auth.createUser({ email, password: SENHA_INICIAL, displayName: p.nome || '' })).uid; }
+        catch (e) {
+          if (e.code === 'auth/email-already-exists') throw erro('Este CPF já tinha um acesso. Peça ao gerente para liberar um novo primeiro acesso.', 409);
+          throw e;
+        }
       }
-      await p.ref.set({ uid, ativado: true, ativadoEm: Date.now(), email }, { merge: true });
-      await db.collection('metasAcesso').doc(uid).set({ cpf, escopo: p.escopo, pessoaId: p.id, nome: p.nome || '', em: Date.now() });
+      await p.ref.set({ uid, ativado: true, email, precisaTrocar: true, senhaTrocada: false, ativadoEm: p.ativadoEm || Date.now() }, { merge: true });
+      await db.collection('metasAcesso').doc(uid).set({ cpf, escopo: p.escopo, pessoaId: p.id, nome: p.nome || '', em: Date.now() }, { merge: true });
+      return res.json({ ok: true, email, senhaInicial: SENHA_INICIAL });
+    }
+    // troca de senha (obrigatória no 1º acesso). O app já entrou com o Firebase Auth e manda o token.
+    if (b.acao === 'trocar') {
+      await limitar('cpf_' + cpf);
+      const idt = String(req.headers.authorization || '').replace('Bearer ', '');
+      let u; try { u = await auth.verifyIdToken(idt); } catch (_) { throw erro('Entre de novo e tente outra vez.', 401); }
+      const p = await pessoaDo(cpf); if (!p || !p.uid) throw erro('CPF não encontrado.', 404);
+      if (u.uid !== p.uid) throw erro('Não foi possível confirmar o seu acesso. Entre de novo e tente outra vez.', 403);
+      const senha = String(b.senha || ''); if (senha.length < 6) throw erro('A nova senha precisa ter pelo menos 6 caracteres.');
+      if (senha === SENHA_INICIAL) throw erro('Escolha uma senha diferente de 123456.');
+      await auth.updateUser(p.uid, { password: senha });
+      await p.ref.set({ precisaTrocar: false, senhaTrocada: true, senhaTrocadaEm: Date.now() }, { merge: true });
       await db.collection('metasTentativas').doc('cpf_' + cpf).set({ n: 0 }, { merge: true });
-      return res.json({ ok: true, email });
+      return res.json({ ok: true });
     }
     throw erro('Ação inválida.');
   } catch (e) { return res.status(e.status || 500).json({ erro: e.message }); }
