@@ -11412,6 +11412,45 @@ ACT.abrirMetasApp = () => { window.open('https://nexumrh.github.io/metas/', '_bl
   const b = document.createElement('button'); b.dataset.act = 'abrirMetasApp'; b.title = 'Abre o app Metas & Bônus em outra aba';
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>' + (gestor ? 'Abrir app de metas' : 'Abrir Minhas Metas') + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;margin-left:auto;opacity:.6"><path d="M7 17 17 7M8 7h9v9"/></svg>';
   const ini = nav.querySelector('[data-tab=inicio]'); if (ini) ini.after(b); else nav.prepend(b); }; }
+
+/* ===== Lojas: ficha completa (loja, gerente e funcionários com e-mail e ID) ===== */
+async function fichaLoja(lojaId){
+  const [l,us,emps]=await Promise.all([DB.get('lojas',lojaId),DB.list('users',[['lojaId','==',lojaId]]).catch(()=>[]),DB.list('empresas').catch(()=>[])]);
+  if(!l) return toast('Loja não encontrada','err');
+  const e=emps.find(x=>x.id===l.empresaId)||null, ordem={GERENTE:0,VENDEDOR:1};
+  const ps=us.sort((a,b)=>(ordem[a.role]??2)-(ordem[b.role]??2)||String(a.nome||'').localeCompare(String(b.nome||'')));
+  const gs=ps.filter(u=>u.role==='GERENTE'), fs=ps.filter(u=>u.role!=='GERENTE');
+  const v=(t,x)=>`<div><small class="muted" style="display:block;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">${t}</small><b style="font-weight:600">${x||'<span class="muted">—</span>'}</b></div>`;
+  const sit=u=>l.bloqueada?badge('Loja bloqueada','red'):u.ativo?badge('Ativo','green'):badge(u.bloqueadoPeloDono?'Bloqueado':'Inativo',u.bloqueadoPeloDono?'red':'gray');
+  const end=[l.endereco,l.numero,l.bairro].filter(Boolean).join(', ');
+  const linha=u=>`<tr><td><b>${esc(u.nome||'')}</b></td><td>${esc(ROLES[u.role]||u.role||'')}</td><td class="mono">${esc(u.codigo||'—')}</td><td class="small">${u.email?`<a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`:'—'}</td><td class="mono small">${u.cpf?esc(fmtCpf(u.cpf)):'—'}</td><td class="small">${u.telefone||u.tel?esc(fmtFone(u.telefone||u.tel)):'—'}</td><td>${sit(u)}</td></tr>`;
+  const csv=()=>{ const q=x=>'"'+String(x??'').replace(/"/g,'""')+'"'; const rows=[['Nome','Perfil','ID','E-mail','CPF','Telefone','Situação'],...ps.map(u=>[u.nome,ROLES[u.role]||u.role,u.codigo,u.email,u.cpf?fmtCpf(u.cpf):'',u.telefone||u.tel?fmtFone(u.telefone||u.tel):'',u.ativo?'Ativo':'Inativo'])];
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+rows.map(r=>r.map(q).join(';')).join('\n')],{type:'text/csv'})); a.download=`equipe-${String(l.nome).replace(/\W+/g,'-').toLowerCase()}.csv`; a.click(); };
+  openModal(`<h2 style="margin-bottom:2px">${esc(l.nome)}</h2><p class="muted" style="margin:0 0 14px">${e?esc(e.fantasia)+' · ':''}${l.filial?'Filial':'Matriz'} · ${l.bloqueada?badge('Bloqueada','red'):badge('Ativa','green')}</p>
+    <h3 style="margin:0 0 8px;font-size:15px">Dados da loja</h3>
+    <div class="grid g3" style="gap:12px 18px">${v('Nome',esc(l.nome))}${v('CNPJ',l.cnpj?esc(fmtCnpj(l.cnpj)):(e?.cnpj?esc(fmtCnpj(e.cnpj)):''))}${v('Telefone',l.telefone?esc(fmtFone(l.telefone)):'')}
+      ${v('Endereço',esc(end))}${v('Cidade / UF',esc((l.cidade||'')+(l.uf?' / '+l.uf:'')))}${v('CEP',esc(l.cep||''))}
+      ${v('Razão social',esc(e?.razao||''))}${v('Plano',esc(e?.planoNome||e?.plano||''))}${v('Cadastrada em',l.criadoEm?fmtDT(l.criadoEm):'')}
+      ${v('Licenças adquiridas',String(+l.licencasCompradas||0))}${v('Chave PIX',l.pixChave?esc(l.pixChave)+(l.pixValidado?' '+badge('validada','green'):' '+badge('a validar','amber')):'')}${v('Código da loja',`<span class="mono">${esc(l.id)}</span>`)}</div>
+    ${e?`<h3 style="margin:18px 0 8px;font-size:15px">Responsável pela empresa</h3><div class="grid g3" style="gap:12px 18px">${v('Nome',esc(e.respNome||''))}${v('E-mail',e.respEmail?`<a href="mailto:${esc(e.respEmail)}">${esc(e.respEmail)}</a>`:'')}${v('Telefone',e.respTelefone?esc(fmtFone(e.respTelefone)):'')}</div>`:''}
+    <h3 style="margin:18px 0 8px;font-size:15px">Gerente${gs.length>1?'s':''}</h3>
+    ${gs.length?gs.map(g=>`<div class="grid g4" style="gap:12px 18px;padding:12px 14px;border:1px solid var(--line,#E4E8F0);border-radius:12px;margin-bottom:8px">${v('Nome',esc(g.nome||''))}${v('ID',`<span class="mono">${esc(g.codigo||'—')}</span>`)}${v('E-mail',g.email?`<a href="mailto:${esc(g.email)}">${esc(g.email)}</a>`:'')}${v('Situação',sit(g))}${v('CPF',g.cpf?esc(fmtCpf(g.cpf)):'')}${v('Telefone',g.telefone||g.tel?esc(fmtFone(g.telefone||g.tel)):'')}</div>`).join(''):'<p class="muted">Sem gerente cadastrado.</p>'}
+    <div class="row" style="justify-content:space-between;align-items:center;margin:18px 0 8px"><h3 style="margin:0;font-size:15px">Funcionários (${fs.length})</h3><button class="btn sm" id="fcCsv">Baixar planilha da equipe</button></div>
+    <div class="tablewrap"><table><tr><th>Nome</th><th>Perfil</th><th>ID</th><th>E-mail</th><th>CPF</th><th>Telefone</th><th>Situação</th></tr>${fs.map(linha).join('')||'<tr><td colspan="7" class="empty">Nenhum funcionário cadastrado</td></tr>'}</table></div>
+    <div class="row mt" style="justify-content:flex-end;gap:8px"><button class="btn" data-act="pessoasLoja" data-id="${l.id}">Gerenciar pessoas</button><button class="btn gold" data-act="closeModal">Fechar</button></div>`,true);
+  $('#fcCsv').onclick=csv;
+}
+ACT.fichaLoja=d=>fichaLoja(d.id);
+{ const _pf=PAGES.lojas; PAGES.lojas=async(...a)=>{ await _pf(...a); if(!can('DONO')||!$('#view')) return;
+  const card=[...document.querySelectorAll('#view .card h2')].find(h=>h.textContent.startsWith('Empresas e lojas'))?.closest('.card'); if(!card) return;
+  const us=await DB.list('users').catch(()=>[]);
+  const hd=card.querySelector('tr'); if(hd&&hd.cells[2]) hd.cells[2].textContent='Funcionários';
+  card.querySelectorAll('[data-act="pessoasLoja"]').forEach(b=>{ const id=b.dataset.id, tr=b.closest('tr'); if(!tr||tr.dataset.ficha) return; tr.dataset.ficha=1;
+    const gs=us.filter(u=>u.lojaId===id&&u.role==='GERENTE'), fs=us.filter(u=>u.lojaId===id&&u.role!=='GERENTE');
+    if(tr.cells[1]) tr.cells[1].innerHTML=gs.length?gs.map(g=>`<b>${esc(g.nome||'')}</b><div class="small muted">${esc(g.email||'')}</div><div class="small mono muted">ID ${esc(g.codigo||'—')}</div>`).join('<div style="height:6px"></div>'):'<span class="muted">—</span>';
+    if(tr.cells[2]) tr.cells[2].innerHTML=`<b>${fs.length}</b><div class="small muted">${fs.filter(u=>u.ativo).length} ativo(s)</div>`;
+    b.closest('td').insertAdjacentHTML('afterbegin',`<button class="btn sm gold" data-act="fichaLoja" data-id="${id}">Ficha completa</button> `); });
+}; }
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
