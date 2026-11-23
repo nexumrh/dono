@@ -11305,6 +11305,71 @@ PAGES.links = async () => {
 ACT.licBrinde = async () => { const v = prompt('Quantas licenças de brinde cada loja nova ganha ao ser aprovada? (0 = nenhuma)', +(S.cfg.licencasBrinde ?? 5)); if (v == null) return; const n = Math.max(0, Math.min(100, Math.floor(+v || 0))); await DB.set('config', 'sistema', { licencasBrinde: n }); S.cfg.licencasBrinde = n; toast('Brinde: ' + n + ' licença(s) por loja nova', 'ok'); render(); };
 ACT.linkCopiar = d => { (navigator.clipboard ? navigator.clipboard.writeText(d.u) : Promise.reject()).then(() => toast('Link copiado', 'ok'), () => prompt('Copie o link:', d.u)); };
 
+/* ===================== CONVERSA DIRETA COM O DONO (suporte e financeiro ↔ dono) ===================== */
+const CD_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M17 9h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1v3l-4-3h-4a2 2 0 0 1-2-2v-1"/></svg><i></i>';
+const CD = { aberto: false, sel: null, un: null, lista: [], timer: null };
+const cdEhDono = () => S.me?.role === 'DONO', cdEquipe = () => ['SUPORTE', 'FINANCEIRO', 'COMERCIAL'].includes(S.me?.role);
+const cdHora = ms => { const d = new Date(ms), h = new Date(); return d.toDateString() === h.toDateString() ? d.toLocaleTimeString('pt-BR').slice(0, 5) : d.toLocaleDateString('pt-BR').slice(0, 5) + ' ' + d.toLocaleTimeString('pt-BR').slice(0, 5); };
+const CD_PAPEL = { SUPORTE: 'Suporte', FINANCEIRO: 'Financeiro', COMERCIAL: 'Comercial' };
+function cdIniciar() {
+  if (!S.me || document.getElementById('cdB') || document.getElementById('atB')) return; if (!cdEhDono() && !cdEquipe()) return;
+  document.head.insertAdjacentHTML('beforeend', `<style>
+  #cdB{position:fixed;right:20px;bottom:20px;z-index:900;width:58px;height:58px;border-radius:50%;border:0;background:#0A1733;color:#fff;box-shadow:0 8px 24px rgba(10,23,51,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #cdB i{position:absolute;top:4px;right:4px;width:13px;height:13px;border-radius:50%;background:#EF4444;border:2px solid #fff;display:none}#cdB.novo i{display:block}
+  #cdP{position:fixed;right:20px;bottom:90px;z-index:901;width:min(390px,calc(100vw - 24px));height:min(600px,calc(100vh - 120px));background:#fff;border-radius:16px;box-shadow:0 18px 50px rgba(10,23,51,.3);display:none;flex-direction:column;overflow:hidden;font-size:14px;color:#14203D}
+  #cdP.on{display:flex}#cdP .h{background:#0A1733;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px}#cdP .h b{flex:1;line-height:1.2}#cdP .h small{display:block;font-weight:400;opacity:.8;font-size:12px}
+  #cdP .h button{background:none;border:0;color:#fff;font-size:20px;cursor:pointer;padding:2px 6px}
+  #cdP .c{flex:1;overflow:auto;padding:12px;background:#F4F6FB}#cdP .m{display:flex;margin:6px 0}#cdP .m .bb{max-width:84%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;background:#fff;border:1px solid #E3E8F2}
+  #cdP .m.eu{justify-content:flex-end}#cdP .m.eu .bb{background:#1450D2;color:#fff;border-color:#1450D2;border-bottom-right-radius:4px}#cdP .m:not(.eu) .bb{border-bottom-left-radius:4px}
+  #cdP .hr{font-size:11px;color:#8A93A8;margin:-2px 4px 4px}#cdP .m.eu+.hr{text-align:right}
+  #cdP .f{display:flex;gap:8px;padding:10px;border-top:1px solid #E3E8F2}#cdP .f textarea{flex:1;resize:none;border:1px solid #D9DFEA;border-radius:12px;padding:9px 11px;font:inherit;max-height:110px;min-height:42px}
+  #cdP .f button{width:44px;border:0;border-radius:12px;background:#1450D2;color:#fff;cursor:pointer;display:grid;place-items:center}
+  #cdP .it{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid #E3E8F2;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;font:inherit}
+  #cdP .it .av{width:38px;height:38px;border-radius:50%;background:#E8EEFB;color:#1450D2;display:grid;place-items:center;font-weight:700;flex:none}#cdP .it b{display:block}#cdP .it span{font-size:12.5px;color:#6B7390;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+  #cdP .it .n{margin-left:auto;background:#EF4444;color:#fff;border-radius:99px;font-size:11px;font-weight:700;padding:2px 7px}
+  #cdP .vazio{text-align:center;color:#8A93A8;margin-top:40px;padding:0 20px}
+  @media(max-width:600px){#cdP{right:12px;bottom:84px}#cdB{right:12px;bottom:14px}}</style>`);
+  document.body.insertAdjacentHTML('beforeend', `<div id="cdP"><div class="h"><button id="cdV" title="Voltar" style="display:none">‹</button><b id="cdT">Falar com o dono<small id="cdS">Conversa direta e particular</small></b><button id="cdX" aria-label="Fechar">×</button></div><div class="c" id="cdC"></div><div class="f" id="cdF"><textarea id="cdIn" rows="1" placeholder="Escreva sua mensagem…"></textarea><button id="cdE" aria-label="Enviar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button></div></div>
+    <button id="cdB" aria-label="${cdEhDono() ? 'Mensagens da equipe' : 'Falar com o dono'}" title="${cdEhDono() ? 'Mensagens da equipe' : 'Falar com o dono'}">${CD_ICON}</button>`);
+  $('#cdB').onclick = () => { CD.aberto = !$('#cdP').classList.toggle('on') ? false : true; if (CD.aberto) { if (cdEhDono() && !CD.sel) cdLista(); else cdAbrir(cdEhDono() ? CD.sel : S.me.uid); } };
+  $('#cdX').onclick = () => { $('#cdP').classList.remove('on'); CD.aberto = false; };
+  $('#cdV').onclick = () => { CD.sel = null; CD.un && CD.un(); CD.un = null; cdLista(); };
+  $('#cdE').onclick = cdEnviar; $('#cdIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cdEnviar(); } });
+  cdChecar(); CD.timer = setInterval(cdChecar, 30e3);
+}
+async function cdChecar() {
+  try {
+    if (cdEhDono()) { CD.lista = (await DB.list('chatDono').catch(() => [])).sort((a, b) => (b.atualizadoEm || 0) - (a.atualizadoEm || 0)); const n = CD.lista.filter(x => x.naoLidoDono).length; $('#cdB')?.classList.toggle('novo', n > 0); if (CD.aberto && !CD.sel) cdLista(); }
+    else { const d = await DB.get('chatDono', S.me.uid).catch(() => null); $('#cdB')?.classList.toggle('novo', !!d?.naoLidoEquipe && !CD.aberto); }
+  } catch (e) { }
+}
+function cdLista() {
+  $('#cdV').style.display = 'none'; $('#cdF').style.display = 'none'; $('#cdT').innerHTML = 'Mensagens da equipe<small id="cdS">Suporte e financeiro falando com você</small>';
+  $('#cdC').innerHTML = CD.lista.map(x => { const ult = (x.msgs || []).slice(-1)[0]; return `<button class="it" data-cdo="${x.id}"><span class="av">${esc(String(x.nome || '?').slice(0, 1).toUpperCase())}</span><span style="min-width:0"><b>${esc(x.nome || 'Equipe')} <small style="font-weight:500;color:#6B7390">· ${esc(CD_PAPEL[x.role] || x.role || '')}</small></b><span>${ult ? (ult.de === 'dono' ? 'Você: ' : '') + esc(ult.t) : ''}</span></span>${x.naoLidoDono ? '<span class="n">novo</span>' : `<span style="margin-left:auto;font-size:11px;color:#8A93A8">${x.atualizadoEm ? cdHora(x.atualizadoEm) : ''}</span>`}</button>`; }).join('') || '<p class="vazio">Ninguém da equipe mandou mensagem ainda. Quando o suporte ou o financeiro escrever, aparece aqui.</p>';
+  $('#cdC').querySelectorAll('[data-cdo]').forEach(b => b.onclick = () => cdAbrir(b.dataset.cdo));
+}
+function cdAbrir(id) {
+  CD.sel = cdEhDono() ? id : null; CD.un && CD.un(); $('#cdF').style.display = 'flex'; $('#cdV').style.display = cdEhDono() ? 'block' : 'none';
+  CD.un = DB.watch('chatDono', id, d => {
+    const x = cdEhDono() ? CD.lista.find(y => y.id === id) || d || {} : {};
+    $('#cdT').innerHTML = cdEhDono() ? `${esc(x.nome || 'Equipe')}<small id="cdS">${esc(CD_PAPEL[x.role] || '')} · conversa particular</small>` : 'Falar com o dono<small id="cdS">Só você e o dono veem esta conversa</small>';
+    const ms = d?.msgs || [], eu = cdEhDono() ? 'dono' : 'equipe';
+    $('#cdC').innerHTML = ms.length ? ms.map(m => `<div class="m ${m.de === eu ? 'eu' : ''}"><div class="bb">${esc(m.t)}</div></div><div class="hr">${m.de === eu ? '' : esc(m.por || '') + ' · '}${cdHora(m.em)}</div>`).join('') : `<p class="vazio">${cdEhDono() ? 'Sem mensagens.' : 'Mande uma mensagem para o dono. Use para assuntos que precisam da decisão dele: liberação, desconto fora do padrão, problema com loja ou com a equipe.'}</p>`;
+    $('#cdC').scrollTop = $('#cdC').scrollHeight;
+    if (d && CD.aberto) { if (cdEhDono() && d.naoLidoDono) DB.set('chatDono', id, { naoLidoDono: false }).catch(() => { }); if (!cdEhDono() && d.naoLidoEquipe) DB.set('chatDono', id, { naoLidoEquipe: false }).catch(() => { }); }
+  });
+  setTimeout(() => $('#cdIn')?.focus(), 50);
+}
+async function cdEnviar() {
+  const t = $('#cdIn').value.trim(); if (!t) return; const id = cdEhDono() ? CD.sel : S.me.uid; if (!id) return; $('#cdIn').value = ''; $('#cdE').disabled = true;
+  try { const d = await DB.get('chatDono', id).catch(() => null) || {}, m = { de: cdEhDono() ? 'dono' : 'equipe', t: t.slice(0, 2000), em: Date.now(), por: primeiroNome(S.me.nome) };
+    await DB.set('chatDono', id, { uid: id, ...(cdEhDono() ? {} : { nome: S.me.nome, role: S.me.role }), msgs: [...(d.msgs || []), m].slice(-300), atualizadoEm: Date.now(), ...(cdEhDono() ? { naoLidoEquipe: true } : { naoLidoDono: true }) });
+    if (!cdEhDono() && typeof apiServ === 'function' && servLigado?.()) apiServ('avisar-dono', { texto: t.slice(0, 300) }).catch(() => { });
+  } catch (e) { toast(e.message, 'err'); $('#cdIn').value = t; } $('#cdE').disabled = false; $('#cdIn').focus();
+}
+{ const _is2 = iniciarSessao; iniciarSessao = async function (p) { await _is2(p); try { cdIniciar(); } catch (e) { console.warn('chatDono', e); } }; }
+{ const _s2 = sair; sair = async function () { try { CD.un && CD.un(); clearInterval(CD.timer); } catch (e) { } CD.sel = null; $('#cdP')?.remove(); $('#cdB')?.remove(); return _s2(); }; }
+
 </script>
 </body>
 </html>

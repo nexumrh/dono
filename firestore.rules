@@ -550,6 +550,10 @@ service cloud.firestore {
     match /crmAgendadas/{id} { allow read, create, update: if hasRole(['DONO', 'FINANCEIRO', 'SUPORTE', 'COMERCIAL']); allow delete: if false; }
     match /comprovantes/{id} { allow read: if hasRole(['DONO', 'FINANCEIRO']); allow write: if false; }
     match /siteChat/{id} { allow read, write: if false; }
+    // conversa direta da equipe (suporte, financeiro, comercial) com o dono: cada pessoa só vê a própria
+    match /chatDono/{uid} {
+      allow read, write: if hasRole(['DONO']) || (signed() && request.auth.uid == uid && hasRole(['SUPORTE', 'FINANCEIRO', 'COMERCIAL']));
+    }
     // respostas rápidas pessoais de cada atendente do CRM
     match /crmMinhas/{uid} { allow read, write: if signed() && request.auth.uid == uid && staff(); }
     // contrato assinado do empréstimo (gravado só pelo servidor)
