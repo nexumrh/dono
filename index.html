@@ -4588,7 +4588,7 @@ function blocoAsaasChave(){
     ${i.final?`<div class="msg mb">Chave salva: <b class="mono">…${esc(i.final)}</b> · ambiente <b>${i.ambiente==='producao'?'PRODUÇÃO (cobranças reais)':'Testes (sandbox)'}</b> · ${fmtDT(i.em)} por ${esc(i.por||'')}</div>`:''}
     <div class="grid g2">
       <label>Ambiente<select id="asAmb"><option value="sandbox" ${i.ambiente!=='producao'?'selected':''}>Testes (sandbox.asaas.com)</option><option value="producao" ${i.ambiente==='producao'?'selected':''}>Produção (asaas.com — cobranças reais)</option></select></label>
-      <label>Chave de API do Asaas<input id="asChave" type="password" autocomplete="off" placeholder="${i.final?'deixe vazio para manter a atual':'cole a chave ($aact_...)'}"></label>
+      <label>Chave de API do Asaas<input id="asChave" type="password" autocomplete="new-password" placeholder="${i.final?'deixe vazio para manter a atual':'cole a chave ($aact_...)'}"></label>
     </div>
     <div class="row mt"><button class="btn gold" data-act="salvarChaveAsaas">Salvar no cofre</button><button class="btn" data-act="testarAsaas" ${servLigado()?'':'disabled'}>Testar a chave</button><button class="btn" data-act="novoTokenWebhook">Gerar token do webhook</button>
       ${i.final?`<button class="btn sm red" data-act="apagarChaveAsaas">Apagar do cofre</button>`:''}</div>
@@ -5262,7 +5262,7 @@ PAGES.config = async () => {
   </div></div>
   <div class="card mt"><h2>Inteligência artificial (leitura de documento e biometria)</h2>
     <div class="grid g2">
-      <label>Chave do Groq<input data-cfg="iaChave" type="password" value="${esc(c.iaChave||'')}" placeholder="gsk_..." autocomplete="off"></label>
+      <label>Chave do Groq<input data-cfg="iaChave" type="password" value="${esc(c.iaChave||'')}" placeholder="gsk_..." autocomplete="new-password"></label>
       <label>Modelo<input data-cfg="iaModelo" value="${esc(c.iaModelo||'qwen/qwen3.8-27b')}"></label>
     </div>
     <div class="row mt"><button class="btn sm" data-act="testarIA">Testar chave</button><span class="small muted" id="iaTeste">${c.iaChave?'Chave salva.':'Sem chave: o vendedor digita os dados do documento.'}</span></div>
@@ -8837,7 +8837,7 @@ function dnGrupoDe(id){ const g=NAV_GRUPOS.find(([n,ids])=>n&&ids.includes(id));
 { const _rn=renderNav; renderNav=async function(){
   const side=$('#side'), nav=$('#nav');
   if(side&&nav&&!$('#dnBusca')&&minhasAbas().length>=10){
-    nav.insertAdjacentHTML('beforebegin',`<div class="dn-busca">${svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')}<input id="dnBusca" type="search" placeholder="Buscar tela…" autocomplete="off"><kbd>Ctrl K</kbd></div>`);
+    nav.insertAdjacentHTML('beforebegin',`<div class="dn-busca">${svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')}<input id="dnBusca" type="search" name="nx-busca-tela" placeholder="Buscar tela…" autocomplete="off" readonly onfocus="this.readOnly=false" data-lpignore="true" data-form-type="other"><kbd>Ctrl K</kbd></div>`);
     const inp=$('#dnBusca');
     inp.addEventListener('input',()=>{ dnBusca=inp.value; renderNav(); });
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const b=$('#nav button[data-act="go"]'); if(b){ b.click(); inp.value=''; dnBusca=''; inp.blur(); } } if(e.key==='Escape'){ inp.value=''; dnBusca=''; renderNav(); inp.blur(); } });
@@ -10510,7 +10510,7 @@ PAGES.crm=async()=>{
   v.querySelector('.bk-hero').insertAdjacentHTML('afterend',`<div class="card mb" id="iaAutoCard"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="flex:1;min-width:260px"><h2 style="margin:0 0 4px">IA autônoma NexumCell</h2>
     <p class="small muted" style="margin:0">Uma segunda IA (Groq) que trabalha sozinha no servidor a cada 15 minutos, sem depender de você: decide as <b>aprovações</b> pelas regras (liberação 24 h, liberação definitiva, baixa com desconto), responde as <b>pré-análises online</b> em até 15 minutos, inclui na <b>lista negra</b> quem deu golpe e manda o <b>aviso automático</b> do atendimento. O que for duvidoso fica para você, com o parecer dela.</p></div>
     <div class="row" style="gap:8px"><button class="btn" data-act="bkIaRodar">Rodar agora</button></div></div>
-    <div class="grid g4 mt"><label>Chave do Groq da IA autônoma<input id="iaK2" type="password" placeholder="gsk_… (fica guardada só no servidor)" autocomplete="off"></label>
+    <div class="grid g4 mt"><label>Chave do Groq da IA autônoma<input id="iaK2" type="password" placeholder="gsk_… (fica guardada só no servidor)" autocomplete="new-password"></label>
       <label>IA autônoma<select id="iaOn"><option value="sim">Ligada</option><option value="nao" ${S.cfg.iaAutonoma==='nao'?'selected':''}>Desligada</option></select></label>
       <label>Lista negra automática<select id="iaLn"><option value="sim">Ligada</option><option value="nao" ${S.cfg.listaNegraAuto==='nao'?'selected':''}>Desligada</option></select></label>
       <label>&nbsp;<button class="btn gold" data-act="bkIaSalvar">Salvar IA autônoma</button></label></div>
@@ -10874,7 +10874,7 @@ async function empProdutos(c){
     <label>Instituição (ou banco parceiro)<input data-ep="instituicao.nome" value="${esc(c.instituicao.nome)}"></label><label>CNPJ<input data-ep="instituicao.cnpj" value="${esc(c.instituicao.cnpj)}"></label><label>Autorização / habilitação MTE<input data-ep="instituicao.registro" value="${esc(c.instituicao.registro)}" placeholder="nº do ato ou da habilitação"></label></div></div>
   <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.clt.nome}</h2><p class="small muted" style="margin:0 0 10px">Parcela até ${c.clt.margemPct}% da remuneração disponível, descontada em folha pelo eSocial. A margem vem da Dataprev, pela API do banco parceiro, ou é conferida no holerite pela equipe.</p>
     <div class="grid g4">${at('clt')}${n('clt','taxaMes','Taxa ao mês (%)')}${n('clt','prazoMax','Prazo máximo (meses)','1')}${n('clt','tempoMin','Tempo mínimo de empresa (meses)','1')}${n('clt','valorMin','Valor mínimo (R$)','1')}${n('clt','valorMax','Valor máximo (R$)','1')}${n('clt','idadeMax','Idade máxima','1')}${n('clt','margemPct','Margem consignável (%)','1','max="35"')}</div>
-    <div class="grid g4 mt"><label>Consulta da margem<select data-ep="dataprev.modo"><option value="MANUAL">Holerite conferido pela equipe</option><option value="PARCEIRO" ${c.dataprev.modo==='PARCEIRO'?'selected':''}>API do banco parceiro / Dataprev</option></select></label><label>Endereço da API<input id="dpUrl" placeholder="https://… (guardado só no servidor)"></label><label>Token da API<input id="dpTok" type="password" placeholder="guardado só no servidor"></label><label>&nbsp;<span class="small muted">A API recebe {cpf} e devolve a margem, o salário, a admissão e o empregador.</span></label></div></div>
+    <div class="grid g4 mt"><label>Consulta da margem<select data-ep="dataprev.modo"><option value="MANUAL">Holerite conferido pela equipe</option><option value="PARCEIRO" ${c.dataprev.modo==='PARCEIRO'?'selected':''}>API do banco parceiro / Dataprev</option></select></label><label>Endereço da API<input id="dpUrl" placeholder="https://… (guardado só no servidor)"></label><label>Token da API<input id="dpTok" type="password" autocomplete="new-password" placeholder="guardado só no servidor"></label><label>&nbsp;<span class="small muted">A API recebe {cpf} e devolve a margem, o salário, a admissão e o empregador.</span></label></div></div>
   <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.pessoal.nome}</h2><p class="small muted" style="margin:0 0 10px">Taxa da NexumCell. Em "Juros sobre o total", 100% quer dizer que o cliente paga o dobro do valor, dividido nas parcelas. O sistema mostra o CET ao mês e ao ano em toda simulação.</p>
     <div class="grid g4">${at('pessoal')}<label>Forma da taxa<select data-ep="pessoal.modoTaxa"><option value="TOTAL">Juros sobre o total (%)</option><option value="MES" ${c.pessoal.modoTaxa==='MES'?'selected':''}>Taxa ao mês (%)</option></select></label>${n('pessoal','taxa','Taxa (%)')}${n('pessoal','prazoMax','Prazo máximo (meses)','1')}${n('pessoal','valorMin','Valor mínimo (R$)','1')}${n('pessoal','valorMax','Valor máximo (R$)','1')}${n('pessoal','comprometeMax','Parcela até (% da renda)','1')}<label>IOF<select data-ep="pessoal.iof"><option value="1">Cobrar IOF</option><option value="" ${c.pessoal.iof?'':'selected'}>Sem IOF</option></select></label>${n('pessoal','limiteNovo','Limite de cliente novo (R$)','1')}${n('pessoal','limiteBom','Limite de bom pagador (R$)','1')}</div></div>
   <div class="card mb"><h2 style="margin:0 0 4px">${EMP_PROD.cartao.nome}</h2><p class="small muted" style="margin:0 0 10px">A operadora do cartão aprova; a NexumCell recebe à vista (antecipado). Com o repasse ligado, o cliente paga a taxa da maquininha e a loja recebe o valor cheio do aparelho.</p>
@@ -11371,5 +11371,6 @@ async function cdEnviar() {
 { const _s2 = sair; sair = async function () { try { CD.un && CD.un(); clearInterval(CD.timer); } catch (e) { } CD.sel = null; $('#cdP')?.remove(); $('#cdB')?.remove(); return _s2(); }; }
 
 </script>
+<script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
 </html>
