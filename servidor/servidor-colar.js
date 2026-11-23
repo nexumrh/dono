@@ -3118,9 +3118,87 @@ async function agendadasRotina() {
   return { agendadas: n };
 }
 
+// api/metas.js
+var soD2 = (s) => String(s || "").replace(/\D/g, "");
+var cpfOk2 = (c) => {
+  c = soD2(c);
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (const t of [9, 10]) {
+    let s = 0;
+    for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i);
+    if (s * 10 % 11 % 10 !== +c[t]) return false;
+  }
+  return true;
+};
+var erro5 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+async function pessoaDo(cpf) {
+  const l = (await db.collection("metasPessoas").where("cpf", "==", cpf).get()).docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() })).filter((p) => p.ativo !== false);
+  return l.sort((a, b) => (b.atualizadoEm || 0) - (a.atualizadoEm || 0))[0] || null;
+}
+async function limitar(chave, max = 6) {
+  const ref = db.collection("metasTentativas").doc(chave), d = (await ref.get()).data() || {}, agora = Date.now();
+  const n = d.desde > agora - 15 * 6e4 ? d.n || 0 : 0;
+  if (n >= max) throw erro5("Muitas tentativas. Espere 15 minutos e tente de novo.", 429);
+  await ref.set({ n: n + 1, desde: n ? d.desde : agora }, { merge: true });
+}
+async function handler15(req, res) {
+  if (cors(req, res)) return;
+  try {
+    const b = req.body || {}, cpf = soD2(b.cpf);
+    if (!cpfOk2(cpf)) throw erro5("CPF inv\xE1lido.");
+    if (b.acao === "status") {
+      const ip = String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || "x").split(",")[0].trim();
+      await limitar("ip_" + ip.replace(/[^\w]/g, "_") + "_" + hoje(), 60);
+      const p = await pessoaDo(cpf);
+      if (!p) return res.json({ existe: false });
+      return res.json({ existe: true, ativado: !!(p.ativado && p.uid), nome: String(p.nome || "").split(" ")[0] });
+    }
+    if (b.acao === "ativar") {
+      await limitar("cpf_" + cpf);
+      const p = await pessoaDo(cpf);
+      if (!p) throw erro5("CPF n\xE3o cadastrado. Pe\xE7a ao seu gerente para cadastrar voc\xEA nas metas.", 404);
+      if (p.ativado && p.uid) throw erro5("Voc\xEA j\xE1 criou a sua senha. Entre com o CPF e a senha. Esqueceu? Pe\xE7a ao gerente para liberar um novo primeiro acesso.", 409);
+      if (!p.nasc || String(b.nasc || "").slice(0, 10) !== String(p.nasc).slice(0, 10)) throw erro5("A data de nascimento n\xE3o confere com o cadastro feito pelo seu gerente.", 403);
+      const senha = String(b.senha || "");
+      if (senha.length < 6) throw erro5("A senha precisa ter pelo menos 6 caracteres.");
+      const email = `${cpf}@metas.nexumcell.app`;
+      let uid = p.uid;
+      if (uid) await auth.updateUser(uid, { password: senha });
+      else {
+        try {
+          uid = (await auth.createUser({ email, password: senha, displayName: p.nome || "" })).uid;
+        } catch (e) {
+          if (e.code === "auth/email-already-exists") throw erro5("Este CPF j\xE1 tinha um acesso antigo. Pe\xE7a ao gerente para liberar um novo primeiro acesso.", 409);
+          throw e;
+        }
+      }
+      await p.ref.set({ uid, ativado: true, ativadoEm: Date.now(), email }, { merge: true });
+      await db.collection("metasAcesso").doc(uid).set({ cpf, escopo: p.escopo, pessoaId: p.id, nome: p.nome || "", em: Date.now() });
+      await db.collection("metasTentativas").doc("cpf_" + cpf).set({ n: 0 }, { merge: true });
+      return res.json({ ok: true, email });
+    }
+    throw erro5("A\xE7\xE3o inv\xE1lida.");
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
+async function metasRotina() {
+  const mes = hoje().slice(0, 7), ini = (/* @__PURE__ */ new Date(mes + "-01T00:00:00-03:00")).getTime();
+  const ps = (await db.collection("metasPessoas").get()).docs.map((d) => d.data()).filter((p) => p.ativo !== false && p.vendedorUid);
+  const porEsc = {};
+  let n = 0;
+  for (const p of ps) {
+    const vs = (await db.collection("vendas").where("vendedorUid", "==", p.vendedorUid).get()).docs.map((d) => d.data()).filter((v) => (v.criadoEm || 0) >= ini && ["ATIVA", "QUITADA"].includes(v.status));
+    (porEsc[p.escopo] ||= {})[p.cpf] = { aparelhos: vs.length, faturamento: Math.round(vs.reduce((s, v) => s + (+v.valor || 0), 0) * 100) / 100, em: Date.now() };
+    n++;
+  }
+  for (const [esc, auto] of Object.entries(porEsc)) await db.collection("metasPlano").doc(`${esc}_${mes}`).set({ escopo: esc, mes, auto }, { merge: true });
+  return { metasAuto: n };
+}
+
 // api/comportamento.js
 var dias3 = (a, b) => Math.round((/* @__PURE__ */ new Date(b + "T12:00:00Z") - /* @__PURE__ */ new Date(String(a).slice(0, 10) + "T12:00:00Z")) / 864e5);
-var soD2 = (s) => String(s || "").replace(/\D/g, "");
+var soD3 = (s) => String(s || "").replace(/\D/g, "");
 var isoBr = (ms) => new Date(ms - 3 * 36e5).toISOString();
 async function alertar(id, a) {
   const ref = db.collection("alertasSeg").doc(id.replace(/[^\w-]/g, "_").slice(0, 140));
@@ -3157,7 +3235,7 @@ async function alertasComportamento(cfg = {}) {
   }
   const porTel = {};
   vs.filter((v) => !["REPROVADA"].includes(v.status)).forEach((v) => {
-    const t = soD2((v.cliente?.telefones || [])[0] || v.clienteTel1 || v.cliente?.telefone).slice(-11);
+    const t = soD3((v.cliente?.telefones || [])[0] || v.clienteTel1 || v.cliente?.telefone).slice(-11);
     if (t.length >= 10) (porTel[t] ||= []).push(v);
   });
   for (const [t, l] of Object.entries(porTel)) {
@@ -3554,6 +3632,13 @@ async function rotinas(qual) {
     } catch (e) {
       console.error("agendadas", e.message);
     }
+    if ((/* @__PURE__ */ new Date()).getUTCMinutes() < 15) {
+      try {
+        Object.assign(r, await metasRotina());
+      } catch (e) {
+        console.error("metas", e.message);
+      }
+    }
     return r;
   }
   let ios = {};
@@ -3657,7 +3742,7 @@ async function rotinas(qual) {
 }
 
 // api/avisos.js
-async function handler15(req, res) {
+async function handler16(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3829,7 +3914,7 @@ var resumo2 = (j) => ({
   qrcode: j.qrcode_url || "",
   em: Date.now()
 });
-async function handler16(req, res) {
+async function handler17(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3890,7 +3975,7 @@ function htmlParaMarkdown(html) {
   return String(html || "").replace(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/gis, "\n## $1\n").replace(/<h4[^>]*>(.*?)<\/h4>/gis, "\n### $1\n").replace(/<(b|strong)>(.*?)<\/\1>/gis, "**$2**").replace(/<li[^>]*>/gi, "\n- ").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 var ipDo = (req) => String(req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0] || "").trim();
-async function handler17(req, res) {
+async function handler18(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -3964,7 +4049,7 @@ async function handler17(req, res) {
 }
 
 // api/zapsign-webhook.js
-async function handler18(req, res) {
+async function handler19(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   if (process.env.ZAPSIGN_WEBHOOK_TOKEN && req.headers["x-nexum-token"] !== process.env.ZAPSIGN_WEBHOOK_TOKEN) return res.status(401).json({ erro: "token inv\xE1lido" });
   try {
@@ -4003,7 +4088,7 @@ async function handler18(req, res) {
 // api/credenciamento.js
 var dig2 = (s) => String(s || "").replace(/\D/g, "");
 var txt2 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
-var erro5 = (msg, status = 400) => Object.assign(new Error(msg), { status });
+var erro6 = (msg, status = 400) => Object.assign(new Error(msg), { status });
 var emailOk = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 function cnpjOk(c) {
   c = dig2(c);
@@ -4015,7 +4100,7 @@ function cnpjOk(c) {
   };
   return calc(12) === +c[12] && calc(13) === +c[13];
 }
-function cpfOk2(c) {
+function cpfOk3(c) {
   c = dig2(c);
   if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
   for (const t of [9, 10]) {
@@ -4056,17 +4141,17 @@ async function consultarCnpj(cnpj) {
 }
 function enderecoLimpo(a, ond) {
   const e = { cep: dig2(a.cep).slice(0, 8), uf: txt2(a.uf, 2).toUpperCase(), cidade: txt2(a.cidade, 60), bairro: txt2(a.bairro, 80), rua: txt2(a.rua, 120), numero: txt2(a.numero, 12), complemento: txt2(a.complemento, 60) };
-  if (e.cep.length !== 8) throw erro5(`${ond}: CEP com 8 n\xFAmeros.`);
-  if (e.uf.length !== 2 || e.cidade.length < 2 || e.bairro.length < 2 || e.rua.length < 3 || !e.numero) throw erro5(`${ond}: preencha o endere\xE7o completo (rua, n\xFAmero, bairro, cidade e UF).`);
+  if (e.cep.length !== 8) throw erro6(`${ond}: CEP com 8 n\xFAmeros.`);
+  if (e.uf.length !== 2 || e.cidade.length < 2 || e.bairro.length < 2 || e.rua.length < 3 || !e.numero) throw erro6(`${ond}: preencha o endere\xE7o completo (rua, n\xFAmero, bairro, cidade e UF).`);
   return e;
 }
 var endTexto = (e) => [e.rua && `${e.rua}, ${e.numero}`, e.complemento, e.bairro].filter(Boolean).join(" \xB7 ");
 function pessoaLimpa(g, ond, comCargo) {
   const o = { nome: txt2(g.nome, 120), cpf: dig2(g.cpf), email: txt2(g.email, 120).toLowerCase(), telefone: dig2(g.telefone), ...comCargo ? { cargo: txt2(g.cargo, 60) || "Gerente" } : {} };
-  if (o.nome.split(" ").filter(Boolean).length < 2) throw erro5(`${ond}: nome completo.`);
-  if (!cpfOk2(o.cpf)) throw erro5(`${ond}: CPF inv\xE1lido.`);
-  if (!emailOk(o.email)) throw erro5(`${ond}: e-mail inv\xE1lido.`);
-  if (o.telefone.length < 10 || o.telefone.length > 11) throw erro5(`${ond}: telefone com DDD.`);
+  if (o.nome.split(" ").filter(Boolean).length < 2) throw erro6(`${ond}: nome completo.`);
+  if (!cpfOk3(o.cpf)) throw erro6(`${ond}: CPF inv\xE1lido.`);
+  if (!emailOk(o.email)) throw erro6(`${ond}: e-mail inv\xE1lido.`);
+  if (o.telefone.length < 10 || o.telefone.length > 11) throw erro6(`${ond}: telefone com DDD.`);
   return o;
 }
 var PLANOS_PADRAO = [
@@ -4091,21 +4176,21 @@ function lojaLimpa(l, i, filial) {
     gerente: pessoaLimpa(l.gerente || {}, `${ond} \u2014 gerente`, true),
     status: "PENDENTE"
   };
-  if (loja.nome.length < 2 || loja.cidade.length < 2) throw erro5(`${ond}: informe o nome de identifica\xE7\xE3o da loja e a cidade.`);
-  if (loja.cnpj && !cnpjOk(loja.cnpj)) throw erro5(`${ond}: CNPJ da loja inv\xE1lido.`);
-  if (loja.telefone.length < 10 || loja.telefone.length > 11) throw erro5(`${ond}: telefone com DDD.`);
+  if (loja.nome.length < 2 || loja.cidade.length < 2) throw erro6(`${ond}: informe o nome de identifica\xE7\xE3o da loja e a cidade.`);
+  if (loja.cnpj && !cnpjOk(loja.cnpj)) throw erro6(`${ond}: CNPJ da loja inv\xE1lido.`);
+  if (loja.telefone.length < 10 || loja.telefone.length > 11) throw erro6(`${ond}: telefone com DDD.`);
   if (l.geo) {
     const lat = +l.geo.lat, lng = +l.geo.lng;
-    if (!(lat >= -34 && lat <= 6 && lng >= -74 && lng <= -32)) throw erro5(`${ond}: a localiza\xE7\xE3o (GPS) n\xE3o est\xE1 no Brasil. Marque de novo.`);
+    if (!(lat >= -34 && lat <= 6 && lng >= -74 && lng <= -32)) throw erro6(`${ond}: a localiza\xE7\xE3o (GPS) n\xE3o est\xE1 no Brasil. Marque de novo.`);
     loja.geo = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, via: l.geo.via === "GPS" ? "GPS" : "MAPA", precisao: Math.round(+l.geo.precisao || 0) };
   }
   if (Array.isArray(l.marcas)) {
     loja.marcas = [...new Set(l.marcas.map(String))].filter((m) => MARCAS_LOJA.includes(m));
-    if (!loja.marcas.length) throw erro5(`${ond}: marque as marcas de celular que a loja vende.`);
+    if (!loja.marcas.length) throw erro6(`${ond}: marque as marcas de celular que a loja vende.`);
   }
   if (l.vendedoresAgora === true) {
     const vs = (Array.isArray(l.vendedores) ? l.vendedores : []).slice(0, 30);
-    if (!vs.length) throw erro5(`${ond}: adicione os vendedores ou marque \u201CN\xE3o\u201D em cadastrar vendedores agora.`);
+    if (!vs.length) throw erro6(`${ond}: adicione os vendedores ou marque \u201CN\xE3o\u201D em cadastrar vendedores agora.`);
     loja.vendedores = vs.map((v, j) => ({ ...pessoaLimpa(v, `${ond} \u2014 vendedor ${j + 1}`), status: "PENDENTE" }));
   }
   return loja;
@@ -4121,9 +4206,9 @@ function bancoLimpo(b, empresa) {
     pixTipo: "CNPJ",
     pixChave: dig2(b.pixChave)
   };
-  if (o.banco.length < 2 || o.agencia.length < 3 || o.conta.replace(/\D/g, "").length < 3) throw erro5("Dados banc\xE1rios: banco, ag\xEAncia e conta.");
-  if (dig2(b.titularCnpj || empresa.cnpj) !== empresa.cnpj) throw erro5("A conta precisa estar no CNPJ da empresa cadastrada.");
-  if (o.pixChave !== empresa.cnpj) throw erro5("A chave PIX do repasse precisa ser o CNPJ da empresa (" + empresa.cnpj + "). Chaves de CPF, e-mail, telefone ou de terceiros n\xE3o s\xE3o aceitas.");
+  if (o.banco.length < 2 || o.agencia.length < 3 || o.conta.replace(/\D/g, "").length < 3) throw erro6("Dados banc\xE1rios: banco, ag\xEAncia e conta.");
+  if (dig2(b.titularCnpj || empresa.cnpj) !== empresa.cnpj) throw erro6("A conta precisa estar no CNPJ da empresa cadastrada.");
+  if (o.pixChave !== empresa.cnpj) throw erro6("A chave PIX do repasse precisa ser o CNPJ da empresa (" + empresa.cnpj + "). Chaves de CPF, e-mail, telefone ou de terceiros n\xE3o s\xE3o aceitas.");
   return { ...o, validado: false };
 }
 async function gravarFotos(solId, lojas, fotosIn, exigir) {
@@ -4131,8 +4216,8 @@ async function gravarFotos(solId, lojas, fotosIn, exigir) {
     const f = (fotosIn || [])[i] || {}, cont = {};
     for (const t of FOTOS_LOJA) {
       const lista2 = (Array.isArray(f[t]) ? f[t] : []).slice(0, 3).filter((x) => typeof x === "string" && /^data:image\/(jpeg|webp|png);base64,/.test(x));
-      for (const x of lista2) if (x.length > 7e5) throw erro5(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
-      if (exigir && !lista2.length) throw erro5(`${l.nome}: falta a foto \u201C${t}\u201D.`);
+      for (const x of lista2) if (x.length > 7e5) throw erro6(`${l.nome}: uma foto ficou grande demais. Envie de novo.`);
+      if (exigir && !lista2.length) throw erro6(`${l.nome}: falta a foto \u201C${t}\u201D.`);
       cont[t] = lista2.length;
       for (const [j, x] of lista2.entries()) await db.collection("lojaFotos").doc(`${solId}_${i}_${t}_${j}`).set({ solicitacaoId: solId, loja: i, tipo: t, n: j, foto: x, criadoEm: Date.now() });
     }
@@ -4147,14 +4232,14 @@ async function avisarDono(assunto, texto) {
     console.error("aviso dono", e.message);
   }
 }
-async function handler19(req, res) {
+async function handler20(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
     const b = req.body || {};
     if (b.acao === "planos") return res.status(200).json(await planos());
     if (b.acao === "cnpj") {
-      if (!cnpjOk(b.cnpj)) throw erro5("CNPJ inv\xE1lido.");
+      if (!cnpjOk(b.cnpj)) throw erro6("CNPJ inv\xE1lido.");
       const r = await consultarCnpj(b.cnpj);
       if (!r) return res.status(200).json({ indisponivel: true });
       return res.status(200).json(r);
@@ -4184,9 +4269,9 @@ async function handler19(req, res) {
         gerente: { nome: e.respNome, cpf: e.respCpf, email: e.respEmail, telefone: e.respTelefone }
       }];
       const cnpj = dig2(e.cnpj), email = txt2(e.respEmail, 120).toLowerCase();
-      if (!cnpjOk(cnpj)) throw erro5("CNPJ da empresa inv\xE1lido.");
-      if (!cpfOk2(e.respCpf)) throw erro5("CPF do respons\xE1vel inv\xE1lido.");
-      if (!emailOk(email)) throw erro5("E-mail do respons\xE1vel inv\xE1lido.");
+      if (!cnpjOk(cnpj)) throw erro6("CNPJ da empresa inv\xE1lido.");
+      if (!cpfOk3(e.respCpf)) throw erro6("CPF do respons\xE1vel inv\xE1lido.");
+      if (!emailOk(email)) throw erro6("E-mail do respons\xE1vel inv\xE1lido.");
       const end = e.rua || e.bairro ? enderecoLimpo(e, "Endere\xE7o da empresa") : null;
       const empresa = {
         cnpj,
@@ -4200,31 +4285,31 @@ async function handler19(req, res) {
         respEmail: email,
         respTelefone: dig2(e.respTelefone)
       };
-      if (empresa.emailCorp && !emailOk(empresa.emailCorp)) throw erro5("E-mail corporativo inv\xE1lido.");
+      if (empresa.emailCorp && !emailOk(empresa.emailCorp)) throw erro6("E-mail corporativo inv\xE1lido.");
       {
         const s0 = await db.collection("solicitacoesLoja").doc("cnpj_" + cnpj).get();
-        if (s0.exists && ["PENDENTE", "EM_ANALISE", "APROVADA"].includes(s0.data().status)) throw erro5(s0.data().status === "APROVADA" ? "Esta empresa j\xE1 \xE9 parceira. Para abrir uma filial, use \u201CAdicionar filial\u201D." : "J\xE1 recebemos o cadastro desta empresa. Acompanhe pelo site em \u201CAcompanhar meu cadastro\u201D.", 409);
+        if (s0.exists && ["PENDENTE", "EM_ANALISE", "APROVADA"].includes(s0.data().status)) throw erro6(s0.data().status === "APROVADA" ? "Esta empresa j\xE1 \xE9 parceira. Para abrir uma filial, use \u201CAdicionar filial\u201D." : "J\xE1 recebemos o cadastro desta empresa. Acompanhe pelo site em \u201CAcompanhar meu cadastro\u201D.", 409);
       }
       const receita = await consultarCnpj(cnpj);
-      if (receita && receita.encontrado === false) throw erro5("CNPJ n\xE3o encontrado na Receita Federal.");
-      if (receita?.situacao && receita.situacao !== "ATIVA") throw erro5(`O CNPJ est\xE1 ${receita.situacao.toLowerCase()} na Receita Federal. S\xF3 aceitamos empresas com CNPJ ativo.`);
-      if (empresa.razao.length < 3 || empresa.fantasia.length < 2 || empresa.respNome.split(" ").length < 2) throw erro5("Preencha raz\xE3o social, nome fantasia e o nome completo do respons\xE1vel.");
-      if (lojasIn.length > 30) throw erro5("No m\xE1ximo 30 lojas por cadastro. Fale com a NexumCell para redes maiores.");
+      if (receita && receita.encontrado === false) throw erro6("CNPJ n\xE3o encontrado na Receita Federal.");
+      if (receita?.situacao && receita.situacao !== "ATIVA") throw erro6(`O CNPJ est\xE1 ${receita.situacao.toLowerCase()} na Receita Federal. S\xF3 aceitamos empresas com CNPJ ativo.`);
+      if (empresa.razao.length < 3 || empresa.fantasia.length < 2 || empresa.respNome.split(" ").length < 2) throw erro6("Preencha raz\xE3o social, nome fantasia e o nome completo do respons\xE1vel.");
+      if (lojasIn.length > 30) throw erro6("No m\xE1ximo 30 lojas por cadastro. Fale com a NexumCell para redes maiores.");
       const lojas = lojasIn.map((l, i) => lojaLimpa(l, i, false));
       const emails = lojas.map((l) => l.gerente.email);
-      if (new Set(emails).size !== emails.length) throw erro5("Cada loja precisa de um gerente com e-mail diferente.");
+      if (new Set(emails).size !== emails.length) throw erro6("Cada loja precisa de um gerente com e-mail diferente.");
       {
         const todos = [...emails, ...lojas.flatMap((l) => (l.vendedores || []).map((v) => v.email))];
-        if (new Set(todos).size !== todos.length) throw erro5("Gerentes e vendedores precisam de e-mails diferentes (cada e-mail vira um login).");
+        if (new Set(todos).size !== todos.length) throw erro6("Gerentes e vendedores precisam de e-mails diferentes (cada e-mail vira um login).");
       }
       const novo = !!b.banco;
       const banco = novo ? bancoLimpo(b.banco, empresa) : null;
-      if (novo && b.lgpd !== true) throw erro5("Aceite o tratamento de dados (LGPD) para continuar.");
-      if (b.aceite !== true) throw erro5("Aceite os termos para continuar.");
+      if (novo && b.lgpd !== true) throw erro6("Aceite o tratamento de dados (LGPD) para continuar.");
+      if (b.aceite !== true) throw erro6("Aceite os termos para continuar.");
       const P = await planos(), plano = P.planos.find((p) => p.id === b.plano) || P.planos[0];
-      if (plano.minimoLojas && lojas.length < plano.minimoLojas) throw erro5(`O plano ${plano.nome} \xE9 a partir de ${plano.minimoLojas} lojas.`);
+      if (plano.minimoLojas && lojas.length < plano.minimoLojas) throw erro6(`O plano ${plano.nome} \xE9 a partir de ${plano.minimoLojas} lojas.`);
       const ref = db.collection("solicitacoesLoja").doc("cnpj_" + cnpj), s = await ref.get();
-      if (s.exists && ["PENDENTE", "EM_ANALISE", "APROVADA"].includes(s.data().status)) throw erro5(s.data().status === "APROVADA" ? "Esta empresa j\xE1 \xE9 parceira. Para abrir uma filial, use \u201CAdicionar filial\u201D." : "J\xE1 recebemos o cadastro desta empresa. Acompanhe pelo site em \u201CAcompanhar meu cadastro\u201D.", 409);
+      if (s.exists && ["PENDENTE", "EM_ANALISE", "APROVADA"].includes(s.data().status)) throw erro6(s.data().status === "APROVADA" ? "Esta empresa j\xE1 \xE9 parceira. Para abrir uma filial, use \u201CAdicionar filial\u201D." : "J\xE1 recebemos o cadastro desta empresa. Acompanhe pelo site em \u201CAcompanhar meu cadastro\u201D.", 409);
       const dados = {
         tipo: "EMPRESA",
         ...empresa,
@@ -4260,17 +4345,17 @@ Aprove no Painel do Dono \u2192 Lojas parceiras.`
     if (b.acao === "ver" || b.acao === "filial") {
       const cnpj = dig2(b.cnpj), email = txt2(b.email, 120).toLowerCase();
       const s = await db.collection("solicitacoesLoja").doc("cnpj_" + cnpj).get();
-      if (!s.exists || s.data().respEmail !== email) throw erro5("N\xE3o encontramos cadastro com esse CNPJ e e-mail do respons\xE1vel.", 404);
+      if (!s.exists || s.data().respEmail !== email) throw erro6("N\xE3o encontramos cadastro com esse CNPJ e e-mail do respons\xE1vel.", 404);
       const x = s.data();
       if (b.acao === "ver") {
         const fil = (await db.collection("solicitacoesLoja").where("cnpj", "==", cnpj).get()).docs.map((d) => d.data()).filter((f) => f.tipo === "FILIAL");
         const unidades = [...x.lojas || [], ...fil.flatMap((f) => (f.lojas || []).map((l) => ({ ...l, status: l.status === "PENDENTE" && f.status !== "PENDENTE" ? f.status : l.status })))].map((l) => ({ nome: l.nome, cidade: l.cidade, gerente: l.gerente?.nome || "", status: l.status || x.status }));
         return res.status(200).json({ fantasia: x.fantasia, status: x.status, plano: x.planoNome || "", resposta: x.resposta || "", criadoEm: x.criadoEm, unidades, historico: (x.historico || []).map((h) => ({ em: h.em, status: h.status, obs: h.obs || "" })) });
       }
-      if (x.status !== "APROVADA") throw erro5("A empresa ainda n\xE3o foi aprovada. Depois da aprova\xE7\xE3o voc\xEA pode adicionar filiais.");
+      if (x.status !== "APROVADA") throw erro6("A empresa ainda n\xE3o foi aprovada. Depois da aprova\xE7\xE3o voc\xEA pode adicionar filiais.");
       const loja = lojaLimpa(b.loja || {}, 0, true);
-      if (!loja.cnpj) throw erro5("Informe o CNPJ da filial.");
-      if (loja.cnpj.slice(0, 8) !== cnpj.slice(0, 8)) throw erro5("O CNPJ da filial precisa ser da mesma empresa (mesma raiz do CNPJ da matriz).");
+      if (!loja.cnpj) throw erro6("Informe o CNPJ da filial.");
+      if (loja.cnpj.slice(0, 8) !== cnpj.slice(0, 8)) throw erro6("O CNPJ da filial precisa ser da mesma empresa (mesma raiz do CNPJ da matriz).");
       const id = "f_" + cnpj + "_" + Date.now();
       if (b.fotos) await gravarFotos(id, [loja], [b.fotos], true);
       await db.collection("solicitacoesLoja").doc(id).set({
@@ -4303,7 +4388,7 @@ Aprove no Painel do Dono \u2192 Lojas parceiras.`);
 }
 
 // api/push.js
-async function handler20(req, res) {
+async function handler21(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4320,14 +4405,14 @@ async function handler20(req, res) {
 // api/remota.js
 var dig3 = (s) => String(s || "").replace(/\D/g, "");
 var txt3 = (s, n) => String(s ?? "").replace(/[<>]/g, "").trim().slice(0, n);
-var erro6 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+var erro7 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 var img = (x) => {
   x = String(x || "");
   if (!/^data:image\/(jpeg|png|webp);base64,/.test(x)) return "";
-  if (x.length > 32e4) throw erro6("Foto grande demais. Tente de novo.");
+  if (x.length > 32e4) throw erro7("Foto grande demais. Tente de novo.");
   return x;
 };
-function cpfOk3(c) {
+function cpfOk4(c) {
   c = dig3(c);
   if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
   for (const t of [9, 10]) {
@@ -4338,14 +4423,14 @@ function cpfOk3(c) {
   return true;
 }
 async function acharVenda(token) {
-  if (!/^[A-Za-z0-9]{20,40}$/.test(String(token || ""))) throw erro6("Link inv\xE1lido.", 404);
+  if (!/^[A-Za-z0-9]{20,40}$/.test(String(token || ""))) throw erro7("Link inv\xE1lido.", 404);
   const q = (await db.collection("vendas").where("remota.token", "==", token).get()).docs;
-  if (!q.length) throw erro6("Link inv\xE1lido ou j\xE1 usado.", 404);
+  if (!q.length) throw erro7("Link inv\xE1lido ou j\xE1 usado.", 404);
   const d = q[0], v = d.data();
-  if (Date.now() - (v.remota?.criadoEm || 0) > 7 * 864e5) throw erro6("Este link venceu. Pe\xE7a um novo ao vendedor.", 410);
+  if (Date.now() - (v.remota?.criadoEm || 0) > 7 * 864e5) throw erro7("Este link venceu. Pe\xE7a um novo ao vendedor.", 410);
   return { id: d.id, v };
 }
-async function handler21(req, res) {
+async function handler22(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4353,24 +4438,24 @@ async function handler21(req, res) {
     const { id, v } = await acharVenda(b.token);
     if (b.acao === "ver") return res.status(200).json({ numero: v.numero, nome: v.clienteNome || "", loja: v.lojaNome || "", vendedor: v.vendedorNome || "", status: v.status, enviado: v.status !== "REMOTA" });
     if (b.acao === "enviar") {
-      if (v.status !== "REMOTA") throw erro6("Esta proposta j\xE1 foi enviada. Aguarde o contato da loja.", 409);
+      if (v.status !== "REMOTA") throw erro7("Esta proposta j\xE1 foi enviada. Aguarde o contato da loja.", 409);
       const d = b.dados || {}, cpf = dig3(d.cpf);
-      if (!cpfOk3(cpf)) throw erro6("CPF inv\xE1lido.");
-      if (txt3(d.nome, 120).split(" ").length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(d.nasc || "")) throw erro6("Informe o nome completo e a data de nascimento.");
-      if (txt3(d.mae, 120).split(" ").length < 2) throw erro6("Informe o nome completo da m\xE3e.");
+      if (!cpfOk4(cpf)) throw erro7("CPF inv\xE1lido.");
+      if (txt3(d.nome, 120).split(" ").length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(d.nasc || "")) throw erro7("Informe o nome completo e a data de nascimento.");
+      if (txt3(d.mae, 120).split(" ").length < 2) throw erro7("Informe o nome completo da m\xE3e.");
       const tel = dig3(d.telefone);
-      if (tel.length < 10) throw erro6("WhatsApp com DDD.");
-      if (!(+d.renda > 0)) throw erro6("Informe a renda mensal.");
+      if (tel.length < 10) throw erro7("WhatsApp com DDD.");
+      if (!(+d.renda > 0)) throw erro7("Informe a renda mensal.");
       for (const k of ["cpf_" + cpf, "tel_" + tel]) {
         const ln = await db.collection("listanegra").doc(k).get();
-        if (ln.exists) throw erro6("N\xE3o foi poss\xEDvel seguir com a proposta. Procure a loja.", 403);
+        if (ln.exists) throw erro7("N\xE3o foi poss\xEDvel seguir com a proposta. Procure a loja.", 403);
       }
-      if (b.aceite !== true) throw erro6("Aceite os termos para continuar.");
+      if (b.aceite !== true) throw erro7("Aceite os termos para continuar.");
       const frente = img(b.frente), verso = img(b.verso), selfie = img(b.selfie), mosaico = img(b.mosaico), mov = b.vidaMov == null ? null : Number(b.vidaMov);
       const vida = mov == null ? { ok: null, metodo: "ARQUIVO", via: "REMOTA" } : { ok: mov > 4, metodo: "MOVIMENTO", d: Math.round(mov), via: "REMOTA" };
-      if (!frente || !selfie) throw erro6("Envie a foto da frente do documento e a selfie.");
+      if (!frente || !selfie) throw erro7("Envie a foto da frente do documento e a selfie.");
       const agora = Date.now(), tel2 = dig3(d.telefone2), refNome = txt3(d.ref1Nome, 80);
-      if (tel2 && tel2 === tel) throw erro6("O telefone da refer\xEAncia precisa ser de outra pessoa.");
+      if (tel2 && tel2 === tel) throw erro7("O telefone da refer\xEAncia precisa ser de outra pessoa.");
       const fone = (t) => t.length === 11 ? `(${t.slice(0, 2)}) ${t.slice(2, 7)}-${t.slice(7)}` : `(${t.slice(0, 2)}) ${t.slice(2, 6)}-${t.slice(6)}`;
       const cliente = {
         ...v.cliente || {},
@@ -4398,7 +4483,7 @@ async function handler21(req, res) {
       };
       for (const t of cliente.telefones) {
         const o = (await db.collection("clientes").where("telefones", "array-contains", t).get()).docs.filter((x) => x.id !== cpf);
-        if (o.length) throw erro6("Este telefone j\xE1 est\xE1 cadastrado para outra pessoa. Use o seu n\xFAmero.");
+        if (o.length) throw erro7("Este telefone j\xE1 est\xE1 cadastrado para outra pessoa. Use o seu n\xFAmero.");
       }
       await db.collection("docs").doc(id).set({ vendaId: id, cpf, docTipo: cliente.docTipo, docDigital: d.docDigital === true, frente, verso, selfie, ...mosaico ? { vidaQuadros: mosaico } : {}, criadoEm: agora, vendedorUid: v.vendedorUid, via: "remota" });
       await db.collection("clientes").doc(cpf).set({ ...cliente, atualizadoEm: agora }, { merge: true });
@@ -4432,22 +4517,22 @@ var addDias2 = (iso, n) => {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
-var erro7 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+var erro8 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 async function promessa(token, data) {
   const cfg = await config();
-  if (cfg.promessaApp === "nao") throw erro7("A promessa de pagamento pelo celular n\xE3o est\xE1 dispon\xEDvel. Fale com a loja.");
+  if (cfg.promessaApp === "nao") throw erro8("A promessa de pagamento pelo celular n\xE3o est\xE1 dispon\xEDvel. Fale com a loja.");
   const max = Math.min(10, Math.max(1, Number(cfg.promessaMaxDias) || 5)), h = hoje();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data || "")) || data <= h || data > addDias2(h, max)) throw erro7(`Escolha uma data entre amanh\xE3 e ${max} dia(s) a partir de hoje.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data || "")) || data <= h || data > addDias2(h, max)) throw erro8(`Escolha uma data entre amanh\xE3 e ${max} dia(s) a partir de hoje.`);
   const aref = db.collection("aparelhos").doc(String(token)), as = await aref.get();
-  if (!as.exists) throw erro7("Contrato n\xE3o encontrado", 404);
+  if (!as.exists) throw erro8("Contrato n\xE3o encontrado", 404);
   const ap = as.data();
-  if (ap.quitado || ap.status !== "ATIVO") throw erro7("Este contrato n\xE3o est\xE1 ativo.");
-  if (ap.promessaApp?.em) throw erro7("Voc\xEA j\xE1 usou a promessa de pagamento neste contrato. Pague pelo PIX ou fale com a loja.", 409);
-  if (ap.roubo && !ap.roubo.liberadoEm) throw erro7("Aparelho com roubo/perda comunicado. Fale com a loja.");
+  if (ap.quitado || ap.status !== "ATIVO") throw erro8("Este contrato n\xE3o est\xE1 ativo.");
+  if (ap.promessaApp?.em) throw erro8("Voc\xEA j\xE1 usou a promessa de pagamento neste contrato. Pague pelo PIX ou fale com a loja.", 409);
+  if (ap.roubo && !ap.roubo.liberadoEm) throw erro8("Aparelho com roubo/perda comunicado. Fale com a loja.");
   const vref = db.collection("vendas").doc(ap.vendaId), v = (await vref.get()).data();
-  if (!v || v.status !== "ATIVA") throw erro7("Este contrato n\xE3o est\xE1 ativo.");
+  if (!v || v.status !== "ATIVA") throw erro8("Este contrato n\xE3o est\xE1 ativo.");
   const atr = (v.parcelas || []).filter((p) => !p.pago && p.venc < h);
-  if (!atr.length) throw erro7("Voc\xEA n\xE3o tem parcelas em atraso.");
+  if (!atr.length) throw erro8("Voc\xEA n\xE3o tem parcelas em atraso.");
   const valor = r2(atr.reduce((s, p) => s + encargos(p, ap), 0));
   const ate = Date.parse(data + "T23:59:59-03:00"), em = Date.now();
   await aref.set({ liberadoAte: Math.max(ate, Number(ap.liberadoAte) || 0), promessaApp: { data, valor, em, ate } }, { merge: true });
@@ -4628,26 +4713,26 @@ async function liberarBot(token, pedido) {
   await registrarBot(ap, v, `Pediu libera\xE7\xE3o pelo app; a assistente n\xE3o liberou (${motivoBot}). Pedido enviado ao suporte.`, agora);
   return { ok: false, pendente: true, sugestao };
 }
-async function handler22(req, res) {
+async function handler23(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
     const b = req.body || {};
-    if (!b.token || String(b.token).length < 16) throw erro7("pedido inv\xE1lido");
+    if (!b.token || String(b.token).length < 16) throw erro8("pedido inv\xE1lido");
     if (b.acao === "promessa") return res.status(200).json(await promessa(b.token, b.data));
     if (b.acao === "prazo") return res.status(200).json(await prazoBot(b.token));
     if (b.acao === "liberar") return res.status(200).json(await liberarBot(b.token, b.pedido));
     if (b.acao === "recompra") return res.status(200).json(await recompraBot(b.token));
     if (b.acao === "roubo") return res.status(200).json(await rouboBot(b.token, b.tipo, b.relato, b.bo));
-    throw erro7("a\xE7\xE3o desconhecida");
+    throw erro8("a\xE7\xE3o desconhecida");
   } catch (e) {
     return res.status(e.status || 500).json({ erro: e.status ? e.message : "N\xE3o foi poss\xEDvel agora. Tente de novo." });
   }
 }
 
 // api/ios.js
-var erro8 = (m, s = 400) => Object.assign(new Error(m), { status: s });
-async function handler23(req, res) {
+var erro9 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+async function handler24(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -4656,25 +4741,25 @@ async function handler23(req, res) {
     if (b.acao === "status") return res.status(200).json({ ligado: mdmLigado() });
     if (b.acao === "buscar") {
       const d = await acharPorSerie(b.serial);
-      if (!d) throw erro8("Este n\xFAmero de s\xE9rie n\xE3o est\xE1 no MDM. Confira se o iPhone foi adicionado ao Apple Business Manager e atribu\xEDdo ao servidor MDM.", 404);
+      if (!d) throw erro9("Este n\xFAmero de s\xE9rie n\xE3o est\xE1 no MDM. Confira se o iPhone foi adicionado ao Apple Business Manager e atribu\xEDdo ao servidor MDM.", 404);
       return res.status(200).json({ id: d.id, nome: d.name || "", modelo: d.model_name || d.product_name || "", status: d.status || "", supervisionado: d.is_supervised === true });
     }
     if (b.acao === "vincular" || b.acao === "sincronizar") {
       const tk = String(b.token || "");
       const ref = db.collection("aparelhos").doc(tk), s = await ref.get();
-      if (!s.exists) throw erro8("Contrato do aparelho n\xE3o encontrado.", 404);
+      if (!s.exists) throw erro9("Contrato do aparelho n\xE3o encontrado.", 404);
       const a = s.data();
-      if (!a.ios) throw erro8("Este contrato n\xE3o \xE9 de iPhone.");
-      if (eu.role !== "DONO" && eu.role !== "FINANCEIRO" && eu.role !== "SUPORTE" && a.lojaId !== eu.lojaId) throw erro8("Este aparelho \xE9 de outra loja.", 403);
+      if (!a.ios) throw erro9("Este contrato n\xE3o \xE9 de iPhone.");
+      if (eu.role !== "DONO" && eu.role !== "FINANCEIRO" && eu.role !== "SUPORTE" && a.lojaId !== eu.lojaId) throw erro9("Este aparelho \xE9 de outra loja.", 403);
       if (b.acao === "sincronizar") return res.status(200).json(await sincronizarIos(db, tk, a));
       const d = await acharPorSerie(b.serial);
-      if (!d) throw erro8("Este n\xFAmero de s\xE9rie n\xE3o est\xE1 no MDM. O iPhone precisa estar no Apple Business Manager da empresa e atribu\xEDdo ao servidor MDM.", 404);
-      if (d.is_supervised !== true) throw erro8("O iPhone n\xE3o est\xE1 supervisionado. Sem supervis\xE3o o cliente pode remover a trava: n\xE3o entregue. Restaure o iPhone e fa\xE7a a configura\xE7\xE3o pelo Apple Business Manager.");
-      if (String(d.status || "").toLowerCase() !== "enrolled") throw erro8("O iPhone ainda n\xE3o se inscreveu no MDM. Termine a configura\xE7\xE3o inicial no aparelho (tela \u201CGerenciamento remoto\u201D \u2192 Inscrever) com internet e tente de novo.");
+      if (!d) throw erro9("Este n\xFAmero de s\xE9rie n\xE3o est\xE1 no MDM. O iPhone precisa estar no Apple Business Manager da empresa e atribu\xEDdo ao servidor MDM.", 404);
+      if (d.is_supervised !== true) throw erro9("O iPhone n\xE3o est\xE1 supervisionado. Sem supervis\xE3o o cliente pode remover a trava: n\xE3o entregue. Restaure o iPhone e fa\xE7a a configura\xE7\xE3o pelo Apple Business Manager.");
+      if (String(d.status || "").toLowerCase() !== "enrolled") throw erro9("O iPhone ainda n\xE3o se inscreveu no MDM. Termine a configura\xE7\xE3o inicial no aparelho (tela \u201CGerenciamento remoto\u201D \u2192 Inscrever) com internet e tente de novo.");
       const outro = (await db.collection("aparelhos").where("mdmId", "==", d.id).get()).docs.find((x) => x.id !== tk && !x.data().quitado && x.data().status !== "CANCELADO");
-      if (outro) throw erro8("Este iPhone j\xE1 est\xE1 vinculado a outro contrato ativo (n\xBA " + (outro.data().vendaNumero || "") + ").", 409);
+      if (outro) throw erro9("Este iPhone j\xE1 est\xE1 vinculado a outro contrato ativo (n\xBA " + (outro.data().vendaNumero || "") + ").", 409);
       const serial = String(d.serial_number || b.serial).toUpperCase();
-      if (d.imei && a.imei && String(d.imei).replace(/\D/g, "") !== String(a.imei)) throw erro8(`O IMEI deste iPhone (${d.imei}) n\xE3o \xE9 o do contrato (${a.imei}). Confira se pegou o aparelho certo.`, 409);
+      if (d.imei && a.imei && String(d.imei).replace(/\D/g, "") !== String(a.imei)) throw erro9(`O IMEI deste iPhone (${d.imei}) n\xE3o \xE9 o do contrato (${a.imei}). Confira se pegou o aparelho certo.`, 409);
       const agora = Date.now();
       await ref.set({ mdmId: d.id, serial, mdm: { vinculadoEm: agora, vinculadoPor: eu.nome, modelo: d.model_name || "", perdido: false }, checkin: { em: agora, imei: a.imei, deviceOwner: true, modo: "mdm", modelo: d.model_name || "iPhone" } }, { merge: true });
       const vref = db.collection("vendas").doc(a.vendaId), v = (await vref.get()).data() || {};
@@ -4686,7 +4771,7 @@ async function handler23(req, res) {
       const r = await sincronizarIos(db, tk, { ...a, mdmId: d.id, mdm: { perdido: false } });
       return res.status(200).json({ ok: true, serial, modelo: d.model_name || "", trava: r, concluida: v.status === "INSTALANDO" });
     }
-    throw erro8("a\xE7\xE3o desconhecida");
+    throw erro9("a\xE7\xE3o desconhecida");
   } catch (e) {
     console.error(e);
     return res.status(e.status || 500).json({ erro: e.status ? e.message : "N\xE3o foi poss\xEDvel falar com o MDM agora. Tente de novo." });
@@ -4726,19 +4811,19 @@ async function conferirLink(tok) {
   const mac = await hmac(LINK(), "LINK|" + exp);
   return b64url2(mac) === b;
 }
-function pagina(cod, erro10) {
+function pagina(cod, erro11) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexumCell \u2014 Remover a trava</title>
 <style>body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0B1E35;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:#071424;border:1px solid #1b3350;border-radius:14px;padding:24px;max-width:460px;width:100%}
 h1{font-size:18px;margin:0 0 6px}.cod{font-size:42px;letter-spacing:6px;font-weight:800;color:#C9A84C;text-align:center;margin:18px 0}
 ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9FB0C3;font-size:13px}.err{color:#E07A5F}</style></head>
-<body><div class="card">${erro10 ? `<h1>Remover a trava</h1><p class="err">${erro10}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
+<body><div class="card">${erro11 ? `<h1>Remover a trava</h1><p class="err">${erro11}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
 <p class="muted">No aparelho, na tela do app NexumCell, toque em \u201CProblema? Inserir c\xF3digo de remo\xE7\xE3o da loja\u201D e digite o c\xF3digo:</p>
 <div class="cod">${cod}</div>
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
 <p class="muted">C\xF3digo v\xE1lido s\xF3 hoje. D\xFAvidas: fale com o Dono/Suporte Nexum.</p>`}</div></body></html>`;
 }
-async function handler24(req, res) {
+async function handler25(req, res) {
   if (cors(req, res)) return;
   if (!SEG()) return res.status(500).json({ erro: "MESTRE_REMOCAO n\xE3o configurado no servidor." });
   if (req.method === "GET") {
@@ -4769,7 +4854,7 @@ Fatos que voc\xEA pode usar:
 - Pre\xE7os: h\xE1 mensalidade por loja e licen\xE7a por venda. NUNCA diga valores: pe\xE7a para a pessoa ver a se\xE7\xE3o "Planos" do site ou falar com um consultor.
 Regras: responda em portugu\xEAs do Brasil (ou em espanhol se a pessoa escrever em espanhol), no m\xE1ximo 3 frases, sem emojis. N\xE3o prometa aprova\xE7\xE3o, lucro, prazos ou condi\xE7\xF5es que n\xE3o est\xE3o acima. Se n\xE3o souber, diga que um consultor responde. Quando a pessoa mostrar interesse (quer cadastrar, quer pre\xE7o, quer conversar, quer demonstra\xE7\xE3o), convide a deixar nome da loja, cidade e WhatsApp e marque pedirContato=true.
 Responda em JSON: {"resposta":"...","pedirContato":true|false}`;
-async function handler25(req, res) {
+async function handler26(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ erro: "M\xE9todo n\xE3o permitido" });
   try {
@@ -4831,9 +4916,9 @@ O lead est\xE1 no CRM, no funil comercial. Confirme o hor\xE1rio pelo WhatsApp.`
 
 // api/ouvidoria.js
 var PRAZO_UTEIS = 10;
-var soD3 = (s) => String(s || "").replace(/\D/g, "");
+var soD4 = (s) => String(s || "").replace(/\D/g, "");
 var txt5 = (s, n) => String(s || "").replace(/[<>]/g, "").trim().slice(0, n);
-var erro9 = (m, s = 400) => Object.assign(new Error(m), { status: s });
+var erro10 = (m, s = 400) => Object.assign(new Error(m), { status: s });
 var TIPOS2 = ["RECLAMACAO", "DENUNCIA", "SUGESTAO", "ELOGIO", "LGPD"];
 function maisUteis(d, n) {
   const x = new Date(d);
@@ -4843,8 +4928,8 @@ function maisUteis(d, n) {
   }
   return x.toISOString().slice(0, 10);
 }
-function cpfOk4(c) {
-  c = soD3(c);
+function cpfOk5(c) {
+  c = soD4(c);
   if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
   for (let t = 9; t < 11; t++) {
     let s = 0;
@@ -4853,20 +4938,20 @@ function cpfOk4(c) {
   }
   return true;
 }
-async function handler26(req, res) {
+async function handler27(req, res) {
   if (cors(req, res)) return;
   try {
     const b = req.body || {};
     if (b.acao === "abrir") {
-      const cpf = soD3(b.cpf), nome = txt5(b.nome, 100), relato = txt5(b.relato, 4e3), tipo = TIPOS2.includes(b.tipo) ? b.tipo : "RECLAMACAO";
-      if (nome.length < 3) throw erro9("Informe o seu nome.");
-      if (!cpfOk4(cpf)) throw erro9("CPF inv\xE1lido.");
-      if (relato.length < 15) throw erro9("Conte o que aconteceu (pelo menos 15 letras).");
-      if (soD3(b.telefone).length < 10 && !/@/.test(b.email || "")) throw erro9("Informe um WhatsApp ou e-mail para a resposta.");
+      const cpf = soD4(b.cpf), nome = txt5(b.nome, 100), relato = txt5(b.relato, 4e3), tipo = TIPOS2.includes(b.tipo) ? b.tipo : "RECLAMACAO";
+      if (nome.length < 3) throw erro10("Informe o seu nome.");
+      if (!cpfOk5(cpf)) throw erro10("CPF inv\xE1lido.");
+      if (relato.length < 15) throw erro10("Conte o que aconteceu (pelo menos 15 letras).");
+      if (soD4(b.telefone).length < 10 && !/@/.test(b.email || "")) throw erro10("Informe um WhatsApp ou e-mail para a resposta.");
       const ini = Date.now() - 864e5, doDia = (await db.collection("ouvidoria").where("cpf", "==", cpf).get()).docs.filter((d) => (d.data().em || 0) >= ini).length;
-      if (doDia >= 3) throw erro9("Voc\xEA j\xE1 abriu protocolos hoje. Aguarde a resposta.", 429);
+      if (doDia >= 3) throw erro10("Voc\xEA j\xE1 abriu protocolos hoje. Aguarde a resposta.", 429);
       const protocolo = "OUV" + (/* @__PURE__ */ new Date()).toISOString().slice(2, 10).replace(/-/g, "") + String(Math.floor(Math.random() * 1e5)).padStart(5, "0");
-      const doc = { protocolo, cpf, nome, telefone: soD3(b.telefone).slice(0, 13), email: txt5(b.email, 120), tipo, assunto: txt5(b.assunto, 120), relato, status: "ABERTO", em: Date.now(), prazo: maisUteis(/* @__PURE__ */ new Date(), PRAZO_UTEIS), historico: [{ em: Date.now(), por: "Cliente", obs: "Protocolo aberto" }], ip: req.headers["cf-connecting-ip"] || "" };
+      const doc = { protocolo, cpf, nome, telefone: soD4(b.telefone).slice(0, 13), email: txt5(b.email, 120), tipo, assunto: txt5(b.assunto, 120), relato, status: "ABERTO", em: Date.now(), prazo: maisUteis(/* @__PURE__ */ new Date(), PRAZO_UTEIS), historico: [{ em: Date.now(), por: "Cliente", obs: "Protocolo aberto" }], ip: req.headers["cf-connecting-ip"] || "" };
       await db.collection("ouvidoria").doc(protocolo).set(doc);
       try {
         if (brevoLigado() && process.env.DONO_EMAIL) await enviarEmail({ para: process.env.DONO_EMAIL, assunto: `Ouvidoria ${protocolo}: ${tipo.toLowerCase()} de ${nome}`, titulo: "Novo protocolo na ouvidoria", texto: `${nome} (CPF final ${cpf.slice(-3)})
@@ -4882,25 +4967,25 @@ Prazo de resposta: ${doc.prazo.split("-").reverse().join("/")}` });
     }
     if (b.acao === "consultar") {
       const p = (await db.collection("ouvidoria").doc(txt5(b.protocolo, 20).toUpperCase()).get()).data();
-      if (!p || p.cpf.slice(-4) !== soD3(b.cpfFim)) throw erro9("Protocolo n\xE3o encontrado. Confira o n\xFAmero e os 4 \xFAltimos d\xEDgitos do CPF.", 404);
+      if (!p || p.cpf.slice(-4) !== soD4(b.cpfFim)) throw erro10("Protocolo n\xE3o encontrado. Confira o n\xFAmero e os 4 \xFAltimos d\xEDgitos do CPF.", 404);
       return res.json({ protocolo: p.protocolo, status: p.status, prazo: p.prazo, tipo: p.tipo, assunto: p.assunto, em: p.em, resposta: p.resposta || "", respondidoEm: p.respondidoEm || null });
     }
     if (b.acao === "responder") {
       const eu = await exigirEquipe(req, ["DONO", "FINANCEIRO", "SUPORTE"]);
       const ref = db.collection("ouvidoria").doc(txt5(b.protocolo, 20)), p = (await ref.get()).data();
-      if (!p) throw erro9("Protocolo n\xE3o encontrado", 404);
+      if (!p) throw erro10("Protocolo n\xE3o encontrado", 404);
       const status = ["EM_ANALISE", "RESPONDIDO", "ENCERRADO"].includes(b.status) ? b.status : "RESPONDIDO", resposta = txt5(b.resposta, 4e3);
       await ref.set({ status, ...resposta ? { resposta, respondidoEm: Date.now(), respondidoPor: eu.nome } : {}, historico: [...p.historico || [], { em: Date.now(), por: eu.nome, obs: status + (resposta ? ": " + resposta.slice(0, 200) : "") }] }, { merge: true });
       return res.json({ ok: true });
     }
-    throw erro9("a\xE7\xE3o inv\xE1lida");
+    throw erro10("a\xE7\xE3o inv\xE1lida");
   } catch (e) {
     return res.status(e.status || 500).json({ erro: e.message });
   }
 }
 
 // api/avisar-dono.js
-async function handler27(req, res) {
+async function handler28(req, res) {
   if (cors(req, res)) return;
   try {
     const eu = await exigirEquipe(req, ["SUPORTE", "FINANCEIRO", "COMERCIAL"]);
@@ -4924,7 +5009,7 @@ Responda no Painel do Dono, no bot\xE3o de conversa no canto da tela.`
 }
 
 // worker/index.js
-var ROTAS = { "avisar-dono": handler27, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler26, ios: handler23, codigo, acordo, instalacao: handler11, "cliente-app": handler22, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler15, nf: handler16, assinatura: handler17, "zapsign-webhook": handler18, preanalise: handler4, credenciamento: handler19, push: handler20, saas: handler7, motor: handler12, repasse: handler10, remota: handler21, "remover-codigo": handler24, lead: handler25 };
+var ROTAS = { metas: handler15, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
