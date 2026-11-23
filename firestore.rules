@@ -558,10 +558,12 @@ service cloud.firestore {
     function metasGestor(esc) { return hasRole(['DONO']) || (hasRole(['GERENTE']) && me().lojaId == esc); }
     function metasAc() { return get(/databases/$(database)/documents/metasAcesso/$(request.auth.uid)).data; }
     function metasFunc(esc) { return signed() && exists(/databases/$(database)/documents/metasAcesso/$(request.auth.uid)) && metasAc().escopo == esc; }
+    // gerente que entra no app pelo CPF: vê a equipe da loja dele (só leitura)
+    function metasGerFunc(esc) { return metasFunc(esc) && esc != 'nexum' && get(/databases/$(database)/documents/metasPessoas/$(esc + '_' + metasAc().cpf)).data.get('cargo', '') == 'GERENTE'; }
     match /metasAcesso/{uid} { allow read: if signed() && request.auth.uid == uid; allow write: if false; }
     match /metasTentativas/{id} { allow read, write: if false; }
     match /metasPessoas/{id} {
-      allow read: if (signed() && resource.data.get('uid', '') == request.auth.uid) || metasGestor(resource.data.escopo);
+      allow read: if (signed() && resource.data.get('uid', '') == request.auth.uid) || metasGestor(resource.data.escopo) || metasGerFunc(resource.data.escopo);
       allow create: if metasGestor(request.resource.data.escopo) && id == request.resource.data.escopo + '_' + request.resource.data.cpf;
       allow update: if metasGestor(resource.data.escopo) && request.resource.data.escopo == resource.data.escopo && request.resource.data.cpf == resource.data.cpf
                     && request.resource.data.get('uid', '') == resource.data.get('uid', '');
@@ -573,7 +575,7 @@ service cloud.firestore {
       allow update: if metasGestor(resource.data.escopo) && request.resource.data.escopo == resource.data.escopo;
     }
     match /metasLanc/{id} {
-      allow read: if (metasFunc(resource.data.escopo) && resource.data.cpf == metasAc().cpf) || metasGestor(resource.data.escopo);
+      allow read: if (metasFunc(resource.data.escopo) && resource.data.cpf == metasAc().cpf) || metasGestor(resource.data.escopo) || metasGerFunc(resource.data.escopo);
       allow create: if (metasFunc(request.resource.data.escopo) && request.resource.data.cpf == metasAc().cpf && request.resource.data.porUid == request.auth.uid)
                     || metasGestor(request.resource.data.escopo);
       allow delete: if metasGestor(resource.data.escopo) || (metasFunc(resource.data.escopo) && resource.data.porUid == request.auth.uid);
