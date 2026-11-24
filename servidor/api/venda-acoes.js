@@ -3,7 +3,7 @@
 //      dono, financeiro e suporte: cancelam qualquer venda em aberto
 //      vendedor (venda dele) e gerente (venda da loja): só antes de ativar e sem entrada recebida; senão vai para o suporte
 //   {acao:'cadastro', cpf, campos:{telefone, telefone2, email, cep, endereco, bairro, cidade, uf}, atendimentoId?}   · dono, financeiro e suporte
-//   {acao:'liberar20', vendaId, atendimentoId?}  · libera o aparelho por 20 minutos para o cliente pagar (1 vez a cada 24 h por aparelho)
+//   {acao:'liberar20', vendaId, atendimentoId?}  · libera o aparelho por 20 minutos para o cliente pagar (até 2 vezes por parcela)
 import { db, cors, exigirEquipe, asaas } from './_base.js';
 
 const EQUIPE = ['DONO', 'FINANCEIRO', 'SUPORTE'];
@@ -74,11 +74,16 @@ async function liberar20(b, eu) {
   if (ap.status === 'QUITADO' || ap.quitado) throw erro('Contrato quitado: o aparelho já está livre');
   if (ap.roubo && !ap.roubo.liberadoEm) throw erro('Aparelho com roubo ou perda comunicado: só o suporte libera', 409, { suporte: true });
   if (ap.modo === 'TRAVAR') throw erro('Bloqueado manualmente pela equipe: só o suporte libera', 409, { suporte: true });
-  if (+ap.lib20Em && agora - ap.lib20Em < 24 * 3600e3) throw erro(`Já foi liberado por 20 minutos às ${new Date(ap.lib20Em - 3 * 3600e3).toISOString().slice(11, 16)}. Uma nova liberação é com o suporte.`, 409, { suporte: true });
+  // até 2 liberações de 20 min por parcela (a parcela em aberto mais antiga)
+  const hj = new Date(agora - 3 * 3600e3).toISOString().slice(0, 10), abertas = (ap.parcelas || v.parcelas || []).filter((p) => !p.pago).sort((x, y) => String(x.venc).localeCompare(String(y.venc)));
+  const parc = abertas[0]; if (!parc) throw erro('Não há parcela em aberto: o aparelho não deveria estar travado. Fale com o suporte.', 409, { suporte: true });
+  const usos = { ...(ap.lib20Parcelas || {}) }, ja = +usos[parc.n] || 0;
+  if (ja >= 2) throw erro(`A parcela ${parc.n} já teve as 2 liberações de 20 minutos. Uma nova liberação é com o suporte.`, 409, { suporte: true });
+  usos[parc.n] = ja + 1;
   const ate = Math.max(+ap.liberadoAte || 0, agora + 20 * 60e3);
-  await ref.set({ liberadoAte: ate, lib20Em: agora, modoPor: eu.nome + ' (chat, 20 min para pagar)', modoMotivo: 'Liberação de 20 minutos para o cliente pagar' }, { merge: true });
-  await log(eu, 'Liberação de 20 min para pagar (chat)', v.aparelhoToken, `nº ${v.numero} · ${v.clienteNome || ''}`);
-  return { ok: true, ate };
+  await ref.set({ liberadoAte: ate, lib20Em: agora, lib20Parcelas: usos, modoPor: eu.nome + ' (chat, 20 min para pagar)', modoMotivo: `Liberação de 20 minutos para pagar a parcela ${parc.n} (${usos[parc.n]}ª de 2)` }, { merge: true });
+  await log(eu, 'Liberação de 20 min para pagar (chat)', v.aparelhoToken, `nº ${v.numero} · ${v.clienteNome || ''} · parcela ${parc.n}${parc.venc < hj ? ' (atrasada)' : ''} · ${usos[parc.n]}ª de 2`);
+  return { ok: true, ate, parcela: parc.n, usadas: usos[parc.n], restam: 2 - usos[parc.n] };
 }
 
 export default async function handler(req, res) {
