@@ -11984,6 +11984,108 @@ document.head.insertAdjacentHTML('beforeend',`<style id="at-v7">
 .m.atendente .at-doc,.m.user .at-doc{color:#0F172A}
 </style>`);
 
+
+/* ======================= ATENDIMENTO v8 (nov/2026): o menu do chat resolve de verdade =======================
+   Faturas e Valor para quitar: link de pagamento do cliente · Aparelho bloqueado: libera 20 min para pagar
+   Situação da proposta: mostra recusa, análise ou aprovação pelo CPF · 2ª via: PDF do contrato + recibos e atrasadas
+   Renegociar: total com desconto + link · Cancelar venda: o assistente cancela quando pode; senão chama o suporte
+   Alterações cadastrais: pelo app do cliente ou com o suporte · sai "Minha comissão" (já está no app Minhas Metas) */
+{ const k=MENU_AT.findIndex(x=>x.id==='comissao'); if(k>=0) MENU_AT.splice(k,1); }
+MENU_AT.forEach(x=>{ x.t=x.t.replace(/^[^\p{L}\p{N}]+/u,''); });
+const linkPagar=tk=>urlCliente().replace(/\/?$/,'/')+'?pagar='+encodeURIComponent(tk);
+const docPagar=(v,titulo,sub)=>({tipo:'pagar',numero:v.numero,cliente:v.clienteNome||'',url:linkPagar(v.aparelhoToken),titulo:titulo||`Pagar · contrato nº ${v.numero}`,sub:sub||'PIX na hora, sem senha. O celular libera sozinho.'});
+async function atBotDoc(t,botoes,doc,extra={}){ await atSalvar({msgs:[...(CH.doc.msgs||[]),{...atMsg('bot',t,botoes),...(doc?{doc}:{})}],...extra}); }
+const resumoParcelas=v=>{ const ps=v.parcelas||[], pg=ps.filter(p=>p.pago), ab=ps.filter(p=>!p.pago), at=ab.map(p=>({p,e:encargos(p,S.cfg)})).filter(x=>x.e.dias);
+  return {pg,ab,at,totAtr:r2(at.reduce((s,x)=>s+x.e.total,0))}; };
+const BT_ZAP={id:'doc_zap',t:'Enviar ao cliente pelo WhatsApp'}, BT_OK={id:'resolvido',t:'Resolvido'};
+
+/* situação da proposta: acha também as recusadas e as em análise */
+{ const _bu8=atBuscar; atBuscar=async function(passo,t){
+  if(passo!=='proposta') return _bu8(passo,t);
+  const dig=onlyDig(t); if(!dig) return atBot('Me passe só os números do CPF (11 dígitos) ou o número da proposta.',VOLTAR);
+  let vs=[]; try{ vs=(await loadVendas()).filter(v=>v.status!=='RASCUNHO'&&(dig.length===11?onlyDig(v.clienteCpf)===dig:String(v.numero)===dig)); }catch(e){}
+  if(!vs.length) return atBot(`Não encontrei proposta ${dig.length===11?'para o CPF '+fmtCpf(dig):'nº '+dig} nas suas vendas. Confira e mande de novo.`,VOLTAR);
+  vs.sort((a,b)=>(+b.criadoEm||0)-(+a.criadoEm||0));
+  if(vs.length>1&&dig.length!==11) return atBot('Encontrei mais de uma. Qual delas?',[...vs.slice(0,6).map(v=>({id:`ct:proposta:${v.id}`,t:`Nº ${v.numero} · ${v.status}`})),...VOLTAR]);
+  return atContrato('proposta',vs[0].id);
+}; }
+{ const _pr8=atProposta; atProposta=async function(v){
+  const quando=v.analisadoEm||v.reprovadoEm||v.aprovadoEm;
+  if(v.status==='REPROVADA') return atBot(`Proposta nº ${v.numero} · ${v.clienteNome}: **recusada**${quando?` em ${fmtDT(quando)}`:''}.\nMotivo: ${v.motivoReprovacao||'não informado pela análise'}.\n\nO cliente pode tentar de novo em 30 dias. Se achar que foi engano (ex.: renda ou documento errado), fale com o suporte.`,[BT_OK,{id:'atendente_ja',t:'Contestar com o suporte'},...VOLTAR]);
+  if(v.status==='ANALISE') return atBot(`Proposta nº ${v.numero} · ${v.clienteNome}: **em análise** desde ${fmtDT(v.criadoEm||Date.now())}.\nA resposta sai em poucos minutos no horário de atendimento e aparece em Vendas.`,[BT_OK,{id:'atendente_ja',t:'Está demorando'},...VOLTAR]);
+  if(v.status==='APROVADA') return atBot(`Proposta nº ${v.numero} · ${v.clienteNome}: **aprovada**${quando?` em ${fmtDT(quando)}`:''}${v.limiteAprovado||v.limite?`, até ${brl(v.limiteAprovado||v.limite)}`:''}.\nPróximo passo: em Vendas, abra a proposta e escolha o aparelho.`,[BT_OK,...VOLTAR]);
+  return _pr8(v);
+}; }
+
+/* ações depois de achar o contrato */
+{ const _ac8=atContrato; atContrato=async function(passo,vid){
+  if(!['faturas','quitacao','acordo','contrato','cadastro','cancelar'].includes(passo)) return _ac8(passo,vid);
+  const v=await DB.get('vendas',vid); if(!v) return atBot('Contrato não encontrado.',VOLTAR);
+  const tel=(v.cliente?.telefones||[])[0]||onlyDig(v.cliente?.tel||'');
+  await atSalvar({contrato:{vendaId:v.id,numero:v.numero,cliente:v.clienteNome,cpf:v.clienteCpf,aparelhoToken:v.aparelhoToken||'',tel,status:v.status}});
+  const zap=tel?[BT_ZAP]:[], ativo=v.status==='ATIVA'&&v.aparelhoToken, r=resumoParcelas(v);
+  if(passo==='faturas'){ if(!ativo) return _ac8(passo,vid); const {txt}=textoFaturas(v);
+    return atBotDoc(txt.replace(/\n\nPagar pelo PIX:[\s\S]*$/,'')+'\n\nMande o link abaixo para o cliente: ele paga pelo PIX na hora, sem senha.',[...zap,BT_OK,...VOLTAR],docPagar(v),{fluxo:{passo:'faturas_ok'}}); }
+  if(passo==='quitacao'){ if(!ativo) return atBot(`O contrato nº ${v.numero} não está ativo (${v.status}).`,VOLTAR); const q=calcQuitacao(v);
+    return atBotDoc(`Contrato nº ${v.numero} · ${v.clienteNome}\nValor para quitar hoje: **${brl(q.total)}**${q.desconto>0?` (já com ${brl(q.desconto)} de desconto dos juros das parcelas que ainda não venceram)`:''}\nParcelas em aberto: ${r.ab.length}${r.at.length?` · ${r.at.length} em atraso`:''}.\n\nNo link, o cliente toca em "Quitar o contrato" e paga pelo PIX. Pagando, a trava sai sozinha.`,[...zap,BT_OK,...VOLTAR],docPagar(v,`Quitar · ${brl(q.total)}`,`Contrato nº ${v.numero} · PIX na hora`)); }
+  if(passo==='acordo'){ if(!ativo) return atBot(`O contrato nº ${v.numero} não está ativo (${v.status}).`,VOLTAR); const q=calcQuitacao(v);
+    if(!r.at.length) return atBotDoc(`O contrato nº ${v.numero} não tem parcela em atraso. Para quitar tudo hoje: **${brl(q.total)}**${q.desconto>0?` (desconto de ${brl(q.desconto)})`:''}.`,[...zap,BT_OK,...VOLTAR],docPagar(v));
+    return atBotDoc(`Renegociação · contrato nº ${v.numero} · ${v.clienteNome}\nEm atraso hoje: **${brl(r.totAtr)}** (${r.at.length} parcela(s), com multa e juros).\nPara quitar o contrato inteiro hoje: **${brl(q.total)}**${q.desconto>0?`, com ${brl(q.desconto)} de desconto`:''}.\n\nPelo link, o cliente paga o atraso no PIX ou toca em "Pedir acordo do atraso" e escolhe em quantas vezes. Se ele propôs outra condição, me conte que eu passo para o suporte.`,[...zap,{id:'acordo_prop',t:'O cliente propôs outra condição'},BT_OK,...VOLTAR],docPagar(v,`Renegociar · ${brl(r.totAtr)} em atraso`,'Pagar o atraso ou pedir acordo pelo PIX')); }
+  if(passo==='contrato'){ await _ac8(passo,vid); if(!v.aparelhoToken) return;
+    const lin=[...r.pg.slice(-6).map(p=>`• Parcela ${p.n} paga em ${fmtD(p.pagoEm)} · ${brl(p.valorPago??p.valor)}`),...r.at.map(x=>`• Parcela ${x.p.n} ATRASADA (venceu ${fmtD(x.p.venc)}) · ${brl(x.e.total)} hoje`)];
+    return atBotDoc(`Pagas: ${r.pg.length} de ${(v.parcelas||[]).length}${r.at.length?` · em atraso: ${r.at.length}`:''}\n${lin.join('\n')||'Nenhuma parcela paga ainda.'}\n\nOs recibos de cada parcela paga ficam no link abaixo (toque em "Pagas" e depois em Recibo).`,[...zap,BT_OK,...VOLTAR],docPagar(v,`Recibos e parcelas · nº ${v.numero}`,'Recibos das pagas e PIX das atrasadas')); }
+  if(passo==='cadastro') return atBot(`Contrato nº ${v.numero} · ${v.clienteNome}.\nO próprio cliente pode atualizar telefone e endereço no app ${MARCA} (foto do perfil → Atualizar telefone ou endereço). Se preferir, diga o que muda que o suporte altera o cadastro.`,[{id:'cad:Telefone',t:'Telefone'},{id:'cad:Endereço',t:'Endereço'},{id:'cad:E-mail',t:'E-mail'},{id:'cad:Outro dado',t:'Outro dado'},...VOLTAR],{fluxo:{passo:'cad_campo'}});
+  if(passo==='cancelar'){ if(['CANCELADA','QUITADA','REPROVADA'].includes(v.status)) return atBot(`A venda nº ${v.numero} já está ${String(v.status).toLowerCase()}.`,VOLTAR);
+    const auto=['ANALISE','APROVADA','AGUARDANDO_ENTRADA','INSTALANDO'].includes(v.status)&&!(+v.entradaPaga?.valor);
+    return atBot(`Venda nº ${v.numero} · ${v.clienteNome} (${v.status==='ATIVA'?'ativa':String(v.status).toLowerCase().replace('_',' ')}).\n${auto?'Eu mesmo cancelo agora: o aparelho volta para o estoque e o contrato é anulado.':'Esta venda já tem '+(v.status==='ATIVA'?'contrato ativo e trava instalada':'entrada recebida')+': eu passo para o suporte, que confere a devolução e cancela.'}\n\nQual o motivo do cancelamento?`,VOLTAR,{fluxo:{passo:'motivo',tipo:'cancelar',vendaId:v.id,auto}}); }
+}; }
+
+/* cancelamento: o assistente tenta pelo servidor; se não puder, vai para o suporte */
+{ const _mo8=atMotivo; atMotivo=async function(t){
+  const f=CH.doc.fluxo||{}, c=CH.doc.contrato||{};
+  if(f.tipo!=='cancelar'||!f.vendaId) return _mo8(t);
+  if(!f.auto) return atHumano(`Cancelamento · contrato nº ${c.numero} · ${c.cliente}: ${t}`,{tipo:'CANCELAMENTO',vendaId:f.vendaId});
+  CH.dig=true; atRender();
+  try{ const r=await apiServ('venda-acoes',{acao:'cancelar',vendaId:f.vendaId,motivo:t,atendimentoId:CH.doc.id}); CH.dig=false;
+    return atBot(`Pronto: a venda nº ${r.numero||c.numero} foi cancelada.${r.estoque?`\nO aparelho (IMEI ${r.estoque}) voltou para o estoque da loja.`:''}${r.apagadas?`\n${r.apagadas} cobrança(s) foram apagadas.`:''}`,[BT_OK,...VOLTAR],{fluxo:{}}); }
+  catch(e){ CH.dig=false; return atHumano(`Cancelamento · contrato nº ${c.numero} · ${c.cliente}: ${t} (o assistente não conseguiu: ${e.message})`,{tipo:'CANCELAMENTO',vendaId:f.vendaId}); }
+}; }
+
+/* aparelho bloqueado: liberar 20 min para pagar + link */
+{ const _bl8=atBloqueado; atBloqueado=async function(v){
+  const r=await _bl8(v); const ms=CH.doc.msgs||[], ult=ms[ms.length-1];
+  if(ult?.botoes?.some(b=>b.id==='lib:pagou')&&v.aparelhoToken&&v.status==='ATIVA'){
+    ult.botoes=[{id:'lib20',t:'Liberar 20 min para o cliente pagar'},...ult.botoes.filter(b=>b.id!=='enviar_cliente'),...((v.cliente?.telefones||[])[0]?[BT_ZAP]:[])];
+    ult.doc=docPagar(v,`Pagar e liberar · nº ${v.numero}`,'O celular libera sozinho até 1 min depois do PIX');
+    await atSalvar({msgs:ms}); }
+  return r; }; }
+{ const _bt8=atBotao; atBotao=async function(id,rotulo){
+  const d=CH.doc, c=d?.contrato||{};
+  if(id==='lib20'&&d){ await atUser('Liberar 20 min para o cliente pagar'); CH.dig=true; atRender();
+    try{ const r=await apiServ('venda-acoes',{acao:'liberar20',vendaId:c.vendaId,atendimentoId:d.id}); CH.dig=false; const v=await DB.get('vendas',c.vendaId);
+      return atBotDoc(`Liberado por 20 minutos, até ${new Date(r.ate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.\nPeça ao cliente para ligar a internet e pagar pelo link abaixo. Quando o PIX cai, o celular fica liberado de vez.\nSe ele não pagar, o aparelho volta a travar sozinho.`,[...(c.tel?[BT_ZAP]:[]),BT_OK,...VOLTAR],v?.aparelhoToken?docPagar(v):null); }
+    catch(e){ CH.dig=false; return atBot(`Não consegui liberar: ${e.message}`,[{id:'lib:24h',t:'Pedir liberação ao suporte'},...VOLTAR]); } }
+  if(id==='doc_zap'&&d){ const doc=[...(d.msgs||[])].reverse().find(m=>m.doc?.url)?.doc; if(!doc) return; const tel=onlyDig(c.tel||''), n=tel.startsWith('55')?tel:'55'+tel;
+    const txt=doc.tipo==='contrato'?`Olá, ${primeiroNome(c.cliente||'')}! Aqui está a cópia do seu contrato nº ${doc.numero} da ${MARCA}. Abra e toque em Salvar como PDF: ${doc.url}`
+      :`Olá, ${primeiroNome(c.cliente||'')}! Aqui está o link para pagar o seu contrato nº ${doc.numero} da ${MARCA} pelo PIX, sem senha. O celular libera sozinho até 1 minuto depois do pagamento: ${doc.url}`;
+    window.open(`https://wa.me/${n}?text=${encodeURIComponent(txt)}`,'_blank','noopener');
+    await atUser('Enviar ao cliente pelo WhatsApp'); return atBot('Abri o WhatsApp com a mensagem e o link já escritos. É só tocar em Enviar.',[BT_OK,...VOLTAR]); }
+  if(id==='acordo_prop'&&d){ await atUser('O cliente propôs outra condição'); return atBot('Qual condição o cliente propõe? (ex.: “R$ 200 hoje e o resto em 3x”)',VOLTAR,{fluxo:{...(d.fluxo||{}),passo:'motivo',tipo:'acordo'}}); }
+  return _bt8(id,rotulo);
+}; }
+/* cartão do link (contrato em PDF ou pagamento) com título próprio */
+{ const _px8=pintarExtras6; pintarExtras6=function(c,d){ _px8(c,d);
+  const bolhas=[...c.querySelectorAll(':scope > .m')].filter(x=>!x.classList.contains('at-dg'));
+  (d.msgs||[]).forEach((m,k)=>{ if(!m.doc?.titulo) return; const a=bolhas[k]?.querySelector('.at-doc'); if(!a||a.dataset.t8) return; a.dataset.t8=1;
+    a.querySelector('b').textContent=m.doc.titulo; a.querySelector('span span').textContent=m.doc.sub||''; if(m.doc.tipo==='pagar'){ a.classList.add('pix'); a.querySelector('.at-doc-i small').textContent='PIX'; } }); }; }
+document.head.insertAdjacentHTML('beforeend','<style id="at-v8">.at-doc.pix .at-doc-i{background:#DCFCE7;color:#15803D}</style>');
+/* modo demonstração */
+{ const _ss8=simServ; simServ=async function(rota,d){ if(rota!=='venda-acoes') return _ss8(rota,d);
+  const v=await DB.get('vendas',d.vendaId);
+  if(d.acao==='liberar20'){ if(v?.aparelhoToken) await DB.set('aparelhos',v.aparelhoToken,{liberadoAte:Date.now()+20*60e3,lib20Em:Date.now()}); return {ok:true,ate:Date.now()+20*60e3}; }
+  if(d.acao==='cancelar'){ await DB.set('vendas',d.vendaId,{status:'CANCELADA',canceladoEm:Date.now(),motivoCancelamento:d.motivo}); return {ok:true,numero:v?.numero}; }
+  return {ok:true}; }; }
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
