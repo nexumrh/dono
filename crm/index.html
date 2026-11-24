@@ -584,7 +584,9 @@ function desenharNav() {
   $$('[data-fila]', el).forEach(x => x.onclick = () => { C.f.fila = x.dataset.fila; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
   $$('[data-canal]', el).forEach(x => x.onclick = () => { C.f.canal = x.dataset.canal; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
   $('#nv-meus').onclick = () => { C.f.meus = !C.f.meus; C.view = 'inbox'; salvarF(); desenhar(); };
-  if (EMBUTIDO) $('#nv-sair').remove(); else $('#nv-sair').onclick = async () => { if (APP_NOME !== 'crm' && !confirm('Sair do CRM? Você também sai do portal neste navegador.')) return; C.un.forEach(u => { try { u(); } catch (e) { } }); C.un = []; await F.au.signOut(F.auth); };
+  if (EMBUTIDO) $('#nv-sair').remove(); else $('#nv-sair').onclick = async () => { C.un.forEach(u => { try { u(); } catch (e) { } }); C.un = [];
+    if (APP_NOME !== 'crm') { const url = new URL(location.href); url.searchParams.delete('app'); return location.replace(url.href); } // aberto pelo portal: sai só do CRM, o portal continua
+    await F.au.signOut(F.auth); };
 }
 function desenhar() {
   if (!C.me || !$('#app')) return; desenharNav(); const app = $('#app');
@@ -2979,7 +2981,15 @@ function restaurarTreino() { try { const x = JSON.parse(sessionStorage.getItem('
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
   try { await fbInit(); } catch (e) { $('#root').innerHTML = '<div class="vazio">Sem conexão com o servidor. Confira a internet e recarregue.</div>'; return; }
-  F.au.onAuthStateChanged(F.auth, u => { if (u) entrou(u).catch(e => telaLogin('Erro ao entrar: ' + (e.code || e.message))); else { C.me = null; telaLogin(); } });
+  // Aberto pelo portal (?app=...): usa o login do portal só enquanto for a MESMA pessoa. Se o login do portal cair ou mudar
+  // de conta (outra pessoa entrou no portal neste navegador), o CRM vira independente, com login próprio desta aba,
+  // em vez de cair junto ou de derrubar o portal ao entrar com outra conta.
+  const soltar = () => { const url = new URL(location.href); url.searchParams.delete('app'); url.searchParams.delete('embed'); location.replace(url.href); };
+  let uidPortal = null;
+  F.au.onAuthStateChanged(F.auth, u => {
+    if (APP_NOME !== 'crm' && !EMBUTIDO) { if (!u || (uidPortal && u.uid !== uidPortal)) { C.un.forEach(f => { try { f(); } catch (e) { } }); C.un = []; return soltar(); } uidPortal = u.uid; }
+    if (u) entrou(u).catch(e => telaLogin('Erro ao entrar: ' + (e.code || e.message)));
+    else { C.un.forEach(f => { try { f(); } catch (e) { } }); C.un = []; C.me = null; telaLogin(); } });
   setInterval(() => { if (C.me) { desenharNav(); } }, 60e3);
 })();
 </script>
