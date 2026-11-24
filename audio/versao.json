@@ -744,15 +744,7 @@
   "texto": "Em Alertas de fraude o CRM avisa sozinho quando vê sinais de golpe: o mesmo telefone ligado a vários CPFs, muitas propostas num só dia, ou mensagens pedindo pagamento em conta de outra pessoa. Nunca mude telefone, e-mail ou titular sem conferir a identidade, e nunca informe dados de um cliente para outra pessoa."
  },
  "crm-5-6": {
-  "h": "5c288483a4",
-  "texto": "Por fim, o Treinamento prático. São conversas simuladas, em que a IA faz o papel do cliente: cliente bravo com o celular travado, idosa que não sabe pagar, cliente em espanhol, ameaça de Procon, golpe tentando trocar o titular, celular roubado, renegociação e outros. Para liberar o atendimento, você precisa passar em seis conversas com nota sete ou mais, incluindo as obrigatórias da sua função."
- },
- "crm-5-7": {
-  "h": "b3bcd7fe36",
-  "texto": "Na simulação, responda como se fosse um cliente de verdade. Para usar uma ferramenta, escreva entre colchetes, por exemplo: mandei o link do PIX. Quando resolver, toque em Finalizar e ver nota. A IA mostra os pontos fortes, o que melhorar e qual seria a resposta ideal."
- },
- "crm-5-8": {
-  "h": "acc19318bc",
-  "texto": "Parabéns! Você terminou o curso do CRM. Agora faça o teste final. Depois, pratique as conversas simuladas para liberar o seu atendimento."
+  "h": "37e514ac1d",
+  "texto": "Parabéns! Você terminou o curso do CRM. Agora faça o teste final: passando nele, o seu atendimento no CRM é liberado."
  }
 }
