@@ -609,7 +609,7 @@ service cloud.firestore {
     match /crmQualidade/{id} { allow read: if crmEquipe(); allow write: if false; }
     match /crmNotas/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // arquivo mandado no atendimento: abre pelo link (id secreto), ninguém lista
-    match /crmArquivos/{id} { allow get: if true; allow list: if false; allow create: if crmEquipe() && request.resource.data.data.size() < 1000000; allow update, delete: if hasRole(['DONO']); }
+    match /crmArquivos/{id} { allow get: if true; allow list: if false; allow create: if (crmEquipe() || (staff() && request.resource.data.uid == request.auth.uid && request.resource.data.origem == 'portal')) && request.resource.data.data is string && request.resource.data.data.size() < 1000000; allow update, delete: if hasRole(['DONO']); }
     match /waConversas/{num} {
       allow read, write: if crmEquipe();
       match /msgs/{mid} { allow read, create: if crmEquipe(); }

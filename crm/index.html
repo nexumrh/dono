@@ -2343,6 +2343,155 @@ const FBX=()=>typeof F!=='undefined'&&F?.db&&C.me?{m:F.m,db:F.db}:null;
   try { f.q = ''; f.meus = false; f.prio = false; f.etapa = 'abertos'; const a = lista(); f.etapa = 'fim'; base = [...a, ...lista()]; } catch (e) { base = sv; } finally { Object.assign(f, g); }
   C.itens = base; try { return _m(); } finally { C.itens = sv; } }; }
 document.head.insertAdjacentHTML('beforeend', '<style id="crm-fix-topo">.lst-h h2{flex-wrap:wrap;row-gap:8px}.lst-h h2 .btn.sm{white-space:nowrap}</style>');
+
+/* ===================== CRM v6 (nov/2026) =====================
+   fotos e arquivos do chat dos portais · anexo com foto reduzida · guia ilustrado da trava USB
+   trava do aparelho na ficha: liberar 24 h / 48 h, bloquear e voltar ao automático, seguindo as regras · rolagem que não pula */
+Object.assign(ICN, { cadeado: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', aberto: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-1"/>', usb: '<path d="M12 2v14M8 6l4-4 4 4M7 12v2a5 5 0 0 0 10 0v-2M12 21v1"/>' });
+const TXT_USB_CRM = 'Trava pelo cabo USB (quando o QR não funciona ou aparece "app bloqueado para proteger o dispositivo"):\n1. Restaure o celular de fábrica. Na configuração, pule o Wi-Fi e não coloque conta Google.\n2. Em Configurações → Sobre o telefone, toque 7 vezes em "Número da versão".\n3. Em Opções do desenvolvedor, ligue a Depuração USB.\n4. Na venda (passo Trava → Pelo cabo USB), baixe o instalador no computador e dê dois cliques. Ligue o cabo e toque em Permitir (marque "Sempre permitir").\n5. Espere aparecer PRONTO. Tire o cabo, conecte o Wi-Fi e abra o app NexumCell uma vez.\nXiaomi, Redmi e POCO: pelo USB não funciona, use o QR code.';
+
+/* 1) mensagens do portal com foto, arquivo e guia */
+{ const _cm = carregarMsgs; carregarMsgs = async function (i) {
+  if (i.canal !== 'portal') return _cm(i);
+  const r = i.raw; return pintarMsgs((r.msgs || []).map(m => ({ t: m.t, em: m.em, nos: m.de === 'atendente', de: m.de, quem: m.de === 'user' ? (m.por || i.nome) : m.de === 'bot' ? 'Assistente' : (m.por || 'NexumCell'), auto: m.auto, arquivo: m.arquivo || null, guia: m.guia || '' })));
+}; }
+{ const _bo6 = bolha; bolha = function (m) { const h = _bo6(m); return m.guia === 'usb' ? h.replace(/<div class="h">/, `<div class="gu-tag">${I('usb')}Guia ilustrado da trava pelo USB (5 imagens)</div><div class="h">`) : h; }; }
+
+/* 2) anexo: foto reduzida (até ~1 MB) e o portal recebe o arquivo junto da mensagem */
+async function reduzirFotoCrm(f, max = 1280, q = .8) {
+  const img = await new Promise((ok, er) => { const x = new Image(); x.onload = () => ok(x); x.onerror = er; x.src = URL.createObjectURL(f); });
+  const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src); let d = c.toDataURL('image/jpeg', q);
+  for (let t = 0; t < 5 && d.length > 880000; t++) { q -= .1; d = c.toDataURL('image/jpeg', Math.max(.4, q)); } return d;
+}
+anexar = async function (i, f) {
+  if (!f) return; const img = /^image\//.test(f.type);
+  if (!img && f.size > 900000) return toast('Arquivo grande demais (máx. 900 KB). Mande uma foto ou um PDF menor.', true);
+  try {
+    const data = img ? await reduzirFotoCrm(f) : await new Promise((ok, er) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = er; r.readAsDataURL(f); });
+    const nome = img ? (f.name.replace(/\.[^.]+$/, '') || 'foto') + '.jpg' : f.name, tipo = img ? 'image/jpeg' : f.type;
+    const id = await DB.add('crmArquivos', { nome, tipo, data, em: Date.now(), por: C.me.nome, key: i.key });
+    const url = new URL('arquivo.html?id=' + id, location.href).href;
+    await enviar(i, $('#tTxt').value.trim(), { id, nome, url, tipo }); $('#tTxt').value = ''; toast(img ? 'Foto enviada' : 'Arquivo enviado');
+  } catch (e) { toast('Não foi possível enviar: ' + e.message, true); }
+};
+{ const _en6 = enviar; enviar = async function (i, texto, arquivo, extra) {
+  if (i.canal !== 'portal' || (!arquivo && !extra)) return _en6(i, texto, arquivo);
+  const t = (texto ?? $('#tTxt')?.value ?? '').trim(), agora = Date.now(), quem = C.me.nome;
+  const a = await DB.get('atendimentos', i.id);
+  await DB.set('atendimentos', i.id, { msgs: [...(a.msgs || []), { de: 'atendente', t: (t || (arquivo ? (/^image\//.test(arquivo.tipo) ? 'Foto' : 'Arquivo: ' + arquivo.nome) : '')).slice(0, 3000), em: agora, por: quem, ...(arquivo ? { arquivo } : {}), ...(extra || {}) }],
+    naoLidoUser: true, naoLidoSuporte: false, atendente: quem, atualizadoEm: agora, ...(a.status === 'BOT' ? { status: 'HUMANO' } : {}) });
+  if ($('#tTxt') && texto === undefined) { $('#tTxt').value = ''; $('#tTxt').style.height = 'auto'; }
+  if (!i.resp) atribuir(i, C.equipe.some(u => u.id === C.me.uid) ? C.me.uid : '');
+}; }
+
+/* 3) guia ilustrado da trava pelo USB (portal: imagens; outros canais: texto + link) */
+async function enviarGuiaUsb(i) {
+  if (i.canal === 'portal') { await enviar(i, TXT_USB_CRM, null, { guia: 'usb' }); return toast('Guia ilustrado enviado'); }
+  await enviar(i, TXT_USB_CRM + '\n\nPasso a passo com imagens: ' + AJUDA_URL + '#trava-usb'); toast('Passo a passo enviado');
+}
+{ const _cp6 = compositor; compositor = function (i) { _cp6(i); const mais = $('#cp .cp-mais'); if (!mais || $('#tUsb', mais)) return;
+  mais.insertAdjacentHTML('beforeend', `<button class="ferr" id="tUsb" title="Mandar o passo a passo com imagens da trava pelo cabo USB">${I('usb')}Guia trava USB</button>`);
+  $('#tUsb').onclick = () => enviarGuiaUsb(i); }; }
+
+/* 4) rolagem: se o atendente está lendo mensagens antigas, a conversa não pula para baixo */
+let _rol6 = { key: '', perto: true, top: 0 };
+{ const _pm6 = pintarMsgs; pintarMsgs = function (ms) {
+  const el = $('#ch-b'), mesmo = _rol6.key === C.sel, perto = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 90, top = el?.scrollTop || 0;
+  _pm6(ms); const e2 = $('#ch-b'); if (!e2) return;
+  if (mesmo && !perto) { e2.scrollTop = top; if (!$('#chNovas')) { const b = document.createElement('button'); b.id = 'chNovas'; b.className = 'btn sm'; b.textContent = 'Novas mensagens'; b.onclick = () => { e2.scrollTo({ top: e2.scrollHeight, behavior: 'smooth' }); b.remove(); }; e2.parentElement.style.position = e2.parentElement.style.position || 'relative'; e2.parentElement.appendChild(b); } }
+  else { e2.scrollTop = e2.scrollHeight; $('#chNovas')?.remove(); }
+  _rol6.key = C.sel;
+  if (!e2.dataset.rol6) { e2.dataset.rol6 = 1; e2.addEventListener('scroll', () => { if (e2.scrollHeight - e2.scrollTop - e2.clientHeight < 90) $('#chNovas')?.remove(); }, { passive: true }); }
+}; }
+
+/* 5) trava do aparelho na ficha */
+const TRV = { regras: () => ({ libMaxHoras: +(RQ_RAW.libMaxHoras) || 48, libJanelaDias: +(RQ_RAW.libJanelaDias) || 30 }) };
+const podeTrava = () => dono() || ['SUPORTE', 'FINANCEIRO'].includes(C.me?.role);
+async function contratosDaConversa(i) {
+  const r = i.raw, q = i.canal === 'portal' ? (r.contrato?.vendaId ? { vendaId: r.contrato.vendaId } : r.contrato?.aparelhoToken ? { token: r.contrato.aparelhoToken } : null)
+    : i.canal === 'app' || i.canal === 'liberacao' ? { token: i.token || r.token || i.id } : i.canal === 'pedido' ? { vendaId: r.vendaId, token: r.token }
+    : i.canal === 'wa' ? { tel: i.tel } : r.cpf ? { cpf: r.cpf } : i.tel ? { tel: i.tel } : null;
+  const extra = i._trvBusca; if (!q && !extra) return [];
+  const vs = extra ? extra : ((await acharCliente(q).catch(() => ({ vs: [] }))).vs || []);
+  return vs.filter(v => v.aparelhoToken && ['ATIVA', 'QUITADA', 'RETOMADA'].includes(v.status)).slice(0, 4);
+}
+function situacaoTrava(ap, v) {
+  const agora = Date.now(), tol = +ap.toleranciaDias || 0, h = new Date(agora - 3 * 3600e3).toISOString().slice(0, 10);
+  const atr = (v.parcelas || []).filter(p => !p.pago && p.venc < h).map(p => Math.round((new Date(h) - new Date(p.venc)) / 864e5));
+  const dias = atr.length ? Math.max(...atr) : 0, roubo = ap.roubo && !ap.roubo.liberadoEm;
+  const lib = +ap.liberadoAte > agora ? ap.liberadoAte : 0;
+  const estado = ap.status === 'QUITADO' || ap.quitado ? ['Quitado: sem trava', 'ok'] : ap.modo === 'TRAVAR' ? ['Bloqueado manualmente', 'bad'] : ap.modo === 'LIBERAR' ? ['Liberado manualmente (sem prazo)', 'ok'] : lib ? [`Liberado até ${fdt(lib)}`, 'ok'] : roubo ? ['Travado: roubo ou perda comunicado', 'bad'] : dias > tol ? [`Automático: ${dias} dia(s) de atraso`, 'warn'] : ['Automático: em dia', 'ok'];
+  return { dias, tol, roubo, lib, estado, podeBloquear: roubo || dias > tol };
+}
+async function secTrava(i) {
+  if (!podeTrava()) return '';
+  const vs = await contratosDaConversa(i);
+  const busca = `<div class="trv-b"><input class="inp" id="trvQ" placeholder="CPF ou nº do contrato" inputmode="numeric"><button class="btn sec sm" id="trvQb">Buscar</button></div>`;
+  if (!vs.length) return `<div class="pf-sec" id="trvSec"><h4>Trava do aparelho</h4><p class="hint" style="margin:0 0 8px">Nenhum contrato ligado a esta conversa.</p>${busca}</div>`;
+  const aps = await Promise.all(vs.map(v => DB.get('aparelhos', v.aparelhoToken).catch(() => null)));
+  return `<div class="pf-sec" id="trvSec"><h4>Trava do aparelho</h4>${vs.map((v, k) => { const ap = aps[k]; if (!ap) return ''; const s = situacaoTrava(ap, v), fim = ap.status === 'QUITADO' || ap.quitado;
+    return `<div class="trv"><div class="trv-t"><b>Nº ${esc(String(v.numero))} · ${esc((v.aparelho?.marca || '') + ' ' + (v.aparelho?.modelo || ''))}</b><span class="trv-st ${s.estado[1]}">${esc(s.estado[0])}</span>
+      ${ap.modoPor ? `<small class="hint">Última ação: ${esc(ap.modoPor)}${ap.modoMotivo ? ' · ' + esc(ap.modoMotivo) : ''}</small>` : ''}${ap.checkin?.em ? `<small class="hint">Último sinal do celular: ${fdt(ap.checkin.em)}</small>` : ''}</div>
+      ${fim ? '' : `<div class="trv-a"><button class="btn sm" data-trv="lib:24" data-tk="${esc(v.aparelhoToken)}" data-vid="${esc(v.id)}">${I('aberto')}Liberar 24 h</button><button class="btn sm" data-trv="lib:48" data-tk="${esc(v.aparelhoToken)}" data-vid="${esc(v.id)}">${I('aberto')}Liberar 48 h</button>
+        <button class="btn sm sec" data-trv="bloq" data-tk="${esc(v.aparelhoToken)}" data-vid="${esc(v.id)}" ${s.podeBloquear || dono() ? '' : 'disabled title="Só com parcela atrasada além da tolerância ou roubo comunicado"'}>${I('cadeado')}Bloquear agora</button>
+        ${ap.modo !== 'AUTO' || s.lib ? `<button class="btn sm sec" data-trv="auto" data-tk="${esc(v.aparelhoToken)}" data-vid="${esc(v.id)}">Voltar ao automático</button>` : ''}${dono() && ap.modo !== 'LIBERAR' ? `<button class="btn sm sec" data-trv="libera" data-tk="${esc(v.aparelhoToken)}" data-vid="${esc(v.id)}">Liberar sem prazo</button>` : ''}</div>`}</div>`; }).join('')}
+    <p class="hint" style="margin:6px 0 0">Regras: o suporte libera até ${TRV.regras().libMaxHoras} h, uma vez a cada ${TRV.regras().libJanelaDias} dias por aparelho; acima disso vai para aprovação do dono. Bloquear só com atraso além da tolerância ou roubo.</p></div>`;
+}
+async function acaoTrava(i, acao, tk, vid) {
+  const [ap, v] = await Promise.all([DB.get('aparelhos', tk), DB.get('vendas', vid)]); if (!ap || !v) return toast('Contrato ou aparelho não encontrado', true);
+  const s = situacaoTrava(ap, v), R = TRV.regras(), h = acao.startsWith('lib:') ? +acao.slice(4) : 0;
+  const recente = +ap.ultimaLib24h && Date.now() - ap.ultimaLib24h < R.libJanelaDias * 864e5;
+  const precisaAprov = h && !dono() && (h > R.libMaxHoras || recente);
+  const tit = h ? `Liberar por ${h} horas` : acao === 'bloq' ? 'Bloquear o aparelho agora' : acao === 'auto' ? 'Voltar ao automático' : 'Liberar sem prazo';
+  const aviso = precisaAprov ? `<div class="trv-av">${recente ? `Este aparelho já foi liberado em ${fdt(ap.ultimaLib24h)}. ` : ''}Pela regra, esta liberação vai para <b>aprovação do dono</b>. Ele aprova em Aprovações no painel.</div>`
+    : acao === 'bloq' && !s.podeBloquear ? '<div class="trv-av">O contrato não tem atraso além da tolerância nem roubo comunicado. Só o dono pode bloquear assim.</div>' : '';
+  const msgPad = h ? `Seu aparelho foi liberado por ${h} horas, até ${fdt(Date.now() + h * 3600e3)}. Para não travar de novo, pague a parcela em atraso pelo app NexumCell.` : acao === 'bloq' ? 'O aparelho do contrato foi bloqueado por falta de pagamento. Ele libera sozinho minutos depois do pagamento pelo app NexumCell.' : '';
+  const m = modal(tit, `<p class="hint" style="margin:0 0 8px">Contrato nº ${esc(String(v.numero))} · ${esc(v.clienteNome || '')} · ${esc(s.estado[0])}</p>${aviso}
+    <label class="small" style="font-weight:600">Motivo (fica registrado)<input class="inp" id="trvM" maxlength="160" placeholder="Ex.: cliente pagou e o banco ainda não compensou"></label>
+    ${msgPad && i.canal !== 'pedido' ? `<label class="small" style="font-weight:600;display:block;margin-top:8px"><input type="checkbox" id="trvAv" checked> Avisar nesta conversa</label><textarea class="inp" id="trvTx" rows="3" style="margin-top:6px">${esc(msgPad)}</textarea>` : ''}`,
+    `<button class="btn sec" data-x>Cancelar</button><button class="btn" id="trvOk">${precisaAprov ? 'Pedir aprovação' : 'Confirmar'}</button>`);
+  $('[data-x]', m).onclick = fechar;
+  $('#trvOk', m).onclick = async e => {
+    const motivo = $('#trvM').value.trim(); if (motivo.length < 4) return toast('Escreva o motivo', true);
+    if (acao === 'bloq' && !s.podeBloquear && !dono()) return toast('Sem atraso além da tolerância: só o dono pode bloquear', true);
+    e.currentTarget.disabled = true; const por = C.me.nome, agora = Date.now();
+    try {
+      if (precisaAprov) {
+        await DB.add('aprovacoes', { tipo: 'LIB24H', alvo: tk, dados: { motivo, horas: h }, resumo: `Liberação ${h} h · contrato nº ${v.numero} · ${v.clienteNome || ''} · ${motivo}`, status: 'PENDENTE', solicitanteUid: C.me.uid, solicitanteNome: por, solicitantePerfil: C.me.role || 'SUPORTE', lojaId: v.lojaId || '', criadoEm: agora });
+      } else {
+        const d = h ? { modo: 'AUTO', liberadoAte: agora + h * 3600e3, ultimaLib24h: agora } : acao === 'bloq' ? { modo: 'TRAVAR', liberadoAte: 0 } : acao === 'auto' ? { modo: 'AUTO', liberadoAte: 0 } : { modo: 'LIBERAR', liberadoAte: 0 };
+        await DB.set('aparelhos', tk, { ...d, modoPor: por + ' (CRM)', modoMotivo: motivo, modoEm: agora });
+      }
+      await DB.add('logs', { em: agora, uid: C.me.uid, nome: por, role: C.me.role || '', acao: precisaAprov ? `Pediu aprovação: ${tit}` : `${tit} (CRM)`, alvo: tk, detalhe: `nº ${v.numero} · ${motivo}` }).catch(() => { });
+      await DB.add('crmNotas', { key: i.key, t: `${precisaAprov ? 'Pediu aprovação para ' : ''}${tit.toLowerCase()} · contrato nº ${v.numero} · ${motivo}`, em: agora, por, uid: C.me.uid }).catch(() => { });
+      if (!precisaAprov && $('#trvAv')?.checked && $('#trvTx').value.trim()) await enviar(i, $('#trvTx').value.trim());
+      fechar(); toast(precisaAprov ? 'Pedido enviado ao dono' : h ? `Liberado por ${h} h` : acao === 'bloq' ? 'Aparelho bloqueado: trava em até 1 minuto' : 'Feito');
+      if (C.sel === i.key) atualizarTrava(i);
+    } catch (er) { e.currentTarget.disabled = false; toast('Não foi possível: ' + er.message, true); }
+  };
+}
+async function atualizarTrava(i) {
+  const el = $('#pf'); if (!el || C.sel !== i.key) return; const h = await secTrava(i); if (C.sel !== i.key) return;
+  const old = $('#trvSec', el); if (old) old.outerHTML = h || ''; else if (h) { const ref = el.querySelector('.pf-sec:nth-of-type(2)'); (ref || el.lastElementChild)?.insertAdjacentHTML('afterend', h); }
+  const sec = $('#trvSec', el); if (!sec) return;
+  $$('[data-trv]', sec).forEach(b => b.onclick = () => acaoTrava(i, b.dataset.trv, b.dataset.tk, b.dataset.vid));
+  const qb = $('#trvQb', sec); if (qb) qb.onclick = async () => { const d = soD($('#trvQ').value); if (d.length < 3) return toast('Digite o CPF ou o número do contrato', true);
+    const vs = d.length === 11 ? await DB.list('vendas', [['clienteCpf', '==', d]]).catch(() => []) : await DB.list('vendas', [['numero', '==', +d]]).catch(() => []);
+    if (!vs.length) return toast('Nenhum contrato encontrado', true); i._trvBusca = vs; atualizarTrava(i); };
+}
+{ const _fi6 = ficha; ficha = async function (i) { const r = await _fi6(i); try { await atualizarTrava(i); } catch (e) { console.warn('trava na ficha', e); } return r; }; }
+
+document.head.insertAdjacentHTML('beforeend', `<style id="crm-v6">
+.gu-tag{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border-radius:9px;background:rgba(255,255,255,.18);font-size:12px;font-weight:700}.m:not(.nos) .gu-tag{background:#EEF4FF;color:#1D4ED8}.gu-tag .i{width:14px;height:14px}
+#chNovas{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;z-index:5;box-shadow:0 8px 20px -8px rgba(15,23,42,.4)}
+.trv{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}.trv-t b{display:block;font-size:13px}.trv-t small{display:block;margin-top:3px}
+.trv-st{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px}.trv-st.ok{background:var(--ok-s);color:var(--ok)}.trv-st.warn{background:var(--warn-s);color:var(--warn)}.trv-st.bad{background:var(--bad-s);color:var(--bad)}
+.trv-a{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.trv-a .btn{flex:1 1 auto}.trv-a .i{width:14px;height:14px}
+.trv-b{display:flex;gap:6px}.trv-b .inp{flex:1;min-width:0}
+.trv-av{background:var(--warn-s);color:#7A4A00;border-radius:10px;padding:9px 11px;font-size:12.5px;margin:0 0 10px}
+</style>`);
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
