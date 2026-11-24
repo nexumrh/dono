@@ -103,7 +103,7 @@ async function ia(req, b) {
   let j = {};
   try {
     const ex = await exemplosBons(), art = await artigosTexto().catch(() => '');
-    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) + (art ? '\n\n' + art : '') + (ex ? '\n\n' + ex : '') }, ...hist], { temperatura: 0.2, max: 600, json: true });
+    const t = await groq([{ role: 'system', content: PROMPT(a, eu, { orientacoes: String(crm.iaOrientacoes || '').slice(0, 2500) }) + '\n\nCÓDIGO 999: é o código genérico (o sistema não reconheceu a mensagem). Nunca diga só que é "erro inesperado". Se a mensagem do usuário tiver [Detalhe do sistema: ... mensagem "..." ...], diagnostique pela mensagem original e pela tela citada e dê os passos para resolver. Se não tiver, peça um print da tela e o que a pessoa estava fazendo.' + (art ? '\n\n' + art : '') + (ex ? '\n\n' + ex : '') }, ...hist], { temperatura: 0.2, max: 600, json: true });
     j = JSON.parse(t);
   } catch (e) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join('\n\n'), atendente: false, codigos: cods, fonte: 'catalogo' };
