@@ -3531,7 +3531,7 @@ async function decidirApv(id,r,btn){
   try{
     if(r==='APROVADA'){
       if(x.tipo==='LIBERAR_APARELHO') await DB.set('aparelhos',x.alvo,{modo:'LIBERAR',modoPor:x.solicitanteNome+' (aprovado por '+S.me.nome+')',modoEm:Date.now(),modoMotivo:x.dados.motivo});
-      if(x.tipo==='LIB24H') await DB.set('aparelhos',x.alvo,{modo:'AUTO',liberadoAte:Date.now()+86400000,ultimaLib24h:Date.now(),modoPor:x.solicitanteNome+' (aprovado por '+S.me.nome+')',modoMotivo:x.dados.motivo});
+      if(x.tipo==='LIB24H') await DB.set('aparelhos',x.alvo,{modo:'AUTO',liberadoAte:Date.now()+(+x.dados?.horas||24)*3600000,ultimaLib24h:Date.now(),modoPor:x.solicitanteNome+' (aprovado por '+S.me.nome+')',modoMotivo:x.dados.motivo});
       if(x.tipo==='DESCONTO_BAIXA'){ const v=await DB.get('vendas',x.alvo), i=x.dados.i;
         if(v.parcelas[i].pago) throw new Error('A parcela já foi paga.');
         v.parcelas[i]={...v.parcelas[i],pago:true,pagoEm:x.dados.data,valorPago:x.dados.valor,forma:x.dados.forma,obs:(x.dados.obs?x.dados.obs+' · ':'')+'desconto aprovado por '+S.me.nome,por:x.solicitanteNome,baixadoEm:Date.now()};
@@ -11714,9 +11714,8 @@ const esperandoAt = d => d && d.status === 'HUMANO' && !(d.msgs || []).some(m =>
   if (!cods.length || !d || d.status === 'CONCLUIDO' || CH.dig || BUSCA_AT.includes(passo) || ['motivo', 'cad_valor'].includes(passo)) return _env();
   ta.value = ''; await atUser(t);
   // a assistente responde o passo a passo na hora e já chama um atendente humano para acompanhar
-  const bot = d.status === 'BOT', txt = cods.slice(0, 2).map(resolucaoAt).join('\n\n') + (bot ? '\n\nJá vou chamar um atendente para acompanhar com você. Enquanto isso, siga os passos acima.' : '\n\nO atendente também já recebeu o código e continua por aqui.');
-  await atSalvar({ msgs: [...(CH.doc.msgs || []), atMsg('bot', txt)], codigos: [...new Set([...(d.codigos || []), ...cods])], ...(d.categoria ? {} : { categoria: 'Erro ' + cods[0] }), ...(bot ? {} : { naoLidoSuporte: true }) });
-  if (bot) await atHumano(`Erro ${cods.join(', ')} · ${ERROS_NX[cods[0]].t}: "${t.slice(0, 160)}" (a assistente já mandou o passo a passo)`, { tipo: 'ERRO', codigos: cods });
+  const bot = d.status === 'BOT', txt = cods.slice(0, 2).map(resolucaoAt).join('\n\n') + (bot ? '\n\nSiga os passos acima e me diga se resolveu.' : '\n\nO atendente também já recebeu o código e continua por aqui.');
+  await atSalvar({ msgs: [...(CH.doc.msgs || []), atMsg('bot', txt, bot ? [{ id: 'resolvido', t: 'Resolveu' }, { id: 'atendente', t: 'Ainda não resolveu' }, ...VOLTAR] : undefined)], ...(bot ? { fluxo: { ...(d.fluxo || {}), passo: 'ia', ia: 1 } } : {}), codigos: [...new Set([...(d.codigos || []), ...cods])], ...(d.categoria ? {} : { categoria: 'Erro ' + cods[0] }), ...(bot ? {} : { naoLidoSuporte: true }) });
 }; }
 
 // 2) IA no servidor
@@ -11811,6 +11810,148 @@ function atSinais(){
 setInterval(()=>{ if($('#atP')?.classList.contains('on')) try{ atSinais(); }catch(e){} },3000);
 let _atDigT=0; document.addEventListener('input',e=>{ if(e.target?.id!=='atT') return; const d=CH.doc; if(!d||d.status!=='HUMANO'||Date.now()-_atDigT<4000) return; _atDigT=Date.now(); DB.set('atendimentos',d.id,{digitandoUser:Date.now()}).catch(()=>{}); });
 document.head.insertAdjacentHTML('beforeend','<style>.at-vs{font-size:11px;color:#667085;text-align:right;margin:2px 10px 6px}</style>');
+
+/* ======================= ATENDIMENTO v6 (nov/2026) =======================
+   - anexar foto ou PDF no chat (a foto é reduzida antes de enviar) e ver as fotos do atendente na conversa
+   - a conversa não pula para baixo enquanto a pessoa lê mensagens antigas (aparece "Novas mensagens")
+   - pedir atendente: a assistente tenta resolver primeiro; só chama a equipe se a pessoa insistir ou se não resolveu
+   - guia ilustrado da trava pelo cabo USB, que a assistente e o atendente mandam no chat */
+const AT_IC_CLIP='<path d="M21.4 11.1 12.2 20.3a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>';
+const AT_ARQ={}; // cache das fotos já baixadas
+const urlArquivoCRM=id=>new URL('../dono/crm/arquivo.html?id='+encodeURIComponent(id),location.href).href;
+const URL_VIDEO_USB=new URL('../vendedor/nexumcell-instalacao-usb-completo.mp4?v=2',location.href).href;
+async function reduzirFoto(f,max=1280,q=.78){
+  const img=await new Promise((ok,er)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=er; i.src=URL.createObjectURL(f); });
+  const k=Math.min(1,max/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(img.src);
+  let d=c.toDataURL('image/jpeg',q); for(let t=0;t<5&&d.length>880000;t++){ q-=.1; d=c.toDataURL('image/jpeg',Math.max(.4,q)); } return d;
+}
+async function atAnexar(f){
+  const d=CH.doc; if(!f||!d||d.status==='CONCLUIDO') return;
+  const img=/^image\//.test(f.type), pdf=f.type==='application/pdf';
+  if(!img&&!pdf) return toast('Mande uma foto ou um PDF','err');
+  if(pdf&&f.size>900000) return toast('PDF grande demais (máximo 900 KB). Mande uma foto da tela ou um PDF menor.','err');
+  const b=$('#atClip'); b?.classList.add('env');
+  try{
+    const data=img?await reduzirFoto(f):await new Promise((ok,er)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=er; r.readAsDataURL(f); });
+    if(data.length>950000) throw new Error('Arquivo grande demais mesmo depois de reduzir');
+    const nome=img?(f.name.replace(/\.[^.]+$/,'')||'foto')+'.jpg':f.name, tipo=img?'image/jpeg':f.type;
+    const id=await DB.add('crmArquivos',{nome,tipo,data,em:Date.now(),por:S.me.nome,uid:S.me.uid,origem:'portal',key:'portal:'+d.id});
+    AT_ARQ[id]=data;
+    const msg={...atMsg('user',img?'Foto enviada':'Arquivo: '+nome),arquivo:{id,nome,tipo,url:urlArquivoCRM(id)}};
+    await atSalvar({msgs:[...(CH.doc.msgs||[]),msg],...(CH.doc.status==='HUMANO'?{naoLidoSuporte:true}:{})});
+    if(CH.doc.status==='BOT'){ const f2=CH.doc.fluxo||{};
+      if(f2.passo==='motivo'||/LIBERACAO/.test(f2.tipo||'')) return;
+      await atBot(img?'Recebi a foto. Me conte em uma frase o que ela mostra ou o que você precisa (ex.: “erro ao ler o QR”, “comprovante do cliente”) que eu já te ajudo.':'Recebi o arquivo. Me conte em uma frase o que você precisa com ele que eu já te ajudo.',VOLTAR,{fluxo:{...f2,passo:'ia'}}); }
+  }catch(e){ toast('Não foi possível enviar: '+(e.message||e),'err'); }
+  finally{ b?.classList.remove('env'); }
+}
+
+/* guia ilustrado da trava pelo USB */
+const GUIA_USB=[
+ ['Restaure de fábrica','Restaure o celular de fábrica. Na configuração, pule o Wi-Fi e não coloque conta Google.',
+  `<rect x="112" y="14" width="96" height="172" rx="16" fill="#0A1733"/><rect x="118" y="26" width="84" height="148" rx="10" fill="#fff"/><text x="160" y="62" font-size="15" font-weight="800" text-anchor="middle" fill="#0A1733">Olá</text><rect x="132" y="76" width="56" height="8" rx="4" fill="#E2E8F0"/><rect x="132" y="92" width="56" height="8" rx="4" fill="#E2E8F0"/><circle cx="160" cy="134" r="18" fill="#FEE2E2"/><text x="160" y="140" font-size="17" font-weight="800" text-anchor="middle" fill="#B42318">G</text><path d="M146 120 174 148" stroke="#DC2626" stroke-width="4" stroke-linecap="round"/><rect x="226" y="70" width="80" height="26" rx="13" fill="#FEE2E2"/><text x="266" y="88" font-size="11" font-weight="700" text-anchor="middle" fill="#991B1B">sem Google</text><rect x="14" y="70" width="84" height="26" rx="13" fill="#DBEAFE"/><text x="56" y="88" font-size="11" font-weight="700" text-anchor="middle" fill="#1E40AF">pular Wi-Fi</text>`],
+ ['Ative o modo desenvolvedor','Em Configurações → Sobre o telefone, toque 7 vezes em “Número da versão”.',
+  `<rect x="112" y="14" width="96" height="172" rx="16" fill="#0A1733"/><rect x="118" y="26" width="84" height="148" rx="10" fill="#fff"/><text x="126" y="46" font-size="9.5" font-weight="800" fill="#0A1733">Sobre o telefone</text><rect x="126" y="56" width="68" height="16" rx="4" fill="#F1F5F9"/><rect x="126" y="78" width="68" height="16" rx="4" fill="#F1F5F9"/><rect x="124" y="100" width="72" height="24" rx="6" fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/><text x="160" y="116" font-size="8.5" font-weight="700" text-anchor="middle" fill="#1E3A8A">Número da versão</text><rect x="126" y="132" width="68" height="16" rx="4" fill="#F1F5F9"/><circle cx="214" cy="112" r="20" fill="#2563EB"/><text x="214" y="118" font-size="16" font-weight="800" text-anchor="middle" fill="#fff">7x</text><path d="M232 104c14-6 26-2 34 8" stroke="#94A3B8" stroke-width="2" fill="none" stroke-dasharray="3 4"/>`],
+ ['Ligue a Depuração USB','Volte, abra “Opções do desenvolvedor” e ligue a Depuração USB.',
+  `<rect x="112" y="14" width="96" height="172" rx="16" fill="#0A1733"/><rect x="118" y="26" width="84" height="148" rx="10" fill="#fff"/><text x="124" y="46" font-size="8.5" font-weight="800" fill="#0A1733">Opções do desenvolvedor</text><rect x="124" y="58" width="72" height="16" rx="4" fill="#F1F5F9"/><rect x="122" y="84" width="76" height="30" rx="7" fill="#ECFDF3" stroke="#16A34A" stroke-width="2"/><text x="128" y="103" font-size="8.5" font-weight="700" fill="#14532D">Depuração USB</text><rect x="176" y="92" width="18" height="11" rx="5.5" fill="#16A34A"/><circle cx="188.5" cy="97.5" r="4" fill="#fff"/><rect x="124" y="124" width="72" height="16" rx="4" fill="#F1F5F9"/><rect x="226" y="86" width="74" height="26" rx="13" fill="#DCFCE7"/><text x="263" y="104" font-size="11" font-weight="700" text-anchor="middle" fill="#166534">ligado</text>`],
+ ['Ligue no computador','Na venda (passo Trava → Pelo cabo USB), baixe o instalador e dê dois cliques. Ligue o cabo e toque em Permitir (marque “Sempre permitir”).',
+  `<rect x="20" y="40" width="150" height="96" rx="8" fill="#0A1733"/><rect x="28" y="48" width="134" height="80" rx="4" fill="#E0EAFF"/><text x="95" y="84" font-size="10" font-weight="800" text-anchor="middle" fill="#1E3A8A">Instalador</text><text x="95" y="100" font-size="9" text-anchor="middle" fill="#334155">NexumCell</text><path d="M8 140h174l-10 12H18z" fill="#334155"/><path d="M170 120c40 0 30 40 66 40" stroke="#475569" stroke-width="4" fill="none"/><rect x="226" y="18" width="80" height="168" rx="14" fill="#0A1733"/><rect x="232" y="30" width="68" height="144" rx="9" fill="#fff"/><rect x="236" y="70" width="60" height="62" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/><text x="266" y="86" font-size="7" font-weight="700" text-anchor="middle" fill="#0F172A">Permitir</text><text x="266" y="96" font-size="7" text-anchor="middle" fill="#0F172A">depuração USB?</text><rect x="242" y="108" width="48" height="16" rx="5" fill="#2563EB"/><text x="266" y="119.5" font-size="7.5" font-weight="800" text-anchor="middle" fill="#fff">Permitir</text>`],
+ ['Espere o PRONTO','Espere aparecer PRONTO no computador (a venda também fica verde). Tire o cabo, conecte o Wi-Fi e abra o app NexumCell uma vez.',
+  `<rect x="60" y="30" width="200" height="120" rx="10" fill="#0A1733"/><rect x="70" y="40" width="180" height="100" rx="6" fill="#F0FDF4"/><circle cx="160" cy="80" r="24" fill="#16A34A"/><path d="m148 80 8 8 16-16" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="160" y="124" font-size="16" font-weight="800" text-anchor="middle" fill="#14532D">PRONTO</text><path d="M44 154h232l-14 14H58z" fill="#334155"/>`],
+];
+const svgGuia=c=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" rx="18" fill="#F3F6FC"/>${c}</svg>`);
+const TXT_USB='**Trava pelo cabo USB, passo a passo com imagens** (use quando o QR não funciona ou aparece “app bloqueado para proteger o dispositivo”):\n'+GUIA_USB.map((g,k)=>`${k+1}. ${g[1]}`).join('\n')+'\n\nXiaomi, Redmi e POCO: pelo USB não funciona. Use o QR code (restaure e toque 6 vezes na tela de boas-vindas).';
+function htmlGuiaUsb(){
+  return `<div class="gu"><div class="gu-l">${GUIA_USB.map((g,k)=>`<button type="button" class="gu-c" data-gu="${k}"><img src="${svgGuia(g[2])}" alt="Passo ${k+1}"><b>${k+1}. ${esc(g[0])}</b><span>${esc(g[1])}</span></button>`).join('')}</div>
+    <div class="gu-a"><a href="${URL_VIDEO_USB}" target="_blank" rel="noopener">Ver o vídeo da instalação</a><span>Arraste para o lado para ver os 5 passos</span></div></div>`;
+}
+async function atGuiaUsb(){
+  const d=CH.doc; if(!d) return;
+  await atSalvar({msgs:[...(CH.doc.msgs||[]),{...atMsg('bot',TXT_USB,[{id:'resolvido',t:'Resolveu'},{id:'trava_erro',t:'Deu erro no instalador'},...VOLTAR]),guia:'usb'}],...(d.categoria?{}:{categoria:'Instalação da trava'}),fluxo:{passo:'trava_usb'}});
+}
+document.addEventListener('click',e=>{ const g=e.target.closest?.('[data-gu]'); if(!g) return; const k=+g.dataset.gu, x=GUIA_USB[k];
+  const ov=document.createElement('div'); ov.className='gu-ov'; ov.innerHTML=`<div class="gu-big"><img src="${svgGuia(x[2])}" alt=""><b>Passo ${k+1} de ${GUIA_USB.length} · ${esc(x[0])}</b><p>${esc(x[1])}</p><div><button type="button" data-guv="${k-1}" ${k?'':'disabled'}>Anterior</button><button type="button" data-guv="${k+1}" ${k<GUIA_USB.length-1?'':'disabled'}>Próximo</button><button type="button" data-gux>Fechar</button></div></div>`;
+  ov.addEventListener('click',ev=>{ if(ev.target===ov||ev.target.closest('[data-gux]')) ov.remove(); const v=ev.target.closest('[data-guv]'); if(v){ ov.remove(); document.querySelector(`[data-gu="${v.dataset.guv}"]`)?.click(); } });
+  document.body.appendChild(ov); });
+
+/* a assistente tenta resolver antes de chamar a equipe */
+const RX_PEDE_AT=/(falar|chamar|quero|preciso|cade|cadê|me passa|passa).{0,20}(atendente|humano|pessoa|alguem|suporte|gente de verdade)|^\s*(atendente|humano|suporte)\s*[!?.]*$/;
+const RX_USB=/\b(usb|cabo|computador|notebook|pc)\b.*\b(trava|instal)|\b(trava|instal).*\b(usb|cabo|computador)\b|app (foi )?bloqueado|proteger (o|seu) dispositivo/;
+{ const _env6=atEnviar; atEnviar=async function(){
+  const ta=$('#atT'), t=(ta?.value||'').trim(), d=CH.doc; if(!t||!d||d.status!=='BOT'||CH.dig) return _env6();
+  const f=d.fluxo||{}; if(BUSCA_AT.includes(f.passo)||['motivo','cad_valor'].includes(f.passo)) return _env6();
+  const sem=t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  if(RX_USB.test(sem)){ ta.value=''; await atUser(t); return atGuiaUsb(); }
+  if(!RX_PEDE_AT.test(sem)) return _env6();
+  ta.value=''; await atUser(t);
+  const tentou=(f.ia||0)>=2||f.pediuAt>=1||f.tentou;
+  if(tentou) return atHumano('Pediu um atendente depois de tentar com a assistente.'+(f.ultimoAssunto?' Assunto: '+f.ultimoAssunto:''));
+  return atBot('Posso resolver agora mesmo, quase sempre é mais rápido do que esperar a fila. Me diga em uma frase o que aconteceu (ou mande uma foto da tela pelo clipe), ou escolha o assunto:',[...MENU_AT,{id:'atendente_ja',t:'Já tentei, quero um atendente'}],{fluxo:{...f,passo:'ia',pediuAt:1}});
+}; }
+{ const _bt6=atBotao; atBotao=async function(id,rotulo){
+  const d=CH.doc; if(!d||d.status!=='BOT') return _bt6(id,rotulo);
+  const f=d.fluxo||{};
+  if(id==='guia_usb'){ await atUser(String(rotulo||'Instalar pelo cabo USB').replace(/^\W+\s*/,'')); return atGuiaUsb(); }
+  if(id==='atendente_ja'){ await atUser('Já tentei, quero um atendente'); return atHumano('Pediu um atendente (já tinha tentado com a assistente).'+(f.ultimoAssunto?' Assunto: '+f.ultimoAssunto:'')); }
+  if(id==='atendente'&&!f.tentou&&!f.pediuAt){ await atUser(String(rotulo||'Não resolveu').replace(/^\W+\s*/,''));
+    return atBot('Vamos tentar mais uma vez antes de passar para a equipe. Me conte o que aparece na tela agora, a marca e o modelo do celular, ou mande uma foto pelo clipe.',[{id:'atendente_ja',t:'Prefiro falar com um atendente'},...VOLTAR],{fluxo:{...f,passo:'ia',tentou:1}}); }
+  if(id==='trava'){ const r=await _bt6(id,rotulo); const ult=CH.doc.msgs?.[CH.doc.msgs.length-1]; if(ult?.botoes&&!ult.botoes.some(b=>b.id==='guia_usb')){ ult.botoes.splice(1,0,{id:'guia_usb',t:'Instalar pelo cabo USB'}); await atSalvar({msgs:CH.doc.msgs}); } return r; }
+  return _bt6(id,rotulo);
+}; }
+
+/* rolagem: não puxa para baixo enquanto a pessoa lê mensagens antigas */
+const ROL={lendo:false,n:0,id:''};
+function rolInfo(){ const c=$('#atC'); return c?{c,perto:c.scrollHeight-c.scrollTop-c.clientHeight<90,top:c.scrollTop}:null; }
+{ const _rd6=atRender; atRender=async function(...a){
+  const antes=rolInfo(), mesmo=CH.doc&&ROL.id===CH.doc.id, n0=ROL.n, lendo=antes&&mesmo&&!antes.perto;
+  const r=await _rd6(...a); const c=$('#atC'), d=CH.doc;
+  if(c&&CH.tela==='chat'&&d){
+    const n=(d.msgs||[]).length;
+    if(lendo){ c.scrollTop=antes.top; if(n>n0) mostrarNovas(); } else { c.scrollTop=c.scrollHeight; $('#atNovas')?.remove(); }
+    ROL.n=n; ROL.id=d.id;
+    if(!c.dataset.rol){ c.dataset.rol=1; c.addEventListener('scroll',()=>{ if(c.scrollHeight-c.scrollTop-c.clientHeight<90) $('#atNovas')?.remove(); },{passive:true}); }
+    pintarExtras6(c,d);
+  }
+  return r; }; }
+{ const _sn=atSinais; atSinais=function(){ const antes=rolInfo(); _sn(); const c=$('#atC'); if(c&&antes&&!antes.perto) c.scrollTop=antes.top; }; }
+function mostrarNovas(){ if($('#atNovas')||!$('#atP')) return; const b=document.createElement('button'); b.id='atNovas'; b.type='button'; b.textContent='Novas mensagens';
+  b.onclick=()=>{ const c=$('#atC'); if(c) c.scrollTo({top:c.scrollHeight,behavior:'smooth'}); b.remove(); }; $('#atP').insertBefore(b,$('#atIn')); }
+
+/* fotos, arquivos e guia dentro das bolhas; botões sem emoji */
+function pintarExtras6(c,d){
+  const bolhas=[...c.querySelectorAll(':scope > .m')].filter(x=>!x.classList.contains('at-dg'));
+  (d.msgs||[]).forEach((m,k)=>{ const el=bolhas[k]?.querySelector('.bb'); if(!el||el.dataset.ex) return; el.dataset.ex=1;
+    if(m.arquivo?.id){ const a=m.arquivo, img=/^image\//.test(a.tipo||'');
+      el.insertAdjacentHTML('beforeend',img?`<a class="at-ft" href="${esc(a.url||urlArquivoCRM(a.id))}" target="_blank" rel="noopener"><img data-arqid="${esc(a.id)}" alt="${esc(a.nome||'foto')}"></a>`:`<a class="at-ax" href="${esc(a.url||urlArquivoCRM(a.id))}" target="_blank" rel="noopener">${svg(AT_IC_CLIP)}${esc(a.nome||'arquivo')}</a>`);
+      if(img) carregarFoto(a.id,el.querySelector('img')); }
+    if(m.guia==='usb') el.insertAdjacentHTML('beforeend',htmlGuiaUsb()); });
+  c.querySelectorAll('.ops button').forEach(b=>{ const t=b.textContent.replace(/^[^\p{L}\p{N}★]+/u,'').replace(/^↩\s*/,''); if(t!==b.textContent) b.textContent=t; });
+}
+async function carregarFoto(id,img){ if(!img) return; try{ if(!AT_ARQ[id]){ const a=await DB.get('crmArquivos',id); AT_ARQ[id]=a?.data||''; } if(AT_ARQ[id]) img.src=AT_ARQ[id]; else img.closest('a').textContent='Abrir foto'; }catch(e){ img.closest('a').textContent='Abrir foto'; } }
+
+/* clipe na caixa de mensagem */
+function ligarClipe(){ const inp=$('#atIn'); if(!inp||$('#atClip')) return;
+  inp.insertAdjacentHTML('afterbegin',`<label id="atClip" class="at-clip" title="Mandar foto ou PDF" aria-label="Mandar foto ou PDF">${svg(AT_IC_CLIP)}<input type="file" accept="image/*,application/pdf" hidden></label>`);
+  $('#atClip input').onchange=e=>{ const f=e.target.files?.[0]; e.target.value=''; atAnexar(f); }; }
+new MutationObserver(()=>ligarClipe()).observe(document.body,{childList:true,subtree:true});
+document.addEventListener('paste',e=>{ if(e.target?.id!=='atT') return; const f=[...(e.clipboardData?.files||[])].find(x=>/^image\//.test(x.type)); if(f){ e.preventDefault(); atAnexar(f); } });
+
+document.head.insertAdjacentHTML('beforeend',`<style id="at-v6">
+#atIn{align-items:flex-end}.at-clip{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#475569;cursor:pointer;margin-right:4px}.at-clip:hover{background:#EEF2F8;color:#1D4ED8}.at-clip svg{width:20px;height:20px}
+.at-clip.env{pointer-events:none;opacity:.5;animation:atPisca 1s infinite}@keyframes atPisca{50%{opacity:.2}}
+#atIn.off .at-clip{display:none}
+.at-ft{display:block;margin-top:6px}.at-ft img{max-width:220px;max-height:240px;border-radius:10px;display:block;background:#EEF2F8;min-height:60px;min-width:80px;object-fit:cover}
+.at-ax{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.7);border:1px solid #D5DCEA;color:#1D4ED8;font-weight:600;font-size:12.5px;text-decoration:none}.at-ax svg{width:15px;height:15px}
+#atNovas{position:relative;align-self:center;margin:-46px auto 8px;z-index:3;border:0;border-radius:99px;background:#1D4ED8;color:#fff;font-weight:700;font-size:12.5px;padding:8px 14px;box-shadow:0 8px 20px -8px rgba(29,78,216,.7);cursor:pointer;display:block}
+.gu{margin-top:10px}.gu-l{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.gu-c{flex:0 0 188px;scroll-snap-align:start;border:1px solid #D5DCEA;background:#fff;border-radius:12px;padding:6px;text-align:left;cursor:pointer;font:inherit;color:#0F172A}
+.gu-c img{width:100%;border-radius:8px;display:block}.gu-c b{display:block;font-size:12.5px;margin:6px 2px 2px}.gu-c span{display:block;font-size:11.5px;color:#475569;margin:0 2px 2px;line-height:1.35}
+.gu-a{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11.5px;color:#64748B;margin-top:4px}.gu-a a{color:#1D4ED8;font-weight:700}
+.gu-ov{position:fixed;inset:0;z-index:10050;background:rgba(10,23,51,.6);display:grid;place-items:center;padding:16px}.gu-big{background:#fff;border-radius:18px;padding:14px;width:min(560px,100%)}.gu-big img{width:100%;border-radius:12px;display:block}
+.gu-big b{display:block;margin:10px 2px 4px;font-size:15px}.gu-big p{margin:0 2px 12px;color:#334155;font-size:14px;line-height:1.5}.gu-big div{display:flex;gap:8px;justify-content:flex-end}
+.gu-big button{border:1px solid #D5DCEA;background:#fff;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer}.gu-big button:last-child{background:#0A1733;color:#fff;border-color:#0A1733}.gu-big button:disabled{opacity:.4}
+</style>`);
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
