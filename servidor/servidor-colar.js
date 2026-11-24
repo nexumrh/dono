@@ -3488,13 +3488,17 @@ async function fichaDe({ cpf, token, numero }) {
     return `Contrato n\xBA ${v.numero} (${v.status}) \xB7 ${[v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(" ")} \xB7 loja ${v.lojaNome || ""}. ${ab.length} parcela(s) em aberto${ab[0] ? `, a pr\xF3xima \xE9 a ${ab[0].n}\xAA de ${brl5(ab[0].valor)} com vencimento em ${fmtD(ab[0].venc)}` : ""}. ` + (atr.length ? `${atr.length} em atraso, total ${brl5(atr.reduce((s, p) => s + (+p.valor || 0), 0))} (desde ${fmtD(atr[0].venc)}).` : "Sem atraso.");
   }).join("\n");
 }
-var ACOES_WA = ["pagar", "contrato", "guia", "acordo", "liberar"];
-var PEDIDO_WA = 'IMPORTANTE (WhatsApp): voc\xEA pode ENVIAR AUTOMATICAMENTE ao cliente, colocando no campo "acoes" do JSON: "pagar" (valor de hoje e link do PIX de cada contrato; use para boleto, PIX, 2\xAA via, fatura, quanto devo), "contrato" (link do contrato em PDF), "guia" (imagens passo a passo de como pagar e usar o app), "acordo" (renegocia\xE7\xE3o: valor do atraso, quita\xE7\xE3o com desconto e o pedido de acordo em parcelas, que o pr\xF3prio cliente faz respondendo o n\xFAmero de vezes), "liberar" (celular travado: libera 20 minutos para pagar, at\xE9 2 vezes por parcela). Para esses pedidos N\xC3O marque humano: responda em 1 ou 2 frases que est\xE1 enviando e coloque a a\xE7\xE3o em "acoes". Desconto al\xE9m da quita\xE7\xE3o, cancelamento, troca, reclama\xE7\xE3o ou pedido de pessoa continuam humano=true. Responda em JSON: {"resposta":"...","humano":true|false,"acoes":[]}.';
+var ACOES_WA = ["pagar", "contrato", "guia", "acordo", "liberar", "vencimento", "roubo", "pedidos", "comprar"];
+var PEDIDO_WA = 'IMPORTANTE (WhatsApp): voc\xEA pode ENVIAR AUTOMATICAMENTE ao cliente, colocando no campo "acoes" do JSON: "pagar" (valor de hoje e link do PIX de cada contrato; use para boleto, PIX, 2\xAA via, fatura, quanto devo), "contrato" (link do contrato em PDF), "guia" (imagens passo a passo de como pagar e usar o app), "acordo" (renegocia\xE7\xE3o: valor do atraso, quita\xE7\xE3o com desconto e o pedido de acordo em parcelas, que o pr\xF3prio cliente faz respondendo o n\xFAmero de vezes), "liberar" (celular travado: libera 20 minutos para pagar, at\xE9 2 vezes por parcela), "vencimento" (pedido para mudar o dia do vencimento), "roubo" (comunicar roubo, furto ou perda e travar o aparelho, com confirma\xE7\xE3o do cliente), "pedidos" (andamento dos pedidos e declara\xE7\xE3o de quita\xE7\xE3o), "comprar" (cr\xE9dito pr\xE9-aprovado, lojas da cidade e link de indica\xE7\xE3o). Para esses pedidos N\xC3O marque humano: responda em 1 ou 2 frases que est\xE1 enviando e coloque a a\xE7\xE3o em "acoes". Desconto al\xE9m da quita\xE7\xE3o, cancelamento, troca, reclama\xE7\xE3o ou pedido de pessoa continuam humano=true. Responda em JSON: {"resposta":"...","humano":true|false,"acoes":[]}.';
 var intencaoWa = (t) => {
   const s = String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (/(como (eu )?pag|como (usa|uso|funciona) o app|passo a passo|tutorial|nao sei pagar)/.test(s)) return "guia";
   if (/(renegoci|acordo|negociar|quitar|quitacao)/.test(s)) return "acordo";
   if (/(bloquead|travad|desbloque)/.test(s)) return "liberar";
+  if (/(roubad|furtad|perdi o cel|assaltad|robad)/.test(s)) return "roubo";
+  if (/(mudar|trocar|alterar).{0,20}(dia|data).{0,15}venc/.test(s)) return "vencimento";
+  if (/(declaracao de quitacao|meu pedido|meus pedidos)/.test(s)) return "pedidos";
+  if (/(celular novo|trocar de celular|pre.?aprovad|indicar|indicacao)/.test(s)) return "comprar";
   if (/contrato/.test(s)) return "contrato";
   if (/(boleto|pix|link (de|pra|para) pag|pagar (a |minha )?parcela|segunda via|2 ?a via|fatura|quanto (eu )?devo)/.test(s)) return "pagar";
   return "";
@@ -3558,7 +3562,8 @@ async function crmIaAutomatica() {
   if (cfg.iaAutoWa !== false) {
     const wa = (await db.collection("waConversas").where("naoLido", "==", true).get()).docs;
     const st = (await db.doc("plataforma/waWebStatus").get().catch(() => null))?.data() || {};
-    const autoOk = parseFloat(st.versao || "0") >= 1.1;
+    const ver = parseFloat(st.versao || "0"), autoOk = ver >= 1.1;
+    const NOVAS = ["vencimento", "roubo", "pedidos", "comprar"];
     for (const s of wa.slice(0, 25)) {
       const c = s.data();
       if (c.iaHumano && (c.iaUltimaEm || 0) > agora - 864e5 || c.aguardandoMenu || c.fim || (c.atualizadoEm || 0) > agora - espera) continue;
@@ -3574,6 +3579,7 @@ async function crmIaAutomatica() {
             x.humano = false;
           }
         }
+        if (ver < 1.2) x.acoes = x.acoes.filter((a) => !NOVAS.includes(a));
         if (x.acoes.length) x.humano = false;
         const em = Date.now();
         await db.collection("waSaida").add({ numero: s.id, texto: x.resposta, status: "PENDENTE", em, por: "Assistente NexumCell (IA)", ia: true });
@@ -3987,6 +3993,64 @@ async function lembretes(cfg, vendas) {
   }
   return { lembretes: enviados, falhas, ficaramParaDepois: restantes };
 }
+async function cobrancaWa(cfg, vendas) {
+  const st = (await db.collection("plataforma").doc("waWebStatus").get()).data() || {};
+  if (st.cobranca === false || cfg.cobrancaWa === "nao") return { cobrancaWa: "desligada" };
+  if (st.status !== "conectado" || !(st.vivoEm > Date.now() - 10 * 6e4) || parseFloat(st.versao || "0") < 1.2) return { cobrancaWa: "programa do WhatsApp 1.2 desligado" };
+  const hBR = new Date(Date.now() - 3 * 36e5).getUTCHours();
+  if (hBR < 8 || hBR >= 20) return { cobrancaWa: "fora do hor\xE1rio" };
+  const diasW = String(cfg.cobrancaWaDias || "-3,0,1,3,7").split(",").map((x) => +String(x).trim()).filter((x) => Number.isFinite(x));
+  const porRodada = Math.max(5, Math.min(200, Number(process.env.ROTINA_MAX) || 40));
+  const promessas = {};
+  try {
+    (await db.collection("crmPromessas").where("status", "==", "PENDENTE").get()).docs.forEach((d) => {
+      const p = d.data();
+      if (p.vendaId && p.data) promessas[p.vendaId] = p.data;
+    });
+  } catch (e) {
+  }
+  let enviados = 0, restantes = 0;
+  const agora = Date.now();
+  for (const v of vendas) {
+    if (v.pixAutomatico?.status === "ATIVO" || promessas[v.id] && promessas[v.id] >= hoje()) continue;
+    const abertas = (v.parcelas || []).filter((p2) => !p2.pago).sort((a, b) => a.venc.localeCompare(b.venc));
+    if (!abertas.length) continue;
+    const p = abertas.find((x) => x.venc < hoje()) || abertas[0], d = dias4(p.venc, hoje());
+    if (!diasW.includes(d)) continue;
+    const chave = `${p.n}:W${d}`;
+    if (v.avisosBrevo?.[chave]) continue;
+    const dd = dadosAviso(v, cfg, d > 0 ? "atraso" : "lembrete"), tel = String(dd.tel || "").replace(/\D/g, "");
+    if (tel.length < 10) continue;
+    if (enviados >= porRodada) {
+      restantes++;
+      continue;
+    }
+    const n55 = tel.startsWith("55") ? tel : "55" + tel, P = dd.params, loja = cfg.empresa || "NexumCell";
+    const texto = d > 0 ? `*${loja}*: Ol\xE1, ${P.NOME}! Sua parcela est\xE1 em atraso h\xE1 ${d} dia(s). Valor hoje: *${P.VALOR}*.
+
+Responda *1* para receber o link do PIX, *4* para renegociar ou *5* se o celular travou.` : `*${loja}*: Ol\xE1, ${P.NOME}! Sua parcela de *${P.VALOR}* vence ${d === 0 ? "*hoje*" : `em ${-d} dia(s) (${P.VENCIMENTO})`}.${d < 0 ? " Pagando antes voc\xEA ganha desconto." : ""}
+
+Responda *1* para receber o link do PIX, *3* para ver como pagar ou *0* para o menu.`;
+    const cref = db.collection("waConversas").doc(n55), c = (await cref.get()).data() || {};
+    await db.collection("waSaida").add({ numero: n55, texto, status: "PENDENTE", em: agora + enviados, naoAntes: agora + enviados * 2e4, por: "Cobran\xE7a autom\xE1tica", campanha: "cobranca" });
+    const emAtend = c.fila && !c.fim;
+    await cref.set({
+      numero: n55,
+      nome: c.nome || v.clienteNome || "",
+      cpf: c.cpf || v.clienteCpf || "",
+      cliente: true,
+      ultimaMsg: texto.slice(0, 200),
+      ultimaDe: "equipe",
+      atualizadoEm: agora,
+      ...emAtend ? {} : { aguardandoMenu: true, fila: null, fim: false, naoLido: false },
+      ...c.criadoEm ? {} : { criadoEm: agora }
+    }, { merge: true });
+    await cref.collection("msgs").add({ de: "robo", t: texto, em: agora, por: "Cobran\xE7a autom\xE1tica" });
+    await db.collection("vendas").doc(v.id).set({ avisosBrevo: { ...v.avisosBrevo || {}, [chave]: { em: agora, whatsapp: "ok" } } }, { merge: true });
+    enviados++;
+  }
+  return { cobrancaWa: enviados, ficaramParaDepois: restantes };
+}
 async function roboVoz(cfg, vendas) {
   if (cfg.roboVoz !== "sim" || !await asaasLigadoSrv()) return { roboVoz: "desligado" };
   const limite2 = Number(cfg.roboVozDias) || 15, max = Math.max(1, Math.round((Number(process.env.ROTINA_MAX) || 1e3) / 4));
@@ -4287,7 +4351,13 @@ async function rotinas(qual) {
   } catch (e) {
     console.error("posvenda", e.message);
   }
-  return { ...await lembretes(cfg, vendas), ...await roboVoz(cfg, vendas), ...aniv, ...ios };
+  let cw = {};
+  try {
+    cw = await cobrancaWa(cfg, vendas);
+  } catch (e) {
+    console.error("cobrancaWa", e.message);
+  }
+  return { ...await lembretes(cfg, vendas), ...await roboVoz(cfg, vendas), ...aniv, ...ios, ...cw };
 }
 
 // api/avisos.js
@@ -5684,11 +5754,13 @@ async function ia(req, b) {
   const { eu, a } = await meu(req, b.id);
   if (a.status === "CONCLUIDO") throw erro12("Atendimento conclu\xEDdo");
   await limite(eu.uid);
-  const msgs = (a.msgs || []).filter((m) => m.t && ["user", "bot", "atendente"].includes(m.de)).slice(-14);
-  const ult = [...msgs].reverse().find((m) => m.de === "user")?.t || "";
-  const cods = codigosNoTexto(ult);
+  const msgs = (a.msgs || []).filter((m) => (m.t || m.arquivo) && ["user", "bot", "atendente"].includes(m.de)).slice(-14);
+  const ultM = [...msgs].reverse().find((m) => m.de === "user"), foto = await lerFotoTela(ultM);
+  const ult = (ultM?.t || "") + (foto ? " " + foto.texto : "");
+  const cods = [.../* @__PURE__ */ new Set([...codigosNoTexto(ult), ...(foto?.codigos || []).map(String).filter((c) => ERROS[c])])];
   const crm = (await db.collection("config").doc("crm").get()).data() || {};
-  const hist = msgs.map((m) => ({ role: m.de === "user" ? "user" : "assistant", content: String(m.t).slice(0, 1500) }));
+  const hist = msgs.map((m) => ({ role: m.de === "user" ? "user" : "assistant", content: String(m.t || (m.arquivo ? "[foto]" : "")).slice(0, 1500) + (m === ultM && foto ? `
+[Foto da tela enviada. O que mostra: ${foto.tela}. Texto na tela: ${foto.texto || "(nenhum)"}${foto.marca ? ". Aparelho: " + foto.marca + " " + (foto.modelo || "") : ""}${cods.length ? ". C\xF3digos do cat\xE1logo: " + cods.map((c) => c + " = " + ERROS[c].t).join("; ") : ""}]` : "") }));
   let j = {};
   try {
     const ex = await exemplosBons(), art = await artigosTexto().catch(() => "");
@@ -5698,7 +5770,26 @@ async function ia(req, b) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join("\n\n"), atendente: false, codigos: cods, fonte: "catalogo" };
     throw erro12(e.message || "A IA n\xE3o respondeu", e.status || 502);
   }
-  return { texto: String(j.resposta || "").trim(), atendente: !!j.atendente, resumo: String(j.resumo || "").slice(0, 200), codigos: cods, fonte: "ia" };
+  return { texto: String(j.resposta || "").trim(), atendente: !!j.atendente, resumo: String(j.resumo || "").slice(0, 200), codigos: cods, fonte: "ia", ...foto ? { foto: { tela: foto.tela, texto: String(foto.texto || "").slice(0, 300) } } : {} };
+}
+async function lerFotoTela(m) {
+  if (!m?.arquivo?.id || !/^image\//.test(m.arquivo.tipo || "")) return null;
+  try {
+    const d = (await db.collection("crmArquivos").doc(String(m.arquivo.id)).get()).data();
+    if (!d?.data || !/^data:image\//.test(d.data)) return null;
+    const t = await groq(
+      [
+        { role: "system", content: "Voc\xEA l\xEA fotos de tela de celular Android e do sistema NexumCell (portal da loja, app NexumCell Trava, leitor de QR da configura\xE7\xE3o do Android). Transcreva exatamente; n\xE3o invente." },
+        { role: "user", content: [{ type: "text", text: 'Responda em JSON: {"tela":"o que a tela mostra em 1 frase (ex.: erro no app NexumCell Trava; tela de boas-vindas do Android; leitor de QR; tela da venda no portal)","texto":"todo o texto vis\xEDvel, principalmente mensagens de erro","codigos":["n\xFAmeros de erro de 3 ou 4 d\xEDgitos que aparecem"],"marca":"","modelo":""}' }, { type: "image_url", image_url: { url: d.data } }] }
+      ],
+      { temperatura: 0, max: 500, json: true, tipo: "visao", modelo: process.env.GROQ_MODELO_VISAO || "" }
+    );
+    const j = JSON.parse(t);
+    return { tela: String(j.tela || "").slice(0, 200), texto: String(j.texto || "").slice(0, 1200), codigos: Array.isArray(j.codigos) ? j.codigos.slice(0, 5) : [], marca: String(j.marca || ""), modelo: String(j.modelo || "") };
+  } catch (e) {
+    console.error("foto da tela", e.message);
+    return null;
+  }
 }
 async function handler29(req, res) {
   if (cors(req, res)) return;

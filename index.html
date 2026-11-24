@@ -12131,6 +12131,144 @@ async function buscarNaBase(dig){
   const q=onlyDig(d.q), l=(await DB.list('vendas')).filter(v=>v.status!=='RASCUNHO'&&(q.length===11?onlyDig(v.clienteCpf)===q:String(v.numero)===q));
   return {vendas:l.map(v=>({...v,propria:v.lojaId===S.me.lojaId||!v.lojaId,lojaNome:v.lojaNome||lojaNome(v.lojaId)}))}; }; }
 
+/* ======================= ATENDIMENTO v11 (nov/2026): o chat ajuda a vender e a cuidar da carteira =======================
+   Foto da tela: a assistente lê o erro e resolve · Consultar CPF antes da venda · Simular venda · Estoque nas lojas
+   Avisos da carteira (atrasou ontem / pagou) · Resumo do dia da loja ou do vendedor */
+MENU_AT.push({id:'consulta_cpf',t:'Consultar CPF antes da venda'},{id:'simular',t:'Simular venda'},{id:'estoque',t:'Estoque nas lojas'},{id:'carteira',t:'Avisos da carteira'},{id:'resumo_dia',t:'Resumo do dia'});
+const PASSOS11=['cpf_consulta','sim_preco','sim_entrada','estoque_q'];
+const ontemISO=()=>{ const d=new Date(); d.setDate(d.getDate()-1); return isoDate(d); };
+const minhasVendas=async()=>{ const vs=await loadVendas().catch(()=>[]); return S.me.role==='VENDEDOR'?vs.filter(v=>v.vendedorUid===S.me.uid):vs; };
+
+/* 1) foto da tela: a assistente lê a foto no servidor e já responde (sem pedir para descrever) */
+{ const _anx11=atAnexar; atAnexar=async function(f){
+  const d=CH.doc, img=f&&/^image\//.test(f.type), f2=d?.fluxo||{};
+  if(!img||!d||d.status!=='BOT'||DEMO||!fb||!servLigado()||f2.passo==='motivo'||/LIBERACAO/.test(f2.tipo||'')||PASSOS11.includes(f2.passo)) return _anx11(f);
+  const b=$('#atClip'); b?.classList.add('env');
+  try{ const data=await reduzirFoto(f); if(data.length>950000) throw new Error('Foto grande demais mesmo depois de reduzir');
+    const nome=(f.name.replace(/\.[^.]+$/,'')||'foto')+'.jpg', id=await DB.add('crmArquivos',{nome,tipo:'image/jpeg',data,em:Date.now(),por:S.me.nome,uid:S.me.uid,origem:'portal',key:'portal:'+d.id});
+    AT_ARQ[id]=data; await atSalvar({msgs:[...(CH.doc.msgs||[]),{...atMsg('user','Foto enviada'),arquivo:{id,nome,tipo:'image/jpeg',url:urlArquivoCRM(id)}}]});
+    b?.classList.remove('env'); return atIA('Foto da tela enviada');
+  }catch(e){ toast('Não foi possível enviar: '+(e.message||e),'err'); } finally{ b?.classList.remove('env'); } }; }
+
+/* 2) botões do menu */
+{ const _bt11=atBotao; atBotao=async function(id,rotulo){
+  const d=CH.doc; if(!d||d.status!=='BOT'||!['consulta_cpf','simular','estoque','carteira','resumo_dia','sim_min'].includes(id)) return _bt11(id,rotulo);
+  await atUser(rotulo.replace(/^\W+\s*/,''));
+  if(id==='consulta_cpf') return atBot('Me passe o **CPF do cliente** (11 dígitos). Eu confiro na base toda da NexumCell: lista de bloqueio, atraso em outra loja, recusa recente e se é bom pagador.',VOLTAR,{categoria:'Consulta de CPF',fluxo:{passo:'cpf_consulta'}});
+  if(id==='simular') return atBot('Qual aparelho? Escreva o **modelo** (ex.: A16, Moto G15) ou o **preço** (ex.: 1299).',VOLTAR,{categoria:'Simulação',fluxo:{passo:'sim_preco'}});
+  if(id==='sim_min') return atSimEntrada('mínima');
+  if(id==='estoque') return atBot('Qual **modelo** você procura? (ex.: A16 128, Moto G35, Redmi 14C)',VOLTAR,{categoria:'Estoque',fluxo:{passo:'estoque_q'}});
+  if(id==='carteira') return atCarteira(true);
+  if(id==='resumo_dia') return atResumoDia();
+}; }
+{ const _env11=atEnviar; atEnviar=async function(){
+  const ta=$('#atT'), t=(ta?.value||'').trim(), d=CH.doc, p=d?.fluxo?.passo; if(!t||!d||d.status!=='BOT'||CH.dig||!PASSOS11.includes(p)) return _env11();
+  ta.value=''; await atUser(t);
+  if(p==='cpf_consulta') return atConsultaCpf(t); if(p==='sim_preco') return atSimPreco(t); if(p==='sim_entrada') return atSimEntrada(t); if(p==='estoque_q') return atEstoque(t);
+}; }
+
+/* 3) consulta de CPF antes da venda */
+async function atConsultaCpf(t){
+  const cpf=onlyDig(t); if(!cpfOk(cpf)) return atBot('Esse CPF não é válido. Confira e mande os 11 dígitos.',VOLTAR,{fluxo:{passo:'cpf_consulta'}});
+  CH.dig=true; atRender();
+  const [vs,ln]=await Promise.all([buscarNaBase(cpf).catch(()=>[]),DB.get('listanegra','cpf_'+cpf).catch(()=>null)]); CH.dig=false;
+  const h=hoje(), atr=v=>(v.parcelas||[]).filter(p=>!p.pago&&p.venc<h), L=[`**CPF ${fmtCpf(cpf)}**${vs[0]?.clienteNome?' · '+vs[0].clienteNome:''}`];
+  const comAtraso=vs.filter(v=>v.status==='ATIVA'&&atr(v).length), ativos=vs.filter(v=>v.status==='ATIVA'), quit=vs.filter(v=>v.status==='QUITADA');
+  const dRet=+S.cfg.retornoDias||30, recusa=vs.find(v=>v.status==='REPROVADA'&&(+v.reprovadoEm||+v.criadoEm||0)>Date.now()-dRet*864e5), analise=vs.find(v=>['ANALISE','EM_ANALISE','PENDENTE','APROVADA','INSTALANDO'].includes(v.status));
+  const atrasoPago=vs.flatMap(v=>(v.parcelas||[]).filter(p=>p.pago&&p.pagoEm).map(p=>Math.round((new Date(String(p.pagoEm).slice(0,10))-new Date(p.venc))/864e5))), maxAtr=Math.max(0,...atrasoPago);
+  let verd='';
+  if(ln){ verd='**Não faça a venda:** este CPF está na lista de bloqueio da NexumCell. Fale com o financeiro.'; }
+  else if(comAtraso.length){ const v=comAtraso[0], a=atr(v); verd=`**Venda nova será recusada:** o cliente tem ${a.length} parcela(s) em atraso no contrato nº ${v.numero}${v.propria?'':' (loja '+(v.lojaNome||'parceira')+')'}, desde ${fmtD(a[0].venc)}. Ele precisa regularizar antes. Pelo menu "Faturas" eu mando o link de pagamento.`; }
+  else if(recusa){ const ate=new Date((+recusa.reprovadoEm||+recusa.criadoEm)+dRet*864e5); verd=`**Proposta recusada** em ${fmtD(isoDate(new Date(+recusa.reprovadoEm||+recusa.criadoEm)))}${recusa.motivoReprovacao?` (${recusa.motivoReprovacao})`:''}. Pode tentar de novo a partir de ${fmtD(isoDate(ate))}.`; }
+  else if(analise){ verd=`Já existe a proposta nº ${analise.numero} (${String(analise.status).toLowerCase().replace('_',' ')})${analise.propria?'':' em outra loja'}. Continue por ela em vez de abrir outra.`; }
+  else if(quit.length||(ativos.length&&maxAtr<=3&&ativos.some(v=>(v.parcelas||[]).filter(p=>p.pago).length>=2))){ verd=`**Bom pagador:** ${quit.length?quit.length+' contrato(s) quitado(s)':'parcelas em dia'}${maxAtr?` (maior atraso ${maxAtr} dia(s))`:''}. Chance alta de aprovação, com condição de recompra.`; }
+  else verd='**Sem histórico na NexumCell.** Siga com a pré-análise normal.';
+  L.push(verd);
+  if(vs.length) L.push(`\nNa base: ${vs.length} contrato(s) · ${ativos.length} ativo(s) · ${quit.length} quitado(s)${comAtraso.length?' · '+comAtraso.length+' com atraso':''}.`);
+  return atBot(L.join('\n'),[{id:'consulta_cpf',t:'Consultar outro CPF'},{id:'simular',t:'Simular venda'},...VOLTAR],{fluxo:{}});
+}
+
+/* 4) simulação de venda */
+async function atSimPreco(t){
+  const num=+String(t).replace(/[^\d,]/g,'').replace(',','.'), soNum=/^\s*(r\$)?\s*[\d.,]+\s*$/i.test(t);
+  let item=null;
+  if(!soNum){ const cat=(await DB.list('catalogo').catch(()=>[])).filter(x=>x.ativo!==false&&x.preco>0), k=t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(Boolean);
+    const ach=cat.filter(x=>{ const s=`${x.marca} ${x.modelo} ${x.capacidade||''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); return k.every(w=>s.includes(w)); }).sort((a,b)=>a.preco-b.preco);
+    if(!ach.length) return atBot('Não achei esse modelo no catálogo. Escreva outro modelo ou só o preço (ex.: 1299).',VOLTAR,{fluxo:{passo:'sim_preco'}});
+    item=ach[0]; }
+  else if(!(num>=100)) return atBot('Escreva o preço do aparelho (ex.: 1299) ou o modelo.',VOLTAR,{fluxo:{passo:'sim_preco'}});
+  const preco=item?+item.preco:num, jp=jurosDo(item), pct=entradaMinPct(), min=r2(preco*pct/100);
+  return atBot(`${item?`**${item.marca} ${item.modelo}${item.capacidade?' '+item.capacidade:''}** · `:''}preço ${brl(preco)}.\nEntrada mínima: **${brl(min)}** (${pct}%).\nQual entrada o cliente vai dar? Escreva o valor ou toque em "Entrada mínima".`,[{id:'sim_min',t:'Entrada mínima'},...VOLTAR],{fluxo:{passo:'sim_entrada',sim:{preco,jp,min,nome:item?`${item.marca} ${item.modelo}`:''}}});
+}
+async function atSimEntrada(t){
+  const s=CH.doc?.fluxo?.sim; if(!s) return atBot('Vamos recomeçar: qual aparelho?',VOLTAR,{fluxo:{passo:'sim_preco'}});
+  let e=/m[ií]n/i.test(t)?s.min:+String(t).replace(/[^\d,]/g,'').replace(',','.');
+  if(!(e>=0)) return atBot('Escreva o valor da entrada (ex.: 300).',[{id:'sim_min',t:'Entrada mínima'},...VOLTAR],{fluxo:CH.doc.fluxo});
+  if(e<s.min) return atBot(`A entrada mínima é ${brl(s.min)}. Escreva um valor maior ou toque em "Entrada mínima".`,[{id:'sim_min',t:'Entrada mínima'},...VOLTAR],{fluxo:CH.doc.fluxo});
+  e=Math.min(e,s.preco); const ops=opsFreq('MENSAL'), desc=+S.cfg.descontoAntecipadoPct||5;
+  const linhas=ops.map(n=>{ const p=parcelaPlano(s.preco,e,s.jp,n); return `• **${n}x de ${brl(p)}** · total ${brl(r2(p*n+e))}`; });
+  return atBot(`**Simulação${s.nome?' · '+s.nome:''}**\nPreço ${brl(s.preco)} · entrada ${brl(e)} · financiado ${brl(r2(s.preco-e))}\n${linhas.join('\n')}\n\nPagando antes do vencimento, o cliente ganha ${desc}% de desconto na parcela. A aprovação depende da análise do CPF.`,[{id:'consulta_cpf',t:'Consultar o CPF'},{id:'simular',t:'Outra simulação'},...VOLTAR],{fluxo:{}});
+}
+
+/* 5) estoque nas lojas (servidor busca em todas; sem servidor, só a própria loja) */
+async function atEstoque(t){
+  CH.dig=true; atRender(); let r=null, erro='';
+  try{ r=await apiServ('venda-acoes',{acao:'estoque',q:t}); }catch(e){ erro=e.message; }
+  if(!r){ try{ const k=t.toLowerCase().split(/\s+/).filter(x=>x.length>=2), es=(await DB.list('estoque',[['lojaId','==',S.me.lojaId]])).filter(x=>x.status==='DISPONIVEL'&&k.every(w=>`${x.marca} ${x.modelo} ${x.capacidade||''}`.toLowerCase().includes(w)));
+    const g={}; es.forEach(x=>{ const c=`${x.marca} ${x.modelo}|${x.capacidade||''}`; (g[c]=g[c]||{aparelho:`${x.marca} ${x.modelo}`,capacidade:x.capacidade||'',qtd:0,nome:'Sua loja',propria:true}).qtd++; }); r={itens:Object.values(g),total:es.length,soLoja:true}; }catch(e){} }
+  CH.dig=false;
+  if(!r) return atBot('Não consegui consultar o estoque agora'+(erro?': '+erro:'')+'.',VOLTAR,{fluxo:{}});
+  if(!r.itens.length) return atBot(`Não achei "${t}" disponível${r.soLoja?' na sua loja':' em nenhuma loja NexumCell'}. Tente só o modelo (ex.: A16).`,[{id:'estoque',t:'Procurar outro modelo'},...VOLTAR],{fluxo:{}});
+  const L=r.itens.map(i=>`• **${i.qtd}x ${i.aparelho}${i.capacidade?' '+i.capacidade:''}** · ${i.propria?'sua loja':i.nome+(i.cidade?' ('+i.cidade+')':'')}${!i.propria&&i.telefone?' · '+i.telefone:''}${i.cores?.length?' · '+i.cores.join(', '):''}`);
+  return atBot(`**Estoque disponível: ${t}**\n${L.join('\n')}${r.itens.some(i=>!i.propria)?'\n\nPara trazer de outra loja, peça a transferência no Estoque (o gerente da outra loja confirma).':''}`,[{id:'estoque',t:'Procurar outro modelo'},{id:'simular',t:'Simular venda'},...VOLTAR],{fluxo:{}});
+}
+
+/* 6) avisos da carteira: quem atrasou ontem, quem vence hoje e quem pagou */
+function avisosCarteira(vs){
+  const h=hoje(), o=ontemISO(), ativ=vs.filter(v=>v.status==='ATIVA');
+  const atrOntem=ativ.filter(v=>(v.parcelas||[]).some(p=>!p.pago&&p.venc===o));
+  const venceHoje=ativ.filter(v=>(v.parcelas||[]).some(p=>!p.pago&&p.venc===h));
+  const pagou=vs.filter(v=>(v.parcelas||[]).some(p=>p.pago&&String(p.pagoEm||'').slice(0,10)>=o));
+  const emAtraso=ativ.filter(v=>(v.parcelas||[]).some(p=>!p.pago&&p.venc<h));
+  return {atrOntem,venceHoje,pagou,emAtraso};
+}
+async function atCarteira(pedido){
+  const vs=await minhasVendas(), a=avisosCarteira(vs), nm=v=>`nº ${v.numero} ${primeiroNome(v.clienteNome||'')}`, h=hoje();
+  const val=v=>brl((v.parcelas||[]).filter(p=>!p.pago&&p.venc<=h).reduce((s,p)=>s+(encargos(p,S.cfg).total||p.valor),0));
+  const L=[`**Avisos da ${S.me.role==='VENDEDOR'?'sua carteira':'carteira da loja'}**`];
+  if(a.atrOntem.length) L.push(`Atrasaram ontem (${a.atrOntem.length}): `+a.atrOntem.slice(0,6).map(v=>`${nm(v)} (${val(v)})`).join(', ')+'. Um contato hoje recupera a maioria.');
+  if(a.venceHoje.length) L.push(`Vencem hoje (${a.venceHoje.length}): `+a.venceHoje.slice(0,6).map(nm).join(', ')+'.');
+  if(a.pagou.length) L.push(`Pagaram desde ontem (${a.pagou.length}): `+a.pagou.slice(0,6).map(nm).join(', ')+'.');
+  L.push(`Em atraso agora: **${a.emAtraso.length}** de ${vs.filter(v=>v.status==='ATIVA').length} contrato(s) ativos.`);
+  if(L.length===2&&!a.emAtraso.length) L.splice(1,0,'Nada novo: ninguém atrasou ontem e ninguém vence hoje.');
+  if(!pedido) return L.join('\n');
+  const bts=a.atrOntem.slice(0,3).map(v=>({id:`ct:faturas:${v.id}`,t:`Cobrar nº ${v.numero}`}));
+  return atBot(L.join('\n'),[...bts,{id:'resumo_dia',t:'Resumo do dia'},...VOLTAR],{fluxo:{}});
+}
+/* no começo do chat, a assistente já mostra os avisos da carteira (uma vez por dia) */
+{ const _nv11=typeof atNovo==='function'?atNovo:null; if(_nv11) atNovo=async function(...a){ const r=await _nv11.apply(this,a);
+  try{ const k='at_cart_'+S.me.uid+'_'+hoje(); if(!['VENDEDOR','GERENTE'].includes(S.me.role)||localStorage.getItem(k)) return r; const vs=await minhasVendas(), x=avisosCarteira(vs);
+    if((x.atrOntem.length||x.venceHoje.length||x.pagou.length)&&CH.doc?.status==='BOT'&&(CH.doc.msgs||[]).length<=2){ localStorage.setItem(k,1);
+      await atSalvar({msgs:[...(CH.doc.msgs||[]),atMsg('bot',(await atCarteira(false))+'\n\nToque em "Avisos da carteira" para cobrar quem atrasou.',[{id:'carteira',t:'Avisos da carteira'},...MENU_AT.filter(m=>m.id!=='carteira')])]}); } }catch(e){}
+  return r; }; }
+
+/* 7) resumo do dia */
+async function atResumoDia(){
+  const vs=await minhasVendas(), h=hoje(), hj=v=>v.criadoEm&&isoDate(new Date(+v.criadoEm))===h;
+  const novas=vs.filter(hj), aprov=vs.filter(v=>v.aprovadoEm&&isoDate(new Date(+v.aprovadoEm))===h), recus=vs.filter(v=>v.status==='REPROVADA'&&v.reprovadoEm&&isoDate(new Date(+v.reprovadoEm))===h);
+  const ativadas=vs.filter(v=>(v.instaladoEm||v.ativadoEm)&&isoDate(new Date(+(v.instaladoEm||v.ativadoEm)))===h), fin=ativadas.reduce((s,v)=>s+(+v.financiado||0),0), ent=ativadas.reduce((s,v)=>s+(+v.entrada||0),0);
+  const pagasHoje=vs.flatMap(v=>(v.parcelas||[]).filter(p=>p.pago&&String(p.pagoEm||'').slice(0,10)===h)), rec=pagasHoje.reduce((s,p)=>s+(+(p.valorPago??p.valor)||0),0);
+  const a=avisosCarteira(vs), anal=vs.filter(v=>['ANALISE','EM_ANALISE','PENDENTE'].includes(v.status));
+  const quem=S.me.role==='VENDEDOR'?'Seu dia':`Dia da ${lojaNome(S.me.lojaId)}`;
+  return atBot(`**${quem} · ${fmtD(h)}**\n• Propostas novas: **${novas.length}** · aprovadas hoje: ${aprov.length} · recusadas: ${recus.length} · em análise: ${anal.length}\n• Vendas ativadas: **${ativadas.length}** · financiado ${brl(fin)} · entradas ${brl(ent)}\n• Parcelas recebidas hoje: ${pagasHoje.length} (${brl(rec)})\n• Clientes em atraso: **${a.emAtraso.length}** · atrasaram ontem: ${a.atrOntem.length} · vencem hoje: ${a.venceHoje.length}`,[{id:'carteira',t:'Avisos da carteira'},...VOLTAR],{fluxo:{}});
+}
+
+/* modo demonstração: estoque de todas as lojas a partir do banco local */
+{ const _ss11=simServ; simServ=async function(rota,d){ if(rota!=='venda-acoes'||d.acao!=='estoque') return _ss11(rota,d);
+  const k=String(d.q||'').toLowerCase().split(/\s+/).filter(x=>x.length>=2), es=(await DB.list('estoque')).filter(x=>x.status==='DISPONIVEL'&&k.every(w=>`${x.marca} ${x.modelo} ${x.capacidade||''}`.toLowerCase().includes(w)));
+  const g={}; es.forEach(x=>{ const c=`${x.lojaId}|${x.marca} ${x.modelo}|${x.capacidade||''}`; (g[c]=g[c]||{lojaId:x.lojaId,nome:x.lojaNome||'Loja',propria:x.lojaId===S.me.lojaId,aparelho:`${x.marca} ${x.modelo}`,capacidade:x.capacidade||'',qtd:0,cores:[]}).qtd++; if(x.cor&&!g[c].cores.includes(x.cor)) g[c].cores.push(x.cor); });
+  return {itens:Object.values(g).sort((a,b)=>(b.propria-a.propria)||b.qtd-a.qtd),total:es.length}; }; }
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>

@@ -4,6 +4,7 @@
 //      vendedor (venda dele) e gerente (venda da loja): só antes de ativar e sem entrada recebida; senão vai para o suporte
 //   {acao:'cadastro', cpf, campos:{telefone, telefone2, email, cep, endereco, bairro, cidade, uf}, atendimentoId?}   · dono, financeiro e suporte
 //   {acao:'buscar', q}  · CPF ou nº do contrato em toda a base NexumCell (dados para o chat ajudar o cliente)
+//   {acao:'estoque', q}  · aparelhos disponíveis em todas as lojas NexumCell (para o vendedor achar o modelo em outra loja)
 //   {acao:'liberar20', vendaId, atendimentoId?}  · libera o aparelho por 20 minutos para o cliente pagar (até 2 vezes por parcela)
 import { db, cors, exigirEquipe, asaas } from './_base.js';
 
@@ -89,6 +90,20 @@ async function liberar20(b, eu) {
 
 
 // busca de cliente NexumCell em toda a base (qualquer loja parceira ajuda o cliente pelo chat)
+async function estoque(b, eu) {
+  const termos = String(b.q || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter((x) => x.length >= 2).slice(0, 4);
+  if (!termos.length) throw erro('Diga o modelo, por exemplo: A16, Moto G15, Redmi 14C');
+  const docs = (await db.collection('estoque').where('status', '==', 'DISPONIVEL').get()).docs.map((d) => d.data());
+  const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const achou = docs.filter((x) => { const t = norm(`${x.marca} ${x.modelo} ${x.capacidade} ${x.cor}`); return termos.every((k) => t.includes(k)); });
+  const lojas = {}, grupos = {};
+  for (const x of achou) { const lid = x.lojaId || ''; if (!(lid in lojas)) { const l = lid ? (await db.collection('lojas').doc(lid).get()).data() || {} : {}; lojas[lid] = { nome: x.lojaNome || l.nome || 'Loja', cidade: l.cidade || '', telefone: l.telefone || '' }; }
+    const k = `${lid}|${x.marca} ${x.modelo}|${x.capacidade || ''}`; (grupos[k] = grupos[k] || { lojaId: lid, ...lojas[lid], propria: lid === eu.lojaId, aparelho: `${x.marca || ''} ${x.modelo || ''}`.trim(), capacidade: x.capacidade || '', qtd: 0, cores: new Set() }).qtd++; if (x.cor) grupos[k].cores.add(x.cor); }
+  const itens = Object.values(grupos).map((g) => ({ ...g, cores: [...g.cores].slice(0, 4) })).sort((a, b) => (b.propria - a.propria) || b.qtd - a.qtd).slice(0, 12);
+  await log(eu, 'Consulta de estoque no chat', String(b.q).slice(0, 40), `${achou.length} aparelho(s)`);
+  return { itens, total: achou.length };
+}
+
 async function buscar(b, eu) {
   const q = soD(b.q); if (q.length !== 11 && !(q.length >= 1 && q.length <= 9)) throw erro('Mande o CPF (11 dígitos) ou o número do contrato');
   const snap = q.length === 11 ? await db.collection('vendas').where('clienteCpf', '==', q).limit(15).get() : await db.collection('vendas').where('numero', '==', +q).limit(5).get();
@@ -111,7 +126,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   try {
     const eu = await exigirEquipe(req, ['DONO', 'FINANCEIRO', 'SUPORTE', 'GERENTE', 'VENDEDOR']), b = req.body || {};
-    const f = { cancelar, cadastro, liberar20, buscar }[b.acao]; if (!f) return res.status(400).json({ erro: 'ação inválida' });
+    const f = { cancelar, cadastro, liberar20, buscar, estoque }[b.acao]; if (!f) return res.status(400).json({ erro: 'ação inválida' });
     return res.json(await f(b, eu));
   } catch (e) { return res.status(e.status || 500).json({ erro: e.message, suporte: !!e.suporte }); }
 }
