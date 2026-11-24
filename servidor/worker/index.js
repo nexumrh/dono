@@ -37,7 +37,7 @@ import assistenteDono from '../api/assistente-dono.js';
 import vendaAcoes from '../api/venda-acoes.js';
 import { ajudaArtigos } from '../api/crm-extra.js';
 
-const ROTAS = { metas, atendimento, localizar, 'ajuda-artigos': ajudaArtigos, 'avisar-dono': avisarDono, equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
+const ROTAS = { 'assistente-dono': assistenteDono, metas, atendimento, localizar, 'ajuda-artigos': ajudaArtigos, 'avisar-dono': avisarDono, equipe, ia, emprestimo, 'crm-ia': crmIa, ouvidoria, ios, codigo, acordo, instalacao, 'cliente-app': clienteApp, pix, loja, 'pix-automatico': pixAutomatico, 'asaas-webhook': asaasWebhook, assistente, avisos, nf, assinatura, 'zapsign-webhook': zapsignWebhook, preanalise, credenciamento, push, saas, motor, repasse, remota, 'remover-codigo': removerCodigo, lead };
 
 function carregarEnv(env) {
   globalThis.process = globalThis.process || { env: {} };
@@ -49,7 +49,7 @@ async function atender(request) {
   const url = new URL(request.url), nome = url.pathname.replace(/^\/api\//, '').replace(/\/$/, '');
   if (url.pathname === '/' || url.pathname === '/api') return new Response('NexumCell: servidor no ar ✔', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
   const fn = ROTAS[nome];
-  if (!fn) return new Response(JSON.stringify({ erro: 'rota não existe' }), { status: 404, headers: { 'content-type': 'application/json' } });
+  if (!fn) return new Response(JSON.stringify({ erro: 'rota não existe' }), { status: 404, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' } });
   const headers = {}; request.headers.forEach((v, k) => { headers[k.toLowerCase()] = v; });
   let body = {};
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) { const t = await request.text(); try { body = t ? JSON.parse(t) : {}; } catch (e) { body = {}; } }

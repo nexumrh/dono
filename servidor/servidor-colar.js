@@ -6058,12 +6058,32 @@ async function handler30(req, res) {
 
 // api/assistente-dono.js
 init_base();
+var SISTEMA = `Voc\xEA \xE9 o assistente financeiro da NexumCell, uma financeira que vende celulares parcelados com trava do aparelho, em v\xE1rias lojas.
+Responda em portugu\xEAs do Brasil, direto e curto (no m\xE1ximo 8 linhas ou uma lista curta), para o dono do neg\xF3cio.
+Use SOMENTE os n\xFAmeros do JSON "dados". Valores em reais no formato R$ 1.234,56. Nunca invente n\xFAmero, loja, vendedor ou cliente.
+Se a resposta n\xE3o estiver nos dados, diga o que falta e em qual tela do sistema ver (Relat\xF3rios da carteira, Parcelas e cobran\xE7a, Fila de cobran\xE7a, Aparelhos e trava, Vendas).
+Quando fizer sentido, termine com uma sugest\xE3o pr\xE1tica de a\xE7\xE3o em uma frase. N\xE3o use emojis nem tabelas grandes.`;
+async function handler31(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    await exigirEquipe(req, ["DONO", "FINANCEIRO"]);
+    const b = req.body || {}, pergunta = String(b.pergunta || "").trim().slice(0, 600);
+    if (pergunta.length < 3) return res.status(400).json({ erro: "Escreva a pergunta" });
+    const dados = JSON.stringify(b.dados || {}).slice(0, 6e4);
+    const hist = (Array.isArray(b.historico) ? b.historico : []).slice(-6).map((m) => ({ role: m.de === "eu" ? "user" : "assistant", content: String(m.t || "").slice(0, 1500) }));
+    const resposta = await groq([{ role: "system", content: SISTEMA + "\n\ndados = " + dados }, ...hist, { role: "user", content: pergunta }], { temperatura: 0.2, max: 700 });
+    return res.json({ resposta: String(resposta || "").trim() });
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message });
+  }
+}
 
 // api/venda-acoes.js
 init_base();
 
 // worker/index.js
-var ROTAS = { metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
+var ROTAS = { "assistente-dono": handler31, metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
@@ -6073,7 +6093,7 @@ async function atender(request) {
   const url = new URL(request.url), nome = url.pathname.replace(/^\/api\//, "").replace(/\/$/, "");
   if (url.pathname === "/" || url.pathname === "/api") return new Response("NexumCell: servidor no ar \u2714", { headers: { "content-type": "text/plain; charset=utf-8" } });
   const fn = ROTAS[nome];
-  if (!fn) return new Response(JSON.stringify({ erro: "rota n\xE3o existe" }), { status: 404, headers: { "content-type": "application/json" } });
+  if (!fn) return new Response(JSON.stringify({ erro: "rota n\xE3o existe" }), { status: 404, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
   const headers = {};
   request.headers.forEach((v, k) => {
     headers[k.toLowerCase()] = v;
