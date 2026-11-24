@@ -11069,12 +11069,12 @@ Object.assign(ACT,{
   NAV_GRUPOS.forEach(g=>{ g[1]=g[1].filter(t=>!VELHAS[t]&&t!=='crm'&&t!=='localizar'); });
   const ga=NAV_GRUPOS.find(g=>g[0]==='Atendimento'); if(ga) ga[1]=['crm','localizar']; else NAV_GRUPOS.splice(1,0,['Atendimento',['crm','localizar']]);
   if(['suporte','financeiro'].includes(PORTAL)){ const i=NAV_GRUPOS.findIndex(g=>g[0]==='Atendimento'); const [g]=NAV_GRUPOS.splice(i,1); NAV_GRUPOS.splice(NAV_GRUPOS[0][0]===''?1:0,0,g); }
-  const crmSrc=h=>{ const u=new URL(typeof urlCrm==='function'?urlCrm():new URL('../dono/crm/',location.href).href); u.searchParams.set('embed','1'); u.searchParams.set('app','nexumcell-'+PORTAL); u.hash=h||''; return u.href; };
+  const crmSrc=h=>{ const u=new URL(typeof urlCrm==='function'?urlCrm():new URL('../dono/crm/',location.href).href); u.searchParams.set('embed','1'); u.hash=h||''; return u.href; };
   const crmUrl=h=>{ const u=new URL(crmSrc(h)); u.searchParams.delete('embed'); return u.href; };
   const crmTela=h=>{ const url=crmUrl(h);
     $('#topActions').innerHTML=`<a class="btn gold" href="${esc(url)}" target="crm-nexumcell" rel="opener">Abrir o CRM</a>`;
     $('#view').innerHTML=`<div class="card" style="max-width:760px;margin:20px auto;text-align:center;padding:34px 26px"><div style="width:64px;height:64px;border-radius:18px;background:#EAF0FF;color:#1D5BFF;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${svg(IC.crm||'')}</div>
-      <h2 style="margin:0 0 6px">${h==='localizar'?'Localizar cliente, loja ou vendedor':'CRM de atendimento NexumCell'}</h2><p class="muted" style="margin:0 auto 18px;max-width:560px">O CRM abre numa aba só dele, com o mesmo login deste portal. Lá ficam o atendimento, o WhatsApp da NexumCell, o kanban e a busca de clientes pela Device Tag, lojas, gerentes e vendedores.</p>
+      <h2 style="margin:0 0 6px">${h==='localizar'?'Localizar cliente, loja ou vendedor':'CRM de atendimento NexumCell'}</h2><p class="muted" style="margin:0 auto 18px;max-width:560px">O CRM abre numa aba só dele, com login próprio (entre com o mesmo ID e senha). Lá ficam o atendimento, o WhatsApp da NexumCell, o kanban e a busca de clientes pela Device Tag, lojas, gerentes e vendedores.</p>
       <a class="btn gold" href="${esc(url)}" target="crm-nexumcell" rel="opener">Abrir o CRM numa nova aba</a></div>`; };
   const abrirCrm=h=>{ const w=window.open(crmUrl(h),'crm-nexumcell'); if(w){ try{ w.focus(); }catch(e){} return true; } return false; };
   document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#nav [data-tab="crm"],#nav [data-tab="localizar"]'); if(!b) return; if(abrirCrm(b.dataset.tab==='localizar'?'localizar':'')){ e.preventDefault(); e.stopImmediatePropagation(); } },true);
