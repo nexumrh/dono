@@ -2881,7 +2881,7 @@ function notaProposta(v, hist) {
   const mult = { Ouro: 2.5, Prata: 1.8, Bronze: 1.2, Risco: 0.5 }[faixa] * (hist.length ? 1 : 0.9);
   return { ...N, score: s, faixa, motivos, limite: N.atrasoAberto ? 0 : Math.round(renda * mult / 50) * 50 };
 }
-async function avaliarVenda(vendaId) {
+async function avaliarVenda(vendaId, { soSegundo = false } = {}) {
   const cfg = (await db.collection("config").doc("sistema").get()).data() || {};
   const R = { ...MOTOR_PADRAO, ...cfg.motor || {} };
   const ref = db.collection("vendas").doc(vendaId);
@@ -2931,7 +2931,7 @@ async function avaliarVenda(vendaId) {
   }
   if (alertas.length) (R.fraudeReprova ? reprova : manual).push(`fraude entre lojas: ${alertas.map((a) => `n\xBA ${a.numero} em ${a.loja} (${a.motivo})`).join("; ")}`);
   let serasa = v.serasa || null;
-  if (R.serasaAuto && !hist.length && !serasa && !reprova.length && await asaasLigadoSrv().catch(() => false)) {
+  if (!soSegundo && R.serasaAuto && !hist.length && !serasa && !reprova.length && await asaasLigadoSrv().catch(() => false)) {
     try {
       const r = await asaas("/creditBureauReport", { method: "POST", body: JSON.stringify({ cpfCnpj: v.clienteCpf, state: c.uf || "PR" }) });
       serasa = { em: Date.now(), por: "Motor de cr\xE9dito", link: r.downloadUrl || r.reportFile || "", id: r.id || "" };
@@ -2994,7 +2994,37 @@ async function avaliarVenda(vendaId) {
       ...contra ? { contraproposta: contra } : {}
     } });
   }
-  if (upd.status === "APROVADA" && preOk && !upd.analise?.contraproposta && (pre.entradaPct != null || pre.descontoPct)) {
+  try {
+    const cref = db.collection("clientes").doc(v.clienteCpf), seg = (await cref.get()).data()?.segundoCelular;
+    const fin = Math.max(0, (Number(v.valor) || 0) - (Number(v.entrada) || 0));
+    const segOk = seg && seg.ate >= hoje() && !seg.usadoEm && (!(Number(seg.valorMax) > 0) || !fin || fin <= Number(seg.valorMax) + 0.5);
+    const grave = reprova.filter((r) => !/nota interna/.test(r));
+    if (segOk && !grave.length && !N.atrasoAberto) {
+      upd.status = "APROVADA";
+      upd.analise = {
+        resultado: "APROVADA",
+        por: "segundo-celular",
+        porNome: "Aprova\xE7\xE3o autom\xE1tica (2\xBA celular)",
+        em: Date.now(),
+        score: N.score,
+        limite: Number(seg.valorMax) || limite2 || null,
+        obs: `Aprovado automaticamente: 2\xBA celular liberado por ${seg.por || "NexumCell"}${seg.vendaNumero ? ` (cliente do contrato n\xBA ${seg.vendaNumero})` : ""}.`,
+        checklist: { cpf: true, bio: true, doc: true },
+        automatico: true,
+        segundoCelular: true
+      };
+      await cref.set({ segundoCelular: { ...seg, usadoEm: Date.now(), usadoVenda: vendaId } }, { merge: true });
+    }
+  } catch (e) {
+    console.warn("2\xBA celular", e.message);
+  }
+  if (soSegundo && upd.status !== "APROVADA") return { resultado: "DESLIGADO", status: "ANALISE" };
+  if (soSegundo) {
+    delete upd.motor;
+    delete upd.alertasFraude;
+    delete upd.serasa;
+  }
+  if (upd.status === "APROVADA" && preOk && !upd.analise?.contraproposta && !upd.analise?.segundoCelular && (pre.entradaPct != null || pre.descontoPct)) {
     upd.analise.recompra = { entradaPct: Number(pre.entradaPct ?? 0), descontoJuros: Number(pre.descontoPct || 0) };
     if (pre.descontoPct > 0 && !(Number(v.vip?.descontoJuros) >= Number(pre.descontoPct))) upd.vip = { nivel: "Recompra", descontoJuros: Number(pre.descontoPct) };
     upd.analise.obs += ` Recompra: entrada a partir de ${upd.analise.recompra.entradaPct}% e ${upd.analise.recompra.descontoJuros} ponto(s) a menos de juros.`;
@@ -3014,8 +3044,9 @@ async function handler12(req, res) {
     if (quem.role === "VENDEDOR" && v.vendedorUid !== quem.uid) throw Object.assign(new Error("sem permiss\xE3o"), { status: 403 });
     if (quem.role === "GERENTE" && v.lojaId !== quem.lojaId) throw Object.assign(new Error("sem permiss\xE3o"), { status: 403 });
     const cfg = (await db.collection("config").doc("sistema").get()).data() || {};
-    if ((cfg.motor?.modo || MOTOR_PADRAO.modo) === "desligado") return res.status(200).json({ resultado: "DESLIGADO" });
-    const out = await avaliarVenda(id);
+    const desl = (cfg.motor?.modo || MOTOR_PADRAO.modo) === "desligado";
+    const out = await avaliarVenda(id, { soSegundo: desl });
+    if (desl && out.status !== "APROVADA") return res.status(200).json({ resultado: "DESLIGADO" });
     if (quem.role === "GERENTE" || quem.role === "VENDEDOR") return res.status(200).json({ ok: true, status: out.status });
     return res.status(200).json(out);
   } catch (e) {

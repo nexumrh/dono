@@ -76,7 +76,7 @@ function notaProposta(v, hist) {
   return { ...N, score: s, faixa, motivos, limite: N.atrasoAberto ? 0 : Math.round((renda * mult) / 50) * 50 };
 }
 
-export async function avaliarVenda(vendaId) {
+export async function avaliarVenda(vendaId, { soSegundo = false } = {}) {
   const cfg = (await db.collection('config').doc('sistema').get()).data() || {}; const R = { ...MOTOR_PADRAO, ...(cfg.motor || {}) }; // lido na hora: regra nova vale já
   const ref = db.collection('vendas').doc(vendaId); const v = (await ref.get()).data();
   if (!v) throw Object.assign(new Error('venda não encontrada'), { status: 404 });
@@ -126,7 +126,7 @@ export async function avaliarVenda(vendaId) {
   if (alertas.length) (R.fraudeReprova ? reprova : manual).push(`fraude entre lojas: ${alertas.map((a) => `nº ${a.numero} em ${a.loja} (${a.motivo})`).join('; ')}`);
   // ---- Serasa automático (cliente novo) ----
   let serasa = v.serasa || null;
-  if (R.serasaAuto && !hist.length && !serasa && !reprova.length && (await asaasLigadoSrv().catch(() => false))) {
+  if (!soSegundo && R.serasaAuto && !hist.length && !serasa && !reprova.length && (await asaasLigadoSrv().catch(() => false))) {
     try { const r = await asaas('/creditBureauReport', { method: 'POST', body: JSON.stringify({ cpfCnpj: v.clienteCpf, state: c.uf || 'PR' }) }); serasa = { em: Date.now(), por: 'Motor de crédito', link: r.downloadUrl || r.reportFile || '', id: r.id || '' }; manual.push('Serasa consultado: confira o relatório antes de aprovar'); }
     catch (e) { manual.push('não consegui consultar o Serasa: ' + e.message); }
   }
@@ -169,8 +169,24 @@ export async function avaliarVenda(vendaId) {
     Object.assign(upd, { status, analise: { resultado: status, por: 'motor', porNome: 'Motor de crédito', em: Date.now(), score: N.score, limite: status === 'APROVADA' ? limite : 0,
       obs: status === 'APROVADA' ? ('Aprovado automaticamente pelas regras de crédito.' + (contra ? ` Entrada mínima ${entradaMin}% pela faixa ${N.faixa}.` : '')) : 'Reprovado pelas regras: ' + reprova.join('; '), checklist: { cpf: true, bio: true, doc: true }, automatico: true, ...(contra ? { contraproposta: contra } : {}) } });
   }
+  // 2º celular liberado pela NexumCell (Análise de crédito → Propostas já analisadas): aprova sozinho, em qualquer modo do motor,
+  // menos se o cliente estiver na lista de bloqueio, com parcela em atraso ou fora das regras de idade e renda mínima.
+  try {
+    const cref = db.collection('clientes').doc(v.clienteCpf), seg = (await cref.get()).data()?.segundoCelular;
+    const fin = Math.max(0, (Number(v.valor) || 0) - (Number(v.entrada) || 0));
+    const segOk = seg && seg.ate >= hoje() && !seg.usadoEm && (!(Number(seg.valorMax) > 0) || !fin || fin <= Number(seg.valorMax) + 0.5);
+    const grave = reprova.filter((r) => !/nota interna/.test(r));
+    if (segOk && !grave.length && !N.atrasoAberto) {
+      upd.status = 'APROVADA';
+      upd.analise = { resultado: 'APROVADA', por: 'segundo-celular', porNome: 'Aprovação automática (2º celular)', em: Date.now(), score: N.score, limite: Number(seg.valorMax) || limite || null,
+        obs: `Aprovado automaticamente: 2º celular liberado por ${seg.por || 'NexumCell'}${seg.vendaNumero ? ` (cliente do contrato nº ${seg.vendaNumero})` : ''}.`, checklist: { cpf: true, bio: true, doc: true }, automatico: true, segundoCelular: true };
+      await cref.set({ segundoCelular: { ...seg, usadoEm: Date.now(), usadoVenda: vendaId } }, { merge: true });
+    }
+  } catch (e) { console.warn('2º celular', e.message); }
+  if (soSegundo && upd.status !== 'APROVADA') return { resultado: 'DESLIGADO', status: 'ANALISE' }; // motor desligado: só o 2º celular decide
+  if (soSegundo) { delete upd.motor; delete upd.alertasFraude; delete upd.serasa; }
   // recompra do bom pagador: entrada menor e desconto nos juros (condições do Painel do Dono → Recompra)
-  if (upd.status === 'APROVADA' && preOk && !upd.analise?.contraproposta && (pre.entradaPct != null || pre.descontoPct)) {
+  if (upd.status === 'APROVADA' && preOk && !upd.analise?.contraproposta && !upd.analise?.segundoCelular && (pre.entradaPct != null || pre.descontoPct)) {
     upd.analise.recompra = { entradaPct: Number(pre.entradaPct ?? 0), descontoJuros: Number(pre.descontoPct || 0) };
     if (pre.descontoPct > 0 && !(Number(v.vip?.descontoJuros) >= Number(pre.descontoPct))) upd.vip = { nivel: 'Recompra', descontoJuros: Number(pre.descontoPct) };
     upd.analise.obs += ` Recompra: entrada a partir de ${upd.analise.recompra.entradaPct}% e ${upd.analise.recompra.descontoJuros} ponto(s) a menos de juros.`;
@@ -190,8 +206,9 @@ export default async function handler(req, res) {
     if (!v) throw Object.assign(new Error('venda não encontrada'), { status: 404 });
     if (quem.role === 'VENDEDOR' && v.vendedorUid !== quem.uid) throw Object.assign(new Error('sem permissão'), { status: 403 });
     if (quem.role === 'GERENTE' && v.lojaId !== quem.lojaId) throw Object.assign(new Error('sem permissão'), { status: 403 });
-    const cfg = (await db.collection('config').doc('sistema').get()).data() || {}; if ((cfg.motor?.modo || MOTOR_PADRAO.modo) === 'desligado') return res.status(200).json({ resultado: 'DESLIGADO' });
-    const out = await avaliarVenda(id);
+    const cfg = (await db.collection('config').doc('sistema').get()).data() || {}; const desl = (cfg.motor?.modo || MOTOR_PADRAO.modo) === 'desligado';
+    const out = await avaliarVenda(id, { soSegundo: desl });
+    if (desl && out.status !== 'APROVADA') return res.status(200).json({ resultado: 'DESLIGADO' });
     // Crédito/risco é só da Nexum: loja parceira (gerente/vendedor) não recebe a nota nem o parecer.
     if (quem.role === 'GERENTE' || quem.role === 'VENDEDOR') return res.status(200).json({ ok: true, status: out.status });
     return res.status(200).json(out);

@@ -12269,6 +12269,96 @@ async function atResumoDia(){
   const g={}; es.forEach(x=>{ const c=`${x.lojaId}|${x.marca} ${x.modelo}|${x.capacidade||''}`; (g[c]=g[c]||{lojaId:x.lojaId,nome:x.lojaNome||'Loja',propria:x.lojaId===S.me.lojaId,aparelho:`${x.marca} ${x.modelo}`,capacidade:x.capacidade||'',qtd:0,cores:[]}).qtd++; if(x.cor&&!g[c].cores.includes(x.cor)) g[c].cores.push(x.cor); });
   return {itens:Object.values(g).sort((a,b)=>(b.propria-a.propria)||b.qtd-a.qtd),total:es.length}; }; }
 
+/* ======================= ANÁLISE v2 (nov/2026): propostas já analisadas · 2º celular aprovado sozinho · dono aprova a reprovada =======================
+   Embaixo da fila, todas as propostas já decididas (aprovadas e reprovadas), com busca e filtro.
+   Aprovada: "Liberar 2º celular" grava clientes/{cpf}.segundoCelular e a próxima proposta do cliente é aprovada sozinha pelo motor.
+   Reprovada: o dono aprova com um botão e o cliente recebe a mensagem no WhatsApp. */
+S.filtro=S.filtro||{};
+const AN_OK=['APROVADA','AGUARDANDO_ENTRADA','INSTALANDO','ATIVA','QUITADA'];
+const anRes=v=>v.analise?.resultado==='APROVADA'||AN_OK.includes(v.status)?'APROVADA':(v.analise?.resultado==='REPROVADA'||v.status==='REPROVADA'?'REPROVADA':'');
+const lojaTel=id=>(S.lojas||[]).find(l=>l.id===id)?.telefone||'';
+async function zapCliente(v,texto){
+  const tel=(v.cliente?.telefones||[]).find(Boolean)||v.cliente?.tel||''; if(onlyDig(tel).length<10){ toast('Cliente sem telefone no cadastro','err'); return false; }
+  const st=await DB.get('plataforma','waWebStatus').catch(()=>null);
+  if(!DEMO&&st&&st.status==='conectado'&&st.vivoEm>Date.now()-10*60e3){
+    const n=telWa(tel); await DB.add('waSaida',{numero:n,texto,status:'PENDENTE',em:Date.now(),por:S.me.nome});
+    await DB.set('waConversas',n,{numero:n,nome:v.clienteNome||'',cpf:v.clienteCpf||'',cliente:true,ultimaMsg:texto.slice(0,200),ultimaDe:'equipe',atualizadoEm:Date.now()}).catch(()=>{});
+    toast('Mensagem enviada pelo WhatsApp da NexumCell','ok'); return true; }
+  window.open(`https://wa.me/${telWa(tel)}?text=${encodeURIComponent(texto)}`,'_blank','noopener'); return true;
+}
+{ const _pa2=PAGES.analise; PAGES.analise=async(...a)=>{ await _pa2(...a); try{ await analisadas(); }catch(e){ console.warn('analisadas',e); } }; }
+async function analisadas(){
+  const f=S.filtro.anF||'todas', q=String(S.filtro.anQ||'').toLowerCase().trim(), lim=S.filtro.anLim||40;
+  let vs=(await loadVendas()).filter(v=>anRes(v)).sort((a,b)=>(b.analise?.em||b.criadoEm||0)-(a.analise?.em||a.criadoEm||0));
+  const nAp=vs.filter(v=>anRes(v)==='APROVADA').length, nRe=vs.length-nAp;
+  if(f!=='todas') vs=vs.filter(v=>anRes(v)===f);
+  if(q) vs=vs.filter(v=>`${v.numero} ${v.clienteNome} ${v.clienteCpf} ${v.lojaNome} ${v.vendedorNome}`.toLowerCase().includes(q.replace(/\D/g,'')||q)||String(v.clienteNome||'').toLowerCase().includes(q));
+  const pag=vs.slice(0,lim), h=hoje();
+  const cli={}; await Promise.all([...new Set(pag.map(v=>v.clienteCpf).filter(Boolean))].map(async c=>{ cli[c]=await DB.get('clientes',c).catch(()=>null); }));
+  const todas=await loadVendas(), atrasoCpf=new Set(todas.filter(x=>['ATIVA','INSTALANDO'].includes(x.status)&&(x.parcelas||[]).some(p=>!p.pago&&p.venc<h)).map(x=>x.clienteCpf));
+  const pode2=can('DONO','FINANCEIRO'), podeRev=can('DONO');
+  const linha=v=>{ const r=anRes(v), a=v.analise||{}, st=VENDA_ST[v.status]||[v.status,'gray'], seg=cli[v.clienteCpf]?.segundoCelular, segOk=seg&&seg.ate>=h&&!seg.usadoEm;
+    const quem=a.por==='motor'?'Motor de crédito':a.por==='segundo-celular'?'Automática (2º celular)':(a.porNome||'—');
+    let acao='';
+    if(r==='APROVADA'&&AN_OK.includes(v.status)&&pode2){
+      if(segOk) acao=`${badge('2º celular liberado até '+fmtD(seg.ate),'green')}<br><button class="btn sm" data-act="an2x" data-id="${v.id}" style="margin-top:4px">Cancelar</button>`;
+      else if(seg?.usadoEm) acao=badge('2º celular usado','gray')+` <button class="btn sm" data-act="an2" data-id="${v.id}">Liberar outro</button>`;
+      else if(atrasoCpf.has(v.clienteCpf)) acao=`<span class="small muted">Com parcela em atraso:<br>sem 2º celular</span>`;
+      else acao=`<button class="btn sm gold" data-act="an2" data-id="${v.id}">Liberar 2º celular</button>`; }
+    if(r==='REPROVADA'&&v.status==='REPROVADA') acao=podeRev?`<button class="btn sm green" data-act="anRev" data-id="${v.id}">Aprovar</button>`:'<span class="small muted">Só o dono aprova</span>';
+    return `<tr><td class="mono"><a href="#" data-act="verVenda" data-id="${v.id}">${v.numero}</a></td><td>${a.em?fmtD(isoDate(new Date(a.em))):'—'}<br><span class="small muted">${esc(quem)}</span></td>
+      <td><b>${esc(v.clienteNome||'')}</b><br><span class="small muted">${fmtCpf(v.clienteCpf||'')}</span></td><td>${esc(v.lojaNome||'')}<br><span class="small muted">${esc(v.vendedorNome||'')}</span></td>
+      <td>${badge(r==='APROVADA'?(a.revisao?'Aprovada na revisão':'Aprovada'):'Reprovada',r==='APROVADA'?'green':'red')}${v.status!==r?'<br>'+badge(st[0],st[1]):''}${a.obs?`<div class="small muted" style="max-width:260px;margin-top:3px">${esc(String(a.obs).slice(0,120))}</div>`:''}</td>
+      <td class="right">${acao}</td></tr>`; };
+  const chip=(k,t)=>`<button class="btn sm ${f===k?'gold':''}" data-act="anF" data-f="${k}">${t}</button>`;
+  $('#view').insertAdjacentHTML('beforeend',`<div class="card mt" id="anFeitas"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div><h2 style="margin:0">Propostas já analisadas</h2><p class="small muted" style="margin:2px 0 0">Aprovada: libere o 2º celular, que é aprovado sozinho na próxima proposta. Reprovada: o dono pode aprovar e o cliente recebe no WhatsApp.</p></div>
+    <div class="row" style="gap:6px">${chip('todas','Todas ('+(nAp+nRe)+')')}${chip('APROVADA','Aprovadas ('+nAp+')')}${chip('REPROVADA','Reprovadas ('+nRe+')')}<input id="anQ" placeholder="Buscar nome, CPF ou nº" value="${esc(S.filtro.anQ||'')}" style="width:220px"></div></div>
+    <div class="tablewrap mt"><table><tr><th>Nº</th><th>Decidida</th><th>Cliente</th><th>Loja</th><th>Resultado</th><th></th></tr>
+    ${pag.map(linha).join('')||'<tr><td colspan="6" class="empty">Nenhuma proposta analisada'+(q||f!=='todas'?' com esse filtro':'')+'</td></tr>'}</table></div>
+    ${vs.length>lim?`<div class="row mt" style="justify-content:center"><button class="btn" data-act="anMais">Ver mais (${vs.length-lim})</button></div>`:''}</div>`);
+  const qi=$('#anQ'); if(qi){ let t; qi.oninput=()=>{ clearTimeout(t); t=setTimeout(()=>{ S.filtro.anQ=qi.value; render().then(()=>{ const e=$('#anQ'); if(e){ e.focus(); e.setSelectionRange(e.value.length,e.value.length); } }); },350); }; }
+}
+async function liberar2(id){
+  const v=await DB.get('vendas',id); if(!v) return; const c=await DB.get('clientes',v.clienteCpf).catch(()=>null)||{};
+  const fin=r2((+v.valor||0)-(+v.entrada||0)), base=Math.max(+c.preAprovado?.valor||0,+v.analise?.limite||0,fin)||1500, ate=isoDate(new Date(Date.now()+30*864e5));
+  openModal(`<h2>Liberar 2º celular · ${esc(v.clienteNome||'')}</h2>
+    <p class="muted" style="margin-top:-6px">A próxima proposta deste CPF, em qualquer loja, é <b>aprovada sozinha</b> pelo motor, sem análise. Só não aprova se o cliente estiver na lista de bloqueio ou com parcela em atraso. Vale para 1 celular.</p>
+    <div class="grid g2"><label>Valor financiado máximo (R$)<input id="s2V" type="number" min="0" step="50" value="${Math.round(base/50)*50}"></label><label>Válido até<input id="s2A" type="date" value="${ate}"></label></div>
+    <label class="chk mt"><input type="checkbox" id="s2Z" checked> Avisar o cliente no WhatsApp</label>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn gold" id="s2Ok">Liberar 2º celular</button></div>`);
+  $('#s2Ok').onclick=async()=>{ const valorMax=+$('#s2V').value||0, at=$('#s2A').value; if(!at||at<hoje()) return toast('Escolha uma data de validade','err');
+    $('#s2Ok').disabled=true;
+    const seg={valorMax,ate:at,em:Date.now(),por:S.me.nome,uid:S.me.uid,vendaId:id,vendaNumero:v.numero,usadoEm:null,usadoVenda:null};
+    await DB.set('clientes',v.clienteCpf,{segundoCelular:seg}); await log('2º celular liberado',v.clienteCpf,`${v.clienteNome} · até ${brl(valorMax)} · válido até ${fmtD(at)} · contrato nº ${v.numero}`);
+    if($('#s2Z').checked) await zapCliente(v,`Olá, ${primeiroNome(v.clienteNome||'')}! Aqui é da ${MARCA}. Como você é nosso cliente, o seu *2º celular já está aprovado*${valorMax?` (até ${brl(valorMax)} financiado)`:''}, sem nova análise de crédito. É só ir a uma loja ${MARCA} com o seu documento até ${fmtD(at)}${v.lojaNome?`. A sua loja: ${v.lojaNome}${lojaTel(v.lojaId)?' · '+lojaTel(v.lojaId):''}`:''}.`);
+    closeModal(); toast('2º celular liberado: a próxima proposta é aprovada sozinha','ok'); render(); };
+}
+async function cancelar2(id){
+  const v=await DB.get('vendas',id); if(!v||!confirm(`Cancelar o 2º celular liberado para ${v.clienteNome}?`)) return;
+  await DB.set('clientes',v.clienteCpf,{segundoCelular:null}); await log('2º celular cancelado',v.clienteCpf,v.clienteNome||''); toast('2º celular cancelado'); render();
+}
+async function aprovarReprovada(id){
+  const v=await DB.get('vendas',id); if(!v||v.status!=='REPROVADA') return toast('Esta proposta não está mais reprovada','err');
+  const a=v.analise||{}, pctBase=+S.cfg.entradaPct||30;
+  openModal(`<h2>Aprovar proposta nº ${v.numero} · ${esc(v.clienteNome||'')}</h2>
+    <div class="card" style="background:var(--bg2,#F8FAFC)"><b>Reprovada</b> ${a.em?'em '+fmtD(isoDate(new Date(a.em))):''} por ${esc(a.por==='motor'?'Motor de crédito':(a.porNome||'—'))}${a.obs?`<br><span class="small">${esc(a.obs)}</span>`:''}${(v.motor?.reprova||[]).length?`<br><span class="small muted">Regras: ${esc(v.motor.reprova.join('; '))}</span>`:''}</div>
+    <div class="grid g2 mt"><label>Entrada mínima (%)<input id="rvE" type="number" min="${pctBase}" max="90" value="${pctBase}"></label><label>Valor financiado máximo (R$, opcional)<input id="rvL" type="number" min="0" step="50" placeholder="sem limite"></label></div>
+    <label class="mt">Motivo da aprovação (fica para a equipe)<input id="rvO" placeholder="Ex.: cliente conhecido, renda conferida por telefone"></label>
+    <label class="chk mt"><input type="checkbox" id="rvZ" checked> Avisar o cliente no WhatsApp</label>
+    <p class="small muted">O vendedor vê a aprovação na hora e continua a venda pela proposta nº ${v.numero}.</p>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn green" id="rvOk">Aprovar</button></div>`);
+  $('#rvOk').onclick=async()=>{ const ep=Math.min(90,Math.max(pctBase,Math.round(+$('#rvE').value||pctBase))), lm=+$('#rvL').value||0, obs=$('#rvO').value.trim();
+    $('#rvOk').disabled=true;
+    const contra=ep>pctBase||lm?{entradaPct:ep,limite:lm||null}:null;
+    const analise={resultado:'APROVADA',por:S.me.uid,porNome:S.me.nome,em:Date.now(),obs:'Aprovada pelo dono depois da reprovação'+(obs?': '+obs:'.'),checklist:{cpf:true,bio:true,doc:true},limite:lm||null,
+      revisao:{de:'REPROVADA',em:Date.now(),por:S.me.nome,anterior:{por:a.porNome||a.por||'',em:a.em||null,obs:a.obs||''}},...(contra?{contraproposta:contra}:{contraproposta:null})};
+    await DB.set('vendas',id,{status:'APROVADA',analise}); await log('Proposta reprovada aprovada pelo dono',id,`nº ${v.numero} · ${v.clienteNome}${obs?' · '+obs:''}${contra?` · entrada mín. ${ep}%${lm?' · até '+brl(lm):''}`:''}`);
+    if($('#rvZ').checked) await zapCliente(v,`Olá, ${primeiroNome(v.clienteNome||'')}! Aqui é da ${MARCA}. Revisamos a sua proposta nº ${v.numero} e o seu crédito foi *APROVADO*${contra&&ep>pctBase?`, com entrada a partir de ${ep}%`:''}. Procure a loja ${v.lojaNome||MARCA}${lojaTel(v.lojaId)?' ('+lojaTel(v.lojaId)+')':''} com o seu documento para escolher o celular e concluir a compra.`);
+    closeModal(); toast('Proposta aprovada: o vendedor já está vendo','ok'); render(); };
+}
+Object.assign(ACT,{ anF:d=>{ S.filtro.anF=d.f; S.filtro.anLim=40; render(); }, anMais:()=>{ S.filtro.anLim=(S.filtro.anLim||40)+40; render(); }, an2:d=>liberar2(d.id), an2x:d=>cancelar2(d.id), anRev:d=>aprovarReprovada(d.id) });
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
