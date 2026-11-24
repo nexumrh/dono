@@ -11,6 +11,7 @@ import { chaveIA } from './ia-autonoma.js';
 import { errosTexto, codigosNoTexto, AJUDA_URL } from './erros.js';
 import { exemplosBons } from './crm-rotinas.js';
 import { transcrever, traduzir, qualidade, artigosTexto } from './crm-extra.js';
+import { copiloto, alertaRisco, treinoCliente, treinoAvaliar, RX_RISCO } from './crm-mais.js';
 
 import { groqChat } from './groq-modelos.js';
 let ULTIMO_MODELO = '';
@@ -47,7 +48,7 @@ export default async function handler(req, res) {
   try {
     const eu = await exigirEquipe(req, ['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']);
     const b = req.body || {}, txt = String(b.texto || '').slice(0, 4000);
-    const EXTRA = { transcrever, traduzir, qualidade }; if (EXTRA[b.acao]) return res.json(await EXTRA[b.acao](b, eu));
+    const EXTRA = { transcrever, traduzir, qualidade, copiloto, alertaRisco, treinoCliente, treinoAvaliar }; if (EXTRA[b.acao]) return res.json(await EXTRA[b.acao](b, eu));
     if (b.acao === 'relatorioHoje') { const { relatorioDiarioCrm } = await import('./crm-rotinas.js'); await relatorioDiarioCrm({}, true); return res.json({ ok: true }); }
     if (b.acao === 'status') { const chave = await chaveIA().catch(() => ''); if (!chave) return res.json({ chave: false, ok: false, erro: 'Nenhuma chave da IA salva. Cole a chave do Groq (começa com gsk_) em Ajustes do CRM ou no Painel do Dono → Configurações → Inteligência artificial.' });
       const t0 = Date.now(); try { const r = await groq([{ role: 'user', content: 'Responda só: OK' }], { max: 5, temperatura: 0 }); return res.json({ chave: true, ok: /ok/i.test(r), ms: Date.now() - t0, modelo: ULTIMO_MODELO, final: chave.slice(-4) }); }

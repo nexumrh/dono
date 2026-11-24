@@ -515,6 +515,11 @@ service cloud.firestore {
     // ---------- CRM NexumCell (equipe: dono, suporte, financeiro e comercial) ----------
     function crmEquipe() { return hasRole(['DONO', 'SUPORTE', 'FINANCEIRO', 'COMERCIAL']); }
     match /crmAtrib/{id} { allow read, write: if crmEquipe(); }
+    // treinamento prático: o resultado e a liberação são gravados pelo servidor (ou pelo dono, que pode liberar/exigir)
+    match /crmTreino/{uid} { allow read: if crmEquipe(); allow write: if hasRole(['DONO']); }
+    // lista do dia da cobrança (quem contatou quem hoje) e registro de retenção de cancelamento
+    match /crmCobranca/{dia} { allow read, write: if crmEquipe(); }
+    match /crmRetencao/{id} { allow read, create: if crmEquipe(); allow update, delete: if hasRole(['DONO']); }
     // Empréstimos e crédito (consignado CLT, empréstimo pessoal, iPhone no cartão). A análise e a biometria
     // são gravadas pelo servidor; a loja só cria a proposta do produto que o dono liberou para ela.
     function lojaEmp(prod) { return get(/databases/$(database)/documents/lojas/$(me().lojaId)).data.get('emprestimos', {}).get(prod, false) == true; }
