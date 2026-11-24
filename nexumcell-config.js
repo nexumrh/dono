@@ -30,7 +30,8 @@ window.NEXUMCELL_URLS = {
   vendedor:   "https://nexumrh.github.io/vendedor/",
   financeiro: "https://nexumrh.github.io/financeiro/",
   suporte:    "https://nexumrh.github.io/suporte/",
-  cliente:    "https://nexumrh.github.io/cliente/"
+  cliente:    "https://nexumrh.github.io/cliente/",
+  crm:        "https://nexumrh.github.io/dono/crm/"
 };
 
 /* 4) Endereço do servidor (Cloudflare Workers). Não é segredo: usado no link público de credenciamento de lojas. */
