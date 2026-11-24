@@ -5613,13 +5613,13 @@ async function conferirLink(tok) {
   const mac = await hmac(LINK(), "LINK|" + exp);
   return b64url2(mac) === b;
 }
-function pagina(cod, erro15) {
+function pagina(cod, erro16) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexumCell \u2014 Remover a trava</title>
 <style>body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0B1E35;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:#071424;border:1px solid #1b3350;border-radius:14px;padding:24px;max-width:460px;width:100%}
 h1{font-size:18px;margin:0 0 6px}.cod{font-size:42px;letter-spacing:6px;font-weight:800;color:#C9A84C;text-align:center;margin:18px 0}
 ol{line-height:1.7;font-size:15px;padding-left:18px;margin:8px 0}.muted{color:#9FB0C3;font-size:13px}.err{color:#E07A5F}</style></head>
-<body><div class="card">${erro15 ? `<h1>Remover a trava</h1><p class="err">${erro15}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
+<body><div class="card">${erro16 ? `<h1>Remover a trava</h1><p class="err">${erro16}</p>` : `<h1>NexumCell \u2014 Remover a trava</h1>
 <p class="muted">No aparelho, na tela do app NexumCell, toque em \u201CProblema? Inserir c\xF3digo de remo\xE7\xE3o da loja\u201D e digite o c\xF3digo:</p>
 <div class="cod">${cod}</div>
 <ol><li>Toque em <b>Remover</b> no aparelho.</li><li>A trava sai e o app se desinstala.</li><li>Depois, reinstale a trava (QR ou cabo USB) para refazer a venda.</li></ol>
@@ -6081,9 +6081,193 @@ async function handler31(req, res) {
 
 // api/venda-acoes.js
 init_base();
+var EQUIPE = ["DONO", "FINANCEIRO", "SUPORTE"];
+var ANTES = ["ANALISE", "APROVADA", "AGUARDANDO_ENTRADA", "INSTALANDO"];
+var erro15 = (m, s = 400, extra = {}) => Object.assign(new Error(m), { status: s, ...extra });
+var soD5 = (s) => String(s || "").replace(/\D/g, "");
+async function vendaDe(eu, vendaId, qualquerLoja = false) {
+  const ref = db.collection("vendas").doc(String(vendaId || "")), s = await ref.get();
+  if (!s.exists) throw erro15("Venda n\xE3o encontrada", 404);
+  const v = s.data();
+  const dela = qualquerLoja || EQUIPE.includes(eu.role) || eu.role === "GERENTE" && v.lojaId === eu.lojaId || eu.role === "VENDEDOR" && v.vendedorUid === eu.uid;
+  if (!dela) throw erro15("Esta venda n\xE3o \xE9 da sua loja", 403);
+  return { ref, v };
+}
+var log = (eu, acao, alvo, detalhe) => db.collection("logs").add({ em: Date.now(), uid: eu.uid, nome: eu.nome, role: eu.role, acao, alvo, detalhe }).catch(() => {
+});
+async function cancelar(b, eu) {
+  const { ref, v } = await vendaDe(eu, b.vendaId), motivo = String(b.motivo || "").trim().slice(0, 300);
+  if (motivo.length < 3) throw erro15("Escreva o motivo do cancelamento");
+  if (["CANCELADA", "QUITADA", "REPROVADA", "RETOMADA"].includes(v.status)) throw erro15(`A venda n\xBA ${v.numero} j\xE1 est\xE1 ${String(v.status).toLowerCase()}`);
+  const entrada = +(v.entradaPaga?.valor || 0);
+  if (!EQUIPE.includes(eu.role) && (!ANTES.includes(v.status) || entrada > 0))
+    throw erro15(v.status === "ATIVA" ? "Venda j\xE1 ativa (contrato assinado e trava instalada): o cancelamento \xE9 feito pelo suporte, que confere a devolu\xE7\xE3o do aparelho." : "J\xE1 tem entrada recebida: o suporte cancela e cuida da devolu\xE7\xE3o do valor.", 409, { suporte: true });
+  const agora = Date.now(), batch = db.batch();
+  batch.update(ref, { status: "CANCELADA", canceladoEm: agora, canceladoPor: eu.nome + (b.atendimentoId ? " (chat)" : ""), motivoCancelamento: motivo });
+  if (v.aparelhoToken) batch.set(db.collection("aparelhos").doc(v.aparelhoToken), { status: "CANCELADO" }, { merge: true });
+  let estoque2 = null;
+  const eid = v.aparelho?.estoqueId || v.aparelho?.imei;
+  let e = eid ? await db.collection("estoque").doc(String(eid)).get() : null;
+  if (!e?.exists) {
+    const q = await db.collection("estoque").where("vendaId", "==", ref.id).limit(1).get();
+    e = q.docs[0] || null;
+  }
+  if (e?.exists && e.data().status !== "DISPONIVEL" && (!e.data().vendaId || e.data().vendaId === ref.id)) {
+    estoque2 = e.data().imei || e.id;
+    batch.set(e.ref, { status: "DISPONIVEL", vendaId: "", vendidoEm: null, obs: `Voltou ao estoque: venda n\xBA ${v.numero} cancelada (${motivo})`, atualizadoEm: agora }, { merge: true });
+  }
+  await batch.commit();
+  let apagadas = 0;
+  if (v.asaas) {
+    const parcelas = (v.parcelas || []).map((p) => ({ ...p }));
+    for (const p of parcelas) if (!p.pago && p.asaasId) {
+      try {
+        await asaas("/payments/" + p.asaasId, { method: "DELETE" });
+        apagadas++;
+      } catch (er) {
+      }
+      delete p.asaasId;
+      delete p.asaasLink;
+    }
+    if (apagadas) await ref.update({ parcelas }).catch(() => {
+    });
+  }
+  await log(eu, "Venda cancelada" + (b.atendimentoId ? " pelo chat" : " pelo CRM"), ref.id, `n\xBA ${v.numero} \xB7 ${motivo}${estoque2 ? ` \xB7 IMEI ${estoque2} voltou ao estoque` : ""}${entrada ? ` \xB7 entrada de R$ ${entrada.toFixed(2)} a devolver` : ""}`);
+  return { ok: true, numero: v.numero, estoque: estoque2, apagadas, entrada };
+}
+async function cadastro(b, eu) {
+  if (!EQUIPE.includes(eu.role)) throw erro15("S\xF3 o suporte, o financeiro ou o dono alteram o cadastro", 403);
+  const cpf = soD5(b.cpf);
+  if (cpf.length !== 11) throw erro15("CPF inv\xE1lido");
+  const c = b.campos || {}, tel = soD5(c.telefone), tel2 = soD5(c.telefone2);
+  if (tel && (tel.length < 10 || tel.length > 11)) throw erro15("Telefone inv\xE1lido: use DDD + n\xFAmero");
+  if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(c.email).trim())) throw erro15("E-mail inv\xE1lido");
+  const end = {};
+  ["cep", "endereco", "bairro", "cidade", "uf"].forEach((k) => {
+    if (c[k] !== void 0 && String(c[k]).trim()) end[k] = k === "cep" ? soD5(c[k]) : k === "uf" ? String(c[k]).trim().toUpperCase().slice(0, 2) : String(c[k]).trim().slice(0, 160);
+  });
+  const telefones = [tel, tel2].filter(Boolean);
+  const cli = { ...end, ...telefones.length ? { telefones } : {}, ...c.email ? { email: String(c.email).trim().toLowerCase() } : {}, atualizadoEm: Date.now(), atualizadoPor: eu.nome };
+  if (Object.keys(cli).length <= 2) throw erro15("Nada para alterar");
+  const antes = (await db.collection("clientes").doc(cpf).get()).data() || {};
+  await db.collection("clientes").doc(cpf).set(cli, { merge: true });
+  const vs = await db.collection("vendas").where("clienteCpf", "==", cpf).get(), batch = db.batch();
+  let n = 0;
+  vs.docs.forEach((d) => {
+    const upd = {};
+    Object.entries(cli).forEach(([k, val]) => {
+      if (!["atualizadoEm", "atualizadoPor"].includes(k)) upd["cliente." + k] = val;
+    });
+    if (telefones.length) upd.clienteTel = telefones[0];
+    batch.update(d.ref, upd);
+    n++;
+  });
+  if (n) await batch.commit();
+  const mudou = Object.keys(cli).filter((k) => !["atualizadoEm", "atualizadoPor"].includes(k)).map((k) => `${k}: ${JSON.stringify(antes[k] ?? "")} \u2192 ${JSON.stringify(cli[k])}`).join("; ");
+  await log(eu, "Cadastro do cliente alterado", cpf, mudou.slice(0, 900));
+  return { ok: true, vendas: n };
+}
+async function liberar20(b, eu) {
+  const { v } = await vendaDe(eu, b.vendaId, true);
+  if (!v.aparelhoToken) throw erro15("Este contrato n\xE3o tem trava instalada");
+  const ref = db.collection("aparelhos").doc(v.aparelhoToken), ap = (await ref.get()).data() || {}, agora = Date.now();
+  if (ap.status === "QUITADO" || ap.quitado) throw erro15("Contrato quitado: o aparelho j\xE1 est\xE1 livre");
+  if (ap.roubo && !ap.roubo.liberadoEm) throw erro15("Aparelho com roubo ou perda comunicado: s\xF3 o suporte libera", 409, { suporte: true });
+  if (ap.modo === "TRAVAR") throw erro15("Bloqueado manualmente pela equipe: s\xF3 o suporte libera", 409, { suporte: true });
+  const hj = new Date(agora - 3 * 36e5).toISOString().slice(0, 10), abertas = (ap.parcelas || v.parcelas || []).filter((p) => !p.pago).sort((x, y) => String(x.venc).localeCompare(String(y.venc)));
+  const parc = abertas[0];
+  if (!parc) throw erro15("N\xE3o h\xE1 parcela em aberto: o aparelho n\xE3o deveria estar travado. Fale com o suporte.", 409, { suporte: true });
+  const usos = { ...ap.lib20Parcelas || {} }, ja = +usos[parc.n] || 0;
+  if (ja >= 2) throw erro15(`A parcela ${parc.n} j\xE1 teve as 2 libera\xE7\xF5es de 20 minutos. Uma nova libera\xE7\xE3o \xE9 com o suporte.`, 409, { suporte: true });
+  usos[parc.n] = ja + 1;
+  const ate = Math.max(+ap.liberadoAte || 0, agora + 20 * 6e4);
+  await ref.set({ liberadoAte: ate, lib20Em: agora, lib20Parcelas: usos, modoPor: eu.nome + " (chat, 20 min para pagar)", modoMotivo: `Libera\xE7\xE3o de 20 minutos para pagar a parcela ${parc.n} (${usos[parc.n]}\xAA de 2)` }, { merge: true });
+  await log(eu, "Libera\xE7\xE3o de 20 min para pagar (chat)", v.aparelhoToken, `n\xBA ${v.numero} \xB7 ${v.clienteNome || ""} \xB7 parcela ${parc.n}${parc.venc < hj ? " (atrasada)" : ""} \xB7 ${usos[parc.n]}\xAA de 2`);
+  return { ok: true, ate, parcela: parc.n, usadas: usos[parc.n], restam: 2 - usos[parc.n] };
+}
+async function estoque(b, eu) {
+  const termos = String(b.q || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/).filter((x) => x.length >= 2).slice(0, 4);
+  if (!termos.length) throw erro15("Diga o modelo, por exemplo: A16, Moto G15, Redmi 14C");
+  const docs = (await db.collection("estoque").where("status", "==", "DISPONIVEL").get()).docs.map((d) => d.data());
+  const norm = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const achou = docs.filter((x) => {
+    const t = norm(`${x.marca} ${x.modelo} ${x.capacidade} ${x.cor}`);
+    return termos.every((k) => t.includes(k));
+  });
+  const lojas = {}, grupos = {};
+  for (const x of achou) {
+    const lid = x.lojaId || "";
+    if (!(lid in lojas)) {
+      const l = lid ? (await db.collection("lojas").doc(lid).get()).data() || {} : {};
+      lojas[lid] = { nome: x.lojaNome || l.nome || "Loja", cidade: l.cidade || "", telefone: l.telefone || "" };
+    }
+    const k = `${lid}|${x.marca} ${x.modelo}|${x.capacidade || ""}`;
+    (grupos[k] = grupos[k] || { lojaId: lid, ...lojas[lid], propria: lid === eu.lojaId, aparelho: `${x.marca || ""} ${x.modelo || ""}`.trim(), capacidade: x.capacidade || "", qtd: 0, cores: /* @__PURE__ */ new Set() }).qtd++;
+    if (x.cor) grupos[k].cores.add(x.cor);
+  }
+  const itens = Object.values(grupos).map((g) => ({ ...g, cores: [...g.cores].slice(0, 4) })).sort((a, b2) => b2.propria - a.propria || b2.qtd - a.qtd).slice(0, 12);
+  await log(eu, "Consulta de estoque no chat", String(b.q).slice(0, 40), `${achou.length} aparelho(s)`);
+  return { itens, total: achou.length };
+}
+async function buscar(b, eu) {
+  const q = soD5(b.q);
+  if (q.length !== 11 && !(q.length >= 1 && q.length <= 9)) throw erro15("Mande o CPF (11 d\xEDgitos) ou o n\xFAmero do contrato");
+  const snap2 = q.length === 11 ? await db.collection("vendas").where("clienteCpf", "==", q).limit(15).get() : await db.collection("vendas").where("numero", "==", +q).limit(5).get();
+  const lojas = {}, nomeLoja = async (id) => {
+    if (!id) return "";
+    if (!(id in lojas)) lojas[id] = ((await db.collection("lojas").doc(id).get()).data() || {}).nome || "";
+    return lojas[id];
+  };
+  const vendas = [];
+  for (const d of snap2.docs) {
+    const v = d.data();
+    if (v.status === "RASCUNHO") continue;
+    const propria = EQUIPE.includes(eu.role) || v.lojaId === eu.lojaId;
+    vendas.push({
+      id: d.id,
+      numero: v.numero,
+      status: v.status,
+      clienteNome: v.clienteNome || "",
+      clienteCpf: v.clienteCpf || "",
+      lojaId: v.lojaId || "",
+      lojaNome: v.lojaNome || await nomeLoja(v.lojaId),
+      propria,
+      vendedorUid: propria ? v.vendedorUid || "" : "",
+      aparelho: { marca: v.aparelho?.marca || "", modelo: v.aparelho?.modelo || "" },
+      aparelhoToken: v.aparelhoToken || "",
+      nParcelas: v.nParcelas || (v.parcelas || []).length,
+      financiado: v.financiado || 0,
+      parcelas: (v.parcelas || []).map((p) => ({ n: p.n, venc: p.venc, valor: p.valor, pago: !!p.pago, pagoEm: p.pagoEm || null, valorPago: p.valorPago ?? null, pagoParcial: p.pagoParcial || 0, asaasLink: p.pago ? null : p.asaasLink || null })),
+      assinadoEm: v.assinadoEm || null,
+      criadoEm: v.criadoEm || null,
+      entradaPaga: v.entradaPaga?.valor ? { valor: v.entradaPaga.valor } : null,
+      motivoReprovacao: v.status === "REPROVADA" ? v.motivoReprovacao || "" : "",
+      analisadoEm: v.analisadoEm || null,
+      aprovadoEm: v.aprovadoEm || null,
+      reprovadoEm: v.reprovadoEm || null,
+      limiteAprovado: v.limiteAprovado || v.limite || null,
+      cliente: { telefones: ((v.cliente?.telefones || []).length ? v.cliente.telefones : [v.cliente?.tel || v.cliente?.telefone].filter(Boolean)).slice(0, 1) }
+    });
+  }
+  vendas.sort((x, y) => (+y.criadoEm || 0) - (+x.criadoEm || 0));
+  if (vendas.length) await log(eu, "Busca de cliente no chat", q.length === 11 ? q.slice(0, 3) + ".***.***-" + q.slice(9) : "n\xBA " + q, `${vendas.length} contrato(s)${vendas.some((v) => !v.propria) ? " \xB7 inclui outra loja" : ""}`);
+  return { vendas };
+}
+async function handler32(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).end();
+  try {
+    const eu = await exigirEquipe(req, ["DONO", "FINANCEIRO", "SUPORTE", "GERENTE", "VENDEDOR"]), b = req.body || {};
+    const f = { cancelar, cadastro, liberar20, buscar, estoque }[b.acao];
+    if (!f) return res.status(400).json({ erro: "a\xE7\xE3o inv\xE1lida" });
+    return res.json(await f(b, eu));
+  } catch (e) {
+    return res.status(e.status || 500).json({ erro: e.message, suporte: !!e.suporte });
+  }
+}
 
 // worker/index.js
-var ROTAS = { "assistente-dono": handler31, metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
+var ROTAS = { "assistente-dono": handler31, "venda-acoes": handler32, metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
 function carregarEnv(env2) {
   globalThis.process = globalThis.process || { env: {} };
   globalThis.process.env = globalThis.process.env || {};
