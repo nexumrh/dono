@@ -171,6 +171,42 @@ async function lembretes(cfg, vendas) {
   return { lembretes: enviados, falhas, ficaramParaDepois: restantes };
 }
 
+// ---------- Avisos de cobrança pelo programa do WhatsApp (1.2+) com resposta ----------
+// 3 dias antes, no dia e 1, 3 e 7 dias de atraso (config/sistema.cobrancaWaDias). O cliente responde 1 (link do PIX),
+// 4 (renegociar) ou 5 (celular travado) e o autoatendimento do programa resolve na hora. Liga/desliga no CRM → WhatsApp.
+export async function cobrancaWa(cfg, vendas) {
+  const st = (await db.collection('plataforma').doc('waWebStatus').get()).data() || {};
+  if (st.cobranca === false || cfg.cobrancaWa === 'nao') return { cobrancaWa: 'desligada' };
+  if (st.status !== 'conectado' || !(st.vivoEm > Date.now() - 10 * 60e3) || parseFloat(st.versao || '0') < 1.2) return { cobrancaWa: 'programa do WhatsApp 1.2 desligado' };
+  const hBR = new Date(Date.now() - 3 * 3600e3).getUTCHours(); if (hBR < 8 || hBR >= 20) return { cobrancaWa: 'fora do horário' };
+  const diasW = String(cfg.cobrancaWaDias || '-3,0,1,3,7').split(',').map((x) => +String(x).trim()).filter((x) => Number.isFinite(x));
+  const porRodada = Math.max(5, Math.min(200, Number(process.env.ROTINA_MAX) || 40));
+  const promessas = {}; try { (await db.collection('crmPromessas').where('status', '==', 'PENDENTE').get()).docs.forEach((d) => { const p = d.data(); if (p.vendaId && p.data) promessas[p.vendaId] = p.data; }); } catch (e) { }
+  let enviados = 0, restantes = 0; const agora = Date.now();
+  for (const v of vendas) {
+    if (v.pixAutomatico?.status === 'ATIVO' || (promessas[v.id] && promessas[v.id] >= hoje())) continue;
+    const abertas = (v.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)); if (!abertas.length) continue;
+    const p = abertas.find((x) => x.venc < hoje()) || abertas[0], d = dias(p.venc, hoje());
+    if (!diasW.includes(d)) continue;
+    const chave = `${p.n}:W${d}`; if (v.avisosBrevo?.[chave]) continue;
+    const dd = dadosAviso(v, cfg, d > 0 ? 'atraso' : 'lembrete'), tel = String(dd.tel || '').replace(/\D/g, ''); if (tel.length < 10) continue;
+    if (enviados >= porRodada) { restantes++; continue; }
+    const n55 = tel.startsWith('55') ? tel : '55' + tel, P = dd.params, loja = cfg.empresa || 'NexumCell';
+    const texto = d > 0
+      ? `*${loja}*: Olá, ${P.NOME}! Sua parcela está em atraso há ${d} dia(s). Valor hoje: *${P.VALOR}*.\n\nResponda *1* para receber o link do PIX, *4* para renegociar ou *5* se o celular travou.`
+      : `*${loja}*: Olá, ${P.NOME}! Sua parcela de *${P.VALOR}* vence ${d === 0 ? '*hoje*' : `em ${-d} dia(s) (${P.VENCIMENTO})`}.${d < 0 ? ' Pagando antes você ganha desconto.' : ''}\n\nResponda *1* para receber o link do PIX, *3* para ver como pagar ou *0* para o menu.`;
+    const cref = db.collection('waConversas').doc(n55), c = (await cref.get()).data() || {};
+    await db.collection('waSaida').add({ numero: n55, texto, status: 'PENDENTE', em: agora + enviados, naoAntes: agora + enviados * 20e3, por: 'Cobrança automática', campanha: 'cobranca' });
+    const emAtend = c.fila && !c.fim;   // com atendente: só manda o aviso, não mexe na fila
+    await cref.set({ numero: n55, nome: c.nome || v.clienteNome || '', cpf: c.cpf || v.clienteCpf || '', cliente: true, ultimaMsg: texto.slice(0, 200), ultimaDe: 'equipe', atualizadoEm: agora,
+      ...(emAtend ? {} : { aguardandoMenu: true, fila: null, fim: false, naoLido: false }), ...(c.criadoEm ? {} : { criadoEm: agora }) }, { merge: true });
+    await cref.collection('msgs').add({ de: 'robo', t: texto, em: agora, por: 'Cobrança automática' });
+    await db.collection('vendas').doc(v.id).set({ avisosBrevo: { ...(v.avisosBrevo || {}), [chave]: { em: agora, whatsapp: 'ok' } } }, { merge: true });
+    enviados++;
+  }
+  return { cobrancaWa: enviados, ficaramParaDepois: restantes };
+}
+
 // ---------- 9h: robô de voz do Asaas para atraso longo ----------
 async function roboVoz(cfg, vendas) {
   if (cfg.roboVoz !== 'sim' || !(await asaasLigadoSrv())) return { roboVoz: 'desligado' };
@@ -301,7 +337,8 @@ export async function rotinas(qual) {
   try { Object.assign(aniv, await relatorioSemanal(cfg)); } catch (e) { console.error('relsemanal', e.message); }
   try { Object.assign(aniv, await relatorioCrm(cfg)); } catch (e) { console.error('relcrm', e.message); }
   try { Object.assign(aniv, await posVendaRotina(cfg)); } catch (e) { console.error('posvenda', e.message); }
-  return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)), ...aniv, ...ios };
+  let cw = {}; try { cw = await cobrancaWa(cfg, vendas); } catch (e) { console.error('cobrancaWa', e.message); }
+  return { ...(await lembretes(cfg, vendas)), ...(await roboVoz(cfg, vendas)), ...aniv, ...ios, ...cw };
 }
 
 export default async function handler(req, res) {

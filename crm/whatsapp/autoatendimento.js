@@ -1,4 +1,9 @@
 // Autoatendimento do cliente pelo WhatsApp (NexumCell): responde na hora, sem esperar atendente.
+//   vencimento · pede a troca do dia de vencimento (pedido VENCIMENTO, igual ao app)
+//   roubo      · comunica roubo, furto ou perda e trava o aparelho (com confirmação)
+//   pedidos    · andamento dos pedidos + declaração de quitação dos contratos quitados
+//   comprar    · crédito pré-aprovado, vitrine e lojas da cidade · indique: link e valor da indicação
+//   comprovante· lê a foto do comprovante, confere e libera 24 h enquanto o financeiro dá baixa
 //   pagar    · valor de hoje + link de pagamento (PIX) de cada contrato
 //   contrato · link do contrato em PDF
 //   guia     · passo a passo com imagens de como pagar e usar o app
@@ -41,6 +46,7 @@ export function quitacao(ap) {
   }
   return { total: r2(total), desconto: r2(cheio - total) };
 }
+const linkQuitacao = (tk) => URL_CLIENTE + '?quitacao=' + encodeURIComponent(tk) + '&pdf=1';
 const encerrado = (ap) => ap.quitado || ['QUITADO', 'CANCELADO', 'CANCELADA', 'REPROVADA'].includes(ap.status);
 
 // contratos do cliente: pelo CPF da conversa ou pelo número de WhatsApp cadastrado
@@ -109,18 +115,110 @@ export async function montar(db, acao, { numero, cpf, c: conversa = {}, cfg = {}
     msgs.push({ texto: t.join('\n') });
   } else if (acao === 'liberar') {
     const c = ativos.find((x) => (x.ap.parcelas || []).some((p) => !p.pago)) || null;
-    if (!c) { msgs.push({ texto: 'Não encontrei parcela em aberto. Se o celular está travado mesmo assim, responda *6* para falar com o Suporte.' }); return { msgs, estado }; }
+    if (!c) { msgs.push({ texto: 'Não encontrei parcela em aberto. Se o celular está travado mesmo assim, responda *10* para falar com o Suporte.' }); return { msgs, estado }; }
     const r = await liberar20(db, c);
     msgs.push({ texto: r.ok
       ? `Pronto! Liberei o seu ${nomeAp(c)} por *20 minutos* para você pagar a parcela ${r.parcela} (${r.usadas}ª de 2 liberações desta parcela). Pode levar até 1 minuto para destravar com internet ligada.\n\n${textoPagar(c)}`
-      : `${r.erro}\n\nVocê ainda pode pagar por outro celular ou computador:\n${linkPagar(c.tk)}\n\nPara falar com o Suporte, responda *6*.` });
+      : `${r.erro}\n\nVocê ainda pode pagar por outro celular ou computador:\n${linkPagar(c.tk)}\n\nPara falar com o Suporte, responda *10*.` });
+  } else if (acao === 'vencimento') {
+    const c = ativos[0];
+    if (!c) { msgs.push({ texto: 'Seus contratos estão quitados.' }); return { msgs, estado }; }
+    const ab = (c.ap.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc));
+    msgs.push({ texto: `*Mudar o dia do vencimento · contrato nº ${c.ap.vendaNumero}*\nHoje suas parcelas vencem todo dia *${+String(ab[0]?.venc || '').slice(8, 10) || '—'}*.\nResponda com o *novo dia* (de 1 a 28). A loja confere e confirma por aqui; pode haver ajuste proporcional na próxima parcela.` });
+    estado.aguardandoVenc = { tk: c.tk, ate: Date.now() + 2 * 3600e3 };
+  } else if (acao === 'roubo') {
+    const c = ativos.find((x) => !(x.ap.roubo && !x.ap.roubo.liberadoEm)) || ativos[0];
+    if (!c) { msgs.push({ texto: 'Não encontrei contrato ativo para travar. Responda *10* para falar com o Suporte.' }); return { msgs, estado }; }
+    if (c.ap.roubo && !c.ap.roubo.liberadoEm) { msgs.push({ texto: `O ${nomeAp(c)} (contrato nº ${c.ap.vendaNumero}) já está com o comunicado de ${String(c.ap.roubo.tipo || 'roubo').toLowerCase()} ativo e travado. Responda *10* se precisar falar com o Suporte.` }); return { msgs, estado }; }
+    msgs.push({ texto: `*Celular roubado, furtado ou perdido · ${nomeAp(c)} (contrato nº ${c.ap.vendaNumero})*\nO aparelho será *travado* assim que se conectar à internet, para ninguém usar. As parcelas continuam valendo.\n\nResponda numa mensagem só: *o que aconteceu* (roubo, furto ou perda) e *onde* (bairro e cidade).\nEx.: Roubo, Centro, Foz do Iguaçu` });
+    estado.aguardandoRoubo = { tk: c.tk, passo: 1, ate: Date.now() + 2 * 3600e3 };
+  } else if (acao === 'pedidos') {
+    const nomes = { ACORDO: 'Acordo do atraso', VENCIMENTO: 'Troca do vencimento', ASSISTENCIA: 'Assistência técnica', PROTECAO: 'Proteção do aparelho', DADOS: 'Atualização de cadastro', COMPROVANTE: 'Conferência de comprovante', TROCA: 'Troca do aparelho' };
+    const st = { ABERTO: 'recebido, aguardando a loja', RECEBIDO: 'em análise', ANDAMENTO: 'em andamento', CONCLUIDO: 'concluído', APROVADO: 'aprovado', RECUSADO: 'recusado', CANCELADO: 'cancelado' };
+    let peds = [];
+    for (const c of lista.slice(0, 3)) { try { (await db.collection('pedidos').where('token', '==', c.tk).get()).docs.forEach((d) => peds.push(d.data())); } catch (e) { } }
+    peds = peds.sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0)).slice(0, 5);
+    msgs.push({ texto: peds.length ? '*Seus pedidos*\n' + peds.map((p) => `• ${nomes[p.tipo] || p.tipo} · contrato nº ${p.vendaNumero} · ${new Date(p.criadoEm).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}: *${st[p.status] || String(p.status || '').toLowerCase()}*${p.resposta ? `\n  Resposta: ${String(p.resposta).slice(0, 200)}` : ''}`).join('\n') : 'Você não tem pedidos abertos.' });
+    const quit = lista.filter((c) => encerrado(c.ap) && c.ap.status !== 'CANCELADO' && (c.ap.parcelas || []).every((p) => p.pago));
+    if (quit.length) msgs.push({ texto: '*Declaração de quitação*\n' + quit.slice(0, 3).map((c) => `Contrato nº ${c.ap.vendaNumero} · ${nomeAp(c)}: abra e toque em Salvar como PDF\n${linkQuitacao(c.tk)}`).join('\n\n') });
+    else if (ativos.length) msgs.push({ texto: 'A declaração de quitação fica disponível aqui quando o contrato for quitado. Para quitar agora com desconto, responda *4*.' });
+  } else if (acao === 'comprar') {
+    const c = lista[0], ap = c.ap, pre = lista.map((x) => x.ap.preAprovado).find(Boolean);
+    let vit = {}; try { vit = (await db.collection('publico').doc('vitrine').get()).data() || {}; } catch (e) { }
+    const t = [];
+    if (pre) t.push(`*Você tem crédito pré-aprovado para trocar de celular${pre.valor ? ` até ${brl(pre.valor)}` : ''}!* É só ir numa loja NexumCell com documento.`);
+    else t.push('*Quer um celular novo?* Faça a pré-análise grátis pelo celular, sem compromisso:');
+    t.push(URL_CLIENTE + 'seja-cliente.html' + (ap.lojaId ? '?l=' + encodeURIComponent(ap.lojaId) : ''));
+    try { const lj = ap.lojaId ? (await db.collection('lojas').doc(ap.lojaId).get()).data() || {} : {};
+      if (lj.cidade) { const q = (await db.collection('lojas').where('cidade', '==', lj.cidade).get()).docs.map((d) => d.data()).filter((l) => !l.encerrada).slice(0, 4);
+        if (q.length) t.push(`\n*Lojas NexumCell em ${lj.cidade}:*\n` + q.map((l) => `• ${l.nome}${l.endereco ? ' · ' + l.endereco : ''}${l.telefone ? ' · ' + l.telefone : ''}`).join('\n')); } } catch (e) { }
+    msgs.push({ texto: t.join('\n') });
+    const tag = nxTag(ap.vendaNumero), link = URL_CLIENTE + 'seja-cliente.html?ind=' + tag + (ap.lojaId ? '&l=' + encodeURIComponent(ap.lojaId) : '');
+    msgs.push({ texto: `*Indique e ganhe*${+vit.indicacaoValor ? `: ${brl(vit.indicacaoValor)} de desconto na sua parcela` : ': desconto na sua parcela'} por amigo que comprar.\nMande este link para os amigos:\n${link}\nNa loja, o amigo também pode dizer o código *NXC-${ap.vendaNumero}*.` });
   }
   return { msgs, estado };
+}
+function nxTag(n) { let x = (Math.max(0, Math.floor(+n || 0)) * 1103515245 + 12345) % 8031810176, s = ''; for (let i = 0; i < 7; i++) { s = String.fromCharCode(65 + (x % 26)) + s; x = Math.floor(x / 26); } return 'N' + s; }
+
+// troca do vencimento: o cliente respondeu o novo dia
+export async function pedirVencimento(db, pend, dia) {
+  const ap = (await db.collection('aparelhos').doc(pend.tk).get()).data() || {};
+  await db.collection('pedidos').add({ tipo: 'VENCIMENTO', token: pend.tk, vendaId: ap.vendaId || '', vendaNumero: ap.vendaNumero || 0, lojaId: ap.lojaId || '', lojaNome: ap.lojaNome || '', clienteNome: ap.clienteNome || '',
+    marca: ap.marca || '', modelo: ap.modelo || '', imei: ap.imei || '', descricao: `Novo dia: ${dia} · pedido pelo WhatsApp`, status: 'ABERTO', criadoEm: Date.now(), novoDia: dia, origem: 'whatsapp' });
+  return `Pedido registrado: vencimento para todo dia *${dia}* no contrato nº ${ap.vendaNumero}. A loja confere e confirma por aqui. Para acompanhar, responda *8*.`;
+}
+// roubo/furto/perda: passo 1 (o que e onde) → passo 2 (CONFIRMO) → trava
+export async function passoRoubo(db, pend, texto) {
+  const t = String(texto || '').trim();
+  if (pend.passo === 1) {
+    const tipo = /furt/i.test(t) ? 'Furto' : /perd|perdi/i.test(t) ? 'Perda' : /roub|assalt/i.test(t) ? 'Roubo' : '';
+    const local = t.replace(/^\s*(roubo|furto|perda|perdi|fui roubad[oa]|assalto)\s*[,.:;-]?\s*/i, '').slice(0, 120);
+    if (!tipo || local.length < 3) return { resposta: 'Me diga numa mensagem só o que aconteceu (roubo, furto ou perda) e onde. Ex.: Roubo, Centro, Foz do Iguaçu', pend };
+    return { resposta: `Confirma que o celular *não está com você* e quer que ele seja *travado*?\n${tipo} · ${local}\n\nResponda *CONFIRMO* para travar agora, ou *0* para cancelar.`, pend: { ...pend, passo: 2, tipo, local } };
+  }
+  if (!/^confirmo\b/i.test(t)) return { resposta: 'Para travar, responda *CONFIRMO*. Para cancelar, responda *0*.', pend };
+  const ref = db.collection('aparelhos').doc(pend.tk), ap = (await ref.get()).data() || {};
+  const roubo = { tipo: pend.tipo, data: hoje(), local: pend.local, bo: '', relato: 'Comunicado pelo WhatsApp', em: Date.now(), via: 'WHATSAPP', localizar: false };
+  await ref.set({ roubo }, { merge: true });
+  await db.collection('logs').add({ em: Date.now(), acao: 'Roubo/perda comunicado pelo WhatsApp', alvo: pend.tk, detalhe: `nº ${ap.vendaNumero} · ${ap.clienteNome || ''} · ${pend.tipo} · ${pend.local}`, nome: 'Assistente NexumCell (WhatsApp)', role: 'IA' }).catch(() => {});
+  return { resposta: `Pronto. O ${[ap.marca, ap.modelo].filter(Boolean).join(' ')} (contrato nº ${ap.vendaNumero}) será *travado* assim que se conectar à internet. A loja e o Suporte já foram avisados.\n\n*Agora faça isto:*\n1. Registre o boletim de ocorrência (na delegacia ou pela Delegacia Online da Polícia Civil).\n2. Peça à operadora o bloqueio do chip.\n3. Troque as senhas do e-mail, banco e redes sociais.\nQuando tiver o número do B.O., mande aqui.`, pend: null, fila: 'suporte' };
+}
+
+// comprovante (foto): a IA lê, confere com a parcela e o recebedor, e libera 24 h enquanto o financeiro dá baixa
+export async function conferirComprovante(db, { numero, cpf, dataUrl, arquivo, ler, cfg = {} }) {
+  const { lista } = await contratosDe(db, numero, cpf), h = hoje();
+  const c = lista.filter((x) => !encerrado(x.ap)).find((x) => (x.ap.parcelas || []).some((p) => !p.pago));
+  if (!c) return null;                                   // sem contrato em aberto: a foto segue para a equipe
+  let j = {}; try { j = await ler(dataUrl); } catch (e) { console.error('comprovante', e.message); return null; }
+  if (!j || !j.ehComprovante) return null;               // não é comprovante (foto do aparelho, documento...)
+  const ap = c.ap, ab = (ap.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc)), par = ab[0];
+  const valor = Math.round((+String(j.valor || 0).replace(',', '.') || 0) * 100) / 100, data = String(j.data || '').slice(0, 10);
+  const id = String(j.idTransacao || '').replace(/\s+/g, '').slice(0, 80), idDoc = id.replace(/[\/]/g, '_');
+  const problemas = [];
+  if (!(valor > 0)) problemas.push('valor ilegível');
+  else if (valor < valorHoje(par, ap) * 0.98 && valor < par.valor * 0.98) problemas.push(`valor ${brl(valor)} menor que a parcela (${brl(valorHoje(par, ap))})`);
+  if (!data || dias(data, h) > 3 || dias(data, h) < 0) problemas.push(data ? `data ${fmtD(data)} fora do prazo` : 'sem data');
+  const receb = String(ap.recebedor || cfg.recebedor || 'NEXUMCELL').toLowerCase().split(/\s+/)[0];
+  if (j.recebedor && receb && !String(j.recebedor).toLowerCase().includes(receb)) problemas.push(`recebedor "${j.recebedor}"`);
+  if (String(j.duvidas || '').trim()) problemas.push('imagem com sinal de edição ou corte');
+  if (id) { try { const a = await db.collection('comprovantes').doc(idDoc).get(), b = await db.collection('comprovantesWa').doc(idDoc).get(); if (a.exists || b.exists) problemas.push('comprovante já enviado antes'); } catch (e) { } }
+  else problemas.push('sem ID da transação');
+  const ok = !problemas.length, agora = Date.now(), horas = Math.max(0, Math.min(72, +cfg.comprovanteLiberarHoras || 24));
+  if (ok && id) await db.collection('comprovantesWa').doc(idDoc).set({ em: agora, token: c.tk, vendaNumero: ap.vendaNumero, n: par.n, valor, data, numero });
+  const libera = ok && horas > 0 && !ap.roubo;
+  if (libera) await db.collection('aparelhos').doc(c.tk).set({ liberadoAte: Math.max(+ap.liberadoAte || 0, agora + horas * 3600e3), modoPor: 'Comprovante enviado pelo WhatsApp', modoMotivo: `Liberado ${horas} h enquanto o financeiro confere o comprovante da parcela ${par.n}` }, { merge: true });
+  await db.collection('pedidos').add({ tipo: 'COMPROVANTE', token: c.tk, vendaId: ap.vendaId || '', vendaNumero: ap.vendaNumero || 0, lojaId: ap.lojaId || '', lojaNome: ap.lojaNome || '', clienteNome: ap.clienteNome || '',
+    marca: ap.marca || '', modelo: ap.modelo || '', imei: ap.imei || '', status: 'ABERTO', criadoEm: agora, origem: 'whatsapp', arquivo: arquivo || null,
+    descricao: `Comprovante pelo WhatsApp: ${j.tipo || 'PIX'} de ${brl(valor)}${data ? ' em ' + fmtD(data) : ''}${j.pagador ? ' · pagador ' + j.pagador : ''}${id ? ' · ID ' + id : ''} · parcela ${par.n}. ${ok ? `Conferido pela IA${libera ? `; celular liberado ${horas} h` : ''}. Falta dar a baixa no CRM.` : 'Conferir: ' + problemas.join('; ') + '.'}${arquivo?.url ? ' Foto: ' + arquivo.url : ''}`,
+    comprovante: { valor, data, id, pagador: j.pagador || '', recebedor: j.recebedor || '', n: par.n, ok, problemas } });
+  return { ok, texto: ok
+    ? `Recebi o seu comprovante de *${brl(valor)}* (${fmtD(data)}), parcela ${par.n} do contrato nº ${ap.vendaNumero}. Está tudo certo.${libera ? ` Liberei o celular por *${horas} horas* enquanto o financeiro confirma a baixa.` : ''} Obrigado!`
+    : `Recebi o seu comprovante. Vou passar para o *financeiro* conferir (${problemas[0]}). Eles respondem por aqui. Se pagou pelo link da NexumCell, a baixa e a liberação são automáticas em até 1 minuto.` };
 }
 
 async function liberar20(db, c) {
   const ref = db.collection('aparelhos').doc(c.tk), ap = (await ref.get()).data() || {}, agora = Date.now(), h = hoje();
-  if (ap.roubo) return { erro: 'Este aparelho está com bloqueio especial. Responda *6* para falar com o Suporte.' };
+  if (ap.roubo) return { erro: 'Este aparelho está com bloqueio especial. Responda *10* para falar com o Suporte.' };
   const parc = (ap.parcelas || []).filter((p) => !p.pago).sort((a, b) => a.venc.localeCompare(b.venc))[0];
   if (!parc) return { erro: 'Não há parcela em aberto neste contrato.' };
   const usos = { ...(ap.lib20Parcelas || {}) }, ja = +usos[parc.n] || 0;
@@ -151,8 +249,15 @@ export async function pedirAcordo(db, pend, n, cfg = {}) {
 export function intencao(t) {
   const s = String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   if (/(como (eu )?pag|como (usa|uso|funciona) o app|passo a passo|tutorial|nao sei pagar|ensina)/.test(s)) return 'guia';
+  if (/(roubad|roubaram|furtad|furtaram|assaltad|robad|robaron)/.test(s)) return 'roubo';
+  if (/(como pago|como se paga|como usar la app)/.test(s)) return 'guia';
+  if (/(pagar (mi|la) cuota|link de pago|cuanto debo|mi cuota)/.test(s)) return 'pagar';
   if (/(renegoci|acordo|parcelar (o )?atraso|negociar|quitar|quitacao|desconto pra quitar|valor pra quitar)/.test(s)) return 'acordo';
   if (/(bloquead|travad|trancad|liberar? (o )?(cel|aparelho)|desbloque)/.test(s)) return 'liberar';
+  if (/(roubad|roubaram|furtad|furtaram|perdi (o|meu) (cel|aparelho)|assaltad)/.test(s)) return 'roubo';
+  if (/(mudar|trocar|alterar).{0,20}(dia|data).{0,15}venc/.test(s)) return 'vencimento';
+  if (/(declaracao de quitacao|carta de quitacao|meus pedidos|meu pedido|andamento)/.test(s)) return 'pedidos';
+  if (/(comprar (outro|um|mais um) (cel|aparelho)|celular novo|trocar de celular|pre.?aprovad|indicar|indicacao|indique)/.test(s)) return 'comprar';
   if (/(contrato|2 ?a via do contrato|segunda via do contrato)/.test(s)) return 'contrato';
   if (/(boleto|pix|link (de|pra|para) pag|pagar (a |minha )?parcela|segunda via|2 ?a via|fatura|quanto (eu )?devo|valor da parcela)/.test(s)) return 'pagar';
   return '';
@@ -170,5 +275,9 @@ export async function conferirCpf(db, texto) {
     if (!ok) { const c = (await db.collection('clientes').doc(cpf).get()).data() || {}; ok = String(c.nasc || '').slice(0, 10) === nasc; }
     if (ok) return { cpf, nome: vs[0]?.clienteNome || '' };
   } catch (e) { console.error('cpf', e.message); }
-  return { erro: 'CPF e data de nascimento não conferem com nenhum contrato NexumCell. Confira e envie de novo, ou responda *6* para falar com o Suporte.' };
+  return { erro: 'CPF e data de nascimento não conferem com nenhum contrato NexumCell. Confira e envie de novo, ou responda *10* para falar com o Suporte.' };
 }
+
+// espanhol: clientes do Paraguai e da Argentina
+export function ehEspanhol(t) { const s = ' ' + String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + ' ';
+  return /\b(hola|buen(os|as) (dias|tardes|noches)|quiero|necesito|cuota|celular bloqueado|como pago|gracias|por favor|tengo|puedo|ustedes|deuda|pagar la)\b/.test(s) && !/\b(obrigad|voce|quero|preciso|parcela)\b/.test(s); }

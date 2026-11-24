@@ -37,12 +37,16 @@ async function fichaDe({ cpf, token, numero }) {
 
 // No WhatsApp (programa 1.1 ou mais novo) a IA também manda sozinha: link de pagamento, contrato em PDF,
 // guia com imagens, renegociação (atraso, quitação e pedido de acordo) e a liberação de 20 minutos.
-const ACOES_WA = ['pagar', 'contrato', 'guia', 'acordo', 'liberar'];
-const PEDIDO_WA = 'IMPORTANTE (WhatsApp): você pode ENVIAR AUTOMATICAMENTE ao cliente, colocando no campo "acoes" do JSON: "pagar" (valor de hoje e link do PIX de cada contrato; use para boleto, PIX, 2ª via, fatura, quanto devo), "contrato" (link do contrato em PDF), "guia" (imagens passo a passo de como pagar e usar o app), "acordo" (renegociação: valor do atraso, quitação com desconto e o pedido de acordo em parcelas, que o próprio cliente faz respondendo o número de vezes), "liberar" (celular travado: libera 20 minutos para pagar, até 2 vezes por parcela). Para esses pedidos NÃO marque humano: responda em 1 ou 2 frases que está enviando e coloque a ação em "acoes". Desconto além da quitação, cancelamento, troca, reclamação ou pedido de pessoa continuam humano=true. Responda em JSON: {"resposta":"...","humano":true|false,"acoes":[]}.';
+const ACOES_WA = ['pagar', 'contrato', 'guia', 'acordo', 'liberar', 'vencimento', 'roubo', 'pedidos', 'comprar'];
+const PEDIDO_WA = 'IMPORTANTE (WhatsApp): você pode ENVIAR AUTOMATICAMENTE ao cliente, colocando no campo "acoes" do JSON: "pagar" (valor de hoje e link do PIX de cada contrato; use para boleto, PIX, 2ª via, fatura, quanto devo), "contrato" (link do contrato em PDF), "guia" (imagens passo a passo de como pagar e usar o app), "acordo" (renegociação: valor do atraso, quitação com desconto e o pedido de acordo em parcelas, que o próprio cliente faz respondendo o número de vezes), "liberar" (celular travado: libera 20 minutos para pagar, até 2 vezes por parcela), "vencimento" (pedido para mudar o dia do vencimento), "roubo" (comunicar roubo, furto ou perda e travar o aparelho, com confirmação do cliente), "pedidos" (andamento dos pedidos e declaração de quitação), "comprar" (crédito pré-aprovado, lojas da cidade e link de indicação). Para esses pedidos NÃO marque humano: responda em 1 ou 2 frases que está enviando e coloque a ação em "acoes". Desconto além da quitação, cancelamento, troca, reclamação ou pedido de pessoa continuam humano=true. Responda em JSON: {"resposta":"...","humano":true|false,"acoes":[]}.';
 const intencaoWa = (t) => { const s = String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (/(como (eu )?pag|como (usa|uso|funciona) o app|passo a passo|tutorial|nao sei pagar)/.test(s)) return 'guia';
   if (/(renegoci|acordo|negociar|quitar|quitacao)/.test(s)) return 'acordo';
   if (/(bloquead|travad|desbloque)/.test(s)) return 'liberar';
+  if (/(roubad|furtad|perdi o cel|assaltad|robad)/.test(s)) return 'roubo';
+  if (/(mudar|trocar|alterar).{0,20}(dia|data).{0,15}venc/.test(s)) return 'vencimento';
+  if (/(declaracao de quitacao|meu pedido|meus pedidos)/.test(s)) return 'pedidos';
+  if (/(celular novo|trocar de celular|pre.?aprovad|indicar|indicacao)/.test(s)) return 'comprar';
   if (/contrato/.test(s)) return 'contrato';
   if (/(boleto|pix|link (de|pra|para) pag|pagar (a |minha )?parcela|segunda via|2 ?a via|fatura|quanto (eu )?devo)/.test(s)) return 'pagar';
   return ''; };
@@ -82,7 +86,8 @@ export async function crmIaAutomatica() {
   if (cfg.iaAutoWa !== false) {
     const wa = (await db.collection('waConversas').where('naoLido', '==', true).get()).docs;
     const st = (await db.doc('plataforma/waWebStatus').get().catch(() => null))?.data() || {};
-    const autoOk = parseFloat(st.versao || '0') >= 1.1; // programa novo sabe montar link, contrato, guia e acordo
+    const ver = parseFloat(st.versao || '0'), autoOk = ver >= 1.1; // programa novo sabe montar link, contrato, guia e acordo (1.2: o resto)
+    const NOVAS = ['vencimento', 'roubo', 'pedidos', 'comprar'];
     for (const s of wa.slice(0, 25)) {
       const c = s.data(); if ((c.iaHumano && (c.iaUltimaEm || 0) > agora - 864e5) || c.aguardandoMenu || c.fim || (c.atualizadoEm || 0) > agora - espera) continue;
       const msgs = (await s.ref.collection('msgs').get()).docs.map((d) => d.data()).sort((a, b) => a.em - b.em), ult = msgs[msgs.length - 1];
@@ -91,6 +96,7 @@ export async function crmIaAutomatica() {
         const conversa = msgs.slice(-14).map((m) => `${m.de === 'cliente' ? 'Cliente' : 'NexumCell'}: ${String(m.t || '').slice(0, 500)}`).join('\n');
         const x = await responder(base, 'WhatsApp', c.nome || 'Cliente', await fichaDe({ cpf: c.cpf }), conversa, autoOk ? PEDIDO_WA : '');
         if (autoOk && !x.acoes.length) { const k = intencaoWa(ult.t); if (k && !/(cancel|troca|reclam|procon|advogad)/i.test(ult.t || '')) { x.acoes = [k]; x.humano = false; } }
+        if (ver < 1.2) x.acoes = x.acoes.filter((a) => !NOVAS.includes(a));
         if (x.acoes.length) x.humano = false;
         const em = Date.now();
         await db.collection('waSaida').add({ numero: s.id, texto: x.resposta, status: 'PENDENTE', em, por: 'Assistente NexumCell (IA)', ia: true });

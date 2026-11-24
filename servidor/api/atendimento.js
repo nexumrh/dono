@@ -94,11 +94,12 @@ async function ia(req, b) {
   const { eu, a } = await meu(req, b.id);
   if (a.status === 'CONCLUIDO') throw erro('Atendimento concluído');
   await limite(eu.uid);
-  const msgs = (a.msgs || []).filter(m => m.t && ['user', 'bot', 'atendente'].includes(m.de)).slice(-14);
-  const ult = [...msgs].reverse().find(m => m.de === 'user')?.t || '';
-  const cods = codigosNoTexto(ult);
+  const msgs = (a.msgs || []).filter(m => (m.t || m.arquivo) && ['user', 'bot', 'atendente'].includes(m.de)).slice(-14);
+  const ultM = [...msgs].reverse().find(m => m.de === 'user'), foto = await lerFotoTela(ultM);
+  const ult = (ultM?.t || '') + (foto ? ' ' + foto.texto : '');
+  const cods = [...new Set([...codigosNoTexto(ult), ...((foto?.codigos || []).map(String).filter(c => ERROS[c]))])];
   const crm = (await db.collection('config').doc('crm').get()).data() || {};
-  const hist = msgs.map(m => ({ role: m.de === 'user' ? 'user' : 'assistant', content: String(m.t).slice(0, 1500) }));
+  const hist = msgs.map(m => ({ role: m.de === 'user' ? 'user' : 'assistant', content: (String(m.t || (m.arquivo ? '[foto]' : '')).slice(0, 1500)) + (m === ultM && foto ? `\n[Foto da tela enviada. O que mostra: ${foto.tela}. Texto na tela: ${foto.texto || '(nenhum)'}${foto.marca ? '. Aparelho: ' + foto.marca + ' ' + (foto.modelo || '') : ''}${cods.length ? '. Códigos do catálogo: ' + cods.map(c => c + ' = ' + ERROS[c].t).join('; ') : ''}]` : '') }));
   let j = {};
   try {
     const ex = await exemplosBons(), art = await artigosTexto().catch(() => '');
@@ -108,7 +109,18 @@ async function ia(req, b) {
     if (cods.length) return { texto: cods.map(resolucaoTexto).join('\n\n'), atendente: false, codigos: cods, fonte: 'catalogo' };
     throw erro(e.message || 'A IA não respondeu', e.status || 502);
   }
-  return { texto: String(j.resposta || '').trim(), atendente: !!j.atendente, resumo: String(j.resumo || '').slice(0, 200), codigos: cods, fonte: 'ia' };
+  return { texto: String(j.resposta || '').trim(), atendente: !!j.atendente, resumo: String(j.resumo || '').slice(0, 200), codigos: cods, fonte: 'ia', ...(foto ? { foto: { tela: foto.tela, texto: String(foto.texto || '').slice(0, 300) } } : {}) };
+}
+// diagnóstico pela foto: a IA lê a tela (erro da trava, leitor de QR, tela do portal) e transcreve os códigos
+async function lerFotoTela(m) {
+  if (!m?.arquivo?.id || !/^image\//.test(m.arquivo.tipo || '')) return null;
+  try {
+    const d = (await db.collection('crmArquivos').doc(String(m.arquivo.id)).get()).data(); if (!d?.data || !/^data:image\//.test(d.data)) return null;
+    const t = await groq([{ role: 'system', content: 'Você lê fotos de tela de celular Android e do sistema NexumCell (portal da loja, app NexumCell Trava, leitor de QR da configuração do Android). Transcreva exatamente; não invente.' },
+      { role: 'user', content: [{ type: 'text', text: 'Responda em JSON: {"tela":"o que a tela mostra em 1 frase (ex.: erro no app NexumCell Trava; tela de boas-vindas do Android; leitor de QR; tela da venda no portal)","texto":"todo o texto visível, principalmente mensagens de erro","codigos":["números de erro de 3 ou 4 dígitos que aparecem"],"marca":"","modelo":""}' }, { type: 'image_url', image_url: { url: d.data } }] }],
+      { temperatura: 0, max: 500, json: true, tipo: 'visao', modelo: process.env.GROQ_MODELO_VISAO || '' });
+    const j = JSON.parse(t); return { tela: String(j.tela || '').slice(0, 200), texto: String(j.texto || '').slice(0, 1200), codigos: Array.isArray(j.codigos) ? j.codigos.slice(0, 5) : [], marca: String(j.marca || ''), modelo: String(j.modelo || '') };
+  } catch (e) { console.error('foto da tela', e.message); return null; }
 }
 
 export default async function handler(req, res) {
