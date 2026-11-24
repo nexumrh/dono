@@ -11900,21 +11900,26 @@ const RX_USB=/\b(usb|cabo|computador|notebook|pc)\b.*\b(trava|instal)|\b(trava|i
   return _bt6(id,rotulo);
 }; }
 
-/* rolagem: não puxa para baixo enquanto a pessoa lê mensagens antigas */
-const ROL={lendo:false,n:0,id:''};
-function rolInfo(){ const c=$('#atC'); return c?{c,perto:c.scrollHeight-c.scrollTop-c.clientHeight<90,top:c.scrollTop}:null; }
+/* rolagem: segue o fim da conversa; só para quando a própria pessoa rola para cima (nov/2026, v9) */
+const ROL={fundo:true,id:'',n:0,prog:0,mexeu:0};
+function rolFundo(c){ ROL.prog=Date.now(); c.scrollTop=c.scrollHeight; }
+function rolLiga(c){ if(c.dataset.rol9) return; c.dataset.rol9=1;
+  ['wheel','touchmove','keydown','mousedown','pointerdown'].forEach(ev=>c.addEventListener(ev,()=>{ ROL.mexeu=Date.now(); },{passive:true}));
+  c.addEventListener('scroll',()=>{ const perto=c.scrollHeight-c.scrollTop-c.clientHeight<90;
+    if(perto){ ROL.fundo=true; $('#atNovas')?.remove(); } else if(Date.now()-ROL.mexeu<1500&&Date.now()-ROL.prog>150) ROL.fundo=false; },{passive:true}); }
+function rolImgs(c){ c.querySelectorAll('img').forEach(i=>{ if(i.dataset.rl) return; i.dataset.rl=1; i.addEventListener('load',()=>{ if(ROL.fundo) rolFundo(c); }); }); }
 { const _rd6=atRender; atRender=async function(...a){
-  const antes=rolInfo(), mesmo=CH.doc&&ROL.id===CH.doc.id, n0=ROL.n, lendo=antes&&mesmo&&!antes.perto;
+  const c0=$('#atC'), top0=c0?c0.scrollTop:0; if(!CH.doc||ROL.id!==CH.doc.id) ROL.fundo=true;
   const r=await _rd6(...a); const c=$('#atC'), d=CH.doc;
   if(c&&CH.tela==='chat'&&d){
+    pintarExtras6(c,d); rolLiga(c); rolImgs(c);
     const n=(d.msgs||[]).length;
-    if(lendo){ c.scrollTop=antes.top; if(n>n0) mostrarNovas(); } else { c.scrollTop=c.scrollHeight; $('#atNovas')?.remove(); }
+    if(ROL.fundo){ rolFundo(c); $('#atNovas')?.remove(); } else { ROL.prog=Date.now(); c.scrollTop=top0; if(n>ROL.n) mostrarNovas(); }
     ROL.n=n; ROL.id=d.id;
-    if(!c.dataset.rol){ c.dataset.rol=1; c.addEventListener('scroll',()=>{ if(c.scrollHeight-c.scrollTop-c.clientHeight<90) $('#atNovas')?.remove(); },{passive:true}); }
-    pintarExtras6(c,d);
   }
   return r; }; }
-{ const _sn=atSinais; atSinais=function(){ const antes=rolInfo(); _sn(); const c=$('#atC'); if(c&&antes&&!antes.perto) c.scrollTop=antes.top; }; }
+{ const _sn=atSinais; atSinais=function(){ const c0=$('#atC'), top=c0?c0.scrollTop:0; _sn(); const c=$('#atC'); if(!c) return; if(ROL.fundo) rolFundo(c); else { ROL.prog=Date.now(); c.scrollTop=top; } }; }
+{ const _us=atUser; atUser=async function(...a){ ROL.fundo=true; return _us(...a); }; }
 function mostrarNovas(){ if($('#atNovas')||!$('#atP')) return; const b=document.createElement('button'); b.id='atNovas'; b.type='button'; b.textContent='Novas mensagens';
   b.onclick=()=>{ const c=$('#atC'); if(c) c.scrollTo({top:c.scrollHeight,behavior:'smooth'}); b.remove(); }; $('#atP').insertBefore(b,$('#atIn')); }
 
@@ -11928,7 +11933,7 @@ function pintarExtras6(c,d){
     if(m.guia==='usb') el.insertAdjacentHTML('beforeend',htmlGuiaUsb()); });
   c.querySelectorAll('.ops button').forEach(b=>{ const t=b.textContent.replace(/^[^\p{L}\p{N}★]+/u,'').replace(/^↩\s*/,''); if(t!==b.textContent) b.textContent=t; });
 }
-async function carregarFoto(id,img){ if(!img) return; try{ if(!AT_ARQ[id]){ const a=await DB.get('crmArquivos',id); AT_ARQ[id]=a?.data||''; } if(AT_ARQ[id]) img.src=AT_ARQ[id]; else img.closest('a').textContent='Abrir foto'; }catch(e){ img.closest('a').textContent='Abrir foto'; } }
+async function carregarFoto(id,img){ if(!img) return; try{ if(!AT_ARQ[id]){ const a=await DB.get('crmArquivos',id); AT_ARQ[id]=a?.data||''; } if(AT_ARQ[id]){ img.addEventListener('load',()=>{ const c=$('#atC'); if(c&&ROL.fundo) rolFundo(c); },{once:true}); img.src=AT_ARQ[id]; } else img.closest('a').textContent='Abrir foto'; }catch(e){ img.closest('a').textContent='Abrir foto'; } }
 
 /* clipe na caixa de mensagem */
 function ligarClipe(){ const inp=$('#atIn'); if(!inp||$('#atClip')) return;

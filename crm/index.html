@@ -2394,17 +2394,20 @@ async function enviarGuiaUsb(i) {
   mais.insertAdjacentHTML('beforeend', `<button class="ferr" id="tUsb" title="Mandar o passo a passo com imagens da trava pelo cabo USB">${I('usb')}Guia trava USB</button>`);
   $('#tUsb').onclick = () => enviarGuiaUsb(i); }; }
 
-/* 4) rolagem: se o atendente está lendo mensagens antigas, a conversa não pula para baixo */
-let _rol6 = { key: '', perto: true, top: 0 };
+/* 4) rolagem: segue o fim da conversa; só para quando o atendente rola para cima (v9) */
+const _rol6 = { key: '', fundo: true, prog: 0, mexeu: 0 };
+const rolFim = el => { _rol6.prog = Date.now(); el.scrollTop = el.scrollHeight; };
 { const _pm6 = pintarMsgs; pintarMsgs = function (ms) {
-  const el = $('#ch-b'), mesmo = _rol6.key === C.sel, perto = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 90, top = el?.scrollTop || 0;
+  const el = $('#ch-b'), top = el?.scrollTop || 0; if (_rol6.key !== C.sel) _rol6.fundo = true;
   _pm6(ms); const e2 = $('#ch-b'); if (!e2) return;
-  if (mesmo && !perto) { e2.scrollTop = top; if (!$('#chNovas')) { const b = document.createElement('button'); b.id = 'chNovas'; b.className = 'btn sm'; b.textContent = 'Novas mensagens'; b.onclick = () => { e2.scrollTo({ top: e2.scrollHeight, behavior: 'smooth' }); b.remove(); }; e2.parentElement.style.position = e2.parentElement.style.position || 'relative'; e2.parentElement.appendChild(b); } }
-  else { e2.scrollTop = e2.scrollHeight; $('#chNovas')?.remove(); }
+  if (_rol6.fundo) { rolFim(e2); $('#chNovas')?.remove(); }
+  else { _rol6.prog = Date.now(); e2.scrollTop = top; if (!$('#chNovas')) { const b = document.createElement('button'); b.id = 'chNovas'; b.className = 'btn sm'; b.textContent = 'Novas mensagens'; b.onclick = () => { _rol6.fundo = true; rolFim(e2); b.remove(); }; e2.parentElement.style.position = e2.parentElement.style.position || 'relative'; e2.parentElement.appendChild(b); } }
   _rol6.key = C.sel;
-  if (!e2.dataset.rol6) { e2.dataset.rol6 = 1; e2.addEventListener('scroll', () => { if (e2.scrollHeight - e2.scrollTop - e2.clientHeight < 90) $('#chNovas')?.remove(); }, { passive: true }); }
+  e2.querySelectorAll('img').forEach(i => { if (i.dataset.rl) return; i.dataset.rl = 1; i.addEventListener('load', () => { if (_rol6.fundo && $('#ch-b') === e2) rolFim(e2); }); });
+  if (!e2.dataset.rol9) { e2.dataset.rol9 = 1; ['wheel', 'touchmove', 'keydown', 'mousedown', 'pointerdown'].forEach(ev => e2.addEventListener(ev, () => { _rol6.mexeu = Date.now(); }, { passive: true }));
+    e2.addEventListener('scroll', () => { const perto = e2.scrollHeight - e2.scrollTop - e2.clientHeight < 90; if (perto) { _rol6.fundo = true; $('#chNovas')?.remove(); } else if (Date.now() - _rol6.mexeu < 1500 && Date.now() - _rol6.prog > 150) _rol6.fundo = false; }, { passive: true }); }
 }; }
-
+{ const _en9 = enviar; enviar = async function (...a) { _rol6.fundo = true; return _en9(...a); }; }
 /* 5) trava do aparelho na ficha */
 const TRV = { regras: () => ({ libMaxHoras: +(RQ_RAW.libMaxHoras) || 48, libJanelaDias: +(RQ_RAW.libJanelaDias) || 30 }) };
 const podeTrava = () => dono() || ['SUPORTE', 'FINANCEIRO'].includes(C.me?.role);
