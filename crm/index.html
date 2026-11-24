@@ -2492,6 +2492,28 @@ document.head.insertAdjacentHTML('beforeend', `<style id="crm-v6">
 .trv-av{background:var(--warn-s);color:#7A4A00;border-radius:10px;padding:9px 11px;font-size:12.5px;margin:0 0 10px}
 </style>`);
 
+/* ===================== CRM v7 (nov/2026): mandar o contrato em PDF ===================== */
+Object.assign(ICN, { pdf: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>' });
+const urlClienteCrm = () => ((window.NEXUMCELL_URLS || {}).cliente || new URL('../../cliente/', location.href).href).replace(/\/?$/, '/');
+async function enviarContrato(i) {
+  const vs = (await contratosDaConversa(i)).filter(v => v.aparelhoToken);
+  if (!vs.length) return toast('Nenhum contrato ligado a esta conversa. Busque pelo CPF no bloco "Trava do aparelho" da ficha e tente de novo.', true);
+  const mandar = async v => { const c = await DB.get('contratos', v.aparelhoToken).catch(() => null);
+    if (!c?.html) return toast(`O contrato nº ${v.numero} ainda não tem a cópia assinada publicada`, true);
+    const url = urlClienteCrm() + '?contrato=' + encodeURIComponent(v.aparelhoToken) + '&pdf=1', txt = `Segue a cópia do contrato nº ${v.numero}${v.clienteNome ? ' · ' + v.clienteNome : ''}. Abra o link e toque em Salvar como PDF.`;
+    if (i.canal === 'portal') await enviar(i, txt, null, { doc: { tipo: 'contrato', numero: v.numero, cliente: v.clienteNome || '', url } }); else await enviar(i, txt + '\n' + url);
+    toast('Contrato enviado'); };
+  if (vs.length === 1) return mandar(vs[0]);
+  const m = modal('Qual contrato enviar?', `<div class="lk-l">${vs.map(v => `<div class="lk-i"><button data-ctv="${esc(v.id)}"><b>Nº ${esc(String(v.numero))} · ${esc((v.aparelho?.marca || '') + ' ' + (v.aparelho?.modelo || ''))}</b><span>${esc(v.clienteNome || '')} · ${esc(v.status)}</span></button></div>`).join('')}</div>`, '<button class="btn sec" data-x>Cancelar</button>');
+  $('[data-x]', m).onclick = fechar; $$('[data-ctv]', m).forEach(b => b.onclick = () => { fechar(); mandar(vs.find(v => v.id === b.dataset.ctv)); });
+}
+{ const _cp7 = compositor; compositor = function (i) { _cp7(i); const mais = $('#cp .cp-mais'); if (!mais || $('#tCtr', mais)) return;
+  mais.insertAdjacentHTML('beforeend', `<button class="ferr" id="tCtr" title="Mandar a cópia do contrato assinado (abre pronta para salvar em PDF)">${I('pdf')}Contrato (PDF)</button>`);
+  $('#tCtr').onclick = () => enviarContrato(i); }; }
+{ const _cm7 = carregarMsgs; carregarMsgs = async function (i) { if (i.canal !== 'portal') return _cm7(i); const r = i.raw;
+  return pintarMsgs((r.msgs || []).map(m => ({ t: m.t, em: m.em, nos: m.de === 'atendente', de: m.de, quem: m.de === 'user' ? (m.por || i.nome) : m.de === 'bot' ? 'Assistente' : (m.por || 'NexumCell'), auto: m.auto, arquivo: m.arquivo || null, guia: m.guia || '', doc: m.doc || null }))); }; }
+{ const _bo7 = bolha; bolha = function (m) { const h = _bo7(m); return m.doc?.url ? h.replace(/<div class="h">/, `<a class="gu-tag" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${I('pdf')}Contrato nº ${esc(String(m.doc.numero || ''))} (PDF)</a><div class="h">`) : h; }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
