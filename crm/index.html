@@ -243,6 +243,8 @@ async function fbInit() {
   const b = `https://www.gstatic.com/firebasejs/${FBV}/`;
   const [a, au, m] = await Promise.all([import(b + 'firebase-app.js'), import(b + 'firebase-auth.js'), import(b + 'firebase-firestore.js')]);
   const app = a.initializeApp(CFG, APP_NOME); F = { a, au, m, app, auth: au.getAuth(app), db: m.getFirestore(app) };
+  // login por aba: duas pessoas no mesmo computador (ou o dono testando outra conta) não derrubam a sessão uma da outra
+  if (APP_NOME === 'crm' && au.browserSessionPersistence) { try { await au.setPersistence(F.auth, au.browserSessionPersistence); } catch (e) { console.warn('persistência', e.message); } }
 }
 // Aberto dentro do portal do suporte, do financeiro ou do dono: usa o mesmo login do portal (mesmo app do Firebase)
 const QS = new URLSearchParams(location.search), EMBUTIDO = QS.has('embed') && window.parent !== window;
@@ -2653,6 +2655,8 @@ const TR_CEN = { bravo_travado: ['Cliente bravo com o celular travado', ['SUPORT
 const TR_OBRIG = { SUPORTE: ['bravo_travado', 'trava_loja', 'golpe_dados', 'roubo'], FINANCEIRO: ['bravo_travado', 'renegociacao', 'comprovante', 'procon'] }, TR_MIN = 6, TR_NOTA = 7;
 C.treino = { doc: null, bloq: false, sim: null };
 async function checarTreino() {
+  if (C.treino.sim && C.treino.simUid && C.treino.simUid !== C.me?.uid) C.treino.sim = null;
+  if (C.treino.sim) C.treino.sim.ocup = false;
   if (!C.me || dono() || !['SUPORTE', 'FINANCEIRO'].includes(C.me.role)) { C.treino.bloq = false; return; }
   const [u, t] = await Promise.all([DB.get('users', C.me.uid).catch(() => null), DB.get('crmTreino', C.me.uid).catch(() => null)]); C.treino.doc = t || {};
   C.treino.bloq = !t?.aprovado && (!!u?.treinoObrigatorio || +(u?.criadoEm || 0) >= TREINO_DESDE);
@@ -2699,7 +2703,7 @@ async function trEquipe(box) {
     toast(b.dataset.tx === 'liberar' ? 'Liberado para atender' : 'Treinamento exigido: na próxima entrada no CRM a pessoa treina antes'); trEquipe(box); });
 }
 async function trComecar(k, el) {
-  C.treino.sim = { cen: k, msgs: [], fim: false, res: null, ocup: true }; vTreinoSim(el);
+  C.treino.sim = { cen: k, msgs: [], fim: false, res: null, ocup: true }; C.treino.simUid = C.me.uid; vTreinoSim(el);
   try { const r = await api('crm-ia', { acao: 'treinoCliente', cenario: k, msgs: [] }); C.treino.sim.msgs.push({ de: 'cliente', t: r.mensagem }); } catch (e) { toast('Treino: ' + e.message, true); C.treino.sim = null; return vTreino(el); }
   C.treino.sim.ocup = false; vTreinoSim(el);
 }
@@ -2718,11 +2722,12 @@ function vTreinoSim(el) {
   if ($('#trDeNovo', el)) { $('#trDeNovo', el).onclick = () => trComecar(s.cen, el); $('#trOutro', el).onclick = () => { C.treino.sim = null; vTreino(el); }; return; }
   const tx = $('#trTx', el); tx?.focus();
   const env = async () => { const v = tx.value.trim(); if (!v || s.ocup) return; s.msgs.push({ de: 'atendente', t: v }); s.ocup = true; vTreinoSim(el);
-    try { const r = await api('crm-ia', { acao: 'treinoCliente', cenario: s.cen, msgs: s.msgs }); s.msgs.push({ de: 'cliente', t: r.mensagem }); s.ocup = false;
+    try { const r = await api('crm-ia', { acao: 'treinoCliente', cenario: s.cen, msgs: s.msgs }); if (!C.me) return; s.msgs.push({ de: 'cliente', t: r.mensagem }); s.ocup = false;
       if (r.encerrar || s.msgs.filter(m => m.de !== 'cliente').length >= 12) return fim(); } catch (e) { s.ocup = false; toast('Treino: ' + e.message, true); }
     vTreinoSim(el); };
   const fim = async () => { s.ocup = true; vTreinoSim(el);
-    try { s.res = await api('crm-ia', { acao: 'treinoAvaliar', cenario: s.cen, msgs: s.msgs }); C.treino.doc = await DB.get('crmTreino', C.me.uid).catch(() => C.treino.doc) || C.treino.doc;
+    const uid = C.me?.uid;
+    try { s.res = await api('crm-ia', { acao: 'treinoAvaliar', cenario: s.cen, msgs: s.msgs }); if (!C.me || C.me.uid !== uid) return; C.treino.doc = await DB.get('crmTreino', uid).catch(() => C.treino.doc) || C.treino.doc;
       if (s.res.aprovado && C.treino.bloq) { C.treino.bloq = false; presencaPing(); toast('Treinamento concluído: você já pode atender'); desenharNav(); } } catch (e) { toast('Avaliação: ' + e.message, true); }
     s.ocup = false; vTreinoSim(el); };
   $('#trEnv', el).onclick = env; $('#trFim', el).onclick = fim; tx.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); env(); } };
