@@ -911,7 +911,7 @@ const SLA_PAD = { suporte: 15, financeiro: 30, comercial: 60 };
 const motivos = () => C.cfg.motivos?.length ? C.cfg.motivos : MOTIVOS_PAD;
 const slaMin = f => +(C.cfg.sla?.[f] ?? SLA_PAD[f] ?? 30);
 const MSG_PAD = { lembrete: 'Olá, {nome}! Lembrete da NexumCell: a parcela {parcela} de {valor} vence em {venc}. Pague pelo app NexumCell (aba Parcelas → Pix) e evite o bloqueio do aparelho.', vencida: 'Olá, {nome}. A parcela {parcela} de {valor}, que venceu em {venc}, ainda está em aberto. Regularize pelo app NexumCell (aba Parcelas → Pix). Se precisar, responda esta mensagem que a gente ajuda.', aniversario: 'Feliz aniversário, {nome}! A equipe NexumCell deseja um dia incrível para você.', pesquisa: 'Obrigado pelo contato, {nome}! Como foi o seu atendimento? Responda com uma nota de 1 a 5 (5 = ótimo).' };
-const msgDe = k => C.cfg.msgs?.[k] || MSG_PAD[k];
+let msgDe = k => C.cfg.msgs?.[k] || MSG_PAD[k];
 const fin = () => dono() || C.papel === 'financeiro';
 const brlC = v => brl(v).replace(/\s/g, ' ');
 Object.assign(ICN, { bolsa: '<path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/>' });
@@ -953,7 +953,7 @@ async function vendaPorId(id) { return vendaCob(id) || await DB.get('vendas', id
 async function conversaDo(v) { const t = soD((v.cliente?.telefones || [])[0] || v.clienteTel1 || ''); if (t.length < 10) { toast('Este cliente não tem telefone cadastrado.', true); return null; } const n55 = t.startsWith('55') ? t : '55' + t;
   const ex = await DB.get('waConversas', n55).catch(() => null); if (!ex) await DB.set('waConversas', n55, { numero: n55, nome: v.clienteNome, cpf: v.clienteCpf, atualizadoEm: Date.now(), criadoEm: Date.now(), fila: 'financeiro', ultimaMsg: 'Cobrança', ultimaDe: 'equipe' }); return n55; }
 async function mandarAoCliente(v, texto) { const n55 = await conversaDo(v); if (!n55) return; const it = { canal: 'wa', id: n55, key: 'wa:' + n55, nome: v.clienteNome, tel: n55, fila: 'financeiro', raw: {} }; await enviar(it, texto); }
-const fmtV = (t, v, p) => String(t).replace(/\{nome\}/g, String(v.clienteNome || '').split(' ')[0]).replace(/\{valor\}/g, brlC(p?.valor || 0)).replace(/\{venc\}/g, p?.venc ? p.venc.split('-').reverse().join('/') : '').replace(/\{parcela\}/g, p ? p.n + 'ª' : '');
+let fmtV = (t, v, p) => String(t).replace(/\{nome\}/g, String(v.clienteNome || '').split(' ')[0]).replace(/\{valor\}/g, brlC(p?.valor || 0)).replace(/\{venc\}/g, p?.venc ? p.venc.split('-').reverse().join('/') : '').replace(/\{parcela\}/g, p ? p.n + 'ª' : '');
 document.addEventListener('click', async e => {
   const b = e.target.closest && e.target.closest('[data-cx]'); if (!b) return; e.preventDefault(); const a = b.dataset.cx, v = await vendaPorId(b.dataset.v); if (!v) return toast('Contrato não encontrado', true);
   const h = hoje(), atr = (v.parcelas || []).filter(p => !p.pago && p.venc < h).sort((x, y) => x.venc.localeCompare(y.venc)), prox = atr[0] || (v.parcelas || []).filter(p => !p.pago).sort((x, y) => x.venc.localeCompare(y.venc))[0];
@@ -1086,7 +1086,7 @@ async function vCampanhas(el) {
   const tipo = C.campT || 'lembrete', l = listaCampanha(tipo), env = await DB.list('crmEnvios', [['em', '>=', Date.now() - 3 * 864e5]]).catch(() => []), ja = new Set(env.map(x => x.id)), falta = l.filter(x => !ja.has(x.id)), lim = +(C.cfg.limiteMassaDia || 40), hojeEnv = env.filter(x => x.em >= new Date(hoje() + 'T00:00:00-03:00').getTime()).length;
   el.innerHTML = topoKb('Mensagens em massa') + `<div style="padding:16px 20px;overflow:auto;max-width:1100px">
     <div class="tabs" style="margin-bottom:12px">${[['lembrete', 'Vencem em 2 dias'], ['vencida', 'Vencidas há 1 a 5 dias'], ['aniversario', 'Aniversariantes de hoje']].map(([k, n]) => `<button data-ct="${k}" class="${tipo === k ? 'on' : ''}">${n}</button>`).join('')}</div>
-    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--sh);margin-bottom:12px"><p class="hint" style="margin:0 0 8px">Mensagem (variáveis: {nome}, {valor}, {venc}, {parcela}). Vai só para clientes da NexumCell, em lotes pequenos e com intervalo entre uma e outra, para o número não ser bloqueado. Limite de ${lim} por dia (hoje: ${hojeEnv}).</p>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--sh);margin-bottom:12px"><p class="hint" style="margin:0 0 8px">Mensagem (variáveis: {nome}, {valor}, {venc}, {parcela}, {dias}, {link}). Vai só para clientes da NexumCell, em lotes pequenos e com intervalo entre uma e outra, para o número não ser bloqueado. Limite de ${lim} por dia (hoje: ${hojeEnv}).</p>
       <textarea class="inp" id="cpTx" rows="3">${esc(msgDe(tipo))}</textarea>
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">${waOn() ? `<button class="btn" id="cpTodos" ${!falta.length || hojeEnv >= lim ? 'disabled' : ''}>${I('enviar')}Enviar ${Math.min(falta.length, Math.max(0, lim - hojeEnv))} pelo programa (uma a cada ~15 s)</button>` : `<span class="hint">Sem o programa ligado, envie uma por uma pelo WhatsApp Web no botão de cada cliente.</span>`}${dono() ? `<button class="btn sec sm" id="cpSalvar">Salvar texto</button>` : ''}</div></div>
     <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden">${l.map(x => `<div class="eq-i" style="padding:10px 16px"><div class="av" style="background:${cor(x.v.clienteNome)};width:34px;height:34px;font-size:12px">${esc(ini(x.v.clienteNome))}</div><div class="eq-t"><b>${esc(x.v.clienteNome)}</b><span>${esc(fmtTel(x.tel))}${x.p ? ` · parcela ${x.p.n}ª ${brlC(x.p.valor)} · vence ${x.p.venc.split('-').reverse().join('/')}` : ''}</span></div>${ja.has(x.id) ? '<span class="pill" style="background:var(--ok-s);color:var(--ok)">Enviada</span>' : `<button class="btn sec sm" data-um="${x.id}">${I('wa')}Enviar</button>`}</div>`).join('') || `<div class="vazio">${I('okc')}<div>Ninguém nesta lista hoje.</div></div>`}</div></div>`;
@@ -2619,6 +2619,264 @@ async function mandarAcordo(i, v) {
 /* fotos do autoatendimento (guia) aparecem na conversa do WhatsApp no CRM */
 { const _bo9 = bolha; bolha = function (m) { const h = _bo9(m); const a = m.arquivo; if (!a?.url || !/^image\//.test(a.tipo || '') || !/ajuda\/pagar-\d\.png/.test(a.url) || h.includes('<img src="' + a.url)) return h;
   return h.replace(/<div class="h">/, `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="" style="display:block;max-width:220px;border-radius:10px;margin:4px 0"></a><div class="h">`); }; }
+
+/* ===================== CRM v10 (nov/2026): cobrar mais, atender melhor, treinar antes de operar =====================
+   1 Lista do dia (Cobrança) por chance de pagar, com roteiro e meta · 2 Campanhas por segmento + resultado
+   3 Retenção de quem quer cancelar · 4 Copiloto enquanto digita · 5 Alerta de reclamação (Procon, advogado...)
+   6 Prazo estourado sobe para o supervisor · 7 Motivo do contato (IA) e painel de motivos · 9 artigos já vinham da qualidade
+   10 Treinamento prático com cliente simulado: obrigatório para suporte e financeiro novos antes de atender */
+Object.assign(ICN, { escudo: '<path d="M12 3l8 3v6c0 4.5-3.4 8.4-8 9-4.6-.6-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>', alvo: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>', chapeu: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>', grafico: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' });
+const css10 = document.createElement('style'); css10.textContent = `
+.copi{margin:0 14px 6px;border:1px solid var(--line);border-radius:12px;background:#F8FAFF;padding:8px 12px;font-size:13px;display:flex;flex-direction:column;gap:5px}
+.copi .px{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.copi .px b{color:var(--pri,#1D5BFF)}.copi .al{color:var(--bad);font-weight:600}.copi .sg{color:#334155;white-space:pre-wrap;max-height:84px;overflow:auto}
+.copi .x{margin-left:auto;background:none;border:0;color:#94A3B8;cursor:pointer;font-size:12px}
+.ret{margin:0 14px 6px;border:1px solid #FCD34D;background:#FFFBEB;border-radius:12px;padding:10px 12px;font-size:13px}.ret .row{gap:6px;flex-wrap:wrap;margin-top:6px}
+.cd-i{display:grid;grid-template-columns:44px 1fr 120px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}.cd-i:last-child{border-bottom:0}.cd-i.feito{opacity:.55}
+.cd-ch{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff}.cd-rot{font-size:12px;color:#475569;margin-top:3px}
+.tr-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.tr-c{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:6px}
+.tr-c.ok{border-color:#86EFAC;background:#F0FDF4}.tr-chat{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);display:flex;flex-direction:column;height:min(70vh,620px)}
+.tr-ms{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#F8FAFC}.tr-m{max-width:75%;padding:8px 12px;border-radius:12px;font-size:14px;white-space:pre-wrap}
+.tr-m.cli{background:#fff;border:1px solid var(--line);align-self:flex-start}.tr-m.at{background:#1D5BFF;color:#fff;align-self:flex-end}.tr-bar{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.tr-bloq{background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;border-radius:14px;padding:12px 16px;margin-bottom:14px;font-weight:600}`;
+document.head.appendChild(css10);
+
+/* ---------- 10) treinamento prático (antes de 4 e 5, porque bloqueia a operação) ---------- */
+const TREINO_DESDE = Date.parse('2026-11-24T21:00:00Z'); // quem entrou na equipe a partir daqui treina antes de atender
+const TR_CEN = { bravo_travado: ['Cliente bravo com o celular travado', ['SUPORTE', 'FINANCEIRO']], nao_sabe_pagar: ['Cliente que não sabe pagar pelo app', ['SUPORTE', 'FINANCEIRO']], espanhol: ['Cliente que só fala espanhol', ['SUPORTE', 'FINANCEIRO']],
+  procon: ['Cliente ameaçando Procon', ['SUPORTE', 'FINANCEIRO']], pede_desconto: ['Cliente pedindo desconto', ['FINANCEIRO']], renegociacao: ['Renegociação de atraso longo', ['FINANCEIRO']], comprovante: ['Pagou e não liberou', ['FINANCEIRO', 'SUPORTE']],
+  promessa: ['Cliente que some e promete pagar', ['FINANCEIRO']], cancelar: ['Cliente quer cancelar e devolver', ['FINANCEIRO', 'SUPORTE']], golpe_dados: ['Tentativa de golpe: trocar telefone e titular', ['SUPORTE', 'FINANCEIRO']],
+  roubo: ['Celular roubado', ['SUPORTE']], trava_loja: ['Vendedor com erro na instalação da trava', ['SUPORTE']], app_acesso: ['Cliente não consegue entrar no app', ['SUPORTE']], segunda_via: ['Pedido de 2ª via e contrato', ['SUPORTE', 'FINANCEIRO']] };
+const TR_OBRIG = { SUPORTE: ['bravo_travado', 'trava_loja', 'golpe_dados', 'roubo'], FINANCEIRO: ['bravo_travado', 'renegociacao', 'comprovante', 'procon'] }, TR_MIN = 6, TR_NOTA = 7;
+C.treino = { doc: null, bloq: false, sim: null };
+async function checarTreino() {
+  if (!C.me || dono() || !['SUPORTE', 'FINANCEIRO'].includes(C.me.role)) { C.treino.bloq = false; return; }
+  const [u, t] = await Promise.all([DB.get('users', C.me.uid).catch(() => null), DB.get('crmTreino', C.me.uid).catch(() => null)]); C.treino.doc = t || {};
+  C.treino.bloq = !t?.aprovado && (!!u?.treinoObrigatorio || +(u?.criadoEm || 0) >= TREINO_DESDE);
+  if (C.treino.bloq) { C.view = 'treino'; DB.set('plataforma', 'presencaCrm', { [C.me.uid]: { nome: C.me.nome, em: 0, fila: C.papel, status: 'treinamento' } }).catch(() => { }); desenhar(); }
+}
+{ const _en = entrou; entrou = async function (...a) { const r = await _en.apply(this, a); await checarTreino().catch(e => console.warn('treino', e)); return r; }; }
+{ const _pp = presencaPing; presencaPing = function () { if (C.treino.bloq) return; return _pp(); }; }
+{ const _ds = desenhar; desenhar = function () {
+  if (C.me && C.treino.bloq && C.view !== 'treino') C.view = 'treino';
+  if (C.me && $('#app') && ['treino', 'motivos'].includes(C.view)) { if (!$('#kb')) $('#app').innerHTML = `<nav class="nav" id="nav"></nav><section class="kb" id="kb"></section>`; desenharNav(); return C.view === 'treino' ? vTreino($('#kb')) : vMotivos($('#kb')); }
+  return _ds(); }; }
+{ const _dn = desenharNav; desenharNav = function () { _dn(); const el = $('#nav'); if (!el || $('[data-vw="treino"]', el)) return;
+  const ap = C.treino.doc?.aprovado, alvo = $('[data-vw="base"]', el) || $('[data-vw="clientes"]', el);
+  alvo?.insertAdjacentHTML('afterend', `<button data-vw="treino" class="${C.view === 'treino' ? 'on' : ''}">${I('chapeu')}<span>Treinamento</span>${C.treino.bloq ? '<span class="n r">!</span>' : ''}</button>${dono() ? `<button data-vw="motivos" class="${C.view === 'motivos' ? 'on' : ''}">${I('grafico')}<span>Motivos e retenção</span></button>` : ''}`);
+  $$('[data-vw="treino"],[data-vw="motivos"]', el).forEach(b => b.onclick = () => { C.view = b.dataset.vw; el.classList.remove('aberto'); desenhar(); });
+  if (C.treino.bloq) $$('button', el).forEach(b => { if (!['treino'].includes(b.dataset.vw)) { b.style.opacity = .45; b.title = 'Conclua o treinamento para liberar'; } }); }; }
+const trMeus = () => { const ss = C.treino.doc?.sessoes || [], best = {}; ss.forEach(s => { if (!best[s.cenario] || s.nota > best[s.cenario].nota) best[s.cenario] = s; }); return best; };
+async function vTreino(el) {
+  if (C.treino.sim) return vTreinoSim(el);
+  const role = dono() ? 'SUPORTE' : C.me.role, best = trMeus(), ok = Object.values(best).filter(s => s.passou).map(s => s.cenario), obrig = TR_OBRIG[role] || [];
+  const meus = Object.entries(TR_CEN).filter(([k, [, f]]) => dono() || f.includes(C.me.role));
+  el.innerHTML = topoKb('Treinamento prático') + `<div style="padding:16px 20px;overflow:auto;max-width:1150px">
+    ${C.treino.bloq ? `<div class="tr-bloq">Antes de atender clientes, conclua o treinamento prático: passe em ${TR_MIN} conversas simuladas com nota ${TR_NOTA} ou mais, incluindo as marcadas como obrigatórias. Faltam ${Math.max(0, TR_MIN - ok.length)} aprovação(ões)${obrig.filter(k => !ok.includes(k)).length ? ' e os obrigatórios: ' + obrig.filter(k => !ok.includes(k)).map(k => TR_CEN[k][0]).join(', ') : ''}.</div>` : C.treino.doc?.aprovado ? `<p class="hint" style="margin-top:0">Treinamento concluído. Continue praticando quando quiser: as conversas novas não mudam a sua liberação.</p>` : `<p class="hint" style="margin-top:0">Pratique conversas difíceis com um cliente simulado pela IA. Ela avalia e mostra a resposta ideal.</p>`}
+    <p class="hint" style="margin-top:0"><label style="cursor:pointer"><input type="checkbox" id="trCopi" ${localStorage.getItem('crmnc:copi') !== '0' ? 'checked' : ''}> Copiloto da IA ligado neste computador (sugere o próximo passo enquanto você atende)</label></p>
+    <p class="hint">Na simulação, para usar uma ferramenta escreva entre colchetes, por exemplo: <b>[mandei o link do PIX]</b>, <b>[liberei 20 minutos]</b>, <b>[registrei a promessa para sexta]</b>.</p>
+    <div class="tr-g">${meus.map(([k, [t]]) => { const b = best[k], ob = obrig.includes(k) && !dono(); return `<div class="tr-c ${b?.passou ? 'ok' : ''}"><b>${esc(t)}</b><span class="hint" style="margin:0">${ob ? '<b style="color:var(--bad)">Obrigatório</b> · ' : ''}${b ? `melhor nota ${b.nota}${b.passou ? ' · aprovado' : ''}` : 'ainda não praticado'}</span><button class="btn sm" data-tr="${k}" style="align-self:flex-start;margin-top:4px">${I('chapeu')}${b ? 'Praticar de novo' : 'Praticar'}</button></div>`; }).join('')}</div>
+    ${dono() ? '<div id="trEquipe" style="margin-top:22px"></div>' : ''}</div>`;
+  ligaMenu(el); $$('[data-tr]', el).forEach(b => b.onclick = () => trComecar(b.dataset.tr, el));
+  $('#trCopi', el).onchange = e => { localStorage.setItem('crmnc:copi', e.target.checked ? '1' : '0'); toast(e.target.checked ? 'Copiloto ligado' : 'Copiloto desligado'); };
+  if (dono()) trEquipe($('#trEquipe', el));
+}
+async function trEquipe(box) {
+  const pessoas = (C.equipe || []).filter(u => ['SUPORTE', 'FINANCEIRO'].includes(u.role)), docs = {};
+  await Promise.all(pessoas.map(async u => { docs[u.id] = await DB.get('crmTreino', u.id).catch(() => null); }));
+  box.innerHTML = `<h3 style="margin:0 0 8px">Equipe (suporte e financeiro)</h3><p class="hint" style="margin-top:0">Quem foi cadastrado a partir de 24/11/2026 (18h) só atende depois do treinamento. Para quem já trabalhava, use "Exigir treinamento".</p>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden">${pessoas.map(u => { const d = docs[u.id] || {}, ss = d.sessoes || [], okc = new Set(ss.filter(s => s.passou).map(s => s.cenario)).size, media = ss.length ? (ss.reduce((s, x) => s + x.nota, 0) / ss.length).toFixed(1) : '—';
+      const exig = u.treinoObrigatorio || +(u.criadoEm || 0) >= TREINO_DESDE;
+      return `<div class="eq-i" style="padding:10px 16px"><div class="av" style="background:${cor(u.nome)};width:34px;height:34px;font-size:12px">${esc(ini(u.nome))}</div><div class="eq-t"><b>${esc(u.nome)}</b><span>${String(u.role).toLowerCase()} · ${ss.length} treino(s) · ${okc} cenário(s) aprovado(s) · média ${media}</span></div>
+        <div class="row" style="gap:6px">${d.aprovado ? `<span class="pill" style="background:var(--ok-s);color:var(--ok)">Liberado${d.aprovadoPor === 'dono' ? ' pelo dono' : ''}</span>` : exig ? '<span class="pill" style="background:var(--bad-s);color:var(--bad)">Em treinamento</span>' : '<span class="pill">Sem exigência</span>'}
+        ${d.aprovado ? `<button class="btn sec sm" data-tx="exigir" data-u="${u.id}">Exigir treinamento</button>` : `<button class="btn sec sm" data-tx="liberar" data-u="${u.id}">Liberar sem treino</button>${exig ? '' : `<button class="btn sec sm" data-tx="exigir" data-u="${u.id}">Exigir treinamento</button>`}`}</div></div>`; }).join('') || '<p class="hint" style="padding:14px">Ninguém do suporte ou financeiro cadastrado.</p>'}</div>`;
+  $$('[data-tx]', box).forEach(b => b.onclick = async () => { const u = pessoas.find(x => x.id === b.dataset.u); b.disabled = true;
+    if (b.dataset.tx === 'liberar') { if (!confirm(`Liberar ${u.nome} para atender sem concluir o treinamento?`)) { b.disabled = false; return; } await DB.set('crmTreino', u.id, { uid: u.id, nome: u.nome, aprovado: true, aprovadoEm: Date.now(), aprovadoPor: 'dono' }); }
+    else { await DB.set('users', u.id, { treinoObrigatorio: true }); await DB.set('crmTreino', u.id, { uid: u.id, nome: u.nome, aprovado: false, aprovadoPor: '' }); }
+    toast(b.dataset.tx === 'liberar' ? 'Liberado para atender' : 'Treinamento exigido: na próxima entrada no CRM a pessoa treina antes'); trEquipe(box); });
+}
+async function trComecar(k, el) {
+  C.treino.sim = { cen: k, msgs: [], fim: false, res: null, ocup: true }; vTreinoSim(el);
+  try { const r = await api('crm-ia', { acao: 'treinoCliente', cenario: k, msgs: [] }); C.treino.sim.msgs.push({ de: 'cliente', t: r.mensagem }); } catch (e) { toast('Treino: ' + e.message, true); C.treino.sim = null; return vTreino(el); }
+  C.treino.sim.ocup = false; vTreinoSim(el);
+}
+function vTreinoSim(el) {
+  const s = C.treino.sim, [t] = TR_CEN[s.cen];
+  el.innerHTML = topoKb('Treinamento · ' + t, `<button class="btn sec sm" id="trSai">Voltar</button>`) + `<div style="padding:16px 20px;max-width:900px">
+    <div class="tr-chat"><div class="tr-ms" id="trMs">${s.msgs.map(m => `<div class="tr-m ${m.de === 'cliente' ? 'cli' : 'at'}">${esc(m.t)}</div>`).join('')}${s.ocup ? '<div class="tr-m cli" style="opacity:.6">digitando…</div>' : ''}</div>
+    ${s.res ? `<div style="padding:14px;border-top:1px solid var(--line)"><h3 style="margin:0 0 6px">Nota ${s.res.nota} ${s.res.passou ? '· aprovado' : '· ainda não (precisa de ' + TR_NOTA + ')'}</h3>
+      ${s.res.fortes?.length ? `<p style="margin:4px 0"><b style="color:var(--ok)">Pontos fortes:</b> ${esc(s.res.fortes.join(' · '))}</p>` : ''}${s.res.melhorar?.length ? `<p style="margin:4px 0"><b style="color:var(--bad)">Melhorar:</b> ${esc(s.res.melhorar.join(' · '))}</p>` : ''}
+      ${s.res.ideal ? `<p style="margin:4px 0"><b>Resposta ideal:</b> ${esc(s.res.ideal)}</p>` : ''}
+      <p class="hint" style="margin:6px 0 0">${s.res.aprovadoAgora ? '<b style="color:var(--ok)">Parabéns! Treinamento concluído: você já pode atender.</b>' : s.res.aprovado ? 'Você já está liberado para atender.' : `Faltam ${s.res.faltam} aprovação(ões)${s.res.faltamObrig?.length ? ' e os obrigatórios: ' + s.res.faltamObrig.map(k => TR_CEN[k]?.[0] || k).join(', ') : ''}.`}</p>
+      <div class="row" style="gap:8px;margin-top:10px"><button class="btn sm" id="trDeNovo">Praticar este de novo</button><button class="btn sec sm" id="trOutro">Escolher outro cenário</button></div></div>`
+    : `<div class="tr-bar"><textarea class="inp" id="trTx" rows="2" placeholder="Responda como atendente da NexumCell… (Enter envia)" ${s.ocup ? 'disabled' : ''} style="flex:1"></textarea><div style="display:flex;flex-direction:column;gap:6px"><button class="btn" id="trEnv" ${s.ocup ? 'disabled' : ''}>${I('enviar')}Enviar</button><button class="btn sec sm" id="trFim" ${s.ocup || s.msgs.filter(m => m.de !== 'cliente').length < 2 ? 'disabled' : ''}>Finalizar e ver nota</button></div></div>`}</div></div>`;
+  ligaMenu(el); const ms = $('#trMs', el); ms.scrollTop = ms.scrollHeight;
+  $('#trSai', el).onclick = () => { C.treino.sim = null; vTreino(el); };
+  if ($('#trDeNovo', el)) { $('#trDeNovo', el).onclick = () => trComecar(s.cen, el); $('#trOutro', el).onclick = () => { C.treino.sim = null; vTreino(el); }; return; }
+  const tx = $('#trTx', el); tx?.focus();
+  const env = async () => { const v = tx.value.trim(); if (!v || s.ocup) return; s.msgs.push({ de: 'atendente', t: v }); s.ocup = true; vTreinoSim(el);
+    try { const r = await api('crm-ia', { acao: 'treinoCliente', cenario: s.cen, msgs: s.msgs }); s.msgs.push({ de: 'cliente', t: r.mensagem }); s.ocup = false;
+      if (r.encerrar || s.msgs.filter(m => m.de !== 'cliente').length >= 12) return fim(); } catch (e) { s.ocup = false; toast('Treino: ' + e.message, true); }
+    vTreinoSim(el); };
+  const fim = async () => { s.ocup = true; vTreinoSim(el);
+    try { s.res = await api('crm-ia', { acao: 'treinoAvaliar', cenario: s.cen, msgs: s.msgs }); C.treino.doc = await DB.get('crmTreino', C.me.uid).catch(() => C.treino.doc) || C.treino.doc;
+      if (s.res.aprovado && C.treino.bloq) { C.treino.bloq = false; presencaPing(); toast('Treinamento concluído: você já pode atender'); desenharNav(); } } catch (e) { toast('Avaliação: ' + e.message, true); }
+    s.ocup = false; vTreinoSim(el); };
+  $('#trEnv', el).onclick = env; $('#trFim', el).onclick = fim; tx.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); env(); } };
+}
+
+/* ---------- 5) alerta de reclamação ---------- */
+const RX_RISCO = /(procon|advogad|reclame ?aqui|processar|processo judicial|justi[cç]a|juizado|pol[ií]cia|delegacia|boletim de ocorr|consumidor\.gov|denunciar|den[uú]ncia|imprensa)/i;
+const _riscoFeito = new Set();
+function detectarRisco() {
+  for (const i of C.itens) { if (i.etapa === 'fim' || i.ultimaDe !== 'cli' || MARCAS[i.key]?.risco || _riscoFeito.has(i.key)) continue;
+    if (!(RX_RISCO.test(i.ultima || '') || i.raw?.risco) || !(dono() || i.fila === C.papel)) continue; _riscoFeito.add(i.key);
+    marcar(i, { risco: true, riscoEm: Date.now(), prioridade: true, prioridadeEm: Date.now(), prioridadeMotivo: 'Risco de reclamação', prioridadeNome: i.nome }).catch(() => { });
+    api('crm-ia', { acao: 'alertaRisco', key: i.key, canal: CANAIS[i.canal]?.[0] || i.canal, cliente: i.nome, trecho: String(i.ultima || '').slice(0, 300) }).catch(() => { });
+    toast(`Risco de reclamação: ${i.nome} falou em reclamação. A conversa foi para o topo.`, true); try { beep(); } catch (e) { } }
+}
+{ const _mi = montarItens; montarItens = function (...a) { const r = _mi(...a); try { detectarRisco(); } catch (e) { } return r; }; }
+
+/* ---------- 6) prazo estourado: sobe para o supervisor ---------- */
+const supervisor = () => dono() || (C.cfg.supervisores || []).includes(C.me?.uid);
+const _escAviso = new Set();
+{ const _vs = verificarSla; verificarSla = function () { _vs();
+  for (const i of C.itens.filter(x => x.etapa !== 'fim' && semResp(x))) { const k = i.key, m = MARCAS[k] || {}, passou = Date.now() - i.em > 3 * slaMin(i.fila) * 60e3;
+    if (passou && !m.escaladaEm && (i.resp?.uid === C.me.uid || (!i.resp && supervisor()))) marcar(i, { escaladaEm: Date.now(), prioridade: true, prioridadeEm: Date.now(), prioridadeMotivo: 'Passou do prazo: supervisor', prioridadeNome: i.nome }).catch(() => { });
+    if (m.escaladaEm && supervisor() && !_escAviso.has(k)) { _escAviso.add(k); toast(`${i.nome} espera há ${Math.round((Date.now() - i.em) / 6e4)} min: passou 3 vezes do prazo da fila ${FILAS[i.fila]?.[0] || i.fila}.`, true); try { beep(); } catch (e) { } } } }; }
+
+/* ---------- 4) copiloto enquanto o atendente digita ---------- */
+const copiOn = () => C.cfg.copiloto !== false && localStorage.getItem('crmnc:copi') !== '0';
+let _copiT = 0, _copiK = '';
+async function copiPedir(i, rasc) {
+  if (!copiOn() || !i || i.etapa === 'fim') return; const k = i.key + '|' + i.em + '|' + rasc.length; if (k === _copiK) return; _copiK = k;
+  const box = $('#copi'); if (!box) return; box.hidden = false; box.innerHTML = `<div class="px">${I('raio')}<span class="hint" style="margin:0">Copiloto pensando…</span></div>`;
+  try { const r = await api('crm-ia', { acao: 'copiloto', conversa: await textoConversa(), ficha: textoFicha(), rascunho: rasc });
+    if (itemSel()?.key !== i.key || !$('#copi')) return; if (r.pulado) { box.hidden = true; return; }
+    box.innerHTML = `<div class="px">${I('raio')}<span>Próximo passo: <b>${esc(r.proximo || '—')}</b></span>${r.risco === 'alto' ? '<span class="pill" style="background:var(--bad-s);color:var(--bad)">risco alto</span>' : ''}<button class="x" id="copiX" title="Desligar o copiloto neste computador">desligar</button></div>
+      ${r.alerta ? `<div class="al">Atenção no rascunho: ${esc(r.alerta)}</div>` : ''}${r.sugestao ? `<div class="sg">${esc(r.sugestao)}</div><div class="px"><button class="btn sec sm" id="copiUsa">Usar a sugestão</button>${r.alerta && rasc ? '<button class="btn sec sm" id="copiTroca">Trocar meu rascunho</button>' : ''}</div>` : ''}`;
+    const usa = () => { const tx = $('#tTxt'); if (!tx) return; tx.value = r.sugestao; tx.dispatchEvent(new Event('input')); tx.focus(); };
+    $('#copiUsa')?.addEventListener('click', usa); $('#copiTroca')?.addEventListener('click', usa);
+    $('#copiX').onclick = () => { localStorage.setItem('crmnc:copi', '0'); box.remove(); toast('Copiloto desligado neste computador. Para ligar de novo, use o botão Copiloto no Treinamento.'); };
+  } catch (e) { box.hidden = true; }
+}
+{ const _cp = compositor; compositor = function (i) { _cp(i); const cp = $('#cp'); if (!cp || i.etapa === 'fim') return;
+  if (copiOn() && !$('#copi')) { cp.insertAdjacentHTML('beforebegin', '<div class="copi" id="copi" hidden></div>'); if (i.ultimaDe === 'cli') setTimeout(() => copiPedir(i, ''), 400); }
+  const tx = $('#tTxt'); if (tx) tx.addEventListener('input', () => { clearTimeout(_copiT); const v = tx.value.trim(); if (v.length >= 15 && copiOn()) _copiT = setTimeout(() => copiPedir(i, v), 1800); });
+  pintarRetencao(i); }; }
+
+/* ---------- 3) retenção: cliente quer cancelar, devolver ou trocar ---------- */
+const RX_CANCEL = /(cancelar|cancelamento|devolver|devolu[cç][aã]o|desistir|desist[oi]|n[aã]o quero mais|quero trocar (o|de) (celular|aparelho)|arrependi|estornar|estorno)/i;
+async function pintarRetencao(i) {
+  $('#ret')?.remove(); if (!['wa', 'app', 'portal'].includes(i.canal) || MARCAS[i.key]?.retencao || !RX_CANCEL.test(i.ultima || '')) return;
+  const cp = $('#cp'); if (!cp) return;
+  cp.insertAdjacentHTML('beforebegin', `<div class="ret" id="ret"><b>Cliente quer cancelar ou devolver.</b> Antes, ofereça uma saída:
+    <div class="row"><button class="btn sec sm" data-rt="quitar">Desconto para quitar</button><button class="btn sec sm" data-rt="venc">Mudar o vencimento</button><button class="btn sec sm" data-rt="troca">Trocar por modelo mais barato</button><button class="btn sec sm" data-rt="valor">Explicar o que já pagou</button></div>
+    <div class="row"><span class="hint" style="margin:0">Resultado:</span><button class="btn sm" data-rr="ficou" style="background:var(--ok)">Cliente ficou</button><button class="btn sec sm" data-rr="saiu">Cliente saiu</button></div></div>`);
+  const box = $('#ret'), ofertas = [];
+  const venda = async () => { const vs = await contratosDaConversa(i).catch(() => []); return vs.find(v => ['ATIVA', 'INSTALANDO'].includes(v.status)) || vs[0]; };
+  $$('[data-rt]', box).forEach(b => b.onclick = async () => { const v = await venda(), k = b.dataset.rt; ofertas.push(k);
+    if (k === 'quitar') { if (!v) return toast('Contrato não encontrado', true); return mandarLink(i, v, 'quitar'); }
+    const nome = String(i.nome || '').split(' ')[0];
+    const txt = { venc: `${nome}, entendo. Se o problema é a data, dá para mudar o dia do vencimento para quando o seu salário cai. Qual dia fica melhor para você (de 1 a 28)?`,
+      troca: `${nome}, se o valor ficou pesado, podemos trocar por um modelo mais em conta e diminuir a parcela, sem perder o que você já pagou. Quer que eu veja as opções na sua loja?`,
+      valor: `${nome}, antes de decidir: você já pagou ${v ? (v.parcelas || []).filter(p => p.pago).length : 'parte das'} parcela(s), e cancelar agora não devolve esse valor. Posso te mostrar quanto falta e as opções para ficar mais leve?` }[k];
+    $('#tTxt').value = txt; $('#tTxt').dispatchEvent(new Event('input')); $('#tTxt').focus(); });
+  $$('[data-rr]', box).forEach(b => b.onclick = async () => { const v = await venda().catch(() => null);
+    await DB.add('crmRetencao', { key: i.key, canal: i.canal, cliente: i.nome, vendaId: v?.id || '', numero: v?.numero || 0, ofertas, resultado: b.dataset.rr, uid: C.me.uid, nome: C.me.nome, em: Date.now() });
+    await marcar(i, { retencao: b.dataset.rr }); box.remove(); toast(b.dataset.rr === 'ficou' ? 'Ótimo: cliente retido' : 'Registrado'); });
+}
+
+/* ---------- 1) lista do dia: quem cobrar primeiro ---------- */
+const diaKey = () => hoje();
+async function carregarCobDia() { C.cobDia = (await DB.get('crmCobranca', diaKey()).catch(() => null))?.itens || {}; }
+function chancePagar(x) {
+  let s = 60; const d = x.dias; s += d <= 3 ? 25 : d <= 7 ? 15 : d <= 15 ? 5 : d <= 30 ? -10 : d <= 60 ? -25 : -40;
+  const pagas = (x.v.parcelas || []).filter(p => p.pago), emDia = pagas.filter(p => p.pagoEm && diasEntre(p.venc, String(p.pagoEm).slice(0, 10)) <= 3).length;
+  s += pagas.length ? Math.round(20 * emDia / pagas.length) - 5 : -10;
+  if (x.prom?.status === 'PENDENTE') s += x.prom.data <= hoje() ? 15 : -5; if (x.prom?.status === 'QUEBRADA') s -= 15; if (x.acordo) s += 5;
+  return Math.max(1, Math.min(99, s));
+}
+function roteiro(x) {
+  const n = String(x.v.clienteNome || '').split(' ')[0];
+  if (x.prom?.status === 'PENDENTE' && x.prom.data <= hoje()) return [`Cobrar a promessa de hoje (${brlC(x.prom.valor || x.devido)}).`, `Oi, ${n}! Combinamos o pagamento para hoje. Segue o link para pagar pelo PIX, a liberação é na hora: {link}`];
+  if (x.dias <= 7) return ['Lembrete gentil: provavelmente esqueceu. Mande o link e pronto.', `Oi, ${n}! Tudo bem? Sua parcela de {valor} ficou em aberto há ${x.dias} dia(s). Pelo link você paga pelo PIX em 1 minuto: {link}`];
+  if (x.dias <= 30) return ['Entender o motivo e fechar data. Se não puder pagar tudo, ofereça acordo.', `Oi, ${n}, aqui é da NexumCell. Vi ${x.atr.length} parcela(s) em atraso (${brlC(x.devido)}). Aconteceu alguma coisa? Consigo te ajudar com uma data ou um acordo. Para pagar agora: {link}`];
+  return ['Atraso longo: ofereça acordo ou quitação com desconto. Seja firme e respeitoso.', `${n}, sua dívida com a NexumCell está em ${brlC(x.devido)}, com ${x.dias} dias de atraso. Temos condições para você regularizar hoje: acordo em parcelas ou quitação com desconto nos juros. Posso te mandar as opções? {link}`];
+}
+async function vCobDia(el) {
+  if (!C.cobDia) await carregarCobDia();
+  const h = hoje(), meta = +(C.cfg.metaCobrancaDia || 30), l = atrasados().map(x => ({ ...x, ch: chancePagar(x), st: C.cobDia[x.v.id] })).sort((a, b) => (!!a.st - !!b.st) || b.ch - a.ch);
+  const meus = Object.entries(C.cobDia).filter(([, s]) => s.uid === C.me.uid), pagou = meus.filter(([id]) => { const v = vendaCob(id); return (v?.parcelas || []).some(p => p.pago && String(p.pagoEm || '').slice(0, 10) === h); }).length;
+  const cores = c => c >= 70 ? '#0E9F6E' : c >= 45 ? '#B7791F' : '#C23B3B';
+  el.innerHTML = topoKb('Cobrança · Lista do dia', `<button class="btn sec sm" id="cdVolta">Ver por faixa</button><button class="btn sec sm" id="cbAt">${I('reabrir')}Atualizar</button>`) + `<div style="padding:16px 20px;overflow:auto">
+    <div class="vc-top" style="grid-template-columns:repeat(4,1fr)"><div><b>${meus.length} / ${meta}</b><span>sua meta de contatos hoje</span><div style="height:6px;background:#E2E8F0;border-radius:4px;margin-top:6px"><div style="height:6px;border-radius:4px;background:var(--ok);width:${Math.min(100, meus.length / meta * 100)}%"></div></div></div>
+      <div><b style="color:var(--ok)">${pagou}</b><span>dos seus contatos já pagaram hoje</span></div><div><b>${l.filter(x => !x.st).length}</b><span>para contatar</span></div><div><b>${l.filter(x => x.ch >= 70 && !x.st).length}</b><span>com chance alta de pagar</span></div></div>
+    <p class="hint">Ordem pela chance de pagar hoje: dias de atraso, histórico de pagamento e promessas. Comece por cima. Quem já foi contatado hoje vai para o fim da lista.</p>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);overflow:hidden">${l.slice(0, 150).map(x => { const [rot] = roteiro(x);
+      return `<div class="cd-i ${x.st ? 'feito' : ''}"><div class="cd-ch" style="background:${cores(x.ch)}" title="Chance de pagar">${x.ch}%</div>
+        <div><b>${esc(x.v.clienteNome)}</b> <span class="hint" style="margin:0">· nº ${x.v.numero} · ${esc(fmtTel(x.tel))}</span><div class="cd-rot">${esc(rot)}</div>${x.st ? `<div class="hint" style="margin:2px 0 0">Contatado por ${esc(x.st.nome)} às ${new Date(x.st.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${x.st.res ? ' · ' + esc(x.st.res) : ''}</div>` : ''}</div>
+        <div class="eq-n"><b style="color:var(--bad)">${brlC(x.devido)}</b><span>${x.dias} dia(s)</span></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px"><button class="btn sm" data-cd="msg" data-v="${x.v.id}">${I('wa')}Mandar mensagem</button>${x.tel ? `<a class="btn sec sm" href="tel:${soD(x.tel)}" data-cd="lig" data-v="${x.v.id}">Ligar</a>` : ''}<button class="btn sec sm" data-cx="promessa" data-v="${x.v.id}">Prometeu</button><select class="inp" data-cd="res" data-v="${x.v.id}" style="width:auto;padding:4px 8px;font-size:12px"><option value="">Resultado…</option><option>Não atendeu</option><option>Vai pagar hoje</option><option>Pediu acordo</option><option>Recusou</option><option>Número errado</option></select></div></div>`; }).join('') || '<p class="hint" style="padding:16px">Ninguém em atraso. Ótimo!</p>'}</div></div>`;
+  ligaMenu(el); $('#cdVolta', el).onclick = () => { C.cobF = 'todas'; vCobranca(el); }; $('#cbAt', el).onclick = async () => { await carregarCob(true); await carregarCobDia(); vCobDia(el); };
+  const reg = async (id, res) => { const s = { uid: C.me.uid, nome: C.me.nome, em: Date.now(), ...(res ? { res } : {}) }; C.cobDia[id] = { ...(C.cobDia[id] || {}), ...s }; await DB.set('crmCobranca', diaKey(), { itens: { [id]: C.cobDia[id] }, dia: diaKey() }); };
+  $$('[data-cd="msg"]', el).forEach(b => b.onclick = async () => { const x = l.find(y => y.v.id === b.dataset.v); const [, modelo] = roteiro(x);
+    const t = modelo.replace('{link}', linkPagarCrm(x.v.aparelhoToken)).replace('{valor}', brlC(x.atr[0]?.valor || x.devido));
+    const m = modal('Mensagem de cobrança', `<p class="hint" style="margin-top:0">${esc(x.v.clienteNome)} · ${brlC(x.devido)} · ${x.dias} dia(s)</p><textarea class="inp" id="cdT" rows="6">${esc(t)}</textarea>`, `<button class="btn sec" data-close>Cancelar</button><button class="btn" id="cdOk">${I('enviar')}Enviar</button>`);
+    $('#cdOk', m).onclick = async () => { const txt = $('#cdT', m).value.trim(); if (!txt) return; fechar(); await mandarAoCliente(x.v, txt); await reg(x.v.id, 'Mensagem enviada'); vCobDia(el); }; });
+  $$('[data-cd="lig"]', el).forEach(b => b.addEventListener('click', () => reg(b.dataset.v, 'Ligação')));
+  $$('[data-cd="res"]', el).forEach(s => s.onchange = async () => { if (!s.value) return; await reg(s.dataset.v, s.value); toast('Resultado registrado'); vCobDia(el); });
+}
+{ const _vc = vCobranca; vCobranca = function (el) { if (C.cobF === 'dia' && C.cob.vendas) return vCobDia(el); _vc(el); const tabs = $('.tabs', el);
+  if (tabs && !$('[data-cf="dia"]', tabs)) { tabs.insertAdjacentHTML('afterbegin', `<button data-cf="dia">${I('alvo')}Lista do dia</button>`); $('[data-cf="dia"]', tabs).onclick = () => { C.cobF = 'dia'; vCobranca(el); }; } }; }
+// a cobrança abre direto na lista do dia
+if (!C.cobF) C.cobF = 'dia';
+
+/* ---------- 2) campanhas por segmento e resultado ---------- */
+const CAMP_NOVAS = [['atraso6', 'Atraso de 6 a 30 dias'], ['atraso30', 'Atraso acima de 30 dias'], ['quitados', 'Quitaram (recompra)'], ['preVence', 'Pré-aprovação vencendo']];
+{ const _md = msgDe; msgDe = function (t) { const pad = { atraso6: 'Oi, {nome}! Aqui é da NexumCell. Sua parcela de {valor} está em atraso há {dias} dias. Para não travar o celular, pague pelo PIX no link: {link} Se precisar, fazemos um acordo.',
+  atraso30: '{nome}, sua conta na NexumCell está com {dias} dias de atraso. Temos condições especiais hoje: acordo em parcelas ou quitação com desconto nos juros. Responda esta mensagem ou veja as opções: {link}',
+  quitados: 'Oi, {nome}! Você quitou o seu celular com a NexumCell, parabéns! Como bom pagador, você tem condição especial para o próximo aparelho. Passe numa loja NexumCell e fale que veio por esta mensagem.',
+  preVence: 'Oi, {nome}! Seu crédito pré-aprovado na NexumCell{limite} vence em poucos dias. Aproveite: é só ir a uma loja NexumCell com o seu documento.' };
+  return (C.cfg.msgs || {})[t] || pad[t] || _md(t); }; }
+{ const _fv = fmtV; fmtV = function (t, v, p) { const h = hoje(), atr = (v?.parcelas || []).filter(x => !x.pago && x.venc < h).sort((a, b) => a.venc.localeCompare(b.venc)), d = atr[0] ? diasEntre(atr[0].venc, h) : 0;
+  return _fv(String(t).replace(/\{link\}/g, v?.aparelhoToken ? linkPagarCrm(v.aparelhoToken) : '').replace(/\{dias\}/g, d).replace(/\{limite\}/g, v?._limite ? ' de até ' + brlC(v._limite) : ''), v, p || atr[0] || null); }; }
+{ const _lc = listaCampanha; listaCampanha = function (tipo) { if (!CAMP_NOVAS.some(([k]) => k === tipo)) return _lc(tipo); const h = hoje(), out = [];
+  if (tipo === 'atraso6' || tipo === 'atraso30') for (const x of atrasados()) { if (!x.tel || (tipo === 'atraso6' ? (x.dias < 6 || x.dias > 30) : x.dias <= 30)) continue; out.push({ v: x.v, p: x.atr[0], tel: x.tel, id: `${tipo}_${x.v.id}_${h}` }); }
+  if (tipo === 'quitados') for (const v of C.cob.quit || []) { const tel = (v.cliente?.telefones || [])[0] || v.clienteTel1; if (tel && !out.some(y => y.v.clienteCpf === v.clienteCpf)) out.push({ v, p: null, tel, id: `quitados_${v.clienteCpf}` }); }
+  if (tipo === 'preVence') for (const c of C.cob.preV || []) { const tel = (c.telefones || [])[0]; if (tel) out.push({ v: { id: 'cli_' + c.id, clienteNome: c.nome || '', clienteCpf: c.id, cliente: { telefones: c.telefones }, _limite: c.preAprovado?.valor }, p: null, tel, id: `preVence_${c.id}_${c.preAprovado?.ate}` }); }
+  return out; }; }
+{ const _vca = vCampanhas; vCampanhas = async function (el) {
+  if (C.campT === 'quitados' && !C.cob.quit) C.cob.quit = (await DB.list('vendas', [['status', '==', 'QUITADA']]).catch(() => [])).filter(v => (v.quitadoEm || v.atualizadoEm || 0) > Date.now() - 120 * 864e5 || true).slice(-400);
+  if (C.campT === 'preVence' && !C.cob.preV) { const h = hoje(), h7 = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10); C.cob.preV = await DB.list('clientes', [['preAprovado.ate', '>=', h], ['preAprovado.ate', '<=', h7]]).catch(() => []); }
+  await _vca(el); const tabs = $('.tabs', el); if (!tabs || $('[data-ct="atraso6"]', tabs)) return;
+  tabs.insertAdjacentHTML('beforeend', CAMP_NOVAS.map(([k, n]) => `<button data-ct="${k}" class="${C.campT === k ? 'on' : ''}">${n}</button>`).join('') + `<button id="cpRes" style="margin-left:auto">${I('grafico')}Resultado</button>`);
+  $$('[data-ct]', tabs).forEach(b => b.onclick = () => { C.campT = b.dataset.ct; vCampanhas(el); }); $('#cpRes', tabs).onclick = resultadoCampanhas; }; }
+async function resultadoCampanhas() {
+  const m = modal('Resultado das campanhas (7 dias)', `<div class="rs-load">${I('relogio')}Calculando…</div>`);
+  const env = await DB.list('crmEnvios', [['em', '>=', Date.now() - 7 * 864e5]]).catch(() => []); if (!C.cob.vendas) await carregarCob(true);
+  const nums = [...new Set(env.map(e => e.numero).filter(Boolean))].slice(0, 250), conv = {}; await Promise.all(nums.map(async n => { conv[n] = await DB.get('waConversas', n).catch(() => null); }));
+  const por = {}; for (const e of env) { const t = por[e.tipo] = por[e.tipo] || { env: 0, resp: 0, pag: 0, val: 0 }; t.env++; const c = conv[e.numero]; if (c && c.ultimaDe !== 'equipe' && +c.atualizadoEm > e.em) t.resp++;
+    const v = vendaCob(e.vendaId), dia = new Date(e.em - 3 * 3600e3).toISOString().slice(0, 10), pg = (v?.parcelas || []).filter(p => p.pago && String(p.pagoEm || '').slice(0, 10) >= dia); if (pg.length) { t.pag++; t.val += pg.reduce((s, p) => s + (+(p.valorPago ?? p.valor) || 0), 0); } }
+  const nome = k => ({ lembrete: 'Vencem em 2 dias', vencida: 'Vencidas 1 a 5 dias', aniversario: 'Aniversariantes', cobranca: 'Cobrança automática' })[k] || CAMP_NOVAS.find(x => x[0] === k)?.[1] || k;
+  m.querySelector('.rs-load').outerHTML = Object.keys(por).length ? `<table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="text-align:left;color:#64748B"><th>Campanha</th><th>Enviadas</th><th>Responderam</th><th>Pagaram</th><th>Recebido</th></tr>${Object.entries(por).map(([k, t]) => `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 0">${esc(nome(k))}</td><td>${t.env}</td><td>${t.resp} (${Math.round(t.resp / t.env * 100)}%)</td><td>${t.pag} (${Math.round(t.pag / t.env * 100)}%)</td><td>${brlC(t.val)}</td></tr>`).join('')}</table><p class="hint">Responderam: a conversa no WhatsApp teve mensagem do cliente depois do envio. Pagaram: alguma parcela do contrato foi paga a partir do dia do envio.</p>` : '<p class="hint">Nenhuma mensagem em massa nos últimos 7 dias.</p>';
+}
+
+/* ---------- 7) motivos de contato e retenção (painel do dono) ---------- */
+async function vMotivos(el) {
+  el.innerHTML = topoKb('Motivos e retenção') + `<div class="rs-load" style="margin:20px">${I('relogio')}Carregando…</div>`; ligaMenu(el);
+  const desde = Date.now() - 30 * 864e5, [q, r] = await Promise.all([DB.list('crmQualidade', [['em', '>=', desde]]).catch(() => []), DB.list('crmRetencao', [['em', '>=', desde]]).catch(() => [])]);
+  const mot = {}; q.forEach(x => { const k = x.motivo || 'Sem classificação'; const t = mot[k] = mot[k] || { n: 0, res: 0, nota: 0 }; t.n++; if (x.resolveu) t.res++; t.nota += +x.nota || 0; });
+  const tot = q.length || 1, lin = Object.entries(mot).sort((a, b) => b[1].n - a[1].n), ficou = r.filter(x => x.resultado === 'ficou').length;
+  const ofs = {}; r.forEach(x => (x.ofertas || []).forEach(o => { const t = ofs[o] = ofs[o] || { n: 0, ok: 0 }; t.n++; if (x.resultado === 'ficou') t.ok++; }));
+  const NOF = { quitar: 'Desconto para quitar', venc: 'Mudar o vencimento', troca: 'Trocar por modelo mais barato', valor: 'Explicar o que já pagou' };
+  el.innerHTML = topoKb('Motivos e retenção') + `<div style="padding:16px 20px;overflow:auto;max-width:1000px">
+    <h3 style="margin:0 0 6px">Por que os clientes procuram a NexumCell (30 dias)</h3><p class="hint" style="margin-top:0">A IA classifica cada atendimento concluído. Atacar os motivos do topo na origem diminui a fila.</p>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);padding:12px 16px">${lin.map(([k, t]) => `<div style="display:grid;grid-template-columns:220px 1fr 150px;gap:10px;align-items:center;padding:6px 0"><b style="font-size:14px">${esc(k)}</b><div style="height:12px;background:#EEF2FF;border-radius:6px"><div style="height:12px;border-radius:6px;background:#1D5BFF;width:${Math.round(t.n / tot * 100)}%"></div></div><span class="hint" style="margin:0">${t.n} (${Math.round(t.n / tot * 100)}%) · resolvidos ${Math.round(t.res / t.n * 100)}% · nota ${(t.nota / t.n).toFixed(1)}</span></div>`).join('') || '<p class="hint">Ainda sem atendimentos classificados. A classificação começa nos próximos atendimentos concluídos.</p>'}</div>
+    <h3 style="margin:22px 0 6px">Retenção de quem quis cancelar (30 dias)</h3>
+    <div class="vc-top" style="grid-template-columns:repeat(3,1fr)"><div><b>${r.length}</b><span>pedidos de cancelamento tratados</span></div><div><b style="color:var(--ok)">${ficou}</b><span>clientes ficaram</span></div><div><b>${r.length ? Math.round(ficou / r.length * 100) : 0}%</b><span>taxa de retenção</span></div></div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh);padding:12px 16px;margin-top:10px">${Object.entries(ofs).map(([k, t]) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span>${esc(NOF[k] || k)}</span><span class="hint" style="margin:0">oferecida ${t.n}x · ficou ${t.ok} (${Math.round(t.ok / t.n * 100)}%)</span></div>`).join('') || '<p class="hint" style="margin:0">Nenhuma oferta registrada ainda.</p>'}</div></div>`;
+  ligaMenu(el);
+}
 
 /* ---------- início ---------- */
 (async () => {

@@ -3,6 +3,7 @@
 // nas orientações do dono e nas respostas rápidas aprovadas. Pedido de humano, reclamação, acordo,
 // desconto ou liberação: a IA avisa que um atendente continua e deixa a conversa marcada para a equipe.
 // Liga em CRM → Configurações → Resposta automática da IA. Roda na rotina de 15 minutos.
+import { alertaRisco, RX_RISCO } from './crm-mais.js';
 import { db, hoje, pushNotificacao } from './_base.js';
 import { groq, REGRAS, baseConhecimento, PEDIDO_AUTO } from './crm-ia.js';
 
@@ -94,6 +95,7 @@ export async function crmIaAutomatica() {
       if (!ult || ult.de !== 'cliente' || ult.em > agora - espera || seguidasIA(msgs, (m) => m.de === 'cliente') >= MAX_SEGUIDAS) continue;
       try {
         const conversa = msgs.slice(-14).map((m) => `${m.de === 'cliente' ? 'Cliente' : 'NexumCell'}: ${String(m.t || '').slice(0, 500)}`).join('\n');
+        if (RX_RISCO.test(ult.t || '') && !c.risco) { await db.collection('waConversas').doc(s.id).set({ risco: true, riscoEm: Date.now() }, { merge: true }); await alertaRisco({ key: 'wa:' + s.id, canal: 'WhatsApp', cliente: c.nome || s.id, trecho: ult.t }).catch(() => {}); }
         const x = await responder(base, 'WhatsApp', c.nome || 'Cliente', await fichaDe({ cpf: c.cpf }), conversa, autoOk ? PEDIDO_WA : '');
         if (autoOk && !x.acoes.length) { const k = intencaoWa(ult.t); if (k && !/(cancel|troca|reclam|procon|advogad)/i.test(ult.t || '')) { x.acoes = [k]; x.humano = false; } }
         if (ver < 1.2) x.acoes = x.acoes.filter((a) => !NOVAS.includes(a));
