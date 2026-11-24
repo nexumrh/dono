@@ -12,8 +12,18 @@ Programa que liga o WhatsApp da NexumCell ao **CRM NexumCell**. Ele precisa fica
 
 ## O que ele faz
 - Mensagem recebida vira atendimento no CRM (fila Suporte, Financeiro ou Comercial).
-- Robô de triagem (liga/desliga no CRM): pergunta se é suporte, financeiro ou compra e já procura o cliente pelo telefone.
-- Envia o que a equipe escreve no CRM, inclusive arquivos (link).
+- Robô de triagem e **autoatendimento** (liga/desliga no CRM). O menu tem 8 opções:
+  1 pagar a parcela (valor de hoje e link do PIX) · 2 contrato em PDF · 3 como pagar e usar o app (6 imagens) ·
+  4 renegociar (atraso, quitação com desconto e pedido de acordo: o cliente responde em quantas vezes) ·
+  5 celular travado: libera 20 minutos para pagar (até 2 vezes por parcela) · 6 Suporte · 7 Financeiro · 8 Comercial.
+  Também entende frases como "quero o boleto", "como pago?", "meu celular travou", "quero renegociar".
+  Acha o contrato pelo número do WhatsApp; se não achar, pede CPF e data de nascimento (a mesma conferência do app).
+- A IA do CRM (resposta automática) também manda esses itens sozinha quando o cliente pede.
+- Envia o que a equipe escreve no CRM, inclusive fotos e PDFs como arquivo de verdade.
+
+## Atualizar para a versão 1.1
+Feche a janela do programa, troque os arquivos **index.js** e **autoatendimento.js** (novo) desta pasta e abra o
+**iniciar.bat** de novo. Não precisa ler o QR code de novo. No CRM → WhatsApp aparece "versão 1.1".
 - A sessão fica salva na pasta `sessao/`: não precisa ler o QR code de novo ao reiniciar.
 
 Conexão não oficial: não mande mensagens em massa nem para quem nunca falou com a NexumCell.

@@ -2574,6 +2574,50 @@ async function cancelarVendaCrm(i, v) {
 /* cartão do link no CRM com o título certo */
 { const _bo8 = bolha; bolha = function (m) { if (!m.doc?.titulo) return _bo8(m); const d = m.doc; return _bo8({ ...m, doc: null }).replace(/<div class="h">/, `<a class="gu-tag" href="${esc(d.url)}" target="_blank" rel="noopener">${I(d.tipo === 'pagar' ? 'pix' : 'pdf')}${esc(d.titulo)}</a><div class="h">`); }; }
 
+/* ===================== CRM v9 (nov/2026): autoatendimento do cliente pelo WhatsApp =====================
+   guia de pagamento com imagens · renegociação (atraso, quitação e pedido de acordo pelo próprio cliente).
+   Com o programa do WhatsApp 1.1 ligado, o programa monta tudo na hora com os dados do contrato. */
+Object.assign(ICN, { guia: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 18.5h4M9.5 8l2 2 3.5-3.5"/>', acordo: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>' });
+const GUIA_PAG = ['Entre no app NexumCell', 'Toque em "Pagar com PIX"', 'Toque em "Copiar código PIX"', 'Pague no app do seu banco (Pix Copia e Cola)', 'Pronto: pagamento confirmado', 'Atrasou? Veja tudo em Faturas']
+  .map((t, k) => ({ t: `Passo ${k + 1} de 6 · ${t}`, url: urlClienteCrm().replace(/\/?$/, '/') + `ajuda/pagar-${k + 1}.png` }));
+const waNovo = () => waOn() && parseFloat(C.wa.versao || '0') >= 1.1;
+const ehCanalWa = i => !['portal', 'app', 'chamado', 'pedido'].includes(i.canal);
+async function filaAuto(i, acao) {
+  if (!ehCanalWa(i) || !waNovo()) return false;
+  const num = soD(i.tel || i.raw?.telefone || i.raw?.whatsapp || i.raw?.numero || ''); if (num.length < 10) return false;
+  const n55 = num.startsWith('55') ? num : '55' + num, agora = Date.now();
+  await DB.add('waSaida', { numero: n55, auto: acao, cpf: soD(i.raw?.cpf || i.cpf || ''), texto: '', status: 'PENDENTE', em: agora, por: C.me.nome });
+  await DB.set('waConversas', n55, { numero: n55, atualizadoEm: agora, respondidoEm: agora, naoLido: false, fim: false, ultimaDe: 'equipe' });
+  if (!i.resp) atribuir(i, C.equipe.some(u => u.id === C.me.uid) ? C.me.uid : '');
+  return true;
+}
+async function enviarGuiaPag(i) {
+  if (await filaAuto(i, 'guia')) return toast('Guia de pagamento enviado pelo WhatsApp (6 imagens)');
+  if (i.canal === 'portal') { for (const g of GUIA_PAG) await enviar(i, g.t, { nome: g.url.split('/').pop(), tipo: 'image/png', url: g.url }); return toast('Guia de pagamento enviado'); }
+  await enviar(i, 'Como pagar e usar o app NexumCell, passo a passo com imagens:\n' + GUIA_PAG.map(g => `${g.t}: ${g.url}`).join('\n')); toast('Guia de pagamento enviado');
+}
+async function mandarAcordo(i, v) {
+  if (await filaAuto(i, 'acordo')) return toast('Renegociação enviada: o cliente escolhe em quantas vezes pelo WhatsApp');
+  const ap = await DB.get('aparelhos', v.aparelhoToken).catch(() => null); if (!ap) return toast('Aparelho não encontrado', true);
+  const h = hojeBR(), atr = (ap.parcelas || []).filter(p => !p.pago && p.venc < h), tAtr = +atr.reduce((s, p) => s + valorHojeAp(p, ap), 0).toFixed(2), q = quitacaoAp(ap);
+  const txt = `Renegociação do contrato nº ${v.numero}:\n${atr.length ? `Em atraso: ${atr.length} parcela(s), ${brl(tAtr)} hoje com multa e juros.` : 'Sem parcelas em atraso.'}\nQuitar o contrato hoje: ${brl(q.total)}${q.desconto > 0 ? ` (desconto de ${brl(q.desconto)} nos juros)` : ''}.\n${atr.length ? 'No link você paga à vista pelo PIX ou toca em "Pedir acordo do atraso" para parcelar.' : 'No link você quita pelo PIX.'}`;
+  const url = linkPagarCrm(v.aparelhoToken);
+  if (i.canal === 'portal') await enviar(i, txt, null, { doc: { tipo: 'pagar', numero: v.numero, cliente: v.clienteNome || '', url, titulo: `Renegociar · contrato nº ${v.numero}`, sub: 'Pagar, quitar ou pedir acordo' } });
+  else await enviar(i, txt + '\n' + url);
+  toast('Renegociação enviada');
+}
+{ const _cp9 = compositor; compositor = function (i) { _cp9(i); const mais = $('#cp .cp-mais'); if (!mais || $('#tGpg', mais)) return;
+  mais.insertAdjacentHTML('beforeend', `<button class="ferr" id="tGpg" title="Mandar o passo a passo com imagens de como pagar e usar o app">${I('guia')}Guia de pagamento</button>`);
+  $('#tGpg').onclick = () => enviarGuiaPag(i); }; }
+{ const _at9 = atualizarTrava; atualizarTrava = async function (i) { await _at9(i); const el = $('#ctaSec'); if (!el || C.sel !== i.key) return;
+  $$('[data-cta="quitar"]', el).forEach(b => { if (b.nextElementSibling?.dataset?.cta === 'acordo') return;
+    b.insertAdjacentHTML('afterend', `<button class="btn sm sec" data-cta="acordo" data-vid="${esc(b.dataset.vid)}">${I('acordo')}Renegociação</button>`);
+    b.nextElementSibling.onclick = async () => { const vs = await contratosDaConversa(i).catch(() => []); const v = vs.find(x => x.id === b.dataset.vid); if (v) mandarAcordo(i, v); }; });
+}; }
+/* fotos do autoatendimento (guia) aparecem na conversa do WhatsApp no CRM */
+{ const _bo9 = bolha; bolha = function (m) { const h = _bo9(m); const a = m.arquivo; if (!a?.url || !/^image\//.test(a.tipo || '') || !/ajuda\/pagar-\d\.png/.test(a.url) || h.includes('<img src="' + a.url)) return h;
+  return h.replace(/<div class="h">/, `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="" style="display:block;max-width:220px;border-radius:10px;margin:4px 0"></a><div class="h">`); }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }

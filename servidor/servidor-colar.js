@@ -3488,7 +3488,18 @@ async function fichaDe({ cpf, token, numero }) {
     return `Contrato n\xBA ${v.numero} (${v.status}) \xB7 ${[v.aparelho?.marca, v.aparelho?.modelo].filter(Boolean).join(" ")} \xB7 loja ${v.lojaNome || ""}. ${ab.length} parcela(s) em aberto${ab[0] ? `, a pr\xF3xima \xE9 a ${ab[0].n}\xAA de ${brl5(ab[0].valor)} com vencimento em ${fmtD(ab[0].venc)}` : ""}. ` + (atr.length ? `${atr.length} em atraso, total ${brl5(atr.reduce((s, p) => s + (+p.valor || 0), 0))} (desde ${fmtD(atr[0].venc)}).` : "Sem atraso.");
   }).join("\n");
 }
-async function responder(base2, canal, cliente, ficha, conversa) {
+var ACOES_WA = ["pagar", "contrato", "guia", "acordo", "liberar"];
+var PEDIDO_WA = 'IMPORTANTE (WhatsApp): voc\xEA pode ENVIAR AUTOMATICAMENTE ao cliente, colocando no campo "acoes" do JSON: "pagar" (valor de hoje e link do PIX de cada contrato; use para boleto, PIX, 2\xAA via, fatura, quanto devo), "contrato" (link do contrato em PDF), "guia" (imagens passo a passo de como pagar e usar o app), "acordo" (renegocia\xE7\xE3o: valor do atraso, quita\xE7\xE3o com desconto e o pedido de acordo em parcelas, que o pr\xF3prio cliente faz respondendo o n\xFAmero de vezes), "liberar" (celular travado: libera 20 minutos para pagar, at\xE9 2 vezes por parcela). Para esses pedidos N\xC3O marque humano: responda em 1 ou 2 frases que est\xE1 enviando e coloque a a\xE7\xE3o em "acoes". Desconto al\xE9m da quita\xE7\xE3o, cancelamento, troca, reclama\xE7\xE3o ou pedido de pessoa continuam humano=true. Responda em JSON: {"resposta":"...","humano":true|false,"acoes":[]}.';
+var intencaoWa = (t) => {
+  const s = String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/(como (eu )?pag|como (usa|uso|funciona) o app|passo a passo|tutorial|nao sei pagar)/.test(s)) return "guia";
+  if (/(renegoci|acordo|negociar|quitar|quitacao)/.test(s)) return "acordo";
+  if (/(bloquead|travad|desbloque)/.test(s)) return "liberar";
+  if (/contrato/.test(s)) return "contrato";
+  if (/(boleto|pix|link (de|pra|para) pag|pagar (a |minha )?parcela|segunda via|2 ?a via|fatura|quanto (eu )?devo)/.test(s)) return "pagar";
+  return "";
+};
+async function responder(base2, canal, cliente, ficha, conversa, extra = "") {
   const t = await groq([{ role: "system", content: REGRAS + "\n\n" + base2.texto }, { role: "user", content: `Canal: ${canal}
 Cliente: ${cliente}
 
@@ -3498,7 +3509,7 @@ ${ficha}
 Conversa:
 ${conversa}
 
-${PEDIDO_AUTO}` }], { temperatura: 0.2, max: 350, json: true });
+${PEDIDO_AUTO}${extra ? "\n\n" + extra : ""}` }], { temperatura: 0.2, max: 400, json: true });
   let j = {};
   try {
     j = JSON.parse(t);
@@ -3506,7 +3517,8 @@ ${PEDIDO_AUTO}` }], { temperatura: 0.2, max: 350, json: true });
     j = { resposta: "", humano: true };
   }
   const resposta = String(j.resposta || "").trim() || "Recebemos a sua mensagem. Um atendente da NexumCell vai continuar o seu atendimento assim que poss\xEDvel.";
-  return { resposta, humano: !!j.humano };
+  const acoes = (Array.isArray(j.acoes) ? j.acoes : []).map((a) => String(a).toLowerCase()).filter((a) => ACOES_WA.includes(a));
+  return { resposta, humano: !!j.humano, acoes: [...new Set(acoes)].slice(0, 2) };
 }
 var seguidasIA = (msgs, ehCliente) => {
   let n = 0;
@@ -3545,6 +3557,8 @@ async function crmIaAutomatica() {
   }
   if (cfg.iaAutoWa !== false) {
     const wa = (await db.collection("waConversas").where("naoLido", "==", true).get()).docs;
+    const st = (await db.doc("plataforma/waWebStatus").get().catch(() => null))?.data() || {};
+    const autoOk = parseFloat(st.versao || "0") >= 1.1;
     for (const s of wa.slice(0, 25)) {
       const c = s.data();
       if (c.iaHumano && (c.iaUltimaEm || 0) > agora - 864e5 || c.aguardandoMenu || c.fim || (c.atualizadoEm || 0) > agora - espera) continue;
@@ -3552,8 +3566,18 @@ async function crmIaAutomatica() {
       if (!ult || ult.de !== "cliente" || ult.em > agora - espera || seguidasIA(msgs, (m) => m.de === "cliente") >= MAX_SEGUIDAS) continue;
       try {
         const conversa = msgs.slice(-14).map((m) => `${m.de === "cliente" ? "Cliente" : "NexumCell"}: ${String(m.t || "").slice(0, 500)}`).join("\n");
-        const x = await responder(base2, "WhatsApp", c.nome || "Cliente", await fichaDe({ cpf: c.cpf }), conversa);
-        await db.collection("waSaida").add({ numero: s.id, texto: x.resposta, status: "PENDENTE", em: Date.now(), por: "Assistente NexumCell (IA)", ia: true });
+        const x = await responder(base2, "WhatsApp", c.nome || "Cliente", await fichaDe({ cpf: c.cpf }), conversa, autoOk ? PEDIDO_WA : "");
+        if (autoOk && !x.acoes.length) {
+          const k = intencaoWa(ult.t);
+          if (k && !/(cancel|troca|reclam|procon|advogad)/i.test(ult.t || "")) {
+            x.acoes = [k];
+            x.humano = false;
+          }
+        }
+        if (x.acoes.length) x.humano = false;
+        const em = Date.now();
+        await db.collection("waSaida").add({ numero: s.id, texto: x.resposta, status: "PENDENTE", em, por: "Assistente NexumCell (IA)", ia: true });
+        for (const [i, a] of x.acoes.entries()) await db.collection("waSaida").add({ numero: s.id, auto: a, cpf: c.cpf || "", texto: "", status: "PENDENTE", em: em + 1 + i, por: "Assistente NexumCell (IA)", ia: true });
         await s.ref.collection("msgs").add({ de: "equipe", t: x.resposta, em: Date.now(), por: "Assistente NexumCell (IA)", auto: true, ia: true });
         await s.ref.set({ ultimaMsg: x.resposta.slice(0, 200), ultimaDe: "equipe", iaUltimaEm: Date.now(), ...x.humano ? { iaHumano: true } : {} }, { merge: true });
         r.iaWa++;
