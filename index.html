@@ -12063,7 +12063,7 @@ const BT_ZAP={id:'doc_zap',t:'Enviar ao cliente pelo WhatsApp'}, BT_OK={id:'reso
   const d=CH.doc, c=d?.contrato||{};
   if(id==='lib20'&&d){ await atUser('Liberar 20 min para o cliente pagar'); CH.dig=true; atRender();
     try{ const r=await apiServ('venda-acoes',{acao:'liberar20',vendaId:c.vendaId,atendimentoId:d.id}); CH.dig=false; const v=await DB.get('vendas',c.vendaId);
-      return atBotDoc(`Liberado por 20 minutos, até ${new Date(r.ate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.\nPeça ao cliente para ligar a internet e pagar pelo link abaixo. Quando o PIX cai, o celular fica liberado de vez.\nSe ele não pagar, o aparelho volta a travar sozinho.`,[...(c.tel?[BT_ZAP]:[]),BT_OK,...VOLTAR],v?.aparelhoToken?docPagar(v):null); }
+      return atBotDoc(`Liberado por 20 minutos, até ${new Date(r.ate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.${r.parcela?` (parcela ${r.parcela}: ${r.restam?`ainda pode pedir mais ${r.restam} vez`:'esta foi a última liberação de 20 min desta parcela'}.)`:''}\nPeça ao cliente para ligar a internet e pagar pelo link abaixo. Quando o PIX cai, o celular fica liberado de vez.\nSe ele não pagar, o aparelho volta a travar sozinho.`,[...(c.tel?[BT_ZAP]:[]),BT_OK,...VOLTAR],v?.aparelhoToken?docPagar(v):null); }
     catch(e){ CH.dig=false; return atBot(`Não consegui liberar: ${e.message}`,[{id:'lib:24h',t:'Pedir liberação ao suporte'},...VOLTAR]); } }
   if(id==='doc_zap'&&d){ const doc=[...(d.msgs||[])].reverse().find(m=>m.doc?.url)?.doc; if(!doc) return; const tel=onlyDig(c.tel||''), n=tel.startsWith('55')?tel:'55'+tel;
     const txt=doc.tipo==='contrato'?`Olá, ${primeiroNome(c.cliente||'')}! Aqui está a cópia do seu contrato nº ${doc.numero} da ${MARCA}. Abra e toque em Salvar como PDF: ${doc.url}`
@@ -12082,7 +12082,9 @@ document.head.insertAdjacentHTML('beforeend','<style id="at-v8">.at-doc.pix .at-
 /* modo demonstração */
 { const _ss8=simServ; simServ=async function(rota,d){ if(rota!=='venda-acoes') return _ss8(rota,d);
   const v=await DB.get('vendas',d.vendaId);
-  if(d.acao==='liberar20'){ if(v?.aparelhoToken) await DB.set('aparelhos',v.aparelhoToken,{liberadoAte:Date.now()+20*60e3,lib20Em:Date.now()}); return {ok:true,ate:Date.now()+20*60e3}; }
+  if(d.acao==='liberar20'){ const ap=v?.aparelhoToken?await DB.get('aparelhos',v.aparelhoToken):null, p=((ap?.parcelas||v?.parcelas||[]).filter(x=>!x.pago).sort((a,b)=>String(a.venc).localeCompare(b.venc)))[0], us={...(ap?.lib20Parcelas||{})};
+    if(p&&(+us[p.n]||0)>=2) throw new Error(`A parcela ${p.n} já teve as 2 liberações de 20 minutos. Uma nova liberação é com o suporte.`);
+    if(p) us[p.n]=(+us[p.n]||0)+1; if(ap) await DB.set('aparelhos',v.aparelhoToken,{liberadoAte:Date.now()+20*60e3,lib20Em:Date.now(),lib20Parcelas:us}); return {ok:true,ate:Date.now()+20*60e3,parcela:p?.n,restam:p?2-us[p.n]:0}; }
   if(d.acao==='cancelar'){ await DB.set('vendas',d.vendaId,{status:'CANCELADA',canceladoEm:Date.now(),motivoCancelamento:d.motivo}); return {ok:true,numero:v?.numero}; }
   return {ok:true}; }; }
 
