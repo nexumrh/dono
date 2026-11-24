@@ -11952,6 +11952,38 @@ document.head.insertAdjacentHTML('beforeend',`<style id="at-v6">
 .gu-big button{border:1px solid #D5DCEA;background:#fff;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer}.gu-big button:last-child{background:#0A1733;color:#fff;border-color:#0A1733}.gu-big button:disabled{opacity:.4}
 </style>`);
 
+
+/* ======================= ATENDIMENTO v7 (nov/2026): o chat manda o contrato em PDF ======================= */
+const AT_IC_PDF='<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>';
+const linkContratoPdf=tk=>urlCliente().replace(/\/?$/,'/')+'?contrato='+encodeURIComponent(tk)+'&pdf=1';
+{ const _ac7=atContrato; atContrato=async function(passo,vid){
+  if(passo!=='contrato') return _ac7(passo,vid);
+  const v=await DB.get('vendas',vid); if(!v) return atBot('Contrato não encontrado.',VOLTAR);
+  const tel=(v.cliente?.telefones||[])[0]||onlyDig(v.cliente?.tel||'');
+  await atSalvar({contrato:{vendaId:v.id,numero:v.numero,cliente:v.clienteNome,cpf:v.clienteCpf,aparelhoToken:v.aparelhoToken||'',tel}});
+  const tk=v.aparelhoToken, c=tk?await DB.get('contratos',tk).catch(()=>null):null;
+  if(!c?.html) return atBot(`O contrato nº ${v.numero} ainda não tem a cópia assinada publicada${v.assinadoEm?'':' (ele ainda não foi assinado)'}. Na loja: Vendas → abrir o contrato nº ${v.numero} → Imprimir contrato.`,[{id:'atendente',t:'Preciso da cópia agora'},...VOLTAR]);
+  const url=linkContratoPdf(tk);
+  await atSalvar({msgs:[...(CH.doc.msgs||[]),{...atMsg('bot',`Aqui está o contrato nº ${v.numero} · ${v.clienteNome}${c.assinadoEm||v.assinadoEm?`, assinado em ${fmtDT(c.assinadoEm||v.assinadoEm)}`:''}. Toque no cartão para abrir e salvar em PDF.`,[...(tel?[{id:'ct_zap',t:'Enviar ao cliente pelo WhatsApp'}]:[]),{id:'resolvido',t:'Resolvido'},...VOLTAR]),doc:{tipo:'contrato',numero:v.numero,cliente:v.clienteNome||'',url}}],fluxo:{passo:'contrato_ok'},...(CH.doc.categoria?{}:{categoria:'2ª via do contrato'})});
+}; }
+{ const _bt7=atBotao; atBotao=async function(id,rotulo){
+  if(id!=='ct_zap') return _bt7(id,rotulo);
+  const d=CH.doc, c=d?.contrato||{}, doc=[...(d?.msgs||[])].reverse().find(m=>m.doc?.tipo==='contrato')?.doc; if(!doc) return;
+  const tel=onlyDig(c.tel||''), n=tel.startsWith('55')?tel:'55'+tel;
+  window.open(`https://wa.me/${n}?text=${encodeURIComponent(`Olá, ${primeiroNome(c.cliente||'')}! Aqui está a cópia do seu contrato nº ${doc.numero} da ${MARCA}. Abra o link e toque em Salvar como PDF: ${doc.url}`)}`,'_blank','noopener');
+  await atUser('Enviar ao cliente pelo WhatsApp'); return atBot('Abri o WhatsApp com a mensagem e o link do contrato já escritos. É só tocar em Enviar.',[{id:'resolvido',t:'Resolvido'},...VOLTAR]);
+}; }
+{ const _px7=pintarExtras6; pintarExtras6=function(c,d){ _px7(c,d);
+  const bolhas=[...c.querySelectorAll(':scope > .m')].filter(x=>!x.classList.contains('at-dg'));
+  (d.msgs||[]).forEach((m,k)=>{ if(!m.doc?.url) return; const el=bolhas[k]?.querySelector('.bb'); if(!el||el.querySelector('.at-doc')) return;
+    el.insertAdjacentHTML('beforeend',`<a class="at-doc" href="${esc(m.doc.url)}" target="_blank" rel="noopener"><span class="at-doc-i">${svg(AT_IC_PDF)}<small>PDF</small></span><span><b>Contrato nº ${esc(String(m.doc.numero||''))}</b><span>${esc(m.doc.cliente||'')} · abrir e salvar em PDF</span></span></a>`); }); }; }
+document.head.insertAdjacentHTML('beforeend',`<style id="at-v7">
+.at-doc{display:flex;gap:10px;align-items:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:#fff;border:1px solid #D5DCEA;color:#0F172A;text-decoration:none;max-width:260px}
+.at-doc:hover{border-color:#1D4ED8}.at-doc-i{width:38px;height:44px;border-radius:8px;background:#FEE2E2;color:#B42318;display:grid;place-items:center;flex:none;position:relative}.at-doc-i svg{width:20px;height:20px;margin-top:-8px}
+.at-doc-i small{position:absolute;bottom:4px;font-size:9px;font-weight:800}.at-doc b{display:block;font-size:13px}.at-doc span span{font-size:11.5px;color:#64748B}
+.m.atendente .at-doc,.m.user .at-doc{color:#0F172A}
+</style>`);
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
