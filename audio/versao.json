@@ -570,5 +570,189 @@
  "fim": {
   "h": "9b8ce4f999",
   "texto": "Parabéns! Você concluiu o treinamento. Até a próxima!"
+ },
+ "crm-1-0": {
+  "h": "e7498468f2",
+  "texto": "Olá! Eu sou a Ana, instrutora da NexumCell. Neste curso você vai conhecer o CRM, o sistema onde a equipe de suporte e do financeiro atende vendedores, gerentes e clientes. Para entrar, use o seu ID, por exemplo SUP mil e um, ou o seu e-mail, e a senha da NexumCell. Cada aba do navegador tem o seu próprio login: dá para duas pessoas usarem o mesmo computador sem uma derrubar a outra."
+ },
+ "crm-1-1": {
+  "h": "62f5ae984c",
+  "texto": "Depois de entrar, a tela tem quatro partes. À esquerda, o menu. Depois, a lista de atendimentos. No meio, a conversa aberta. E à direita, a ficha do cliente, com o contrato, a trava do aparelho e o assistente de IA. Tudo que chega para a NexumCell cai aqui: chat dos portais, app do cliente, WhatsApp, chamados, pedidos, liberações e pré-análises."
+ },
+ "crm-1-2": {
+  "h": "cdc6da74a2",
+  "texto": "No menu, Caixa de entrada mostra todos os atendimentos da sua fila. Kanban mostra os mesmos atendimentos em colunas, por etapa. Atribuídos a mim filtra só o que é seu. Prioridade alta junta quem está irritado, quem falou em reclamação e quem passou muito do prazo. Prazo estourado mostra quem está esperando mais do que o combinado. Localizar busca qualquer cliente por nome, CPF ou contrato, e Retornos agendados lembra os contatos que você marcou para depois."
+ },
+ "crm-1-3": {
+  "h": "bc276044d4",
+  "texto": "Mais abaixo ficam as filas: Suporte, Financeiro e Comercial. Você vê a fila da sua função; o dono vê todas. Os números mostram quantos atendimentos estão abertos e, em vermelho, quantos estão sem resposta. Em Canais você filtra por origem: chat dos portais, app do cliente, chamados ou WhatsApp."
+ },
+ "crm-1-4": {
+  "h": "bc02d989d9",
+  "texto": "No rodapé do menu está o seu nome, o botão Sair e o seu status. Deixe em Disponível para receber atendimentos. Na hora do almoço ou de uma pausa, troque para Pausa: o sistema para de mandar conversas novas para você e redistribui quem estava esperando. Nunca saia sem trocar o status, senão os clientes ficam esperando por você."
+ },
+ "crm-1-5": {
+  "h": "6d7732412a",
+  "texto": "A lista mostra cada conversa com o nome, o canal, a fila, quem é o responsável e a última mensagem. Os selos coloridos avisam o que é importante: Pessoa irritada, Risco de reclamação, Sem responsável e Esperando tantos minutos. As conversas mais urgentes sobem sozinhas para o topo."
+ },
+ "crm-1-6": {
+  "h": "ab860c910a",
+  "texto": "No alto da lista, as abas Abertos, Sem resposta e Finalizados. Os quadradinhos mostram os totais e os seus. A busca acha por nome, protocolo, número ou texto da mensagem. Você também pode filtrar por etiqueta, como VIP ou Suspeita de golpe, e salvar o filtro. O botão Próximo pega o próximo atendimento da fila na ordem certa, e Nova abre uma conversa nova pelo WhatsApp."
+ },
+ "crm-1-7": {
+  "h": "ecdb14317d",
+  "texto": "Cada cartão mostra a pessoa, o horário da última mensagem e um número verde com as mensagens não lidas. Clique no cartão para abrir a conversa. Se ninguém assumiu, aparece Sem responsável: ao responder, a conversa passa a ser sua."
+ },
+ "crm-1-8": {
+  "h": "d371c0ec91",
+  "texto": "O Kanban mostra os atendimentos em colunas: Novos, Em atendimento, Aguardando cliente e Finalizados. É bom para ver de longe onde o trabalho está parado. Clique em um cartão para abrir a conversa."
+ },
+ "crm-1-9": {
+  "h": "c32122f360",
+  "texto": "Muito bem! Agora você conhece a tela do CRM. Responda o teste para seguir para o próximo módulo."
+ },
+ "crm-2-0": {
+  "h": "d33a116478",
+  "texto": "Ao abrir uma conversa, o topo mostra quem é a pessoa e há quanto tempo ela espera. Ao lado, você escolhe a fila, por exemplo passar do Suporte para o Financeiro, e o responsável. O botão com a pessoa e o mais chama um colega para ajudar na mesma conversa. E o botão verde Finalizar encerra o atendimento quando o problema foi resolvido."
+ },
+ "crm-2-1": {
+  "h": "4b39deb70a",
+  "texto": "No meio ficam as mensagens. As da pessoa ficam à esquerda; as da NexumCell, à direita, em azul. As respostas automáticas do robô aparecem marcadas como automática. Se a pessoa citar um código de erro, o CRM mostra um cartão com o que o código significa e o botão Usar resolução, que já escreve a orientação certa para você."
+ },
+ "crm-2-2": {
+  "h": "d2164a1a37",
+  "texto": "Embaixo fica a caixa de mensagem. Enter envia e Shift mais Enter quebra a linha. Se começar a mensagem com uma barra, aparecem as respostas prontas. Acima da caixa ficam as ferramentas: Respostas rápidas, Links, Códigos, Macros, Anexo para mandar foto ou PDF, Áudio, Sugerir resposta e Mais IA."
+ },
+ "crm-2-3": {
+  "h": "5856b216a0",
+  "texto": "Em Respostas rápidas estão os textos aprovados pela equipe, separados por assunto: atendimento, pagamento, trava e vendas. Clique para colocar o texto na caixa e revisar antes de mandar, ou em Enviar para mandar direto. Use sempre que puder: são respostas conferidas e deixam o atendimento padronizado."
+ },
+ "crm-2-4": {
+  "h": "94054d4a33",
+  "texto": "Em Códigos você busca qualquer código do sistema pelo número ou pelo assunto. Cada código diz o que aconteceu e o que responder. O código 999 é especial: é um erro sem código próprio. Nesse caso, leia o Detalhe do sistema que vem anexado na mensagem do vendedor, com a mensagem original do erro e a tela onde aconteceu."
+ },
+ "crm-2-5": {
+  "h": "6dcb8b3c5a",
+  "texto": "Em Mais ações ficam: Nota interna, que só a equipe vê; Retorno, para agendar um contato; Agendar uma mensagem; Ler comprovante, quando o cliente manda a foto do pagamento; Resumo IA; Nota do cliente; tradução para espanhol e para português; o Guia da trava USB; o Contrato em PDF e o Guia de pagamento com imagens."
+ },
+ "crm-2-6": {
+  "h": "8f56dffcd6",
+  "texto": "À direita fica a ficha. Ela mostra quem é a pessoa, quantos atendimentos teve nos últimos 30 dias, a nota que deu e os erros que se repetem. Mais abaixo, os dados do atendimento: canal, protocolo, fila, responsável, perfil e loja. E no fim, os outros atendimentos da mesma pessoa."
+ },
+ "crm-2-7": {
+  "h": "ef319146ed",
+  "texto": "Na parte Trava do aparelho você vê o contrato, a situação da trava e o último sinal do celular. Daqui o suporte libera por 24 ou 48 horas, bloqueia na hora ou libera sem prazo, sempre seguindo as regras: liberação maior que 48 horas, ou mais de uma vez a cada 30 dias, só com aprovação do dono."
+ },
+ "crm-2-8": {
+  "h": "f9521c9e0f",
+  "texto": "Em Contrato e cliente ficam as ações do dia a dia: Link de pagamento, que manda ao cliente a página para pagar pelo PIX; Valor para quitar, com o desconto de hoje; Renegociação; Editar cadastro, para corrigir telefone, endereço ou e-mail depois de conferir a identidade; e Cancelar venda, quando for o caso."
+ },
+ "crm-2-9": {
+  "h": "4d456db9ba",
+  "texto": "Quando terminar, clique em Finalizar e escolha o motivo do contato, como Trava ou aparelho bloqueado, ou Pagamento e Pix. O motivo é importante: com ele o dono descobre o que mais gera atendimento e resolve na origem. Ao finalizar, a IA também avalia o atendimento e pode sugerir um artigo novo para a Base de conhecimento."
+ },
+ "crm-2-10": {
+  "h": "c2c2906d04",
+  "texto": "Ótimo! Você já sabe atender uma conversa do começo ao fim. Responda o teste para continuar."
+ },
+ "crm-3-0": {
+  "h": "8de8b846a4",
+  "texto": "Na ficha, o Assistente IA tem dois botões. Resumir lê a conversa inteira e mostra o pedido, o que já foi feito e o próximo passo. Sugerir resposta escreve uma resposta usando a ficha do cliente, as respostas aprovadas e as orientações do dono. Você sempre revisa antes de enviar."
+ },
+ "crm-3-1": {
+  "h": "3f7960564a",
+  "texto": "O resumo também mostra o humor da pessoa e a urgência. Se ela estiver irritada ou a urgência for alta, a conversa ganha prioridade sozinha. Use o resumo quando pegar uma conversa longa no meio, para não perguntar de novo o que a pessoa já explicou."
+ },
+ "crm-3-2": {
+  "h": "5e8014877b",
+  "texto": "Acima da caixa de mensagem aparece o Copiloto. Ele mostra o próximo passo, por exemplo mandar o link do PIX, e uma sugestão pronta. Toque em Usar a sugestão para colocar o texto na caixa. Se não quiser o copiloto no seu computador, toque em desligar; para ligar de novo, use a opção na tela de Treinamento."
+ },
+ "crm-3-3": {
+  "h": "b89818cfcc",
+  "texto": "Enquanto você digita, o copiloto confere o seu rascunho. Se o texto ficar ríspido, prometer o que a NexumCell não pode cumprir ou expor dados, ele avisa em vermelho e oferece Trocar meu rascunho. Mesmo com o cliente nervoso, a NexumCell responde sempre com educação."
+ },
+ "crm-3-4": {
+  "h": "3eb2ecc5ea",
+  "texto": "Quando a pessoa fala em Procon, advogado, Reclame Aqui, polícia ou justiça, a conversa ganha o selo Risco de reclamação, vai para o topo da lista e o dono recebe um aviso. Atenda essas primeiro, com calma: explique os valores, mostre a solução e registre tudo na conversa."
+ },
+ "crm-3-5": {
+  "h": "d01f0d6382",
+  "texto": "Cada fila tem um prazo de resposta. Quando passa do prazo, você recebe um aviso. Com o dobro do prazo, a conversa vai para um colega menos ocupado. E com o triplo, ela sobe para o supervisor. Por isso, responda logo, nem que seja para dizer que já está verificando."
+ },
+ "crm-3-6": {
+  "h": "966e1b2959",
+  "texto": "Quando o cliente fala em cancelar, devolver ou desistir, aparece a faixa amarela de retenção. Antes de cancelar, ofereça uma saída: desconto para quitar, mudar o dia do vencimento, trocar por um modelo mais barato ou explicar o que ele já pagou. No fim, marque Cliente ficou ou Cliente saiu: isso entra no relatório de retenção."
+ },
+ "crm-3-7": {
+  "h": "84f0862109",
+  "texto": "Muito bem! A IA ajuda, mas quem decide e responde é você. Responda o teste para continuar."
+ },
+ "crm-4-0": {
+  "h": "b7445e5406",
+  "texto": "Em Cobrança, a tela abre na Lista do dia. No alto você vê a sua meta de contatos do dia, quantos dos seus contatos já pagaram, quantos faltam e quantos têm chance alta de pagar."
+ },
+ "crm-4-1": {
+  "h": "07eac0cf53",
+  "texto": "Cada cliente tem uma bolinha com a chance de pagar hoje, calculada pelos dias de atraso, pelo histórico de pagamento e pelas promessas. Comece por cima. Embaixo do nome vem o roteiro: o que falar com aquele cliente. Mandar mensagem já traz um texto pronto com o link do PIX. Depois de cada contato, marque o resultado, como Não atendeu, Vai pagar hoje ou Pediu acordo."
+ },
+ "crm-4-2": {
+  "h": "06b2c9ed65",
+  "texto": "Quando o cliente promete pagar em uma data, registre em Prometeu: escolha a data e o valor. Se ele pagar, a promessa vira cumprida sozinha. Se a data passar sem pagamento, ela vira quebrada e aparece na aba Promessas quebradas. Não faça uma segunda promessa no mesmo contrato sem autorização."
+ },
+ "crm-4-3": {
+  "h": "359c37154a",
+  "texto": "Em Ver por faixa, os atrasados ficam separados por tempo: de 1 a 7 dias, de 8 a 15, de 16 a 30, de 31 a 60 e mais de 60. Quanto mais tempo, mais difícil receber: cobre cedo. Para cada cliente você pode conversar, gerar o Pix da parcela e registrar promessa ou acordo."
+ },
+ "crm-4-4": {
+  "h": "1f31aebeb6",
+  "texto": "Em Mensagens em massa você manda o mesmo aviso para um grupo: parcelas que vencem em 2 dias, vencidas há poucos dias, aniversariantes, atraso de 6 a 30 dias, atraso acima de 30, quem quitou e pode comprar de novo, e pré-aprovação vencendo. As mensagens saem aos poucos, com intervalo, para o número não ser bloqueado. O botão Resultado mostra quantos responderam e quantos pagaram."
+ },
+ "crm-4-5": {
+  "h": "8563451a3e",
+  "texto": "Quando o cliente manda a foto de um comprovante, use Ler comprovante em Mais ações. A IA lê o valor, a data, o recebedor e o código da transação, e confere se aquele comprovante já foi usado. Pelo WhatsApp, o robô já confere sozinho e libera o celular por 24 horas, mas a baixa da parcela é sempre feita por uma pessoa do financeiro."
+ },
+ "crm-4-6": {
+  "h": "6313baca6f",
+  "texto": "O WhatsApp da NexumCell também chega aqui. O robô do WhatsApp já resolve sozinho muita coisa: manda o link de pagamento, o contrato, o guia com imagens, faz a renegociação e libera 20 minutos para pagar. Quando o cliente escolhe falar com o Suporte ou com o Financeiro, a conversa entra na sua fila."
+ },
+ "crm-4-7": {
+  "h": "de830727de",
+  "texto": "Perfeito! Cobrar com respeito e no momento certo recupera a maior parte dos atrasos. Responda o teste para continuar."
+ },
+ "crm-5-0": {
+  "h": "d2841825c9",
+  "texto": "Em Localizar você acha qualquer cliente da NexumCell, de qualquer loja, pelo nome, CPF, telefone ou número do contrato, e abre a ficha completa com o contrato, as parcelas e a trava."
+ },
+ "crm-5-1": {
+  "h": "81f944355c",
+  "texto": "Quando prometer voltar a falar com alguém, agende um Retorno. Na hora marcada, o CRM avisa você e o retorno aparece aqui. Cumprir o combinado passa confiança para o cliente e para a loja."
+ },
+ "crm-5-2": {
+  "h": "089db92ba4",
+  "texto": "Em Respostas rápidas você vê e organiza todos os textos prontos. Cada resposta tem um atalho com barra, por exemplo barra recebi. Se perceber que escreve sempre a mesma coisa, sugira uma resposta nova. O dono aprova e ela fica disponível para toda a equipe."
+ },
+ "crm-5-3": {
+  "h": "b5c5594ab0",
+  "texto": "Em Códigos de erro está o catálogo completo, separado por grupo: acesso e equipe, venda e cadastro, crédito, pagamento e bloqueio, loja parceira e trava. Cada código tem o que é, o que o vendedor deve fazer e o que o suporte responde."
+ },
+ "crm-5-4": {
+  "h": "fc7b08b86d",
+  "texto": "A Base de conhecimento reúne os artigos de ajuda. Muitos nascem dos próprios atendimentos: quando uma conversa ensina uma solução nova, a IA sugere um artigo e o dono aprova. Os artigos aprovados também são usados pelo robô do WhatsApp e pelo chat dos portais."
+ },
+ "crm-5-5": {
+  "h": "0340ada548",
+  "texto": "Em Alertas de fraude o CRM avisa sozinho quando vê sinais de golpe: o mesmo telefone ligado a vários CPFs, muitas propostas num só dia, ou mensagens pedindo pagamento em conta de outra pessoa. Nunca mude telefone, e-mail ou titular sem conferir a identidade, e nunca informe dados de um cliente para outra pessoa."
+ },
+ "crm-5-6": {
+  "h": "5c288483a4",
+  "texto": "Por fim, o Treinamento prático. São conversas simuladas, em que a IA faz o papel do cliente: cliente bravo com o celular travado, idosa que não sabe pagar, cliente em espanhol, ameaça de Procon, golpe tentando trocar o titular, celular roubado, renegociação e outros. Para liberar o atendimento, você precisa passar em seis conversas com nota sete ou mais, incluindo as obrigatórias da sua função."
+ },
+ "crm-5-7": {
+  "h": "b3bcd7fe36",
+  "texto": "Na simulação, responda como se fosse um cliente de verdade. Para usar uma ferramenta, escreva entre colchetes, por exemplo: mandei o link do PIX. Quando resolver, toque em Finalizar e ver nota. A IA mostra os pontos fortes, o que melhorar e qual seria a resposta ideal."
+ },
+ "crm-5-8": {
+  "h": "acc19318bc",
+  "texto": "Parabéns! Você terminou o curso do CRM. Agora faça o teste final. Depois, pratique as conversas simuladas para liberar o seu atendimento."
  }
 }
