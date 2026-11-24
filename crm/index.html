@@ -186,7 +186,11 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .loc-box{border:1px solid var(--line2);border-radius:14px;overflow:hidden}.loc-box .pf-sec:last-child{border-bottom:0}
 @media(max-width:900px){.loc-c{grid-template-columns:1fr}}
 html.embutido .nav .eu button{display:none}
-@media(max-width:640px){#tResIn .rq-lb{display:none}}</style>
+@media(max-width:640px){#tResIn .rq-lb{display:none}}
+.nav .eu{position:sticky;bottom:0;z-index:2;background:var(--ink);box-shadow:0 -10px 14px -10px rgba(0,0,0,.35)}
+#nv-sair{display:inline-flex;align-items:center;gap:6px;width:auto!important;padding:6px 10px!important;border-radius:10px;background:rgba(255,255,255,.08)!important}
+#nv-sair .sair-t{font-size:12px;font-weight:700}
+</style>
 </head>
 <body>
 <div id="root"></div><div id="mr"></div><div id="toast"></div>
@@ -573,12 +577,12 @@ function desenharNav() {
     <h6>Canais</h6>${b('canal', 'todos', 'Todos os canais', I('camadas'), [0, 0])}${Object.entries(CANAIS).filter(([k]) => ab.some(i => i.canal === k) || ['portal', 'app', 'wa'].includes(k)).map(([k, [n]]) => b('canal', k, n, I(CANAL_ICN[k]), cont(i => i.canal === k))).join('')}
     <div class="tools"><button data-vw="painel" title="Painel">${I('barras')}<span>Painel</span></button>${dono() ? `<button data-vw="equipe" title="Equipe">${I('grupo')}<span>Equipe</span></button>` : `<button data-vw="clientes" title="Localizar">${I('busca')}<span>Localizar</span></button>`}<button data-vw="config" title="Respostas e automações">${I('engrenagem')}<span>Ajustes</span></button></div>
     <button data-vw="wa" class="wa-st">${dot(waSt[0])}<span>${waSt[1]}</span>${I('qr')}</button>
-    <div class="eu"><div class="av" style="background:${cor(C.me.nome)}">${esc(ini(C.me.nome))}</div><div style="min-width:0"><b>${esc(C.me.nome)}</b><small>${dono() ? 'Dono · todas as filas' : 'Fila ' + esc(FILAS[C.papel]?.[0] || '')}</small></div><button id="nv-sair" title="Sair" aria-label="Sair">${I('sair')}</button></div>`;
+    <div class="eu"><div class="av" style="background:${cor(C.me.nome)}">${esc(ini(C.me.nome))}</div><div style="min-width:0"><b>${esc(C.me.nome)}</b><small>${dono() ? 'Dono · todas as filas' : 'Fila ' + esc(FILAS[C.papel]?.[0] || '')}</small></div><button id="nv-sair" title="Sair do CRM" aria-label="Sair">${I('sair')}<span class="sair-t">Sair</span></button></div>`;
   $$('[data-vw]', el).forEach(x => x.onclick = () => { C.view = x.dataset.vw; if (x.dataset.vw === 'inbox') C.f.meus = false; salvarF(); el.classList.remove('aberto'); desenhar(); });
   $$('[data-fila]', el).forEach(x => x.onclick = () => { C.f.fila = x.dataset.fila; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
   $$('[data-canal]', el).forEach(x => x.onclick = () => { C.f.canal = x.dataset.canal; C.view = 'inbox'; salvarF(); el.classList.remove('aberto'); desenhar(); });
   $('#nv-meus').onclick = () => { C.f.meus = !C.f.meus; C.view = 'inbox'; salvarF(); desenhar(); };
-  if (EMBUTIDO || APP_NOME !== 'crm') $('#nv-sair').remove(); else $('#nv-sair').onclick = async () => { C.un.forEach(u => { try { u(); } catch (e) { } }); await F.au.signOut(F.auth); };
+  if (EMBUTIDO) $('#nv-sair').remove(); else $('#nv-sair').onclick = async () => { if (APP_NOME !== 'crm' && !confirm('Sair do CRM? Você também sai do portal neste navegador.')) return; C.un.forEach(u => { try { u(); } catch (e) { } }); C.un = []; await F.au.signOut(F.auth); };
 }
 function desenhar() {
   if (!C.me || !$('#app')) return; desenharNav(); const app = $('#app');
