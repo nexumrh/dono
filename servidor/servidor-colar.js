@@ -5773,6 +5773,9 @@ async function handler30(req, res) {
 // api/assistente-dono.js
 init_base();
 
+// api/venda-acoes.js
+init_base();
+
 // worker/index.js
 var ROTAS = { metas: handler15, atendimento: handler29, localizar: handler30, "ajuda-artigos": ajudaArtigos, "avisar-dono": handler28, equipe: handler13, ia: handler5, emprestimo: handler6, "crm-ia": handler14, ouvidoria: handler27, ios: handler24, codigo, acordo, instalacao: handler11, "cliente-app": handler23, pix: handler, loja: handler2, "pix-automatico": handler3, "asaas-webhook": handler8, assistente: handler9, avisos: handler16, nf: handler17, assinatura: handler18, "zapsign-webhook": handler19, preanalise: handler4, credenciamento: handler20, push: handler21, saas: handler7, motor: handler12, repasse: handler10, remota: handler22, "remover-codigo": handler25, lead: handler26 };
 function carregarEnv(env2) {

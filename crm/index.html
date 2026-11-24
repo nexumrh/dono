@@ -2514,6 +2514,63 @@ async function enviarContrato(i) {
   return pintarMsgs((r.msgs || []).map(m => ({ t: m.t, em: m.em, nos: m.de === 'atendente', de: m.de, quem: m.de === 'user' ? (m.por || i.nome) : m.de === 'bot' ? 'Assistente' : (m.por || 'NexumCell'), auto: m.auto, arquivo: m.arquivo || null, guia: m.guia || '', doc: m.doc || null }))); }; }
 { const _bo7 = bolha; bolha = function (m) { const h = _bo7(m); return m.doc?.url ? h.replace(/<div class="h">/, `<a class="gu-tag" href="${esc(m.doc.url)}" target="_blank" rel="noopener">${I('pdf')}Contrato nº ${esc(String(m.doc.numero || ''))} (PDF)</a><div class="h">`) : h; }; }
 
+/* ===================== CRM v8 (nov/2026): o suporte e o financeiro resolvem tudo pela ficha =====================
+   link de pagamento do cliente · valor para quitar · editar cadastro · cancelar venda (pelo servidor, com registro) */
+Object.assign(ICN, { pix: '<path d="m12 2.5 3.6 3.6-3.6 3.6-3.6-3.6zM12 14.3l3.6 3.6-3.6 3.6-3.6-3.6zM2.5 12l3.6-3.6L9.7 12l-3.6 3.6zM14.3 12l3.6-3.6 3.6 3.6-3.6 3.6z"/>', editar: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', xis: '<path d="M18 6 6 18M6 6l12 12"/>' });
+const hojeBR = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+const diasEnt = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 864e5);
+function valorHojeAp(p, ap) { const d = diasEnt(p.venc, hojeBR()); if (d < 0) return +(p.valor * (1 - (+ap.descontoPct || 0) / 100)).toFixed(2); if (d === 0) return +p.valor; return +(p.valor * (1 + (+ap.multaPct || 0) / 100 + (+ap.moraDiaPct || 0) / 100 * d)).toFixed(2); }
+function quitacaoAp(ap) { const n = +ap.nParcelas || (ap.parcelas || []).length, fin = +ap.financiado || 0, princ = n ? fin / n : 0; let tot = 0, cheio = 0;
+  (ap.parcelas || []).filter(p => !p.pago).forEach(p => { const fut = diasEnt(p.venc, hojeBR()) < 0, h = valorHojeAp(p, ap); if (fut && princ > 0) { tot += Math.min(princ, p.valor); cheio += p.valor; } else if (fut) { tot += h; cheio += p.valor; } else { tot += h; cheio += h; } });
+  return { total: +tot.toFixed(2), desconto: +(cheio - tot).toFixed(2) }; }
+const linkPagarCrm = tk => urlClienteCrm() + '?pagar=' + encodeURIComponent(tk);
+async function mandarLink(i, v, tipo) {
+  const ap = await DB.get('aparelhos', v.aparelhoToken).catch(() => null); if (!ap) return toast('Aparelho não encontrado', true);
+  const url = linkPagarCrm(v.aparelhoToken), q = quitacaoAp(ap), h = hojeBR(), atr = (ap.parcelas || []).filter(p => !p.pago && p.venc < h), tAtr = +atr.reduce((s, p) => s + valorHojeAp(p, ap), 0).toFixed(2);
+  const txt = tipo === 'quitar' ? `Para quitar o contrato nº ${v.numero} hoje: ${brl(q.total)}${q.desconto > 0 ? ` (já com ${brl(q.desconto)} de desconto)` : ''}. No link, toque em "Quitar o contrato" e pague pelo PIX: a trava sai sozinha.`
+    : `Link para pagar o contrato nº ${v.numero} pelo PIX, sem senha${atr.length ? ` (em atraso hoje: ${brl(tAtr)})` : ''}. O celular libera sozinho até 1 minuto depois do pagamento.`;
+  if (i.canal === 'portal') await enviar(i, txt, null, { doc: { tipo: 'pagar', numero: v.numero, cliente: v.clienteNome || '', url, titulo: tipo === 'quitar' ? `Quitar · ${brl(q.total)}` : `Pagar · contrato nº ${v.numero}`, sub: 'PIX na hora, sem senha' } });
+  else await enviar(i, txt + '\n' + url);
+  toast(tipo === 'quitar' ? 'Valor para quitar enviado' : 'Link de pagamento enviado');
+}
+async function editarCadastro(i, v) {
+  const cpf = soD(v.clienteCpf); if (cpf.length !== 11) return toast('Contrato sem CPF', true);
+  const cli = await DB.get('clientes', cpf).catch(() => null) || {}, c = { ...(v.cliente || {}), ...cli }, tels = c.telefones || [c.tel || c.telefone].filter(Boolean);
+  const campo = (id, rot, val, extra = '') => `<label class="small" style="font-weight:600;display:block;margin-top:8px">${rot}<input class="inp" id="${id}" value="${esc(val || '')}" ${extra}></label>`;
+  const m = modal(`Editar cadastro · ${esc(v.clienteNome || '')}`, `<p class="hint" style="margin:0 0 4px">CPF ${esc(cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'))}. Muda em todos os contratos do cliente e fica registrado quem alterou.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">${campo('cdT1', 'Celular principal (WhatsApp)', tels[0], 'inputmode="numeric"')}${campo('cdT2', 'Outro telefone', tels[1], 'inputmode="numeric"')}</div>
+    ${campo('cdEm', 'E-mail', c.email, 'type="email"')}<div style="display:grid;grid-template-columns:1fr 2fr;gap:0 10px">${campo('cdCep', 'CEP', c.cep, 'inputmode="numeric"')}${campo('cdEnd', 'Endereço (rua e número)', c.endereco)}</div>
+    <div style="display:grid;grid-template-columns:2fr 2fr 1fr;gap:0 10px">${campo('cdBai', 'Bairro', c.bairro)}${campo('cdCid', 'Cidade', c.cidade)}${campo('cdUf', 'UF', c.uf, 'maxlength="2"')}</div>`, '<button class="btn sec" data-x>Cancelar</button><button class="btn" id="cdOk">Salvar cadastro</button>');
+  $('[data-x]', m).onclick = fechar;
+  $('#cdOk', m).onclick = async e => { e.currentTarget.disabled = true;
+    const campos = { telefone: $('#cdT1').value, telefone2: $('#cdT2').value, email: $('#cdEm').value.trim(), cep: $('#cdCep').value, endereco: $('#cdEnd').value, bairro: $('#cdBai').value, cidade: $('#cdCid').value, uf: $('#cdUf').value };
+    try { const r = await api('venda-acoes', { acao: 'cadastro', cpf, campos }); await DB.add('crmNotas', { key: i.key, t: `Cadastro de ${v.clienteNome || ''} atualizado (${r.vendas} contrato(s))`, em: Date.now(), por: C.me.nome, uid: C.me.uid }).catch(() => { }); fechar(); toast('Cadastro atualizado'); }
+    catch (er) { e.currentTarget.disabled = false; toast(er.message, true); } };
+}
+async function cancelarVendaCrm(i, v) {
+  const ent = +(v.entradaPaga?.valor || 0);
+  const m = modal(`Cancelar a venda nº ${esc(String(v.numero))}`, `<p class="hint" style="margin:0 0 8px">${esc(v.clienteNome || '')} · ${esc(v.status)} · ${esc((v.aparelho?.marca || '') + ' ' + (v.aparelho?.modelo || ''))}</p>
+    <div class="trv-av">O contrato é anulado, a trava é desativada e o aparelho volta para o estoque da loja. As cobranças em aberto são apagadas.${ent ? `<br><b>A entrada de ${brl(ent)} precisa ser devolvida ao cliente</b> (fica registrado).` : ''}${v.status === 'ATIVA' ? '<br>Confira antes se o aparelho foi devolvido à loja.' : ''}</div>
+    <label class="small" style="font-weight:600">Motivo (fica registrado)<input class="inp" id="cvM" maxlength="200" placeholder="Ex.: cliente desistiu dentro de 7 dias e devolveu o aparelho"></label>`, '<button class="btn sec" data-x>Voltar</button><button class="btn" id="cvOk" style="background:var(--bad);border-color:var(--bad)">Cancelar a venda</button>');
+  $('[data-x]', m).onclick = fechar;
+  $('#cvOk', m).onclick = async e => { const motivo = $('#cvM').value.trim(); if (motivo.length < 4) return toast('Escreva o motivo', true); e.currentTarget.disabled = true;
+    try { const r = await api('venda-acoes', { acao: 'cancelar', vendaId: v.id, motivo });
+      await DB.add('crmNotas', { key: i.key, t: `Venda nº ${v.numero} cancelada: ${motivo}${r.estoque ? ` · IMEI ${r.estoque} voltou ao estoque` : ''}${r.entrada ? ` · devolver entrada de ${brl(r.entrada)}` : ''}`, em: Date.now(), por: C.me.nome, uid: C.me.uid }).catch(() => { });
+      fechar(); toast(`Venda nº ${v.numero} cancelada`); if (C.sel === i.key) atualizarTrava(i); }
+    catch (er) { e.currentTarget.disabled = false; toast(er.message, true); } };
+}
+{ const _at8 = atualizarTrava; atualizarTrava = async function (i) { await _at8(i); const el = $('#pf'); if (!el || C.sel !== i.key || !podeTrava()) return;
+  $('#ctaSec', el)?.remove(); const vs = (await contratosDaConversa(i).catch(() => [])); if (!vs.length || C.sel !== i.key) return;
+  const sec = $('#trvSec', el); if (!sec) return;
+  sec.insertAdjacentHTML('afterend', `<div class="pf-sec" id="ctaSec"><h4>Contrato e cliente</h4>${vs.map(v => `<div class="trv"><div class="trv-t"><b>Nº ${esc(String(v.numero))} · ${esc(v.clienteNome || '')}</b><span class="hint">${esc(v.status)}</span></div><div class="trv-a">
+    ${v.status === 'ATIVA' ? `<button class="btn sm" data-cta="pagar" data-vid="${esc(v.id)}">${I('pix')}Link de pagamento</button><button class="btn sm sec" data-cta="quitar" data-vid="${esc(v.id)}">Valor para quitar</button>` : ''}
+    <button class="btn sm sec" data-cta="cad" data-vid="${esc(v.id)}">${I('editar')}Editar cadastro</button>${['CANCELADA', 'QUITADA', 'REPROVADA', 'RETOMADA'].includes(v.status) ? '' : `<button class="btn sm sec" data-cta="cancelar" data-vid="${esc(v.id)}" style="color:var(--bad)">${I('xis')}Cancelar venda</button>`}</div></div>`).join('')}</div>`);
+  $$('[data-cta]', el).forEach(b => b.onclick = () => { const v = vs.find(x => x.id === b.dataset.vid); if (!v) return; const a = b.dataset.cta;
+    if (a === 'pagar' || a === 'quitar') return mandarLink(i, v, a); if (a === 'cad') return editarCadastro(i, v); if (a === 'cancelar') return cancelarVendaCrm(i, v); });
+}; }
+/* cartão do link no CRM com o título certo */
+{ const _bo8 = bolha; bolha = function (m) { if (!m.doc?.titulo) return _bo8(m); const d = m.doc; return _bo8({ ...m, doc: null }).replace(/<div class="h">/, `<a class="gu-tag" href="${esc(d.url)}" target="_blank" rel="noopener">${I(d.tipo === 'pagar' ? 'pix' : 'pdf')}${esc(d.titulo)}</a><div class="h">`); }; }
+
 /* ---------- início ---------- */
 (async () => {
   if (!CFG.apiKey) { $('#root').innerHTML = '<div class="vazio">Configuração do Firebase não encontrada (nexumcell-config.js).</div>'; return; }
