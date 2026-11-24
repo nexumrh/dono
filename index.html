@@ -12093,6 +12093,44 @@ document.head.insertAdjacentHTML('beforeend','<style id="at-v8">.at-doc.pix .at-
   if(d.acao==='cancelar'){ await DB.set('vendas',d.vendaId,{status:'CANCELADA',canceladoEm:Date.now(),motivoCancelamento:d.motivo}); return {ok:true,numero:v?.numero}; }
   return {ok:true}; }; }
 
+
+/* ======================= ATENDIMENTO v10 (nov/2026): o chat acha qualquer cliente NexumCell =======================
+   A busca pelo CPF ou nº do contrato vai em toda a base (pelo servidor). Qualquer loja parceira ajuda o cliente:
+   parcelas, boleto, link de pagamento, contrato, recibos, quitação e liberação de 20 min. Cancelar fica com a loja que vendeu ou o suporte. */
+const AT_VS={};
+{ const _get10=DB.get; DB.get=async function(c,id,...r){ if(c!=='vendas'||!AT_VS[id]) return _get10.call(this,c,id,...r);
+  try{ const v=await _get10.call(this,c,id,...r); if(v) return v; }catch(e){} return AT_VS[id]; }; }
+async function buscarNaBase(dig){
+  let vs=[]; try{ vs=(await loadVendas()).filter(v=>v.status!=='RASCUNHO'&&(dig.length===11?onlyDig(v.clienteCpf)===dig:String(v.numero)===dig)).map(v=>({...v,propria:true})); }catch(e){}
+  try{ const r=await apiServ('venda-acoes',{acao:'buscar',q:dig}); (r.vendas||[]).forEach(v=>{ AT_VS[v.id]={...AT_VS[v.id],...v}; if(!vs.some(x=>x.id===v.id)) vs.push(v); }); }catch(e){ console.warn('busca na base',e.message); }
+  return vs.sort((a,b)=>(+b.criadoEm||0)-(+a.criadoEm||0));
+}
+{ const _bu10=atBuscar; atBuscar=async function(passo,t){
+  const dig=onlyDig(t);
+  if(!dig||(dig.length!==11&&dig.length>9)) return atBot('Me passe só os números do CPF (11 dígitos) ou o número do contrato.',VOLTAR);
+  CH.dig=true; atRender(); const todas=await buscarNaBase(dig); CH.dig=false;
+  const ok=passo==='proposta'?todas:todas.filter(v=>!['CANCELADA','REPROVADA'].includes(v.status));
+  if(!ok.length) return atBot(todas.length?`Encontrei ${dig.length===11?'o CPF '+fmtCpf(dig):'o contrato nº '+dig}, mas ${todas.length>1?'os contratos estão':'o contrato está'} ${String(todas[0].status).toLowerCase()}.`:`Não encontrei cliente NexumCell ${dig.length===11?'com o CPF '+fmtCpf(dig):'com o contrato nº '+dig}. Confira e mande de novo.`,VOLTAR);
+  const rot=v=>`Nº ${v.numero} · ${v.aparelho?.modelo||String(v.status).toLowerCase()}${v.propria===false?' · '+(v.lojaNome||'outra loja'):''}`;
+  if(ok.length>1){ const prefer=passo==='proposta'?ok:ok.filter(v=>v.status==='ATIVA'); if(prefer.length===1) return atContrato(passo,prefer[0].id);
+    return atBot('Este cliente tem mais de um contrato. Qual deles?',[...ok.slice(0,6).map(v=>({id:`ct:${passo}:${v.id}`,t:rot(v)})),...VOLTAR]); }
+  const v=ok[0];
+  if(v.propria===false&&passo==='cancelar') return atBot(`O contrato nº ${v.numero} é da loja ${v.lojaNome||'parceira'}. O cancelamento é feito pela loja que vendeu ou pelo suporte NexumCell.`,[{id:'atendente_ja',t:'Chamar o suporte'},...VOLTAR]);
+  if(v.propria===false) await atBot(`Cliente NexumCell da loja ${v.lojaNome||'parceira'}. Posso ajudar normalmente por aqui.`);
+  return atContrato(passo,v.id);
+}; }
+{ const _ac10=atContrato; atContrato=async function(passo,vid){
+  const v=AT_VS[vid];
+  if(passo==='cancelar'&&v&&v.propria===false) return atBot(`O contrato nº ${v.numero} é da loja ${v.lojaNome||'parceira'}. O cancelamento é feito pela loja que vendeu ou pelo suporte NexumCell.`,[{id:'atendente_ja',t:'Chamar o suporte'},...VOLTAR]);
+  return _ac10(passo,vid); }; }
+/* faturas com boleto: mostra o link do boleto/cartão quando a parcela tem */
+{ const _tf10=textoFaturas; textoFaturas=function(v){ const r=_tf10(v); const bol=(v.parcelas||[]).filter(p=>!p.pago&&p.asaasLink).slice(0,3);
+  if(bol.length){ const b=`\n\nBoleto ou cartão:\n${bol.map(p=>`• Parcela ${p.n}: ${p.asaasLink}`).join('\n')}`; r.txt=/\n\nPagar pelo PIX:/.test(r.txt)?r.txt.replace(/\n\nPagar pelo PIX:/,b+'\n\nPagar pelo PIX:'):r.txt+b; } return r; }; }
+/* modo demonstração: a busca na base olha todas as vendas do demo */
+{ const _ss10=simServ; simServ=async function(rota,d){ if(rota!=='venda-acoes'||d.acao!=='buscar') return _ss10(rota,d);
+  const q=onlyDig(d.q), l=(await DB.list('vendas')).filter(v=>v.status!=='RASCUNHO'&&(q.length===11?onlyDig(v.clienteCpf)===q:String(v.numero)===q));
+  return {vendas:l.map(v=>({...v,propria:v.lojaId===S.me.lojaId||!v.lojaId,lojaNome:v.lojaNome||lojaNome(v.lojaId)}))}; }; }
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>

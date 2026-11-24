@@ -3,6 +3,7 @@
 //      dono, financeiro e suporte: cancelam qualquer venda em aberto
 //      vendedor (venda dele) e gerente (venda da loja): só antes de ativar e sem entrada recebida; senão vai para o suporte
 //   {acao:'cadastro', cpf, campos:{telefone, telefone2, email, cep, endereco, bairro, cidade, uf}, atendimentoId?}   · dono, financeiro e suporte
+//   {acao:'buscar', q}  · CPF ou nº do contrato em toda a base NexumCell (dados para o chat ajudar o cliente)
 //   {acao:'liberar20', vendaId, atendimentoId?}  · libera o aparelho por 20 minutos para o cliente pagar (até 2 vezes por parcela)
 import { db, cors, exigirEquipe, asaas } from './_base.js';
 
@@ -11,11 +12,11 @@ const ANTES = ['ANALISE', 'APROVADA', 'AGUARDANDO_ENTRADA', 'INSTALANDO'];
 const erro = (m, s = 400, extra = {}) => Object.assign(new Error(m), { status: s, ...extra });
 const soD = (s) => String(s || '').replace(/\D/g, '');
 
-async function vendaDe(eu, vendaId) {
+async function vendaDe(eu, vendaId, qualquerLoja = false) {
   const ref = db.collection('vendas').doc(String(vendaId || '')), s = await ref.get();
   if (!s.exists) throw erro('Venda não encontrada', 404);
   const v = s.data();
-  const dela = EQUIPE.includes(eu.role) || (eu.role === 'GERENTE' && v.lojaId === eu.lojaId) || (eu.role === 'VENDEDOR' && v.vendedorUid === eu.uid);
+  const dela = qualquerLoja || EQUIPE.includes(eu.role) || (eu.role === 'GERENTE' && v.lojaId === eu.lojaId) || (eu.role === 'VENDEDOR' && v.vendedorUid === eu.uid);
   if (!dela) throw erro('Esta venda não é da sua loja', 403);
   return { ref, v };
 }
@@ -68,7 +69,7 @@ async function cadastro(b, eu) {
 }
 
 async function liberar20(b, eu) {
-  const { v } = await vendaDe(eu, b.vendaId);
+  const { v } = await vendaDe(eu, b.vendaId, true); // qualquer loja parceira ajuda um cliente NexumCell
   if (!v.aparelhoToken) throw erro('Este contrato não tem trava instalada');
   const ref = db.collection('aparelhos').doc(v.aparelhoToken), ap = (await ref.get()).data() || {}, agora = Date.now();
   if (ap.status === 'QUITADO' || ap.quitado) throw erro('Contrato quitado: o aparelho já está livre');
@@ -86,12 +87,31 @@ async function liberar20(b, eu) {
   return { ok: true, ate, parcela: parc.n, usadas: usos[parc.n], restam: 2 - usos[parc.n] };
 }
 
+
+// busca de cliente NexumCell em toda a base (qualquer loja parceira ajuda o cliente pelo chat)
+async function buscar(b, eu) {
+  const q = soD(b.q); if (q.length !== 11 && !(q.length >= 1 && q.length <= 9)) throw erro('Mande o CPF (11 dígitos) ou o número do contrato');
+  const snap = q.length === 11 ? await db.collection('vendas').where('clienteCpf', '==', q).limit(15).get() : await db.collection('vendas').where('numero', '==', +q).limit(5).get();
+  const lojas = {}, nomeLoja = async (id) => { if (!id) return ''; if (!(id in lojas)) lojas[id] = ((await db.collection('lojas').doc(id).get()).data() || {}).nome || ''; return lojas[id]; };
+  const vendas = [];
+  for (const d of snap.docs) { const v = d.data(); if (v.status === 'RASCUNHO') continue; const propria = EQUIPE.includes(eu.role) || v.lojaId === eu.lojaId;
+    vendas.push({ id: d.id, numero: v.numero, status: v.status, clienteNome: v.clienteNome || '', clienteCpf: v.clienteCpf || '', lojaId: v.lojaId || '', lojaNome: v.lojaNome || await nomeLoja(v.lojaId), propria,
+      vendedorUid: propria ? v.vendedorUid || '' : '', aparelho: { marca: v.aparelho?.marca || '', modelo: v.aparelho?.modelo || '' }, aparelhoToken: v.aparelhoToken || '', nParcelas: v.nParcelas || (v.parcelas || []).length, financiado: v.financiado || 0,
+      parcelas: (v.parcelas || []).map((p) => ({ n: p.n, venc: p.venc, valor: p.valor, pago: !!p.pago, pagoEm: p.pagoEm || null, valorPago: p.valorPago ?? null, pagoParcial: p.pagoParcial || 0, asaasLink: p.pago ? null : p.asaasLink || null })),
+      assinadoEm: v.assinadoEm || null, criadoEm: v.criadoEm || null, entradaPaga: v.entradaPaga?.valor ? { valor: v.entradaPaga.valor } : null, motivoReprovacao: v.status === 'REPROVADA' ? v.motivoReprovacao || '' : '',
+      analisadoEm: v.analisadoEm || null, aprovadoEm: v.aprovadoEm || null, reprovadoEm: v.reprovadoEm || null, limiteAprovado: v.limiteAprovado || v.limite || null,
+      cliente: { telefones: ((v.cliente?.telefones || []).length ? v.cliente.telefones : [v.cliente?.tel || v.cliente?.telefone].filter(Boolean)).slice(0, 1) } }); }
+  vendas.sort((x, y) => (+y.criadoEm || 0) - (+x.criadoEm || 0));
+  if (vendas.length) await log(eu, 'Busca de cliente no chat', q.length === 11 ? q.slice(0, 3) + '.***.***-' + q.slice(9) : 'nº ' + q, `${vendas.length} contrato(s)${vendas.some((v) => !v.propria) ? ' · inclui outra loja' : ''}`);
+  return { vendas };
+}
+
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).end();
   try {
     const eu = await exigirEquipe(req, ['DONO', 'FINANCEIRO', 'SUPORTE', 'GERENTE', 'VENDEDOR']), b = req.body || {};
-    const f = { cancelar, cadastro, liberar20 }[b.acao]; if (!f) return res.status(400).json({ erro: 'ação inválida' });
+    const f = { cancelar, cadastro, liberar20, buscar }[b.acao]; if (!f) return res.status(400).json({ erro: 'ação inválida' });
     return res.json(await f(b, eu));
   } catch (e) { return res.status(e.status || 500).json({ erro: e.message, suporte: !!e.suporte }); }
 }
