@@ -132,10 +132,11 @@ service cloud.firestore {
     match /clientes/{cpf} {
       allow read: if staff();
       // o saldo de cashback é calculado só pelo servidor (ou dono/financeiro)
+      // cashback, pré-aprovação e 2º celular (aprova a próxima proposta sozinho) só o dono e o financeiro gravam
       allow create: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO'])
-                    && (hasRole(['DONO', 'FINANCEIRO']) || !('cashback' in request.resource.data));
+                    && (hasRole(['DONO', 'FINANCEIRO']) || !request.resource.data.keys().hasAny(['cashback', 'preAprovado', 'segundoCelular']));
       allow update: if hasRole(['DONO', 'GERENTE', 'VENDEDOR', 'FINANCEIRO'])
-                    && (hasRole(['DONO', 'FINANCEIRO']) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cashback']));
+                    && (hasRole(['DONO', 'FINANCEIRO']) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cashback', 'preAprovado', 'segundoCelular']));
     }
 
     // ---------- Catálogo de aparelhos e preços (só o Dono altera) ----------
