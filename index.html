@@ -12134,7 +12134,7 @@ async function buscarNaBase(dig){
 /* ======================= ATENDIMENTO v11 (nov/2026): o chat ajuda a vender e a cuidar da carteira =======================
    Foto da tela: a assistente lê o erro e resolve · Consultar CPF antes da venda · Simular venda · Estoque nas lojas
    Avisos da carteira (atrasou ontem / pagou) · Resumo do dia da loja ou do vendedor */
-MENU_AT.push({id:'consulta_cpf',t:'Consultar CPF antes da venda'},{id:'simular',t:'Simular venda'},{id:'estoque',t:'Estoque nas lojas'},{id:'carteira',t:'Avisos da carteira'},{id:'resumo_dia',t:'Resumo do dia'});
+MENU_AT.push({id:'consulta_cpf',t:'Consultar CPF antes da venda'},{id:'simular',t:'Simular venda'});
 const PASSOS11=['cpf_consulta','sim_preco','sim_entrada','estoque_q'];
 const ontemISO=()=>{ const d=new Date(); d.setDate(d.getDate()-1); return isoDate(d); };
 const minhasVendas=async()=>{ const vs=await loadVendas().catch(()=>[]); return S.me.role==='VENDEDOR'?vs.filter(v=>v.vendedorUid===S.me.uid):vs; };
@@ -12220,7 +12220,7 @@ async function atEstoque(t){
   if(!r) return atBot('Não consegui consultar o estoque agora'+(erro?': '+erro:'')+'.',VOLTAR,{fluxo:{}});
   if(!r.itens.length) return atBot(`Não achei "${t}" disponível${r.soLoja?' na sua loja':' em nenhuma loja NexumCell'}. Tente só o modelo (ex.: A16).`,[{id:'estoque',t:'Procurar outro modelo'},...VOLTAR],{fluxo:{}});
   const L=r.itens.map(i=>`• **${i.qtd}x ${i.aparelho}${i.capacidade?' '+i.capacidade:''}** · ${i.propria?'sua loja':i.nome+(i.cidade?' ('+i.cidade+')':'')}${!i.propria&&i.telefone?' · '+i.telefone:''}${i.cores?.length?' · '+i.cores.join(', '):''}`);
-  return atBot(`**Estoque disponível: ${t}**\n${L.join('\n')}${r.itens.some(i=>!i.propria)?'\n\nPara trazer de outra loja, peça a transferência no Estoque (o gerente da outra loja confirma).':''}`,[{id:'estoque',t:'Procurar outro modelo'},{id:'simular',t:'Simular venda'},...VOLTAR],{fluxo:{}});
+  return atBot(`**Estoque disponível: ${t}**\n${L.join('\n')}${r.itens.some(i=>!i.propria)?'\n\nPara trazer de outra loja, peça a transferência no Estoque (o gerente da outra loja confirma).':''}`,[{id:'simular',t:'Simular venda'},...VOLTAR],{fluxo:{}});
 }
 
 /* 6) avisos da carteira: quem atrasou ontem, quem vence hoje e quem pagou */
@@ -12245,13 +12245,6 @@ async function atCarteira(pedido){
   const bts=a.atrOntem.slice(0,3).map(v=>({id:`ct:faturas:${v.id}`,t:`Cobrar nº ${v.numero}`}));
   return atBot(L.join('\n'),[...bts,{id:'resumo_dia',t:'Resumo do dia'},...VOLTAR],{fluxo:{}});
 }
-/* no começo do chat, a assistente já mostra os avisos da carteira (uma vez por dia) */
-{ const _nv11=typeof atNovo==='function'?atNovo:null; if(_nv11) atNovo=async function(...a){ const r=await _nv11.apply(this,a);
-  try{ const k='at_cart_'+S.me.uid+'_'+hoje(); if(!['VENDEDOR','GERENTE'].includes(S.me.role)||localStorage.getItem(k)) return r; const vs=await minhasVendas(), x=avisosCarteira(vs);
-    if((x.atrOntem.length||x.venceHoje.length||x.pagou.length)&&CH.doc?.status==='BOT'&&(CH.doc.msgs||[]).length<=2){ localStorage.setItem(k,1);
-      await atSalvar({msgs:[...(CH.doc.msgs||[]),atMsg('bot',(await atCarteira(false))+'\n\nToque em "Avisos da carteira" para cobrar quem atrasou.',[{id:'carteira',t:'Avisos da carteira'},...MENU_AT.filter(m=>m.id!=='carteira')])]}); } }catch(e){}
-  return r; }; }
-
 /* 7) resumo do dia */
 async function atResumoDia(){
   const vs=await minhasVendas(), h=hoje(), hj=v=>v.criadoEm&&isoDate(new Date(+v.criadoEm))===h;
