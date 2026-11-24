@@ -248,7 +248,10 @@ async function fbInit() {
 }
 // Aberto dentro do portal do suporte, do financeiro ou do dono: usa o mesmo login do portal (mesmo app do Firebase)
 const QS = new URLSearchParams(location.search), EMBUTIDO = QS.has('embed') && window.parent !== window;
-const APP_NOME = /^nexumcell-(suporte|financeiro|dono)$/.test(QS.get('app') || '') ? QS.get('app') : 'crm';
+// O CRM tem SEMPRE o próprio login, separado por aba. Compartilhar o login do portal (?app=) derrubava o portal e o CRM
+// quando outra pessoa entrava no mesmo navegador. Links antigos com ?app= são limpos sem recarregar a página.
+const APP_NOME = 'crm';
+if (QS.has('app')) { try { const u = new URL(location.href); u.searchParams.delete('app'); history.replaceState(null, '', u.href); } catch (e) { } }
 if (EMBUTIDO) document.documentElement.classList.add('embutido');
 const DB = {
   doc: (c, id) => F.m.doc(F.db, c, id),
@@ -2933,7 +2936,8 @@ function plFalar(cu, i, el) {
   plParar(); if (!p.tocando) return;
   if (url) { const a = new Audio(url); p.audio = a; a.playbackRate = p.vel || 1; a.onplay = () => { p.falando = 1; ana(); }; a.onended = () => { p.falando = 0; ana(); prox(); }; a.onerror = () => { p.audio = null; voz(); }; a.play().catch(() => { p.tocando = false; plPintar(el); }); return; }
   voz();
-  function voz() { try { const u = new SpeechSynthesisUtterance(s.f), vs = speechSynthesis.getVoices().filter(v => /^pt/i.test(v.lang)); u.lang = 'pt-BR'; u.rate = p.vel || 1; u.voice = vs.find(v => /Natural|Online|Google/i.test(v.name)) || vs[0] || null;
+  function voz() { try { const u = new SpeechSynthesisUtterance(s.f), vs = speechSynthesis.getVoices().filter(v => /^pt/i.test(v.lang)), hom = /Daniel|Antonio|Ant[oô]nio|Donato|F[aá]bio|Julio|J[uú]lio|Humberto|Nicolau|Valerio|Val[eé]rio|Leonardo|Duarte|Cristiano|Male|Masculin/i, mul = vs.filter(v => !hom.test(v.name)), pick = re => mul.find(v => re.test(v.name));
+    u.lang = 'pt-BR'; u.rate = p.vel || 1; u.pitch = 1.1; u.voice = pick(/Thalita|Francisca|Brenda|Giovanna|Leila|Let[ií]cia|Manuela|Yara|Elza|Raquel|Fernanda|Maria|Luciana|Female|Feminin/i) || pick(/pt.?BR.*(Natural|Online)|Google portugu[eê]s do Brasil/i) || pick(/Google/i) || mul[0] || null;
     let comecou = 0; u.onstart = () => { comecou = 1; p.falando = 1; ana(); }; u.onend = () => { p.falando = 0; ana(); prox(); }; speechSynthesis.speak(u);
     p.tm = setTimeout(() => { if (!comecou && C.treino.player === p && p.tocando && p.i === i) { try { speechSynthesis.cancel(); } catch (e) { } p.tm = setTimeout(() => { if (C.treino.player === p && p.tocando && p.i === i) plIr(el, i + 1); }, Math.max(6000, s.f.length * 60)); } }, 2000); } catch (e) { p.tm = setTimeout(prox, Math.max(5000, s.f.length * 55)); } }
 }
