@@ -416,8 +416,8 @@ service cloud.firestore {
       allow create: if anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
                     && request.resource.data.keys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']);
       allow update: if (anon() && exists(/databases/$(database)/documents/aparelhos/$(tk))
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte']))
-                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['naoLidoSuporte','naoLidoCliente','atendidoPor','atendidoEm','atualizadoEm','ultimaMsg','concluidoEm','autoAckEm']));
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vendaNumero','clienteNome','lojaNome','marca','modelo','bloqueado','atualizadoEm','naoLidoSuporte','naoLidoCliente']))
+                    || (staff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['naoLidoSuporte','naoLidoCliente','atendidoPor','atendidoEm','atualizadoEm','ultimaMsg','concluidoEm','autoAckEm','encerradoAuto']));
       allow delete: if hasRole(['DONO']);
 
       match /msgs/{mid} {

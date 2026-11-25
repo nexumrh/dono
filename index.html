@@ -12377,6 +12377,27 @@ function detalheErro(t){
 }
 { const _us3=atUser; atUser=async function(t,...a){ try{ if(mostraCodigo()) t=String(t)+detalheErro(t); }catch(e){} return _us3(t,...a); }; }
 
+/* ======================= AVISO DE MENSAGEM DO SUPORTE (nov/2026) =======================
+   Quando o suporte ou o financeiro escreve no chat (inclusive reabrindo um atendimento encerrado), o vendedor ou o gerente
+   recebe o aviso: notificação no sino, aviso na tela, aviso do sistema e o ponto no botão do chat. */
+{ let vistos={}; try{ vistos=JSON.parse(sessionStorage.getItem('nx_supvisto')||'{}'); }catch(e){}
+  const ultima=a=>(a.msgs||[]).slice(-1)[0]||{};
+  const checar=async()=>{ if(!S.me||!FB_ON||!$('#atB')) return; let l=[]; try{ l=await DB.list('atendimentos',[['abertoPor','==',S.me.uid]]); }catch(e){ return; }
+    const nov=l.filter(a=>a.naoLidoUser&&ultima(a).de==='atendente'&&!ultima(a).autoFim&&!(ultima(a).auto&&a.status!=='HUMANO'));
+    const antes=(S._chatSup||[]).map(a=>a.id).join(); S._chatSup=nov;
+    for(const a of nov){ const u=ultima(a); if(vistos[a.id]===u.em) continue; vistos[a.id]=u.em;
+      if($('#atP')?.classList.contains('on')&&CH.id===a.id) continue;
+      $('#atB')?.classList.add('novo'); toast(`Mensagem do suporte: ${String(u.t||'').replace(/\s+/g,' ').slice(0,90)}`);
+      avisarSistema('Mensagem do suporte NexumCell',String(u.t||'').slice(0,140)); }
+    try{ sessionStorage.setItem('nx_supvisto',JSON.stringify(vistos)); }catch(e){}
+    if(antes!==nov.map(a=>a.id).join()) atualizarSino(true).catch(()=>{}); };
+  setInterval(checar,20000); setTimeout(checar,5000);
+  const _ntS=notificacoes; notificacoes=async function(){ const n=await _ntS();
+    (S._chatSup||[]).forEach(a=>n.unshift({q:1,sempre:true,t:'Mensagem do suporte',d:`protocolo ${a.protocolo||''} · ${String(ultima(a).t||'').replace(/\s+/g,' ').slice(0,70)}`,tab:'chatsup:'+a.id,k:'chatsup:'+a.id})); return n; };
+  const _si=ACT.sinoIr; ACT.sinoIr=(d,b)=>{ const t=String(d.tab||''); if(!t.startsWith('chatsup:')) return _si(d,b);
+    const id=t.slice(8), p=$('#sinoP'); if(p) p.hidden=true; if(!$('#atP')?.classList.contains('on')) $('#atB')?.click();
+    setTimeout(()=>{ atAbrir(id); S._chatSup=(S._chatSup||[]).filter(a=>a.id!==id); atualizarSino(true).catch(()=>{}); },300); }; }
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
