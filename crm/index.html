@@ -382,7 +382,7 @@ async function enviar(i, texto, arquivo) {
   const t = (texto ?? $('#tTxt')?.value ?? '').trim(); if (!t && !arquivo) return;
   const agora = Date.now(), quem = C.me.nome, linha = arquivo ? `${t ? t + '\n' : ''}📎 ${arquivo.nome}: ${arquivo.url}` : t;
   try {
-    if (i.canal === 'portal') { const a = await DB.get('atendimentos', i.id); await DB.set('atendimentos', i.id, { msgs: [...(a.msgs || []), { de: 'atendente', t: linha.slice(0, 3000), em: agora, por: quem }], naoLidoUser: true, naoLidoSuporte: false, atendente: quem, atualizadoEm: agora, ...(a.status === 'BOT' ? { status: 'HUMANO' } : {}) }); }
+    if (i.canal === 'portal') { const a = await DB.get('atendimentos', i.id); await DB.set('atendimentos', i.id, { msgs: [...(a.msgs || []), { de: 'atendente', t: linha.slice(0, 3000), em: agora, por: quem }], naoLidoUser: true, naoLidoSuporte: false, atendente: quem, atualizadoEm: agora, ...(a.status === 'BOT' ? { status: 'HUMANO' } : {}), ...(a.status === 'CONCLUIDO' ? { status: 'HUMANO', reabertoEm: agora, reabertoPor: quem, encerradoAuto: false } : {}) }); }
     else if (i.canal === 'app') { await DB.add(`suporteApp/${i.id}/msgs`, { de: 'suporte', texto: linha.slice(0, 2000), em: agora, porNome: quem.split(' ')[0] }); await DB.set('suporteApp', i.id, { naoLidoCliente: true, atendidoPor: quem, atendidoEm: agora, atualizadoEm: agora, naoLidoSuporte: false, ultimaMsg: t.slice(0, 120) }); }
     else if (i.canal === 'chamado') { const c = await DB.get('chamados', i.id); await DB.set('chamados', i.id, { respostas: [...(c.respostas || []), { nome: quem, uid: C.me.uid, em: agora, texto: linha }], status: c.status === 'ABERTO' ? 'ANDAMENTO' : c.status }); }
     else if (i.canal === 'pedido') await DB.set('pedidos', i.id, { resposta: linha, respondidoEm: agora, respondidoPor: quem, status: i.raw.status === 'ABERTO' ? 'RECEBIDO' : i.raw.status });
@@ -2975,6 +2975,65 @@ function quizCrm(el, res) {
 function guardarTreino() { try { if (!C.me) return; const p = C.treino.player; sessionStorage.setItem('crmnc:treino:' + C.me.uid, JSON.stringify({ sim: C.treino.sim ? { ...C.treino.sim, ocup: false } : null, curso: p ? { id: p.cu.id, i: p.i, quiz: !!p.quiz } : null })); } catch (e) { } }
 function restaurarTreino() { try { const x = JSON.parse(sessionStorage.getItem('crmnc:treino:' + C.me.uid) || 'null'); if (!x) return; if (x.sim && !C.treino.sim) { C.treino.sim = x.sim; C.treino.simUid = C.me.uid; }
   if (x.curso && !C.treino.player) { const cu = CRM_CURSOS.find(c => c.id === x.curso.id); if (cu) C.treino.player = { cu, i: x.curso.i || 0, tocando: false, vel: 1, quiz: x.curso.quiz }; } } catch (e) { } }
+
+/* ===================== CRM v12 (nov/2026): encerramento automático por falta de resposta e reabertura com aviso =====================
+   Chat dos portais, app do cliente e WhatsApp: se a equipe respondeu e a pessoa não interage em 3 minutos (Ajustes, só o dono),
+   o atendimento se encerra sozinho. Para reabrir, basta escrever: a pessoa recebe o aviso no portal ou no app.
+   Ajustes do atendimento: só o dono vê e altera. */
+const autoFimMin = () => { const v = C.cfg.autoFimMin; return v === undefined || v === null || v === '' ? 3 : +v; };
+const _autoFim = new Set();
+const MSG_AUTO_FIM = p => `Como não tivemos resposta nos últimos minutos, este atendimento foi encerrado. Se ainda precisar de ajuda, é só escrever de novo que a gente continua daqui. Protocolo ${p}.`;
+function paraEncerrar(i, lim) {
+  const r = i.raw || {};
+  if (i.canal === 'portal') { const ms = r.msgs || [], u = ms[ms.length - 1]; return r.status === 'HUMANO' && u && u.de === 'atendente' && !u.auto && +u.em <= lim; }
+  if (i.canal === 'app') return i.etapa !== 'fim' && !r.naoLidoSuporte && +r.atendidoEm > 0 && +r.atendidoEm <= lim && (+r.atualizadoEm || 0) - r.atendidoEm < 3000;
+  if (i.canal === 'wa') return !r.fim && r.ultimaDe === 'equipe' && +r.respondidoEm > 0 && +r.respondidoEm <= lim && (+r.atualizadoEm || 0) - r.respondidoEm < 5000;
+  return false;
+}
+async function autoEncerrar() {
+  const min = autoFimMin(); if (!C.me || !(min > 0) || C.treino?.bloq || !C.itens) return;
+  const agora = Date.now(), lim = agora - min * 60e3;
+  for (const i of C.itens.filter(x => !_autoFim.has(x.key + '|' + x.em) && paraEncerrar(x, lim)).slice(0, 10)) {
+    _autoFim.add(i.key + '|' + i.em);
+    try {
+      if (i.canal === 'portal') { const a = await DB.get('atendimentos', i.id); const ms = a?.msgs || [], u = ms[ms.length - 1];
+        if (!a || a.status !== 'HUMANO' || !u || u.de !== 'atendente' || u.auto || +u.em > lim) continue;
+        await DB.set('atendimentos', i.id, { msgs: [...ms, { de: 'atendente', t: MSG_AUTO_FIM(i.protocolo), em: agora, por: 'NexumCell', auto: true, autoFim: true }], status: 'CONCLUIDO', concluidoEm: agora, concluidoPor: 'Encerramento automático', encerradoAuto: true, atualizadoEm: agora }); }
+      else if (i.canal === 'app') { const x = await DB.get('suporteApp', i.id); if (!x || x.naoLidoSuporte || +x.atendidoEm > lim || (+x.atualizadoEm || 0) - x.atendidoEm >= 3000) continue;
+        await DB.set('suporteApp', i.id, { concluidoEm: agora + 1, encerradoAuto: true, atualizadoEm: agora });   // primeiro fecha (se falhar, não manda a mensagem)
+        await DB.add(`suporteApp/${i.id}/msgs`, { de: 'suporte', texto: MSG_AUTO_FIM(i.protocolo), em: agora, porNome: 'NexumCell', auto: true }); }
+      else if (i.canal === 'wa') { const w = await DB.get('waConversas', i.id); if (!w || w.fim || w.ultimaDe !== 'equipe' || +w.respondidoEm > lim || (+w.atualizadoEm || 0) - w.respondidoEm >= 5000) continue;
+        await DB.set('waConversas', i.id, { fim: true, fimEm: agora, encerradoAuto: true }); }
+    } catch (e) { console.warn('encerramento automático', i.key, e.message); }
+  }
+}
+setInterval(() => { autoEncerrar().catch(() => { }); }, 30000);
+// conversa encerrada: escrever reabre (a pessoa recebe o aviso no portal ou no app)
+{ const _cp12 = compositor; compositor = function (i) { _cp12(i); if (i.etapa !== 'fim' || !['portal', 'app', 'wa'].includes(i.canal)) return; const cp = $('#cp'); if (!cp || $('#reab')) return;
+  cp.insertAdjacentHTML('beforebegin', `<div class="ret" id="reab" style="border-color:#BFDBFE;background:#EFF6FF">Atendimento ${i.raw?.encerradoAuto ? 'encerrado automaticamente por falta de resposta' : 'encerrado'}. Para reabrir, é só escrever: ${i.canal === 'portal' ? 'o vendedor ou gerente recebe o aviso no portal' : i.canal === 'app' ? 'o cliente recebe o aviso no app NexumCell' : 'a mensagem vai pelo WhatsApp'}.</div>`); }; }
+// Ajustes do atendimento: só o dono
+{ const _dn12 = desenharNav; desenharNav = function () { _dn12(); if (!dono()) $('#nav [data-vw="config"]')?.remove(); }; }
+{ const _ds12 = desenhar; desenhar = function () { if (C.me && C.view === 'config' && !dono()) C.view = 'inbox'; return _ds12(); }; }
+{ const _vcf = vConfig; vConfig = function (el) { _vcf(el); if (!dono()) return; const g = el.querySelector('div[style*="grid-template-columns"]'); if (!g || $('#cfAutoFim', el)) return;
+  g.insertAdjacentHTML('afterbegin', `<section class="cfg-c" style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh)"><h3 style="margin:0 0 4px;font-size:15px">Encerramento automático</h3>
+    <p class="hint" style="margin:0 0 10px">Depois que a equipe responde, se a pessoa não interagir no chat do portal, no app ou no WhatsApp, o atendimento se encerra sozinho. Para reabrir, basta escrever: ela recebe o aviso no portal ou no app. Use 0 para desligar.</p>
+    <label class="hint" style="margin:0">Minutos sem resposta<input class="inp" id="cfAutoFim" type="number" min="0" max="120" value="${autoFimMin()}" style="margin-top:4px"></label>
+    <button class="btn sm" id="cfAutoFimOk" style="margin-top:8px">${I('ok')}Salvar</button></section>`);
+  $('#cfAutoFimOk', el).onclick = async () => { const v = Math.max(0, Math.min(120, Math.round(+$('#cfAutoFim', el).value || 0))); await DB.set('config', 'crm', { autoFimMin: v }); C.cfg.autoFimMin = v; toast(v ? `Encerramento automático: ${v} min sem resposta` : 'Encerramento automático desligado'); }; }; }
+
+/* 2ª via do contrato no quadro "Contrato e cliente" (manda o PDF do contrato daquela venda na conversa) */
+async function segundaViaContrato(i, v) {
+  if (!v?.aparelhoToken) return toast('Esta venda ainda não tem contrato gerado', true);
+  const c = await DB.get('contratos', v.aparelhoToken).catch(() => null);
+  if (!c?.html) return toast(`O contrato nº ${v.numero} ainda não tem a cópia assinada publicada`, true);
+  const url = urlClienteCrm() + '?contrato=' + encodeURIComponent(v.aparelhoToken) + '&pdf=1', txt = `Segue a 2ª via do contrato nº ${v.numero}${v.clienteNome ? ' · ' + v.clienteNome : ''}. Abra o link e toque em Salvar como PDF.`;
+  if (i.canal === 'portal') await enviar(i, txt, null, { doc: { tipo: 'contrato', numero: v.numero, cliente: v.clienteNome || '', url, titulo: `2ª via · contrato nº ${v.numero}`, sub: 'Abrir e salvar em PDF' } }); else await enviar(i, txt + '\n' + url);
+  toast('2ª via do contrato enviada');
+}
+{ const _at12 = atualizarTrava; atualizarTrava = async function (i) { await _at12(i); const el = $('#ctaSec'); if (!el || C.sel !== i.key) return;
+  $$('[data-cta="cad"]', el).forEach(b => { if (b.previousElementSibling?.dataset?.cta === 'via2') return;
+    b.insertAdjacentHTML('beforebegin', `<button class="btn sm sec" data-cta="via2" data-vid="${esc(b.dataset.vid)}">${I('pdf')}2ª via do contrato</button>`);
+    b.previousElementSibling.onclick = async () => { const vs = await contratosDaConversa(i).catch(() => []); const v = vs.find(x => x.id === b.dataset.vid); if (v) segundaViaContrato(i, v); else toast('Contrato não encontrado', true); }; }); }; }
 
 /* ---------- início ---------- */
 (async () => {
