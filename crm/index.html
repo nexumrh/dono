@@ -1580,7 +1580,7 @@ function codigosNoTexto(t) {
 }
 function resolucaoTexto(c, i) {
   const e = ERROS_NX[c]; if (!e) return ''; const nome = i ? String(i.nome || '').split(' ')[0] : '';
-  return `${nome ? nome + ', ' : ''}o código ${c} é "${e.t}": ${e.x}\n\nO que fazer:\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}\n\nPasso a passo completo: ${AJUDA_URL}#erro-${c}`;
+  return `${nome ? nome + ', ' : ''}o código ${c} é "${e.t}": ${e.x}\n\nO que fazer:\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}`;
 }
 const codigosDaConversa = () => [...new Set((C._msgs || []).filter(m => !m.nos && m.de !== 'bot' && m.tipo !== 'nota' && m.tipo !== 'sis').flatMap(m => codigosNoTexto(m.t)))];
 

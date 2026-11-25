@@ -13,7 +13,7 @@ export function codigosNoTexto(t) {
 }
 export function resolucaoTexto(c) {
   const e = ERROS[c]; if (!e) return '';
-  return `Código ${c} — ${e.t}\nO que é: ${e.x}\n\nO que fazer:\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}\n\nPasso a passo completo: ${AJUDA_URL}#erro-${c}`;
+  return `Código ${c} — ${e.t}\nO que é: ${e.x}\n\nO que fazer:\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}`;
 }
 // texto compacto para a IA (com os números: ela fala com a equipe e com vendedores/gerentes)
 export function errosTexto() {
