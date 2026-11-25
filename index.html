@@ -12398,6 +12398,99 @@ function detalheErro(t){
     const id=t.slice(8), p=$('#sinoP'); if(p) p.hidden=true; if(!$('#atP')?.classList.contains('on')) $('#atB')?.click();
     setTimeout(()=>{ atAbrir(id); S._chatSup=(S._chatSup||[]).filter(a=>a.id!==id); atualizarSino(true).catch(()=>{}); },300); }; }
 
+/* ======================= CONTRATO v2 (nov/2026): instrumento particular completo, em estilo jurídico/cartorial =======================
+   Mesmos números do contrato anterior (objeto, preço, CET, parcelas, multa, mora, tolerância): só o texto jurídico foi ampliado.
+   As cláusulas 5 (aplicativo e restrição de uso) e 6 (dados pessoais) continuam com esses números, porque o aceite expresso
+   da assinatura faz referência a elas. Cláusulas que limitam direitos ficam em destaque (CDC, art. 54, § 4º). */
+{ const _ctOrig=contratoHTML;
+  const ORD=['PRIMEIRA','SEGUNDA','TERCEIRA','QUARTA','QUINTA','SEXTA','SÉTIMA','OITAVA','NONA','DÉCIMA','DÉCIMA PRIMEIRA','DÉCIMA SEGUNDA','DÉCIMA TERCEIRA','DÉCIMA QUARTA','DÉCIMA QUINTA'];
+  const corte=(h,a,b)=>{ const i=h.indexOf(a); if(i<0) return ''; const j=b?h.indexOf(b,i+a.length):-1; return h.slice(i+a.length,j<0?undefined:j); };
+  contratoHTML=function(v){
+    const base=_ctOrig(v), c=v.cliente||{}, cfg=S.cfg||{}, n=v.nParcelas||(v.parcelas||[]).length;
+    const objeto=corte(base,'<h4>1. Objeto</h4>','<h4>2.'), preco=corte(base,'<h4>2. Preço e pagamento</h4>','<h4>3.');
+    const emp=esc(cfg.empresa||'NexumCell'), cnpj=cfg.cnpj?`, inscrita no CNPJ sob o nº ${esc(cfg.cnpj)}`:'', endEmp=cfg.endereco?`, com sede em ${esc(cfg.endereco)}`:'';
+    const tol=+cfg.toleranciaDias||0, off=+cfg.maxDiasOffline||0, loc=+cfg.localizarDias||30, troca=+cfg.trocaDias||7, vencAnt=+cfg.vencAntecipadoDias||60;
+    const mult=cfg.multaPct, mora=cfg.moraDiaPct, sacTxt=rodapeCompliance?.()||'', telSup=esc(cfg.telefoneSuporte||cfg.sacTel||''), emailSup=esc(cfg.sacEmail||cfg.emailSuporte||'');
+    const end=[c.endereco,c.numero,c.complemento,c.bairro,c.cidade,c.uf,c.cep?('CEP '+c.cep):''].filter(Boolean).map(esc).join(', ');
+    let k=0; const cl=t=>`<h4>CLÁUSULA ${ORD[k++]} – ${t}</h4>`, D=t=>`<p style="border-left:3px solid #111;padding-left:8px"><b>${t}</b></p>`;
+    return `<h4 style="text-align:center;line-height:1.35">INSTRUMENTO PARTICULAR DE CONTRATO DE COMPRA E VENDA A PRAZO, COM RESERVA DE DOMÍNIO, CONCESSÃO DE CRÉDITO E OUTRAS AVENÇAS<br>Nº ${v.numero}</h4>
+  <p style="text-align:justify">Pelo presente instrumento particular, e na melhor forma de direito, de um lado <b>${emp}</b>${cnpj}${endEmp}, por meio de sua loja parceira <b>${esc(v.lojaNome||'')}</b>, doravante denominada simplesmente <b>VENDEDORA</b>; e, de outro lado, <b>${esc(c.nome||v.clienteNome||'')}</b>, inscrito(a) no CPF sob o nº ${fmtCpf(c.cpf||v.clienteCpf||'')}, nascido(a) em ${fmtD(c.nasc)}${c.rg?`, portador(a) do documento de identidade nº ${esc(c.rg)}`:''}, residente e domiciliado(a) em ${end||'endereço informado no cadastro'}, telefone ${esc(c.tel||'')}${c.email?`, e-mail ${esc(c.email)}`:''}, doravante denominado(a) simplesmente <b>COMPRADOR(A)</b>; têm entre si, justo e contratado, o presente instrumento, que se regerá pelas cláusulas e condições seguintes, bem como pela Lei nº 8.078/1990 (Código de Defesa do Consumidor), pela Lei nº 10.406/2002 (Código Civil) e pela Lei nº 13.709/2018 (Lei Geral de Proteção de Dados), as quais as partes mutuamente outorgam e aceitam.</p>
+
+  ${cl('DO OBJETO')}<p style="text-align:justify">${objeto.replace(/^<p>|<\/p>\s*$/g,'')}</p>
+  <p>§ 1º O(A) COMPRADOR(A) declara que, no ato da entrega, conferiu o aparelho, seus acessórios e a embalagem, testou o seu funcionamento (ligar, tela, câmeras, som, carregamento e chip) e o recebeu <b>em perfeito estado de conservação e funcionamento</b>, sem vícios aparentes.</p>
+  <p>§ 2º O número de IMEI acima identifica de forma única o aparelho objeto deste contrato e integra a garantia da VENDEDORA, sendo vedada a sua alteração, adulteração ou substituição de placa.</p>
+
+  ${cl('DO PREÇO E DAS CONDIÇÕES DE PAGAMENTO')}${preco}
+  <p>§ 1º As informações de preço à vista, valor financiado, número e valor das parcelas, taxa de juros, IOF e Custo Efetivo Total (CET) foram apresentadas ao(à) COMPRADOR(A) <b>antes da contratação</b>, de forma clara e destacada, nos termos do art. 52 do Código de Defesa do Consumidor, tendo o(a) COMPRADOR(A) declarado compreendê-las.</p>
+  <p>§ 2º Os pagamentos serão feitos exclusivamente pelos meios oficiais da VENDEDORA: aplicativo NexumCell, link de pagamento, PIX com QR Code ou boleto emitidos pelo sistema. <b>Pagamentos feitos a terceiros, a vendedores ou em contas que não sejam as indicadas pelos meios oficiais não quitam as parcelas.</b></p>
+  <p>§ 3º É assegurada ao(à) COMPRADOR(A) a liquidação antecipada do débito, total ou parcial, com redução proporcional dos juros e demais acréscimos (CDC, art. 52, § 2º), podendo o valor atualizado ser consultado a qualquer tempo no aplicativo.</p>
+  <p>§ 4º A data de vencimento poderá ser alterada uma única vez, a pedido do(a) COMPRADOR(A) e a critério da VENDEDORA, com eventual ajuste proporcional dos juros na parcela seguinte, formalizado por aditivo eletrônico.</p>
+  <p>§ 5º A quitação de cada parcela se prova pelo recibo emitido pelo sistema da VENDEDORA, disponível no aplicativo, e a quitação integral pela declaração de quitação emitida ao final do contrato.</p>
+
+  ${cl('DO INADIMPLEMENTO, DOS ENCARGOS E DO VENCIMENTO ANTECIPADO')}
+  <p>O não pagamento de qualquer parcela na data do vencimento constitui o(a) COMPRADOR(A) em mora de pleno direito, independentemente de aviso ou notificação (Código Civil, art. 397), sujeitando o valor em atraso, até a data do efetivo pagamento, à <b>multa moratória de ${mult}%</b> e aos <b>juros de mora de ${mora}% ao dia</b>, calculados <i>pro rata die</i> sobre a parcela vencida.</p>
+  <p>§ 1º Vencida a parcela, os pagamentos parciais serão imputados primeiro aos encargos e, depois, ao principal (Código Civil, art. 354).</p>
+  ${D(`§ 2º O atraso superior a ${vencAnt} (${vencAnt}) dias no pagamento de qualquer parcela, ou o descumprimento das obrigações das cláusulas quarta e quinta, autoriza a VENDEDORA, após notificação ao(à) COMPRADOR(A) pelos meios da cláusula décima, a considerar <u>antecipadamente vencido</u> todo o saldo devedor, que será exigível de uma só vez, com o abatimento proporcional dos juros ainda não decorridos.`)}
+  <p>§ 3º As despesas de cobrança extrajudicial não serão repassadas ao(à) COMPRADOR(A). Em caso de cobrança judicial, serão devidos as custas e os honorários fixados pelo juízo, assegurado ao(à) COMPRADOR(A) o mesmo direito em caso de cobrança indevida (CDC, art. 51, XII).</p>
+  <p>§ 4º A tolerância da VENDEDORA quanto ao atraso ou a concessão de prazo, acordo ou liberação temporária do aparelho não implica novação, renúncia ou alteração das cláusulas deste contrato.</p>
+
+  ${cl('DA RESERVA DE DOMÍNIO, DOS RISCOS E DAS OBRIGAÇÕES SOBRE O BEM')}
+  ${D('A propriedade do aparelho permanece com a VENDEDORA até a quitação integral do preço, nos termos dos arts. 521 a 528 do Código Civil, sendo transferidos ao(à) COMPRADOR(A), desde a entrega, a posse direta, o uso e os riscos do bem.')}
+  <p>§ 1º <b>A perda, o furto, o roubo, a quebra ou qualquer dano ao aparelho, ainda que sem culpa do(a) COMPRADOR(A), não extinguem nem suspendem a obrigação de pagar as parcelas</b> (Código Civil, art. 524), sem prejuízo do direito de comunicar o fato à VENDEDORA para a restrição do aparelho e da apresentação do boletim de ocorrência.</p>
+  <p>§ 2º Até a quitação, é vedado ao(à) COMPRADOR(A): (a) vender, ceder, alugar, emprestar, penhorar ou dar o aparelho em garantia; (b) entregá-lo a terceiros para reparo fora da assistência técnica autorizada; (c) alterar o IMEI, a placa ou o sistema operacional; (d) remover, desativar ou tentar burlar o aplicativo de gestão.</p>
+  <p>§ 3º Em caso de inadimplemento, a VENDEDORA poderá optar entre cobrar as parcelas vencidas e vincendas ou recuperar a posse do aparelho, após constituir o(a) COMPRADOR(A) em mora mediante protesto do título ou interpelação, judicial ou extrajudicial (Código Civil, arts. 525 a 527), restituindo-lhe o que houver pago, deduzidos a depreciação do bem, as despesas e o que mais lhe for devido, na forma da lei.</p>
+
+  ${cl('DO APLICATIVO DE GESTÃO, DA RESTRIÇÃO DE USO E DA LOCALIZAÇÃO (CLÁUSULA 5)')}
+  ${D(`O(A) COMPRADOR(A) declara ter sido informado(a), de forma clara, ostensiva e prévia, e concorda expressamente que o aparelho terá instalado o aplicativo de gestão NexumCell, como garantia vinculada à reserva de domínio da cláusula quarta, o qual: (a) verifica periodicamente a situação dos pagamentos deste contrato; (b) restringe o uso do aparelho quando houver parcela vencida há mais de ${tol} (${tol}) dia(s)${off?`, ou quando o aparelho permanecer mais de ${off} (${off}) dia(s) sem conexão com a internet`:''}; (c) mantém, durante a restrição, as chamadas de emergência e o contato com a VENDEDORA e com a loja; (d) é liberado automaticamente quando o pagamento é registrado; e (e) é removido definitivamente após a quitação.`)}
+  <p>§ 1º Antes da restrição, o(a) COMPRADOR(A) é avisado(a) pelo próprio aparelho e pelos canais da cláusula décima, em regra com 3 (três) dias de antecedência do vencimento, no dia do vencimento e após o vencimento. A restrição é proporcional, temporária e cessa com o pagamento, não configurando cobrança vexatória, constrangimento ou ameaça (CDC, art. 42).</p>
+  <p>§ 2º A restrição não autoriza a VENDEDORA a acessar, copiar ou apagar fotos, mensagens, contatos, contas ou arquivos pessoais do(a) COMPRADOR(A), o que o aplicativo não faz.</p>
+  <p>§ 3º <b>Localização para recuperação do aparelho:</b> enquanto houver saldo a pagar, o(a) COMPRADOR(A) autoriza que a VENDEDORA solicite pelo aplicativo a posição do aparelho <b>somente</b> quando (a) houver parcela vencida há mais de ${loc} (${loc}) dias ou (b) o(a) COMPRADOR(A) comunicar roubo, furto ou perda. A posição é lida uma única vez a cada pedido, sem acompanhamento contínuo, e é usada exclusivamente para a recuperação do bem e para a cobrança. Cada pedido fica registrado (quem pediu, quando e o motivo), e a localização é desativada com a quitação.</p>
+  <p>§ 4º A tentativa de remover, desativar ou burlar o aplicativo, de regravar o sistema ou de adulterar o aparelho caracteriza descumprimento grave deste contrato, para os fins do § 2º da cláusula terceira, sem prejuízo das medidas legais cabíveis.</p>
+
+  ${cl('DA PROTEÇÃO DE DADOS PESSOAIS (CLÁUSULA 6)')}
+  <p style="text-align:justify">Os dados pessoais do(a) COMPRADOR(A), as imagens do documento de identidade, a biometria facial e os dados do aparelho (IMEI, modelo, operadora e país do chip e da rede, nível de bateria, data do último contato, estado da trava e, apenas nos casos do § 3º da cláusula quinta, a localização) são tratados pela VENDEDORA, na qualidade de controladora, para: (a) a execução deste contrato (Lei nº 13.709/2018, art. 7º, V); (b) a análise de crédito e a proteção do crédito (art. 7º, X); (c) o exercício regular de direitos em processo judicial, administrativo ou arbitral (art. 7º, VI); e (d) quanto à biometria, dado sensível, a garantia da prevenção à fraude e à segurança do titular em processos de identificação e autenticação (art. 11, II, "g").</p>
+  <p>§ 1º Os dados poderão ser compartilhados, na medida do necessário, com instituições de pagamento e bancos para a cobrança, com birôs de crédito, com a instituição financeira parceira quando houver, com a assistência técnica e com autoridades, quando exigido por lei.</p>
+  <p>§ 2º Os dados serão conservados durante a vigência do contrato e pelo prazo de 5 (cinco) anos após a quitação, para o cumprimento de obrigações legais e a defesa em eventuais processos, sendo depois eliminados ou anonimizados.</p>
+  <p>§ 3º O(A) COMPRADOR(A) pode exercer os direitos do art. 18 da Lei nº 13.709/2018 (confirmação, acesso, correção, informação sobre compartilhamento e demais) pelos canais da cláusula décima${telSup?`, inclusive pelo telefone ${telSup}`:''}.</p>
+
+  ${cl('DA GARANTIA, DA ASSISTÊNCIA TÉCNICA, DA TROCA E DO ARREPENDIMENTO')}
+  <p>O aparelho conta com a garantia legal de 90 (noventa) dias (CDC, art. 26, II) e com a garantia contratual do fabricante, que se somam. Havendo vício, o(a) COMPRADOR(A) deverá procurar a loja ou a assistência técnica autorizada, que terá o prazo de 30 (trinta) dias para saná-lo (CDC, art. 18, § 1º).</p>
+  <p>§ 1º Por liberalidade da VENDEDORA, em até ${troca} (${troca}) dias da compra o(a) COMPRADOR(A) poderá trocar o aparelho com defeito por outro igual ou devolvê-lo com a caixa, os acessórios e sem danos de uso, com o cancelamento deste contrato e a devolução do que houver pago.</p>
+  <p>§ 2º Não são cobertos pela garantia os danos causados por queda, líquido, mau uso, reparo por terceiros não autorizados ou tentativa de burlar o aplicativo de gestão. <b>A restrição de uso por atraso não constitui vício do produto.</b></p>
+  <p>§ 3º Quando a contratação ocorrer fora do estabelecimento comercial (venda a distância), o(a) COMPRADOR(A) poderá desistir do contrato em até 7 (sete) dias do recebimento do aparelho (CDC, art. 49), devolvendo-o sem sinais de uso indevido, com a devolução dos valores pagos.</p>
+  ${v.protecao?'<p>§ 4º A proteção do aparelho contratada é produto opcional, oferecido e aceito separadamente, cuja recusa não impediria esta compra (CDC, art. 39, I), regendo-se pelas suas próprias condições.</p>':''}
+
+  ${cl('DA COBRANÇA, DOS CADASTROS DE CRÉDITO E DA CESSÃO')}
+  <p>A cobrança será feita de forma respeitosa, pelos canais da cláusula décima, em horário comercial, sem exposição do(a) COMPRADOR(A) a ridículo, constrangimento ou ameaça (CDC, art. 42), e sem contato com terceiros sobre a dívida.</p>
+  ${D('§ 1º Persistindo o atraso, a VENDEDORA poderá, após comunicação prévia por escrito ao(à) COMPRADOR(A) (CDC, art. 43, § 2º), inscrever o débito em cadastros de proteção ao crédito e levar o título a protesto, providenciando a exclusão em até 5 (cinco) dias úteis após a quitação.')}
+  <p>§ 2º A VENDEDORA poderá ceder ou transferir os créditos deste contrato a terceiros, inclusive instituições financeiras e fundos, independentemente de anuência, mediante notificação ao(à) COMPRADOR(A) (Código Civil, arts. 286 e 290), mantidas as condições aqui pactuadas.</p>
+
+  ${cl('DAS DECLARAÇÕES DO(A) COMPRADOR(A)')}
+  <p>O(A) COMPRADOR(A) declara, sob as penas da lei, que: (a) as informações e os documentos apresentados são verdadeiros, sabendo que a falsidade configura crime (Código Penal, arts. 299 e 171); (b) é o(a) titular do documento e da biometria colhidos, e contrata para si; (c) leu, compreendeu e recebeu cópia deste contrato antes de assiná-lo, tendo tido oportunidade de esclarecer suas dúvidas; (d) a parcela é compatível com a sua renda e não compromete o seu mínimo existencial; (e) foi informado(a) de que pode consultar o saldo, os recibos e este contrato a qualquer tempo no aplicativo.</p>
+
+  ${cl('DAS COMUNICAÇÕES E DO ATENDIMENTO')}
+  <p>As partes reconhecem como meios válidos de comunicação e notificação o aplicativo NexumCell, o WhatsApp, o SMS e o e-mail informados no cadastro, obrigando-se o(a) COMPRADOR(A) a manter atualizados o telefone, o e-mail e o endereço, sob pena de serem consideradas recebidas as comunicações enviadas aos dados constantes do cadastro.</p>
+  <p>§ 1º Para qualquer dúvida, reclamação ou pedido, o(a) COMPRADOR(A) dispõe dos canais de atendimento da VENDEDORA${sacTxt?`: ${sacTxt}`:telSup||emailSup?`: ${[telSup,emailSup].filter(Boolean).join(' · ')}`:', informados no aplicativo'}, que responderão em até 5 (cinco) dias úteis. Recomenda-se o uso desses canais para a solução amigável, sem prejuízo dos direitos do consumidor perante os órgãos de defesa do consumidor e o Poder Judiciário.</p>
+  ${cfg.scdNome?`<p>§ 2º A operação de crédito é concedida por ${esc(cfg.scdNome)}${cfg.scdCnpj?`, CNPJ ${esc(cfg.scdCnpj)}`:''}, atuando a VENDEDORA como correspondente${cfg.scdResolucao?`, ${esc(cfg.scdResolucao)}`:''}.</p>`:''}
+
+  ${cl('DAS DISPOSIÇÕES GERAIS')}
+  <p>§ 1º Este contrato obriga as partes e seus sucessores e constitui o acordo integral entre elas sobre o seu objeto, substituindo entendimentos anteriores.</p>
+  <p>§ 2º A eventual nulidade de qualquer cláusula não prejudica a validade das demais (CDC, art. 51, § 2º).</p>
+  <p>§ 3º As partes reconhecem este instrumento, assinado eletronicamente, como título executivo extrajudicial, nos termos do art. 784, III, do Código de Processo Civil.</p>
+  <p>§ 4º Os aditivos (acordo de atraso, mudança de vencimento, troca de aparelho) poderão ser formalizados eletronicamente e passam a integrar este contrato.</p>
+
+  ${cl('DA ASSINATURA ELETRÔNICA E DAS PROVAS')}
+  <p>As partes aceitam a assinatura eletrônica deste contrato como válida, autêntica e equivalente à assinatura de próprio punho (Medida Provisória nº 2.200-2/2001, art. 10, § 2º, e Lei nº 14.063/2020). A identificação do(a) COMPRADOR(A) é feita pelo documento com foto, pela biometria facial e pelo registro de data, hora, endereço IP, dispositivo e código de integridade (hash SHA-256) do documento assinado, que ficam guardados como prova e podem ser conferidos pelo código de verificação.</p>
+
+  ${cl('DO FORO')}
+  <p>Fica eleito o foro da comarca do domicílio do(a) COMPRADOR(A) para dirimir quaisquer questões oriundas deste contrato (CDC, art. 101, I).</p>
+  <p style="text-align:justify">E, por estarem assim justas e contratadas, as partes firmam o presente instrumento por meio eletrônico, declarando o(a) COMPRADOR(A) ter lido e compreendido todas as cláusulas, em especial as destacadas, e ter recebido a sua via.</p>
+  <p>${esc(c.cidade||'')}, ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}.</p>
+  ${v.vendedorNome?`<p style="font-size:11px;color:#444">Venda realizada por: ${esc(v.vendedorNome)}, loja ${esc(v.lojaNome||'')}.</p>`:''}`;
+  };
+  if(DEMO&&window.__nx) window.__nx.contratoHTML=v=>contratoHTML(v);   // prévia no modo demonstração
+}
+
 </script>
 <script>(function(){var b=document.getElementById('dnBusca');function l(){var x=document.getElementById('dnBusca');if(x&&/@/.test(x.value)&&document.activeElement!==x){x.value='';x.dispatchEvent(new Event('input',{bubbles:true}));}}setInterval(l,800);})();</script>
 </body>
