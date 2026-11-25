@@ -788,9 +788,7 @@ function resolucaoTexto(c) {
 O que \xE9: ${e.x}
 
 O que fazer:
-${e.v.map((p, k) => `${k + 1}. ${p}`).join("\n")}
-
-Passo a passo completo: ${AJUDA_URL}#erro-${c}`;
+${e.v.map((p, k) => `${k + 1}. ${p}`).join("\n")}`;
 }
 function errosTexto() {
   return Object.entries(ERROS).map(([c, e]) => `- ${c} ${e.t}: ${e.x} O vendedor/gerente faz: ${e.v.join(" ")} Suporte: ${e.chat}${e.cliente ? ' Mensagem para o cliente: "' + e.cliente + '"' : ""}`).join("\n");
@@ -3443,7 +3441,7 @@ ${PEDIDO_AUTO}` }], { temperatura: 0.2, json: true });
     const quem = equipe ? "um vendedor ou gerente de loja parceira (equipe da loja, n\xE3o o cliente final)" : "o cliente";
     const conhecimento = `${REGRAS}
 
-C\xF3digos de erro do sistema (use quando aparecerem na conversa; para vendedor/gerente, indique o link ${AJUDA_URL}#erro-CODIGO):
+C\xF3digos de erro do sistema (use quando aparecerem na conversa; explique o passo a passo direto na mensagem, sem mandar links de ajuda):
 ${errosTexto()}
 
 ${base2.texto || ""}`;
@@ -5915,9 +5913,8 @@ async function limite(uid) {
 var PROMPT = (a, eu, extra) => `Voc\xEA \xE9 a assistente virtual de suporte da NexumCell e conversa com um ${eu.role === "GERENTE" ? "gerente" : "vendedor"} de loja parceira (${a.lojaNome || "loja parceira"}), n\xE3o com o cliente final. A NexumCell vende celular parcelado com trava do aparelho, faz an\xE1lise de cr\xE9dito pr\xF3pria e oferece empr\xE9stimo.
 Responda em portugu\xEAs do Brasil, com educa\xE7\xE3o, frases curtas e passos numerados quando for "como fa\xE7o". V\xE1 direto ao ponto: primeiro a solu\xE7\xE3o, depois os detalhes. No m\xE1ximo 8 linhas. N\xE3o use emojis. Nunca invente valores, prazos, regras ou telas: se n\xE3o souber, diga que vai chamar um atendente.
 Como o sistema funciona: Nova venda tem 8 passos (documento, biometria, contato, an\xE1lise, aparelho, contrato, entrada e trava). A trava \xE9 instalada pelo QR code na tela de boas-vindas do celular restaurado de f\xE1brica (tocar 6 vezes), ou pelo computador com cabo USB quando aparece "app bloqueado para proteger o dispositivo". O cliente paga as parcelas pelo Pix no app NexumCell (aba Parcelas) e o aparelho libera sozinho minutos depois. Liberar ou remover a trava manualmente, mudar dado de contrato, estorno, cancelamento e acordo s\xE3o feitos s\xF3 pela equipe NexumCell. Vendas s\xF3 no notebook autorizado da loja, dentro da loja. Cada CPF pode ter um aparelho financiado em aberto. Uma licen\xE7a a cada 12 parcelas.
-C\xF3digos de erro do sistema (quando a pessoa citar um n\xFAmero, explique o que \xE9 e o passo a passo para resolver; no fim, indique o link ${AJUDA_URL}#erro-CODIGO):
+C\xF3digos de erro do sistema (quando a pessoa citar um n\xFAmero, explique o que \xE9 e o passo a passo para resolver, direto na conversa; n\xE3o mande links de ajuda):
 ${errosTexto()}
-Central de ajuda com passo a passo: ${AJUDA_URL} (artigos: #trava-qr, #trava-usb, #pagou-nao-liberou, #pix-cliente, #notebook, #venda-distancia, #foto-documento, #licencas, #acesso).
 ${extra.orientacoes ? "Orienta\xE7\xF5es do dono:\n" + extra.orientacoes + "\n" : ""}${a.contrato ? `Contrato em pauta: n\xBA ${a.contrato.numero} \xB7 cliente ${a.contrato.cliente || ""}.
 ` : ""}Seu trabalho \xE9 RESOLVER. Se a pessoa s\xF3 pedir um atendente sem dizer o problema, N\xC3O chame: pergunte em uma frase o que aconteceu e diga que voc\xEA resolve na hora. Se ela descrever o problema, d\xEA a solu\xE7\xE3o completa mesmo que tenha pedido atendente. Marque "atendente": true SOMENTE quando: (1) for algo que s\xF3 a equipe faz (liberar ou bloquear aparelho, mudar contrato, conferir comprovante de pagamento, estorno, cancelamento, acordo); (2) for reclama\xE7\xE3o; (3) a pessoa j\xE1 tentou a sua solu\xE7\xE3o e disse que n\xE3o resolveu; ou (4) insistir no atendente depois que voc\xEA perguntou o problema. Nesses casos escreva em "resposta" uma frase curta avisando que vai chamar um atendente. Para trava pelo cabo USB, explique os 5 passos (restaurar sem conta Google; tocar 7 vezes em N\xFAmero da vers\xE3o; ligar Depura\xE7\xE3o USB; na venda, passo Trava, baixar o instalador, ligar o cabo e tocar em Permitir; esperar PRONTO) e diga que o guia com imagens est\xE1 em ${AJUDA_URL}#trava-usb.
 Responda s\xF3 em JSON: {"resposta":"texto pronto para mostrar","atendente":true|false,"resumo":"uma linha descrevendo o problema para a equipe"}.`;

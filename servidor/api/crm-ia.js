@@ -85,7 +85,7 @@ export default async function handler(req, res) {
     const base = await baseConhecimento().catch(() => ({ texto: '' }));
     const cods = codigosNoTexto(conversa), equipe = /portais|chamado/i.test(String(b.canal || ''));
     const quem = equipe ? 'um vendedor ou gerente de loja parceira (equipe da loja, não o cliente final)' : 'o cliente';
-    const conhecimento = `${REGRAS}\n\nCódigos de erro do sistema (use quando aparecerem na conversa; para vendedor/gerente, indique o link ${AJUDA_URL}#erro-CODIGO):\n${errosTexto()}\n\n${base.texto || ''}`;
+    const conhecimento = `${REGRAS}\n\nCódigos de erro do sistema (use quando aparecerem na conversa; explique o passo a passo direto na mensagem, sem mandar links de ajuda):\n${errosTexto()}\n\n${base.texto || ''}`;
     if (b.acao === 'resumo') {
       const t = await groq([{ role: 'system', content: conhecimento }, { role: 'user', content: `Canal: ${String(b.canal || '').slice(0, 40)}\nQuem escreve: ${quem} (${String(b.cliente || '').slice(0, 80)})\n\nFicha:\n${ficha}\n\nConversa:\n${conversa}\n\nFaça o resumo para o atendente em JSON: {"pedido":"o que a pessoa quer, em 1 frase","feito":"o que já foi feito, em 1 frase (ou vazio)","falta":"próximo passo do atendente, em 1 frase","humor":"calmo|ansioso|irritado","urgencia":"baixa|media|alta","codigos":["códigos de erro citados"]}` }], { temperatura: 0.1, max: 350, json: true });
       let j = {}; try { j = JSON.parse(t); } catch (e) { j = { pedido: t }; }

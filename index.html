@@ -11704,7 +11704,7 @@ function codigosNoTextoAt(t) {
   while ((m = rx.exec(s))) if (ERROS_NX[m[1]]) ach.add(m[1]);
   return [...ach];
 }
-const resolucaoAt = c => { const e = ERROS_NX[c]; return `**Código ${c} · ${e.t}**\n${e.x}\n\n**O que fazer:**\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}\n\nPasso a passo completo: ${AJUDA_URL_AT}#erro-${c}`; };
+const resolucaoAt = c => { const e = ERROS_NX[c]; return `**Código ${c} · ${e.t}**\n${e.x}\n\n**O que fazer:**\n${e.v.map((p, k) => `${k + 1}. ${p}`).join('\n')}`; };
 const esperandoAt = d => d && d.status === 'HUMANO' && !(d.msgs || []).some(m => m.de === 'atendente' && !m.auto && (+m.em || 0) >= (+d.encaminhadoEm || 0));
 
 // 1) código de erro: resposta imediata (não confunde com número de contrato digitado na busca)
