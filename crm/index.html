@@ -289,7 +289,7 @@ const conv = {
   emprestimo: p => ({ canal: 'emprestimo', id: p.id, nome: p.cliente?.nome || 'Cliente', sub: `${EMP_NOME[p.produto] || p.produto} · ${brl(p.valor)} em ${p.prazo}x · ${p.lojaNome || 'NexumCell'}`, fila: p.produto === 'cartao' ? 'comercial' : 'financeiro',
     etapa: p.crmFim || ['RECUSADO', 'CANCELADO', 'CONTRATADO'].includes(p.status) ? 'fim' : p.status === 'PENDENTE' ? 'novo' : 'aguardando', ultima: (p.analise?.motivos || []).map(m => m.t).join(' · ') || EMP_ST[p.status] || p.status, ultimaDe: p.status === 'PENDENTE' ? 'cli' : 'nos',
     em: p.atualizadoEm || p.criadoEm || 0, nl: p.status === 'PENDENTE', protocolo: p.protocolo || p.id, tel: p.cliente?.telefone || '', raw: p }),
-  wa: w => ({ canal: 'wa', id: w.id, nome: w.nome || fmtTel(w.numero || w.id), sub: fmtTel(w.numero || w.id), fila: FILAS[w.fila] ? w.fila : 'suporte', etapa: w.fim ? 'fim' : !w.respondidoEm ? 'novo' : w.ultimaDe === 'cliente' ? 'atendendo' : 'aguardando', ultima: w.ultimaMsg || '', ultimaDe: w.ultimaDe === 'cliente' ? 'cli' : 'nos', em: w.atualizadoEm || 0, nl: !!w.naoLido, protocolo: 'WA-' + String(w.numero || w.id).slice(-6), tel: w.numero || w.id, raw: w }),
+  wa: w => ({ canal: 'wa', id: w.id, nome: w.nome || (w.lid ? 'Contato do WhatsApp' : fmtTel(w.numero || w.id)), sub: w.lid ? 'número oculto pelo WhatsApp' : fmtTel(w.numero || w.id), fila: FILAS[w.fila] ? w.fila : 'suporte', etapa: w.fim ? 'fim' : !w.respondidoEm ? 'novo' : w.ultimaDe === 'cliente' ? 'atendendo' : 'aguardando', ultima: w.ultimaMsg || '', ultimaDe: w.ultimaDe === 'cliente' ? 'cli' : 'nos', em: w.atualizadoEm || 0, nl: !!w.naoLido, protocolo: 'WA-' + String(w.numero || w.id).slice(-6), tel: w.numero || w.id, raw: w }),
 };
 function montarItens() {
   const l = [];
@@ -388,7 +388,7 @@ async function enviar(i, texto, arquivo) {
     else if (i.canal === 'pedido') await DB.set('pedidos', i.id, { resposta: linha, respondidoEm: agora, respondidoPor: quem, status: i.raw.status === 'ABERTO' ? 'RECEBIDO' : i.raw.status });
     else { // WhatsApp, lead, pré-análise e liberação: pelo WhatsApp conectado no CRM (ou abre o WhatsApp no navegador)
       const num = soD(i.tel || i.raw.telefone || i.raw.whatsapp || ''); if (num.length < 10) return toast('Sem WhatsApp neste atendimento', true);
-      if (waOn()) { const n55 = num.startsWith('55') ? num : '55' + num; await DB.add('waSaida', { numero: n55, texto: t, arquivo: arquivo || null, status: 'PENDENTE', em: agora, por: quem });
+      if (waOn()) { const n55 = i.canal === 'wa' || i.raw?.jid ? i.id : num.startsWith('55') ? num : '55' + num; await DB.add('waSaida', { numero: n55, texto: t, arquivo: arquivo || null, status: 'PENDENTE', em: agora, por: quem });
         await DB.add(`waConversas/${n55}/msgs`, { de: 'equipe', t: linha, em: agora, por: quem, arquivo: arquivo || null });
         await DB.set('waConversas', n55, { numero: n55, nome: i.nome, ultimaMsg: t.slice(0, 120) || '📎 arquivo', ultimaDe: 'equipe', atualizadoEm: agora, respondidoEm: agora, naoLido: false, fim: false, ...(i.canal !== 'wa' ? { fila: i.fila } : {}) }); }
       else { const n55 = num.startsWith('55') ? num : '55' + num; abrirWaWeb(`https://web.whatsapp.com/send?phone=${n55}&text=${encodeURIComponent(linha)}`);
@@ -2598,7 +2598,7 @@ const ehCanalWa = i => !['portal', 'app', 'chamado', 'pedido'].includes(i.canal)
 async function filaAuto(i, acao) {
   if (!ehCanalWa(i) || !waNovo()) return false;
   const num = soD(i.tel || i.raw?.telefone || i.raw?.whatsapp || i.raw?.numero || ''); if (num.length < 10) return false;
-  const n55 = num.startsWith('55') ? num : '55' + num, agora = Date.now();
+  const n55 = i.canal === 'wa' ? i.id : num.startsWith('55') ? num : '55' + num, agora = Date.now();
   await DB.add('waSaida', { numero: n55, auto: acao, cpf: soD(i.raw?.cpf || i.cpf || ''), texto: '', status: 'PENDENTE', em: agora, por: C.me.nome });
   await DB.set('waConversas', n55, { numero: n55, atualizadoEm: agora, respondidoEm: agora, naoLido: false, fim: false, ultimaDe: 'equipe' });
   if (!i.resp) atribuir(i, C.equipe.some(u => u.id === C.me.uid) ? C.me.uid : '');

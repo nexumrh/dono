@@ -9969,7 +9969,7 @@ async function gxEstoque(){
       <td data-l="IMEI" class="mono small">${esc(e.imei)}${e.imei2?'<br>'+esc(e.imei2):''}</td><td data-l="Loja">${esc(e.lojaNome||lojaNome(e.lojaId))}</td>
       <td data-l="Entrada">${e.criadoEm?fmtD(isoDate(new Date(e.criadoEm))):'—'}${e.status==='DISPONIVEL'?`<div class="small ${d>EST_PARADO?'':'muted'}" ${d>EST_PARADO?'style="color:#B7791F;font-weight:600"':''}>${d} dia(s) parado</div>`:''}</td>
       ${can('DONO','GERENTE','FINANCEIRO')?`<td data-l="Custo" class="r">${e.custo?brl(e.custo):'—'}</td>`:''}<td data-l="Situação">${badge(...(EST_ST[e.status]||[e.status,'gray']))}${e.motivoBaixa?`<div class="small muted">${esc(e.motivoBaixa)}</div>`:''}</td>
-      <td class="r" style="white-space:nowrap"><button class="btn sm" data-act="gxEstFicha" data-id="${e.id}">Ficha</button>${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?` <button class="btn sm" data-act="transferirEstoque" data-id="${e.id}">Transferir</button> <button class="btn sm" data-act="baixarEstoque" data-id="${e.id}">Baixa</button>`:''}</td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nada encontrado</td></tr>'}</tbody></table></div>
+      <td class="r" style="white-space:nowrap"><button class="btn sm" data-act="gxEstFicha" data-id="${e.id}">Ficha</button>${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?` <button class="btn sm" data-act="transferirEstoque" data-id="${e.id}">Transferir</button> <button class="btn sm" data-act="baixarEstoque" data-id="${e.id}">Baixa</button>`:''}${e.status==='BAIXADO'&&can('DONO','GERENTE','FINANCEIRO')?` <button class="btn sm" data-act="reativarEstoque" data-id="${e.id}">Ativar novamente</button>`:''}</td></tr>`; }).join('')||'<tr><td colspan="7" class="empty">Nada encontrado</td></tr>'}</tbody></table></div>
     ${lista.length>300?`<p class="small muted">Mostrando 300 de ${lista.length}. Use a busca para achar um IMEI.</p>`:''}`}
   <p class="hint">O vendedor só vende um aparelho que esteja aqui como <b>disponível</b> na loja dele. Quando a trava sobe, ele passa a <b>vendido</b> sozinho; venda cancelada volta para disponível.</p>`;
   $('#estLoja')?.addEventListener('change',e=>{ S.filtro.estLoja=e.target.value; render(); });
@@ -9981,13 +9981,13 @@ function gxEstFicha(id){
   const ev=[[e.criadoEm,'Entrada no estoque',`${e.lojaNome||lojaNome(e.lojaId)}${e.criadoPor?' · '+e.criadoPor:''}${e.notaFiscal?' · NF '+e.notaFiscal:''}`],
     ...(e.historico||[]).map(h=>[h.recebidoEm||h.enviadoEm||h.em,'Transferência',`${h.de||''} → ${h.para||''}${h.por?' · '+h.por:''}`]),
     ...(e.vendidoEm?[[e.vendidoEm,'Vendido',e.vendaId?'contrato ligado':'']]:[]),...(e.status==='BAIXADO'?[[e.baixadoEm||e.atualizadoEm,'Baixa',e.motivoBaixa||e.obs||'']]:[]),
-    ...(e.obs&&e.status!=='BAIXADO'?[[e.atualizadoEm,'Observação',e.obs]]:[])].filter(x=>x[0]).sort((a,b)=>a[0]-b[0]);
+    ...(e.obs&&e.status!=='BAIXADO'?[[e.atualizadoEm,'Observação',e.obs]]:[]),...(e.baixas||[]).flatMap(x=>[[x.em,'Baixa',`${x.motivo||''}${x.por?' · '+x.por:''}`],[x.reativadoEm,'Ativado novamente',`${x.obs||''}${x.reativadoPor?' · '+x.reativadoPor:''}`]])].filter(x=>x[0]).sort((a,b)=>a[0]-b[0]);
   openModal(`<div class="gx-vh"><div><h2>${esc(e.marca+' '+e.modelo)} ${esc(e.capacidade||'')}</h2><div class="s">${esc(e.cor||'')} · ${esc(e.lojaNome||lojaNome(e.lojaId))}</div></div>${badge(...(EST_ST[e.status]||[e.status,'gray']))}</div>
     <div class="gx-vk"><div><small>IMEI 1</small><b class="mono" style="font-size:14px">${esc(e.imei)}</b></div>${e.imei2?`<div><small>IMEI 2</small><b class="mono" style="font-size:14px">${esc(e.imei2)}</b></div>`:''}
       ${can('DONO','GERENTE','FINANCEIRO')?`<div><small>Custo</small><b>${e.custo?brl(e.custo):'—'}</b></div>`:''}<div><small>No estoque há</small><b>${gxDias(e.criadoEm)} dias</b></div></div>
     <h3 class="mt">Movimentações</h3><ul class="gx-tl">${ev.map(x=>`<li><b>${esc(x[1])}</b><small>${fmtDT(x[0])}${x[2]?' · '+esc(x[2]):''}</small></li>`).join('')||'<li>Sem movimentações</li>'}</ul>
     <div class="gx-acts">${e.vendaId?`<button class="btn" data-act="verVenda" data-id="${e.vendaId}">Ver a venda</button>`:''}<button class="btn" data-act="gxEtiqueta" data-id="${e.id}">Imprimir etiqueta</button>
-      ${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?`<button class="btn" data-act="transferirEstoque" data-id="${e.id}">Transferir</button><button class="btn red" data-act="baixarEstoque" data-id="${e.id}">Dar baixa</button>`:''}</div>`,true);
+      ${e.status==='DISPONIVEL'&&can('DONO','GERENTE')?`<button class="btn" data-act="transferirEstoque" data-id="${e.id}">Transferir</button><button class="btn red" data-act="baixarEstoque" data-id="${e.id}">Dar baixa</button>`:''}${e.status==='BAIXADO'&&can('DONO','GERENTE','FINANCEIRO')?`<button class="btn primary" data-act="reativarEstoque" data-id="${e.id}">Ativar novamente</button>`:''}</div>`,true);
 }
 function gxEtiqueta(id){ const e=(S._est||[]).find(x=>x.id===id); if(!e) return;
   let qr=''; try{ const q=qrcode(0,'M'); q.addData(e.imei); q.make(); qr=q.createSvgTag({cellSize:3,margin:0}); }catch(err){}
@@ -9997,7 +9997,16 @@ function gxEtiqueta(id){ const e=(S._est||[]).find(x=>x.id===id); if(!e) return;
 function gxEstCsv(){ const l=S._est||[]; const linhas=[['Loja','Marca','Modelo','Memória','Cor','IMEI','IMEI 2','Situação','Entrada','Dias parado','Custo','Nota fiscal']]
   .concat(l.map(e=>[e.lojaNome||lojaNome(e.lojaId),e.marca,e.modelo,e.capacidade,e.cor||'',e.imei,e.imei2||'',(EST_ST[e.status]||[e.status])[0],e.criadoEm?fmtD(isoDate(new Date(e.criadoEm))):'',e.status==='DISPONIVEL'?gxDias(e.criadoEm):'',String(e.custo||'').replace('.',','),e.notaFiscal||'']));
   const csv='﻿'+linhas.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(';')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`estoque-${hoje()}.csv`; a.click(); }
-Object.assign(ACT,{ gxEstFicha:d=>gxEstFicha(d.id), gxEtiqueta:d=>gxEtiqueta(d.id), gxEstCsv:()=>gxEstCsv(),
+async function reativarEstoque(id){
+  const e=(S._est||[]).find(x=>x.id===id); if(!e||e.status!=='BAIXADO') return;
+  const obs=prompt(`Ativar novamente o ${e.marca} ${e.modelo} (IMEI ${e.imei})?\nEle volta como DISPONÍVEL na loja ${e.lojaNome||lojaNome(e.lojaId)}.\n\nMotivo (ex.: voltou da assistência, baixa por engano):`); if(obs===null) return;
+  if(!obs.trim()) return toast('Escreva o motivo para ativar novamente','err');
+  const agora=Date.now(), baixas=[...(e.baixas||[]),{motivo:e.motivoBaixa||e.obs||'',em:e.baixadoEm||e.atualizadoEm||0,por:e.baixadoPor||'',reativadoEm:agora,reativadoPor:S.me.nome,obs:obs.trim()}];
+  try{ await DB.set('estoque',id,{status:'DISPONIVEL',motivoBaixa:'',baixadoEm:null,baixadoPor:'',vendaId:'',baixas,reativadoEm:agora,reativadoPor:S.me.nome,criadoEm:e.criadoEm||agora,atualizadoEm:agora});
+    await log('Aparelho ativado novamente no estoque',id,obs.trim()); closeModal?.(); toast('Aparelho disponível de novo no estoque','ok'); render(); }
+  catch(err){ toast('Não foi possível ativar: '+err.message,'err'); }
+}
+Object.assign(ACT,{ reativarEstoque:d=>reativarEstoque(d.id), gxEstFicha:d=>gxEstFicha(d.id), gxEtiqueta:d=>gxEtiqueta(d.id), gxEstCsv:()=>gxEstCsv(),
   gxEstModelo:d=>{ const g=(S._est||[]).find(e=>(e.catalogoId||'')===d.k||`${e.marca} ${e.modelo} ${e.capacidade}`.trim()===d.k); S.filtro.estVis='imei'; S.filtro.estSt='DISPONIVEL'; S.filtro.estq=g?`${g.modelo} ${g.capacidade||''}`.trim():''; render(); } });
 
 /* ---------- 9. fila de cobrança: quem mandou mensagem trava o cliente por 24 h; os vendedores também cobram ---------- */

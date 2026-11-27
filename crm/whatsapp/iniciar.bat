@@ -1,10 +1,8 @@
 @echo off
 title NexumCell WhatsApp
 cd /d "%~dp0"
-if not exist node_modules (
-  echo Instalando (so na primeira vez)...
-  call npm install
-)
+echo Conferindo os componentes...
+call npm install --no-audit --no-fund
 :loop
 node index.js
 echo O programa parou. Reiniciando em 5 segundos...
