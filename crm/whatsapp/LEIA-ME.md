@@ -27,9 +27,10 @@ Programa que liga o WhatsApp da NexumCell ao **CRM NexumCell**. Ele precisa fica
 - A IA do CRM (resposta automática) também manda esses itens sozinha quando o cliente pede.
 - Envia o que a equipe escreve no CRM, inclusive fotos e PDFs como arquivo de verdade.
 
-## Atualizar para a versão 1.2
-Feche a janela do programa, troque os arquivos **index.js** e **autoatendimento.js** desta pasta e abra o
-**iniciar.bat** de novo. Não precisa ler o QR code de novo. No CRM → WhatsApp aparece "versão 1.2".
+## Atualizar para a versão 1.3
+Feche a janela do programa, troque os arquivos **index.js**, **autoatendimento.js** e **package.json** desta pasta e abra o
+**iniciar.bat** de novo. Não precisa ler o QR code de novo. No CRM → WhatsApp aparece "versão 1.3".
+- 1.3: responde também os clientes com número oculto pelo WhatsApp (código LID); antes a resposta aparecia no CRM mas não chegava.
 - A sessão fica salva na pasta `sessao/`: não precisa ler o QR code de novo ao reiniciar.
 
 Conexão não oficial: não mande mensagens em massa nem para quem nunca falou com a NexumCell.

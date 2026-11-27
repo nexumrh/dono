@@ -13,7 +13,7 @@ import QRCode from 'qrcode';
 import pino from 'pino';
 import baileys, { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } from '@whiskeysockets/baileys';
 
-const VERSAO = '1.2';
+const VERSAO = '1.3';
 import { montar, pedirAcordo, conferirCpf, intencao, pedirVencimento, passoRoubo, conferirComprovante, ehEspanhol } from './autoatendimento.js';
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const arqConta = path.join(DIR, 'conta-servico.json');
@@ -25,7 +25,21 @@ const makeWASocket = baileys.default || baileys;
 let sock = null, numeroConectado = '', robo = true;
 
 const so = (s) => String(s || '').replace(/\D/g, '');
-const jidDe = (n) => so(n) + '@s.whatsapp.net';
+// Contas com número oculto: o WhatsApp manda um código interno (LID, ex.: 61864792834257@lid) no lugar do telefone.
+// Guardamos o endereço real de cada conversa (campo jid) e respondemos sempre para ele.
+const jids = new Map();
+async function jidDe(n) {
+  const d = so(n); if (jids.has(d)) return jids.get(d);
+  for (const id of [d, d.replace(/^55/, '')]) { try { const j = (await db.collection('waConversas').doc(id).get()).data()?.jid; if (j) { jids.set(d, j); return j; } } catch (e) { } }
+  return d + (d.length >= 14 ? '@lid' : '@s.whatsapp.net');   // conversas antigas sem jid: 14+ dígitos é código LID, não telefone
+}
+async function enderecoDe(key) {
+  const rj = key.remoteJid || '', pn = [key.senderPn, key.remoteJidAlt, key.participantPn].find((x) => /@s\.whatsapp\.net$/.test(x || ''));
+  if (!rj.endsWith('@lid')) { const n = so(rj.split('@')[0].split(':')[0]); return { numero: n, jid: n + '@s.whatsapp.net', lid: false }; }
+  let tel = pn; if (!tel) try { tel = await sock?.signalRepository?.lidMapping?.getPNForLID?.(rj); } catch (e) { }
+  if (tel && /@s\.whatsapp\.net$/.test(tel)) { const n = so(tel.split('@')[0].split(':')[0]); return { numero: n, jid: n + '@s.whatsapp.net', lid: false, lidJid: rj }; }
+  return { numero: so(rj.split('@')[0]), jid: rj, lid: true };
+}
 const MENU = 'Olá! Você está falando com a *NexumCell*. Responda com o número:\n\n*1* Pagar minha parcela (link do PIX)\n*2* Meu contrato em PDF\n*3* Como pagar e usar o app (com imagens)\n*4* Renegociar atraso ou quitar\n*5* Celular travado: liberar 20 min para pagar\n*6* Mudar o dia do vencimento\n*7* Celular roubado, furtado ou perdido\n*8* Meus pedidos e declaração de quitação\n*9* Comprar outro celular · Indique e ganhe\n*10* Falar com o Suporte\n*11* Falar com o Financeiro\n*12* Ser loja parceira (Comercial)\n\nPagou por fora? Mande a *foto do comprovante* aqui. Digite *0* para ver este menu.';
 const MENU_ES = '¡Hola! Estás hablando con *NexumCell*. Responde con el número:\n\n*1* Pagar mi cuota (link de PIX)\n*2* Mi contrato en PDF\n*3* Cómo pagar y usar la app (con imágenes)\n*4* Renegociar atraso o cancelar la deuda\n*5* Celular bloqueado: liberar 20 min para pagar\n*6* Cambiar el día de vencimiento\n*7* Celular robado, hurtado o perdido\n*8* Mis pedidos y declaración de pago total\n*9* Comprar otro celular · Recomienda y gana\n*10* Hablar con Soporte\n*11* Hablar con Financiero\n*12* Ser tienda asociada (Comercial)\n\n¿Pagaste por fuera? Envía aquí la *foto del comprobante*. Escribe *0* para ver este menú.';
 const FILA_OPC = { '10': 'suporte', '11': 'financeiro', '12': 'comercial' };
@@ -78,10 +92,10 @@ async function transcrever(buf, tipo) { const chave = await chaveIA(); if (!chav
 
 async function recebida(m) {
   if (!m.message || m.key.fromMe || m.key.remoteJid.endsWith('@g.us') || m.key.remoteJid === 'status@broadcast') return;
-  const numero = so(m.key.remoteJid.split('@')[0]);
+  const end = await enderecoDe(m.key), numero = end.numero; jids.set(numero, end.jid);
   const msg = m.message; let texto = msg.conversation || msg.extendedTextMessage?.text || msg.imageMessage?.caption || msg.documentMessage?.fileName || (msg.audioMessage ? '[áudio]' : msg.imageMessage ? '[foto]' : msg.stickerMessage ? '[figurinha]' : '[mensagem]');
   const ref = db.collection('waConversas').doc(numero), c = (await ref.get()).data() || {}, agora = Date.now();
-  const dados = { numero, nome: c.nome || m.pushName || '', ultimaMsg: texto.slice(0, 200), ultimaDe: 'cliente', atualizadoEm: agora, naoLido: true, fim: false };
+  const dados = { numero, jid: end.jid, lid: end.lid, ...(end.lidJid ? { lidJid: end.lidJid } : {}), nome: c.nome || m.pushName || '', ultimaMsg: texto.slice(0, 200), ultimaDe: 'cliente', atualizadoEm: agora, naoLido: true, fim: false };
   if (!c.criadoEm) { dados.criadoEm = agora; const cli = await acharCliente(numero); if (cli) Object.assign(dados, { cpf: cli.cpf, nome: cli.nome || dados.nome, cliente: true }); }
   const extra = {};
   // áudio: transcreve com a IA (Groq Whisper) para a equipe ler no CRM
@@ -143,7 +157,7 @@ async function recebida(m) {
 
 async function enviarTexto(numero, texto, doRobo) {
   if (!sock) throw new Error('WhatsApp desconectado');
-  await sock.sendMessage(jidDe(numero), { text: await traduz(numero, texto) });
+  await sock.sendMessage(await jidDe(numero), { text: await traduz(numero, texto) });
   if (doRobo) await db.collection('waConversas').doc(so(numero)).collection('msgs').add({ de: 'robo', t: texto, em: Date.now() });
 }
 
@@ -152,11 +166,11 @@ async function enviarItens(numero, itens, por) {
   const conv = db.collection('waConversas').doc(so(numero)).collection('msgs');
   for (const it of itens) {
     if (it.imagem) {
-      try { await sock.sendMessage(jidDe(numero), { image: { url: it.imagem.url }, caption: await traduz(numero, it.imagem.legenda || '') }); }
-      catch (e) { console.error('imagem', e.message); await sock.sendMessage(jidDe(numero), { text: (it.imagem.legenda ? it.imagem.legenda + '\n' : '') + it.imagem.url }); }
+      try { await sock.sendMessage(await jidDe(numero), { image: { url: it.imagem.url }, caption: await traduz(numero, it.imagem.legenda || '') }); }
+      catch (e) { console.error('imagem', e.message); await sock.sendMessage(await jidDe(numero), { text: (it.imagem.legenda ? it.imagem.legenda + '\n' : '') + it.imagem.url }); }
       await conv.add({ de: 'robo', t: it.imagem.legenda || '', em: Date.now(), por: por || 'Autoatendimento', arquivo: { nome: it.imagem.url.split('/').pop(), tipo: 'image/png', url: it.imagem.url } });
       await new Promise((r) => setTimeout(r, 1200));
-    } else if (it.texto) { await sock.sendMessage(jidDe(numero), { text: await traduz(numero, it.texto) }); await conv.add({ de: 'robo', t: it.texto, em: Date.now(), por: por || 'Autoatendimento' }); }
+    } else if (it.texto) { await sock.sendMessage(await jidDe(numero), { text: await traduz(numero, it.texto) }); await conv.add({ de: 'robo', t: it.texto, em: Date.now(), por: por || 'Autoatendimento' }); }
   }
 }
 async function autoatender(numero, acao, c, por) {
@@ -172,9 +186,9 @@ async function enviarArquivo(numero, a, texto) {
   if (a.id) { try { const d = (await db.collection('crmArquivos').doc(a.id).get()).data(); const m = String(d?.data || '').match(/^data:([^;]+);base64,(.*)$/); if (m) { tipo = m[1]; buf = Buffer.from(m[2], 'base64'); } } catch (e) { } }
   const fonte = buf || (/\.(png|jpe?g|webp|pdf)(\?|$)/i.test(a.url || '') ? { url: a.url } : null);
   if (!tipo && /\.pdf/i.test(a.url || '')) tipo = 'application/pdf'; if (!tipo && fonte) tipo = 'image/png';
-  if (fonte && /^image\//.test(tipo)) return sock.sendMessage(jidDe(numero), { image: fonte, caption: texto || '' });
-  if (fonte && /pdf/.test(tipo)) { if (texto) await sock.sendMessage(jidDe(numero), { text: texto }); return sock.sendMessage(jidDe(numero), { document: fonte, mimetype: 'application/pdf', fileName: a.nome || 'documento.pdf' }); }
-  return sock.sendMessage(jidDe(numero), { text: (texto ? texto + '\n' : '') + `${a.nome || 'Arquivo'}: ${a.url}` });
+  if (fonte && /^image\//.test(tipo)) return sock.sendMessage(await jidDe(numero), { image: fonte, caption: texto || '' });
+  if (fonte && /pdf/.test(tipo)) { if (texto) await sock.sendMessage(await jidDe(numero), { text: texto }); return sock.sendMessage(await jidDe(numero), { document: fonte, mimetype: 'application/pdf', fileName: a.nome || 'documento.pdf' }); }
+  return sock.sendMessage(await jidDe(numero), { text: (texto ? texto + '\n' : '') + `${a.nome || 'Arquivo'}: ${a.url}` });
 }
 
 // fila de saída gravada pelo CRM: uma de cada vez; mensagens em massa respeitam o horário (naoAntes) e um intervalo entre elas

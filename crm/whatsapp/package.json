@@ -7,7 +7,7 @@
   "scripts": { "start": "node index.js" },
   "engines": { "node": ">=20" },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
+    "@whiskeysockets/baileys": "^6.7.21",
     "firebase-admin": "^12.7.0",
     "pino": "^9.5.0",
     "qrcode": "^1.5.4"
